@@ -500,6 +500,7 @@ do_print_all_backtraces(const char *message, uint64_t panic_options)
 #if CONFIG_ECC_LOGGING
 	panic_display_ecc_errors();
 #endif /* CONFIG_ECC_LOGGING */
+	panic_display_compressor_stats();
 
 #if DEVELOPMENT || DEBUG
 	if (cs_debug_unsigned_exec_failures != 0 || cs_debug_unsigned_mmap_failures != 0) {

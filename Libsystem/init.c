@@ -39,6 +39,7 @@
 #include <dlfcn.h>
 #include <os/variant_private.h>
 #include <os/feature_private.h>
+#include <xpc/private.h>
 #endif
 #include <fcntl.h>
 #include <errno.h>
@@ -48,6 +49,15 @@
 
 #if TARGET_OS_DRIVERKIT
 #include <MallocStackLogging/MallocStackLogging.h>
+#endif
+
+#ifndef HAVE_DUET_PREWARM
+#define HAVE_DUET_PREWARM (!TARGET_OS_DRIVERKIT && TARGET_OS_IOS)
+#endif
+
+#if HAVE_DUET_PREWARM
+#include <_simple.h>
+#include <os/log.h>
 #endif
 
 #include <mach-o/dyld_priv.h>
@@ -95,6 +105,9 @@ extern void _notify_fork_child(void);
 extern void _dyld_atfork_prepare(void);
 extern void _dyld_atfork_parent(void);
 extern void _dyld_fork_child(void);
+extern void _dyld_dlopen_atfork_prepare(void);
+extern void _dyld_dlopen_atfork_parent(void);
+extern void _dyld_dlopen_atfork_child(void);
 extern void xpc_atfork_prepare(void);
 extern void xpc_atfork_parent(void);
 extern void xpc_atfork_child(void);
@@ -113,6 +126,8 @@ extern char *_dirhelper(int, char *, size_t);
 static void libSystem_atfork_prepare(unsigned int flags, ...);
 static void libSystem_atfork_parent(unsigned int flags, ...);
 static void libSystem_atfork_child(unsigned int flags, ...);
+
+static inline void __end_prewarm(const char* envp[]);
 
 __attribute__((__visibility__("default"))) void libSystem_init_after_boot_tasks_4launchd(void);
 
@@ -377,6 +392,8 @@ libSystem_initializer(int argc,
 	}
 #else // TARGET_OS_OSX && !defined(__i386__)
 #endif // TARGET_OS_OSX && !defined(__i386__)
+	
+	__end_prewarm(envp);
 
 	_libSystem_ktrace0(ARIADNE_LIFECYCLE_libsystem_init | DBG_FUNC_END);
 
@@ -411,12 +428,18 @@ libSystem_init_after_boot_tasks_4launchd()
 static void
 libSystem_atfork_prepare(unsigned int flags, ...)
 {
+	// dlopen has to be done first, before even the pthread handlers.
+	// This is to prevent callbacks/initializers in dlopen'ed code from
+	// deadlocking with everything else. We hope nobody registers a
+	// pthread_atfork handler that calls dlopen.
+	_dyld_dlopen_atfork_prepare();
+
 	if ((flags & LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG) == 0) {
-		// first call client prepare handlers registered with pthread_atfork()
+		// second call client prepare handlers registered with pthread_atfork()
 		_pthread_atfork_prepare_handlers();
 	}
 
-	// second call hardwired fork prepare handlers for Libsystem components
+	// third call hardwired fork prepare handlers for Libsystem components
 	// in the _reverse_ order of library initalization above
 #if !TARGET_OS_DRIVERKIT
 	_libSC_info_fork_prepare();
@@ -448,6 +471,9 @@ libSystem_atfork_parent(unsigned int flags, ...)
 		// second call client parent handlers registered with pthread_atfork()
 		_pthread_atfork_parent_handlers();
 	}
+
+	// third, dlopen
+	_dyld_dlopen_atfork_parent();
 }
 
 static void
@@ -479,6 +505,47 @@ libSystem_atfork_child(unsigned int flags, ...)
 		// second call client child handlers registered with pthread_atfork()
 		_pthread_atfork_child_handlers();
 	}
+
+	// third, dlopen
+	_dyld_dlopen_atfork_child();
+}
+
+#define DUET_PREWARM_ENV_VAR "ActivePrewarm"
+#define DUET_PREWARM_MACH_SERV "com.apple.dasd.end-prewarm"
+
+/*
+ Process may be prewarmard by Duet - in which they are launched
+ ahead of when they are first needed. For a prewarm launch, we want
+ to end the prewarm and suspend the process if needed before we
+ excute any third party code
+ */
+static inline void __end_prewarm(const char* envp[]) {
+#if HAVE_DUET_PREWARM
+	if (_simple_getenv(envp, DUET_PREWARM_ENV_VAR) != NULL) {
+		xpc_pipe_t pipe = xpc_pipe_create(DUET_PREWARM_MACH_SERV, XPC_PIPE_PRIVILEGED | XPC_PIPE_USE_SYNC_IPC_OVERRIDE);
+		if (pipe == NULL) {
+			os_log_fault(os_log_create("com.apple.libsystem", "duet.prewarm"), "Libsystem end prewarm failed to look up mach service");
+			return;
+		}
+
+		xpc_object_t msg = xpc_dictionary_create_empty();
+		if (msg == NULL) {
+			xpc_release(pipe);
+			os_log_fault(os_log_create("com.apple.libsystem", "duet.prewarm"), "Libsystem end prewarm failed to look up mach service");
+			return;
+		}
+		xpc_object_t reply = NULL;
+		(void)xpc_pipe_routine(pipe, msg, &reply);
+
+		xpc_release(pipe);
+		xpc_release(msg);
+		if (reply != NULL) {
+			xpc_release(reply);
+		}
+
+		return;
+	}
+#endif
 }
 
 #if SUPPORT_ASAN

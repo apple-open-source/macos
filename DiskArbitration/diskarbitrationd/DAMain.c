@@ -701,16 +701,16 @@ static void __DAMain( void )
      * Announce our arrival in the debug log.
      */
 
-    DALogDebug( "" );
-    DALogDebug( "server has been started." );
+    DALogInfo( "" );
+    DALogInfo( "server has been started." );
 
     if ( gDAConsoleUser )
     {
-        DALogDebug( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
+        DALogInfo( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
     }
     else
     {
-        DALogDebug( "  console user = none." );
+        DALogInfo( "  console user = none." );
     }
 
     /*

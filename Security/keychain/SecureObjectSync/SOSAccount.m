@@ -722,6 +722,60 @@ static bool Flush(CFErrorRef *error) {
     }];
 }
 
+- (NSDictionary *) accountStatusInternal {
+    NSMutableDictionary * retval = [[NSMutableDictionary alloc] init];
+    retval[@"AccountHeader"] = CFBridgingRelease(SOSAccountCopyStateString(self));
+    
+    SOSCircleRef circle = self.trust.trustedCircle;
+    CFStringRef myPID = (__bridge CFStringRef)([self peerID]);
+    if(!circle) return retval;
+    retval[@"CircleHeader"] = CFBridgingRelease(SOSCircleCopyStateString(circle, self.accountKey, myPID));
+    
+    NSMutableArray *peers = [[NSMutableArray alloc] init];
+    SOSCircleForEachPeer(circle, ^(SOSPeerInfoRef peer) {
+        [peers addObject: CFBridgingRelease(SOSCirclePeerInfoCopyStateString(circle, self.accountKey, myPID, peer))];
+    });
+    retval[@"CirclePeers"] = peers;
+    
+    NSMutableArray *retiredPeers = [[NSMutableArray alloc] init];
+    SOSCircleForEachRetiredPeer(circle, ^(SOSPeerInfoRef peer) {
+        [retiredPeers addObject: CFBridgingRelease(SOSCirclePeerInfoCopyStateString(circle, self.accountKey, myPID, peer))];
+    });
+    retval[@"CircleRetiredPeers"] = retiredPeers;
+    
+    NSMutableArray *iCloudIdentityPeers = [[NSMutableArray alloc] init];
+    SOSCircleForEachiCloudIdentityPeer(circle, ^(SOSPeerInfoRef peer) {
+        [iCloudIdentityPeers addObject: CFBridgingRelease(SOSCirclePeerInfoCopyStateString(circle, self.accountKey, myPID, peer))];
+    });
+    retval[@"iCloudIdentityPeers"] = iCloudIdentityPeers;
+    
+    NSMutableArray *applicants = [[NSMutableArray alloc] init];
+    SOSCircleForEachApplicant(circle, ^(SOSPeerInfoRef peer) {
+        [applicants addObject: CFBridgingRelease(SOSPeerInfoCopyStateString(peer, self.accountKey, myPID, 'v'))];
+    });
+    retval[@"CircleApplicants"] = applicants;
+    
+    NSMutableArray *rejected = [[NSMutableArray alloc] init];
+    SOSCircleForEachRejectedApplicant(circle, ^(SOSPeerInfoRef peer) {
+        [rejected addObject: CFBridgingRelease(SOSPeerInfoCopyStateString(peer, self.accountKey, myPID, 'v'))];
+    });
+    retval[@"CircleRejections"] = rejected;
+
+    return retval;
+}
+
+- (void)accountStatus: (void (^)(NSData *json, NSError *error))complete {
+    NSDictionary *status = [self accountStatusInternal];
+    NSError *err = nil;
+    NSData *json = [NSJSONSerialization dataWithJSONObject:status
+                                        options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
+                                        error:&err];
+    if (!json) {
+        secnotice("accountLogState", "Error during accountStatus JSONification: %@", err.localizedDescription);
+    }
+    complete(json, err);
+}
+
 #else
 
 + (SOSAccountGhostBustingOptions) ghostBustGetRampSettings {
@@ -762,6 +816,9 @@ static bool Flush(CFErrorRef *error) {
     complete(nil, nil);
 }
 
+- (void)accountStatus:(void (^)(NSData *, NSError *))complete {
+    complete(nil, nil);
+}
 
 - (void)iCloudIdentityStatus_internal:(void (^)(NSDictionary *, NSError *))complete {
     complete(nil, nil);
@@ -965,7 +1022,7 @@ static bool Flush(CFErrorRef *error) {
             // make sure SOS wasn't accidentally turned off
             secnotice("SOSMonitorMode", "sosEvaluateIfNeeded - Turning on SOS since monitor mode is unavailable");
             [self sosEnable];
-            [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSEnable"];
+            [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSLegacyMode"];
         }
     } else {
         // SOSMonitorMode is go
@@ -974,19 +1031,19 @@ static bool Flush(CFErrorRef *error) {
             if([self sosIsEnabled]) {
                 secnotice("SOSMonitorMode", "SOS is in monitor mode since the account key isn't trusted");
                 [self sosDisable];
-                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSDisable"];
+                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSMonitorMode"];
             }
         } else if(SOSCircleIsLegacy(self.trust.trustedCircle, self.accountKey)) {
             if(![self sosIsEnabled]) {
                 secnotice("SOSMonitorMode", "Putting SOS into active mode for circle change");
                 [self sosEnable];
-                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSEnable"];
+                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSLegacyMode"];
             }
         } else {
             if([self sosIsEnabled]) {
                 secnotice("SOSMonitorMode", "Putting SOS into monitor mode due to circle change");
                 [self sosDisable];
-                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSDisable"];
+                [[SOSAnalytics logger] logSuccessForEventNamed:@"SOSMonitorMode"];
             }
         }
     }
@@ -2676,26 +2733,37 @@ static char boolToChars(bool val, char truechar, char falsechar) {
     return val? truechar: falsechar;
 }
 
-#define ACCOUNTLOGSTATE "accountLogState"
-void SOSAccountLogState(SOSAccount*  account) {
+CFStringRef SOSAccountCopyStateString(SOSAccount*  account) {
     bool hasPubKey = account.accountKey != NULL;
-    SOSAccountTrustClassic *trust = account.trust;
     bool pubTrusted = account.accountKeyIsTrusted;
     bool hasPriv = account.accountPrivateKey != NULL;
+    bool profileRestricted = SOSVisibleKeychainNotAllowed();
     SOSCCStatus stat = [account getCircleStatus:NULL];
     
     CFStringRef userPubKeyID =  (account.accountKey) ? SOSCopyIDOfKeyWithLength(account.accountKey, 8, NULL):
             CFStringCreateCopy(kCFAllocatorDefault, CFSTR("*No Key*"));
-
-    secnotice(ACCOUNTLOGSTATE, "Start");
-
-    secnotice(ACCOUNTLOGSTATE, "ACCOUNT: [keyStatus: %c%c%c hpub %@] [SOSCCStatus: %@] [UID: %d  EUID: %d] %@",
+    
+    CFStringRef retval = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("ACCOUNT: [keyStatus: %c%c%c hpub %@] [SOSCCStatus: %@] [UID: %d  EUID: %d] %@ %s"),
               boolToChars(hasPubKey, 'U', 'u'), boolToChars(pubTrusted, 'T', 't'), boolToChars(hasPriv, 'I', 'i'),
               userPubKeyID,
               SOSAccountGetSOSCCStatusString(stat), getuid(), geteuid(),
-              [account sosIsEnabledString]
+              [account sosIsEnabledString],
+              profileRestricted ? "User Visible Keychain Disallowed by Profile": "Unrestricted User Visible Views"
               );
+    
     CFReleaseNull(userPubKeyID);
+    return retval;
+}
+
+
+#define ACCOUNTLOGSTATE "accountLogState"
+void SOSAccountLogState(SOSAccount*  account) {
+    secnotice(ACCOUNTLOGSTATE, "Start");
+    CFStringRef headerString = SOSAccountCopyStateString(account);
+    secnotice(ACCOUNTLOGSTATE, "%@", headerString);
+    CFReleaseNull(headerString);
+    
+    SOSAccountTrustClassic *trust = account.trust;
     if(trust.trustedCircle)  SOSCircleLogState(ACCOUNTLOGSTATE, trust.trustedCircle, account.accountKey, (__bridge CFStringRef)(account.peerID));
     else secnotice(ACCOUNTLOGSTATE, "ACCOUNT: No Circle");
 }

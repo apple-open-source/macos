@@ -1080,8 +1080,10 @@ static OSStatus SecTrustCopyErrorStrings(SecTrustRef trust,
         details = CFRetainSafe(trust->_details);
         chain = CFRetainSafe(trust->_chain);
     });
-    if (!details)
+    if (!details) {
+        CFReleaseNull(chain);
         return errSecInternal;
+    }
 
     /* We need to map the policy check constants to indexes into our checkmap table. */
     static dispatch_once_t onceToken;
@@ -1466,6 +1468,7 @@ static bool SecXPCDictionaryCopyChainOptional(xpc_object_t message, const char *
 
 exit:
     if (output) {
+        CFReleaseNull(*path);
         *path = output;
         return true;
     }
@@ -1796,6 +1799,7 @@ static OSStatus SecTrustEvaluateIfNecessary(SecTrustRef trust) {
                      the public key from the leaf. */
                     SecCertificateRef leafCert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_certificates, 0);
                     CFArrayRef leafCertArray = CFArrayCreate(NULL, (const void**)&leafCert, 1, &kCFTypeArrayCallBacks);
+                    CFReleaseNull(trust->_chain);
                     trust->_chain = leafCertArray;
                     if (error)
                         CFReleaseNull(*error);
@@ -1875,6 +1879,7 @@ static void SecTrustEvaluateIfNecessaryFastAsync(SecTrustRef trust,
 					  the public key from the leaf. */
 					 SecCertificateRef leafCert = (SecCertificateRef)CFArrayGetValueAtIndex(trust->_certificates, 0);
 					 CFArrayRef leafCertArray = CFArrayCreate(NULL, (const void**)&leafCert, 1, &kCFTypeArrayCallBacks);
+                     CFReleaseNull(trust->_chain);
 					 trust->_chain = leafCertArray;
 					 result = errSecSuccess;
 					 return;
@@ -2841,6 +2846,7 @@ OSStatus SecTrustEvaluateLeafOnly(SecTrustRef trust, SecTrustResultType *result)
         trust->_trustResult = trustResult;
         trust->_details = CFRetainSafe(pvc.details);
         CFMutableArrayRef leafCert = CFArrayCreateMutableCopy(NULL, 1, trust->_certificates);
+        CFReleaseNull(trust->_chain);
         trust->_chain = leafCert;
         CFMutableDictionaryRef dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
                                                  &kCFTypeDictionaryKeyCallBacks,

@@ -119,16 +119,12 @@ int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
         }
     }
 
-    MALLOC(pppoeif, struct pppoe_if *, sizeof(struct pppoe_if), M_TEMP, M_WAITOK);
-    if (!pppoeif) {
-        IOLog("pppoe_dlil_attach : Can't allocate attachment structure\n");
-        return 1;
-    }
-	snprintf(ifname, sizeof(ifname), "en%d", unit);
+    pppoeif = kalloc_type(struct pppoe_if, Z_WAITOK | Z_NOFAIL);
+    snprintf(ifname, sizeof(ifname), "en%d", unit);
 	
     if (ifnet_find_by_name(ifname, &ifp)) {
         IOLog("pppoe_dlil_attach : Can't find interface unit %d\n", unit);
-        FREE(pppoeif, M_TEMP);
+        kfree_type(struct pppoe_if, pppoeif);
         return 1;
     }
 
@@ -155,7 +151,7 @@ int pppoe_dlil_attach(u_short unit, ifnet_t *ifpp)
 		lck_mtx_lock(ppp_domain_mutex);
         IOLog("pppoe_dlil_attach: error = 0x%x\n", ret);
 		ifnet_release(ifp);
-        FREE(pppoeif, M_TEMP);
+        kfree_type(struct pppoe_if, pppoeif);
         return ret;
     }
 
@@ -190,7 +186,7 @@ int pppoe_dlil_detach(ifnet_t ifp)
 				ifnet_release(ifp);
 				lck_mtx_lock(ppp_domain_mutex);
                 TAILQ_REMOVE(&pppoe_if_head, pppoeif, next);
-                FREE(pppoeif, M_TEMP);
+                kfree_type(struct pppoe_if, pppoeif);
             }
             break;
         }

@@ -1447,7 +1447,7 @@ static errno_t ntfs_mft_mirror_load(ntfs_volume *vol)
 static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 {
 	ntfs_inode *ni;
-	buf_t buf;
+	buf_t buf = NULL;
 	u8 *mirr_start;
 	MFT_RECORD *mirr, *m;
 	unsigned nr_mirr_recs, alloc_size, rec_size, i;
@@ -1580,6 +1580,7 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	}
 	lck_rw_lock_shared(&ni->lock);
 	mirr = (MFT_RECORD*)mirr_start;
+	buf = NULL;
 	for (i = 0; i < nr_mirr_recs; i += recs_per_buf) {
 		u32 recno;
 

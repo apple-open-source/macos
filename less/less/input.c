@@ -1,12 +1,11 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
  *
  * For more information, see the README file.
  */
-
 
 /*
  * High level routines dealing with getting lines of input 
@@ -32,6 +31,7 @@ extern POSITION end_attnpos;
 #if HILITE_SEARCH
 extern int hilite_search;
 extern int size_linebuf;
+extern int show_attn;
 #endif
 
 /*
@@ -42,14 +42,16 @@ extern int size_linebuf;
  * of the NEXT line.  The line obtained is the line starting at curr_pos.
  */
 	public POSITION
-forw_line(curr_pos)
+forw_line_seg(curr_pos, get_segpos)
 	POSITION curr_pos;
+	int get_segpos;
 {
 	POSITION base_pos;
 	POSITION new_pos;
-	register int c;
+	int c;
 	int blankline;
 	int endline;
+	int chopped;
 	int backchars;
 
 get_forw_line:
@@ -104,8 +106,8 @@ get_forw_line:
 	/*
 	 * Read forward again to the position we should start at.
 	 */
- 	prewind();
-	plinenum(base_pos);
+	prewind();
+	plinestart(base_pos);
 	(void) ch_seek(base_pos);
 	new_pos = base_pos;
 	while (new_pos < curr_pos)
@@ -143,6 +145,7 @@ get_forw_line:
 	/*
 	 * Read each character in the line and append to the line buffer.
 	 */
+	chopped = FALSE;
 	for (;;)
 	{
 		if (ABORT_SIGS())
@@ -179,8 +182,9 @@ get_forw_line:
 			 * is too long to print in the screen width.
 			 * End the line here.
 			 */
-			if (chopline || hshift > 0)
+			if ((chopline || hshift > 0) && !get_segpos)
 			{
+				/* Read to end of line. */
 				do
 				{
 					if (ABORT_SIGS())
@@ -193,6 +197,7 @@ get_forw_line:
 				new_pos = ch_tell();
 				endline = TRUE;
 				quit_if_one_screen = FALSE;
+				chopped = TRUE;
 			} else
 			{
 				new_pos = ch_tell() - backchars;
@@ -203,7 +208,14 @@ get_forw_line:
 		c = ch_forw_get();
 	}
 
-	pdone(endline, 1);
+#if HILITE_SEARCH
+	if (blankline && show_attn)
+	{
+		/* Add spurious space to carry possible attn hilite. */
+		pappend(' ', ch_tell()-1);
+	}
+#endif
+	pdone(endline, chopped, 1);
 
 #if HILITE_SEARCH
 	if (is_filtered(base_pos))
@@ -216,8 +228,12 @@ get_forw_line:
 		goto get_forw_line;
 	}
 
-	if (status_col && is_hilited(base_pos, ch_tell()-1, 1, NULL))
-		set_status_col('*');
+	if (status_col)
+	{
+		int attr = is_hilited_attr(base_pos, ch_tell()-1, 1, NULL);
+		if (attr)
+			set_status_col('*', attr);
+	}
 #endif
 
 	if (squeeze && blankline)
@@ -241,6 +257,13 @@ get_forw_line:
 	return (new_pos);
 }
 
+	public POSITION
+forw_line(curr_pos)
+	POSITION curr_pos;
+{
+	return forw_line_seg(curr_pos, FALSE);
+}
+
 /*
  * Get the previous line.
  * A "current" position is passed and a "new" position is returned.
@@ -255,6 +278,7 @@ back_line(curr_pos)
 	POSITION new_pos, begin_new_pos, base_pos;
 	int c;
 	int endline;
+	int chopped;
 	int backchars;
 
 get_back_line:
@@ -355,10 +379,11 @@ get_back_line:
 	}
 	endline = FALSE;
 	prewind();
-	plinenum(new_pos);
+	plinestart(new_pos);
     loop:
 	begin_new_pos = new_pos;
 	(void) ch_seek(new_pos);
+	chopped = FALSE;
 
 	do
 	{
@@ -391,6 +416,7 @@ get_back_line:
 			if (chopline || hshift > 0)
 			{
 				endline = TRUE;
+				chopped = TRUE;
 				quit_if_one_screen = FALSE;
 				break;
 			}
@@ -405,7 +431,7 @@ get_back_line:
 		}
 	} while (new_pos < curr_pos);
 
-	pdone(endline, 0);
+	pdone(endline, chopped, 0);
 
 #if HILITE_SEARCH
 	if (is_filtered(base_pos))
@@ -418,8 +444,12 @@ get_back_line:
 		goto get_back_line;
 	}
 
-	if (status_col && curr_pos > 0 && is_hilited(base_pos, curr_pos-1, 1, NULL))
-		set_status_col('*');
+	if (status_col && curr_pos > 0)
+	{
+		int attr = is_hilited_attr(base_pos, curr_pos-1, 1, NULL);
+		if (attr)
+			set_status_col('*', attr);
+	}
 #endif
 
 	return (begin_new_pos);

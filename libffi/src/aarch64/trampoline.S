@@ -41,4 +41,4 @@ CNAME(ffi_closure_trampoline_table_page):
     .endr
 
 #endif /* FFI_EXEC_TRAMPOLINE_TABLE */
-#endif /* __arm64 */
+#endif /* __arm64__ */

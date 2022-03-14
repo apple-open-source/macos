@@ -57,7 +57,10 @@ namespace WebCore {
 
 static void invalidateAfterGenericFamilyChange(Page* page)
 {
-    FontCache::singleton().invalidateFontCascadeCache();
+    // No need to invalidate FontCascadeCaches in worker threads, since workers
+    // do not respond to changes in Settings values.
+    FontCache::forCurrentThread().invalidateFontCascadeCache();
+
     if (page)
         page->setNeedsRecalcStyleInAllFrames();
 }
@@ -304,6 +307,29 @@ void SettingsBase::mockCaptureDevicesEnabledChanged()
         enabled = m_page->settings().mockCaptureDevicesEnabled();
 
     MockRealtimeMediaSourceCenter::setMockRealtimeMediaSourceCenterEnabled(enabled);
+}
+
+#endif
+
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+
+void SettingsBase::layerBasedSVGEngineEnabledChanged()
+{
+    if (!m_page)
+        return;
+
+    for (auto* frame = &m_page->mainFrame(); frame; frame = frame->tree().traverseNext()) {
+        auto* document = frame->document();
+        if (!document)
+            continue;
+
+        auto* documentElement = document->documentElement();
+        if (!documentElement)
+            continue;
+
+        documentElement->invalidateStyleAndRenderersForSubtree();
+        document->scheduleFullStyleRebuild();
+    }
 }
 
 #endif

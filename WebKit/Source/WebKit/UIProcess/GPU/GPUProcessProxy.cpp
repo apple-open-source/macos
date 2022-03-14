@@ -85,11 +85,11 @@ static bool shouldCreateAppleCameraServiceSandboxExtension()
 static const Vector<ASCIILiteral>& nonBrowserServices()
 {
     ASSERT(isMainRunLoop());
-    static const auto services = makeNeverDestroyed(Vector<ASCIILiteral> {
+    static NeverDestroyed services = Vector<ASCIILiteral> {
         "com.apple.iconservices"_s,
         "com.apple.PowerManagement.control"_s,
         "com.apple.frontboard.systemappservices"_s
-    });
+    };
     return services;
 }
 #endif
@@ -108,8 +108,7 @@ Ref<GPUProcessProxy> GPUProcessProxy::getOrCreate()
         return *existingGPUProcess;
     }
     auto gpuProcess = adoptRef(*new GPUProcessProxy);
-    gpuProcess->updatePreferences();
-    singleton() = makeWeakPtr(gpuProcess.get());
+    singleton() = gpuProcess;
     return gpuProcess;
 }
 
@@ -139,6 +138,8 @@ GPUProcessProxy::GPUProcessProxy()
     connect();
 
     GPUProcessCreationParameters parameters;
+    parameters.auxiliaryProcessParameters = auxiliaryProcessParameters();
+
 #if ENABLE(MEDIA_STREAM)
     parameters.useMockCaptureDevices = m_useMockCaptureDevices;
 #if PLATFORM(MAC)
@@ -341,7 +342,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
 
     RELEASE_LOG(ProcessSuspension, "%p - GPUProcessProxy is taking a background assertion because a web process is requesting a connection", this);
     startResponsivenessTimer(UseLazyStop::No);
-    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = makeWeakPtr(*this), reply = WTFMove(reply)](auto&& identifier, auto&& connectionParameters) mutable {
+    sendWithAsyncReply(Messages::GPUProcess::CreateGPUConnectionToWebProcess { webProcessProxy.coreProcessIdentifier(), webProcessProxy.sessionID(), parameters }, [this, weakThis = WeakPtr { *this }, reply = WTFMove(reply)](auto&& identifier, auto&& connectionParameters) mutable {
         if (!weakThis) {
             RELEASE_LOG_ERROR(Process, "GPUProcessProxy::getGPUProcessConnection: GPUProcessProxy deallocated during connection establishment");
             return reply({ });
@@ -367,7 +368,7 @@ void GPUProcessProxy::getGPUProcessConnection(WebProcessProxy& webProcessProxy, 
 
 void GPUProcessProxy::gpuProcessExited(GPUProcessTerminationReason reason)
 {
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     switch (reason) {
     case GPUProcessTerminationReason::Crash:
@@ -398,6 +399,11 @@ void GPUProcessProxy::processIsReadyToExit()
 void GPUProcessProxy::terminateForTesting()
 {
     processIsReadyToExit();
+}
+
+void GPUProcessProxy::webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&& completionHandler)
+{
+    sendWithAsyncReply(Messages::GPUProcess::WebProcessConnectionCountForTesting(), WTFMove(completionHandler));
 }
 
 void GPUProcessProxy::didClose(IPC::Connection&)
@@ -432,6 +438,18 @@ void GPUProcessProxy::didFinishLaunching(ProcessLauncher* launcher, IPC::Connect
 #if PLATFORM(IOS_FAMILY)
     if (xpc_connection_t connection = this->connection()->xpcConnection())
         m_throttler.didConnectToProcess(xpc_connection_get_pid(connection));
+#endif
+
+#if PLATFORM(COCOA)
+    // Use any session ID to get any Website data store. It is OK to use any Website data store,
+    // since we are using it to access any Networking process, which all have the XPC endpoint.
+    // The XPC endpoint is used to receive the Launch Services database from the Network process.
+    if (m_sessionIDs.isEmpty())
+        return;
+    auto store = WebsiteDataStore::existingDataStoreForSessionID(*m_sessionIDs.begin());
+    if (!store)
+        return;
+    m_hasSentNetworkProcessXPCEndpoint = store->sendNetworkProcessXPCEndpointToProcess(*this);
 #endif
 }
 
@@ -497,6 +515,11 @@ void GPUProcessProxy::addSession(const WebsiteDataStore& store)
 
     send(Messages::GPUProcess::AddSession { store.sessionID(), gpuProcessSessionParameters(store) }, 0);
     m_sessionIDs.add(store.sessionID());
+
+#if PLATFORM(COCOA)
+    if (!m_hasSentNetworkProcessXPCEndpoint)
+        m_hasSentNetworkProcessXPCEndpoint = store.sendNetworkProcessXPCEndpointToProcess(*this);
+#endif
 }
 
 void GPUProcessProxy::removeSession(PAL::SessionID sessionID)
@@ -559,70 +582,68 @@ void GPUProcessProxy::setScreenProperties(const ScreenProperties& properties)
 }
 #endif
 
-void GPUProcessProxy::updatePreferences()
+void GPUProcessProxy::updatePreferences(WebProcessProxy& webProcess)
 {
     if (!canSendMessage())
         return;
 
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
-    bool hasEnabledWebMParser = false;
-#endif
-
-#if ENABLE(WEBM_FORMAT_READER)
-    bool hasEnabledWebMFormatReader = false;
-#endif
+    // FIXME: We should consider consolidating these into a single struct and propagating it to the GPU process as a single IPC message,
+    // instead of sending one message for each preference.
+    // FIXME: It's not ideal that these features are controlled by preferences-level feature flags (i.e. per-web view), but there is only
+    // one GPU process and the runtime-enabled features backing these preferences are process-wide. We should refactor each of these features
+    // so that they aren't process-global, and then reimplement this feature flag propagation to the GPU Process in a way that respects the
+    // settings of the page that is hosting each media element.
+    // For the time being, each of the below features are enabled in the GPU Process if it is enabled by at least one web page's preferences.
+    // In practice, all web pages' preferences should agree on these feature flag values.
+    for (auto page : webProcess.pages()) {
+        auto& preferences = page->preferences();
+        if (!preferences.useGPUProcessForMediaEnabled())
+            continue;
 
 #if ENABLE(OPUS)
-    bool hasEnabledOpus = false;
+        if (!m_hasEnabledOpus && preferences.opusDecoderEnabled()) {
+            m_hasEnabledOpus = true;
+            send(Messages::GPUProcess::SetOpusDecoderEnabled(m_hasEnabledOpus), 0);
+        }
 #endif
 
 #if ENABLE(VORBIS)
-    bool hasEnabledVorbis = false;
-#endif
-
-    WebPageGroup::forEach([&] (auto& group) mutable {
-        if (!group.preferences().useGPUProcessForMediaEnabled())
-            return;
-
-#if ENABLE(OPUS)
-        if (group.preferences().opusDecoderEnabled())
-            hasEnabledOpus = true;
-#endif
-
-#if ENABLE(VORBIS)
-        if (group.preferences().vorbisDecoderEnabled())
-            hasEnabledVorbis = true;
+        if (!m_hasEnabledVorbis && preferences.vorbisDecoderEnabled()) {
+            m_hasEnabledVorbis = true;
+            send(Messages::GPUProcess::SetVorbisDecoderEnabled(m_hasEnabledVorbis), 0);
+        }
 #endif
 
 #if ENABLE(WEBM_FORMAT_READER)
-        if (group.preferences().webMFormatReaderEnabled())
-            hasEnabledWebMFormatReader = true;
+        if (!m_hasEnabledWebMFormatReader && preferences.webMFormatReaderEnabled()) {
+            m_hasEnabledWebMFormatReader = true;
+            send(Messages::GPUProcess::SetWebMFormatReaderEnabled(m_hasEnabledWebMFormatReader), 0);
+        }
 #endif
 
 #if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
-        if (group.preferences().webMParserEnabled())
-            hasEnabledWebMParser = true;
-#endif
-    });
-
-#if ENABLE(MEDIA_SOURCE) && ENABLE(VP9)
-    send(Messages::GPUProcess::SetWebMParserEnabled(hasEnabledWebMParser), 0);
+        if (!m_hasEnabledWebMParser && preferences.webMParserEnabled()) {
+            m_hasEnabledWebMParser = true;
+            send(Messages::GPUProcess::SetWebMParserEnabled(m_hasEnabledWebMParser), 0);
+        }
 #endif
 
-#if ENABLE(WEBM_FORMAT_READER)
-    send(Messages::GPUProcess::SetWebMFormatReaderEnabled(hasEnabledWebMFormatReader), 0);
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+        if (!m_hasEnabledMediaSourceInlinePainting && preferences.mediaSourceInlinePaintingEnabled()) {
+            m_hasEnabledMediaSourceInlinePainting = true;
+            send(Messages::GPUProcess::SetMediaSourceInlinePaintingEnabled(m_hasEnabledMediaSourceInlinePainting), 0);
+        }
 #endif
+    }
+}
 
-#if ENABLE(OPUS)
-    send(Messages::GPUProcess::SetOpusDecoderEnabled(hasEnabledOpus), 0);
-#endif
-
-#if ENABLE(VORBIS)
-    send(Messages::GPUProcess::SetVorbisDecoderEnabled(hasEnabledVorbis), 0);
-#endif
-
+void GPUProcessProxy::updateScreenPropertiesIfNeeded()
+{
 #if PLATFORM(MAC)
-    setScreenProperties(WebCore::collectScreenProperties());
+    if (!canSendMessage())
+        return;
+
+    setScreenProperties(collectScreenProperties());
 #endif
 }
 
@@ -636,11 +657,6 @@ void GPUProcessProxy::didBecomeUnresponsive()
 #if !PLATFORM(COCOA)
 void GPUProcessProxy::platformInitializeGPUProcessParameters(GPUProcessCreationParameters& parameters)
 {
-#if !LOG_DISABLED || !RELEASE_LOG_DISABLED
-    parameters.wtfLoggingChannels = WTF::logLevelString();
-    parameters.webCoreLoggingChannels = WebCore::logLevelString();
-    parameters.webKitLoggingChannels = WebKit::logLevelString();
-#endif
 }
 #endif
 

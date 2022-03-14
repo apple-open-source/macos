@@ -800,7 +800,7 @@ sc{
             "kina papuana",
         }
         PHP{
-            "PHP",
+            "₱",
             "peso filipinu",
         }
         PKR{
@@ -1120,7 +1120,7 @@ sc{
             "francu UIC frantzesu",
         }
         XOF{
-            "CFA",
+            "F CFA",
             "francu CFA BCEAO",
         }
         XPD{

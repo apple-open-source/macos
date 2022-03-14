@@ -27,7 +27,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/ed/buf.c,v 1.22 2002/06/30 05:13:53 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/file.h>
 #include <sys/stat.h>
@@ -35,10 +35,10 @@ __FBSDID("$FreeBSD: src/bin/ed/buf.c,v 1.22 2002/06/30 05:13:53 obrien Exp $");
 #include "ed.h"
 
 
-FILE *sfp;				/* scratch file pointer */
-off_t sfseek;				/* scratch file position */
-int seek_write;				/* seek before writing */
-line_t buffer_head;			/* incore buffer */
+static FILE *sfp;			/* scratch file pointer */
+static off_t sfseek;			/* scratch file position */
+static int seek_write;			/* seek before writing */
+static line_t buffer_head;		/* incore buffer */
 
 /* get_sbuf_line: get a line of text from the scratch file; return pointer
    to the text */
@@ -46,9 +46,9 @@ char *
 get_sbuf_line(line_t *lp)
 {
 	static char *sfbuf = NULL;	/* buffer */
-	static int sfbufsz = 0;		/* buffer size */
+	static size_t sfbufsz;		/* buffer size */
 
-	int len, ct;
+	size_t len;
 
 	if (lp == &buffer_head)
 		return NULL;
@@ -64,7 +64,7 @@ get_sbuf_line(line_t *lp)
 	}
 	len = lp->len;
 	REALLOC(sfbuf, sfbufsz, len + 1, NULL);
-	if ((ct = fread(sfbuf, sizeof(char), len, sfp)) <  0 || ct != len) {
+	if (fread(sfbuf, sizeof(char), len, sfp) != len) {
 		fprintf(stderr, "%s\n", strerror(errno));
 		errmsg = "cannot read temp file";
 		return NULL;
@@ -81,7 +81,7 @@ const char *
 put_sbuf_line(const char *cs)
 {
 	line_t *lp;
-	int len, ct;
+	size_t len;
 	const char *s;
 
 	if ((lp = (line_t *) malloc(sizeof(line_t))) == NULL) {
@@ -94,6 +94,7 @@ put_sbuf_line(const char *cs)
 		;
 	if (s - cs >= LINECHARS) {
 		errmsg = "line too long";
+		free(lp);
 		return NULL;
 	}
 	len = s - cs;
@@ -102,16 +103,18 @@ put_sbuf_line(const char *cs)
 		if (fseeko(sfp, (off_t)0, SEEK_END) < 0) {
 			fprintf(stderr, "%s\n", strerror(errno));
 			errmsg = "cannot seek temp file";
+			free(lp);
 			return NULL;
 		}
 		sfseek = ftello(sfp);
 		seek_write = 0;
 	}
 	/* assert: SPL1() */
-	if ((ct = fwrite(cs, sizeof(char), len, sfp)) < 0 || ct != len) {
+	if (fwrite(cs, sizeof(char), len, sfp) != len) {
 		sfseek = -1;
 		fprintf(stderr, "%s\n", strerror(errno));
 		errmsg = "cannot write temp file";
+		free(lp);
 		return NULL;
 	}
 	lp->len = len;
@@ -182,10 +185,7 @@ get_addressed_line_node(long n)
 	return lp;
 }
 
-
-extern int newline_added;
-
-char sfn[15] = "";				/* scratch file name */
+static char sfn[15] = "";			/* scratch file name */
 
 /* open_sbuf: open scratch file */
 int
@@ -241,7 +241,7 @@ quit(int n)
 }
 
 
-unsigned char ctab[256];		/* character translation table */
+static unsigned char ctab[256];		/* character translation table */
 
 /* init_buffers: open scratch buffer; initialize line queue */
 void

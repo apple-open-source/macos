@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,11 +26,11 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)od.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/hexdump/od.1,v 1.17 2004/07/11 01:11:12 tjr Exp $
+.\" $FreeBSD$
 .\"
-.Dd July 11, 2004
-.Os
+.Dd December 22, 2011
 .Dt OD 1
+.Os
 .Sh NAME
 .Nm od
 .Nd octal, decimal, hex, ASCII dump
@@ -45,14 +41,7 @@
 .Op Fl j Ar skip
 .Op Fl N Ar length
 .Op Fl t Ar type
-.Sm off
-.Oo
-.Op Cm \&+
-.Li offset
-.Op Cm \&.
-.Op Cm Bb
-.Oc
-.Sm on
+.Op Oo Cm + Oc Ns Ar offset Ns Oo Cm \&. Oc Ns Op Cm Bb
 .Op Ar
 .Sh DESCRIPTION
 The
@@ -64,6 +53,7 @@ The options are as follows:
 .Bl -tag -width ".Fl I , L , l"
 .It Fl A Ar base
 Specify the input address base.
+The argument
 .Ar base
 may be one of
 .Cm d ,
@@ -76,58 +66,62 @@ addresses or no address, respectively.
 .It Fl a
 Output named characters.
 Equivalent to
-.Fl t Ar a .
+.Fl t Cm a .
 .It Fl B , o
 Output octal shorts.
 Equivalent to
-.Fl t Ar o2 .
+.Fl t Cm o2 .
 .It Fl b
 Output octal bytes.
 Equivalent to
-.Fl t Ar o1 .
+.Fl t Cm o1 .
 .It Fl c
 Output C-style escaped characters.
 Equivalent to
-.Fl t Ar c .
+.Fl t Cm c .
 .It Fl D
 Output unsigned decimal ints.
 Equivalent to
-.Fl t Ar u4 .
+.Fl t Cm u4 .
+.It Fl d
+Output unsigned decimal shorts.
+Equivalent to
+.Fl t Cm u2 .
 .It Fl e , F
 Output double-precision floating point numbers.
 Equivalent to
-.Fl t Ar fD .
+.Fl t Cm fD .
 .It Fl f
 Output single-precision floating point numbers.
 Equivalent to
-.Fl t Ar fF .
+.Fl t Cm fF .
 .It Fl H , X
 Output hexadecimal ints.
 Equivalent to
-.Fl t Ar x4 .
+.Fl t Cm x4 .
 .It Fl h , x
 Output hexadecimal shorts.
 Equivalent to
-.Fl t Ar x2 .
+.Fl t Cm x2 .
 .It Fl I , L , l
 Output signed decimal longs.
 Equivalent to
-.Fl t Ar dL .
+.Fl t Cm dL .
 .It Fl i
 Output signed decimal ints.
 Equivalent to
-.Fl t Ar dI .
+.Fl t Cm dI .
 .It Fl j Ar skip
 Skip
 .Ar skip
 bytes of the combined input before dumping.
 The number may be followed by one
 of
-.Cm b , k
+.Cm b , k , m
 or
-.Cm m
-which specify the units of the number as blocks (512 bytes), kilobytes and
-megabytes, respectively.
+.Cm g
+which specify the units of the number as blocks (512 bytes), kilobytes,
+megabytes and gigabytes, respectively.
 .It Fl N Ar length
 Dump at most
 .Ar length
@@ -135,27 +129,29 @@ bytes of input.
 .It Fl O
 Output octal ints.
 Equivalent to
-.Fl t Ar o4 .
+.Fl t Cm o4 .
 .It Fl s
 Output signed decimal shorts.
 Equivalent to
-.Fl t Ar d2 .
+.Fl t Cm d2 .
 .It Fl t Ar type
 Specify the output format.
+The
 .Ar type
+argument
 is a string containing one or more of the following kinds of type specifiers:
 .Bl -tag -width indent
 .It Cm a
 Named characters
-.Pq Tn ASCII .
+.Pq ASCII .
 Control characters are displayed using the following names:
 .Bl -column "000 NUL" "001 SOH" "002 STX" "003 ETX" "004 EOT" "005 ENQ"
 .It "000 NUL	001 SOH	002 STX	003 ETX	004 EOT	005 ENQ"
-.It "006 ACK	007 BEL	008 BS	009 HT	00a NL	00b VT"
-.It "00c FF	00d CR	00e SO	00f SI	010 DLE	011 DC1"
+.It "006 ACK	007 BEL	008 BS	009 HT	00A NL	00B VT"
+.It "00C FF	00D CR	00E SO	00F SI	010 DLE	011 DC1"
 .It "012 DC2	013 DC3	014 DC4	015 NAK	016 SYN	017 ETB"
-.It "018 CAN	019 EM	01a SUB	01b ESC	01c FS	01d GS"
-.It "01e RS	01f US	020 SP	0ff DEL"
+.It "018 CAN	019 EM	01A SUB	01B ESC	01C FS	01D GS"
+.It "01E RS	01F US	020 SP	07F DEL	\&	\&"
 .El
 .It Cm c
 Characters in the default character set.
@@ -181,7 +177,8 @@ characters, which are represented as C escapes:
 .El
 .Pp
 Multi-byte characters are displayed in the area corresponding to the first
-byte of the character. The remaining bytes are shown as
+byte of the character.
+The remaining bytes are shown as
 .Ql ** .
 .It Xo
 .Sm off
@@ -233,7 +230,7 @@ Multiple options that specify output format may be used; the output will
 contain one line for each format.
 .Pp
 If no output format is specified,
-.Fl t Ar oS
+.Fl t Cm oS
 is assumed.
 .Sh ENVIRONMENT
 The
@@ -244,8 +241,26 @@ environment variables affect the execution of
 .Nm
 as described in
 .Xr environ 7 .
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Dump stdin and show the output using named characters and C-style escaped
+characters:
+.Bd -literal -offset indent
+$ echo "FreeBSD: The power to serve" | od -a -c
+0000000    F   r   e   e   B   S   D   :  sp   T   h   e  sp   p   o   w
+           F   r   e   e   B   S   D   :       T   h   e       p   o   w
+0000020    e   r  sp   t   o  sp   s   e   r   v   e  nl
+           e   r       t   o       s   e   r   v   e  \en
+0000034
+.Ed
+.Pp
+Dump stdin skipping the first 13 bytes using named characters and dumping no
+more than 5 bytes:
+.Bd -literal -offset indent
+$ echo "FreeBSD: The power to serve" | od -An -a -j 13 -N 5
+           p   o   w   e   r
+.Ed
 .Sh COMPATIBILITY
 The traditional
 .Fl s

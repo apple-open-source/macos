@@ -30,7 +30,7 @@
 
 #ifndef lint
 __unused const char rcsid[] =
-"$FreeBSD$";
+    "$FreeBSD$";
 #endif /* not lint */
 
 char *progname;
@@ -62,9 +62,9 @@ sm_stat_1(struct sm_name *argp, CLIENT *clnt)
 	bzero((char *) &res, sizeof(res));
 	if (clnt_call(clnt, SM_STAT, (xdrproc_t)xdr_sm_name, argp, (xdrproc_t)xdr_sm_stat_res, &res, TIMEOUT) != RPC_SUCCESS) {
 		clnt_perror(clnt, proc);
-		return (NULL);
+		return NULL;
 	}
-	return (&res);
+	return &res;
 }
 
 
@@ -77,9 +77,9 @@ sm_mon_1(struct mon *argp, CLIENT *clnt)
 	bzero((char *) &res, sizeof(res));
 	if (clnt_call(clnt, SM_MON, (xdrproc_t)xdr_mon, argp, (xdrproc_t)xdr_sm_stat_res, &res, TIMEOUT) != RPC_SUCCESS) {
 		clnt_perror(clnt, proc);
-		return (NULL);
+		return NULL;
 	}
-	return (&res);
+	return &res;
 }
 
 
@@ -92,9 +92,9 @@ sm_unmon_1(struct mon_id *argp, CLIENT *clnt)
 	bzero((char *) &res, sizeof(res));
 	if (clnt_call(clnt, SM_UNMON, (xdrproc_t)xdr_mon_id, argp, (xdrproc_t)xdr_sm_stat, &res, TIMEOUT) != RPC_SUCCESS) {
 		clnt_perror(clnt, proc);
-		return (NULL);
+		return NULL;
 	}
-	return (&res);
+	return &res;
 }
 
 
@@ -107,9 +107,9 @@ sm_unmon_all_1(struct my_id *argp, CLIENT *clnt)
 	bzero((char *) &res, sizeof(res));
 	if (clnt_call(clnt, SM_UNMON_ALL, (xdrproc_t)xdr_my_id, argp, (xdrproc_t)xdr_sm_stat, &res, TIMEOUT) != RPC_SUCCESS) {
 		clnt_perror(clnt, proc);
-		return (NULL);
+		return NULL;
 	}
-	return (&res);
+	return &res;
 }
 
 
@@ -122,9 +122,9 @@ sm_simu_crash_1(void *argp, CLIENT *clnt)
 	bzero((char *) &res, sizeof(res));
 	if (clnt_call(clnt, SM_SIMU_CRASH, (xdrproc_t)xdr_void, argp, (xdrproc_t)xdr_void, &res, TIMEOUT) != RPC_SUCCESS) {
 		clnt_perror(clnt, proc);
-		return (NULL);
+		return NULL;
 	}
-	return ((void *) &res);
+	return (void *) &res;
 }
 
 void *
@@ -136,13 +136,13 @@ sm_notify_1(struct stat_chge *argp, CLIENT *clnt)
 	bzero((char *) &res, sizeof(res));
 	if (clnt_call(clnt, SM_NOTIFY, (xdrproc_t)xdr_stat_chge, argp, (xdrproc_t)xdr_void, &res, TIMEOUT) != RPC_SUCCESS) {
 		clnt_perror(clnt, proc);
-		return (NULL);
+		return NULL;
 	}
-	return ((void *) &res);
+	return (void *) &res;
 }
 
 
-int 
+int
 main(int argc, char **argv)
 {
 	CLIENT *cli;
@@ -158,22 +158,25 @@ main(int argc, char **argv)
 	argv++;
 	argc--;
 
-	if (argc < 1)
+	if (argc < 1) {
 		usage();
+	}
 	cmd = argv[0];
 	argv++;
 	argc--;
 
 	if (!strcmp(cmd, "stat") || !strcmp(cmd, "mon") || !strcmp(cmd, "unmon") || !strcmp(cmd, "notify")) {
-		if (argc < 1)
+		if (argc < 1) {
 			usage();
+		}
 		arg = argv[0];
 		argv++;
 		argc--;
 	}
 	if (!strcmp(cmd, "notify")) {
-		if (argc < 1)
+		if (argc < 1) {
 			usage();
+		}
 		state = atoi(argv[0]);
 		argv++;
 		argc--;
@@ -185,8 +188,9 @@ main(int argc, char **argv)
 		argc--;
 	}
 
-	if (!statdhost)
+	if (!statdhost) {
 		statdhost = localhost;
+	}
 
 	printf("Creating client for %s\n", statdhost);
 	cli = clnt_create(statdhost, SM_PROG, SM_VERS, transp);
@@ -265,4 +269,3 @@ main(int argc, char **argv)
 
 	return 0;
 }
-

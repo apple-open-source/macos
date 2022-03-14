@@ -252,7 +252,7 @@ private:
                 JSGlobalObject* globalObject = m_graph.globalObjectFor(edge->origin.semantic);
                 Structure* objectPrototypeStructure = globalObject->objectPrototype()->structure(m_graph.m_vm);
                 if (objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                    && globalObject->objectPrototypeIsSane()) {
+                    && globalObject->objectPrototypeIsSaneConcurrently(objectPrototypeStructure)) {
                     m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
                     break;
                 }
@@ -278,14 +278,14 @@ private:
                     Structure* arrayPrototypeStructure = globalObject->arrayPrototype()->structure(m_graph.m_vm);
                     if (arrayPrototypeStructure->transitionWatchpointSetIsStillValid()
                         && objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                        && globalObject->arrayPrototypeChainIsSane()) {
+                        && globalObject->arrayPrototypeChainIsSaneConcurrently(arrayPrototypeStructure, objectPrototypeStructure)) {
                         m_graph.registerAndWatchStructureTransition(arrayPrototypeStructure);
                         m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
                         break;
                     }
                 } else {
                     if (objectPrototypeStructure->transitionWatchpointSetIsStillValid()
-                        && globalObject->objectPrototypeIsSane()) {
+                        && globalObject->objectPrototypeIsSaneConcurrently(objectPrototypeStructure)) {
                         m_graph.registerAndWatchStructureTransition(objectPrototypeStructure);
                         break;
                     }
@@ -312,7 +312,10 @@ private:
                     break;
                     
                 case GetByVal:
-                    escapeBasedOnArrayMode(node->arrayMode(), m_graph.varArgChild(node, 0), node);
+                    if (m_graph.hasExitSite(node, NegativeIndex))
+                        escape(m_graph.varArgChild(node, 0), node);
+                    else
+                        escapeBasedOnArrayMode(node->arrayMode(), m_graph.varArgChild(node, 0), node);
                     escape(m_graph.varArgChild(node, 1), node);
                     escape(m_graph.varArgChild(node, 2), node);
                     break;

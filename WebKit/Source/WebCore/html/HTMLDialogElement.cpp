@@ -25,10 +25,15 @@
 
 #include "config.h"
 #include "HTMLDialogElement.h"
+
+#include "DocumentInlines.h"
 #include "EventLoop.h"
 #include "EventNames.h"
-
+#include "FocusOptions.h"
+#include "GCReachableRef.h"
 #include "HTMLNames.h"
+#include "RenderElement.h"
+#include "TypedElementDescendantIterator.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -49,6 +54,10 @@ void HTMLDialogElement::show()
         return;
 
     setBooleanAttribute(openAttr, true);
+
+    m_previouslyFocusedElement = document().focusedElement();
+
+    runFocusingSteps();
 }
 
 ExceptionOr<void> HTMLDialogElement::showModal()
@@ -66,9 +75,11 @@ ExceptionOr<void> HTMLDialogElement::showModal()
     m_isModal = true;
 
     if (!isInTopLayer())
-        document().addToTopLayer(*this);
+        addToTopLayer();
 
-    // FIXME: Add steps 8 & 9 from spec. (webkit.org/b/227537)
+    m_previouslyFocusedElement = document().focusedElement();
+
+    runFocusingSteps();
 
     return { };
 }
@@ -86,16 +97,20 @@ void HTMLDialogElement::close(const String& result)
         m_returnValue = result;
 
     if (isInTopLayer())
-        document().removeFromTopLayer(*this);
+        removeFromTopLayer();
 
-    // FIXME: Add step 6 from spec. (webkit.org/b/227537)
+    if (RefPtr element = std::exchange(m_previouslyFocusedElement, nullptr).get()) {
+        FocusOptions options;
+        options.preventScroll = true;
+        element->focus(options);
+    }
 
     document().eventLoop().queueTask(TaskSource::UserInteraction, [protectedThis = GCReachableRef { *this }] {
         protectedThis->dispatchEvent(Event::create(eventNames().closeEvent, Event::CanBubble::No, Event::IsCancelable::No));
     });
 }
 
-void HTMLDialogElement::cancel()
+void HTMLDialogElement::queueCancelTask()
 {
     document().eventLoop().queueTask(TaskSource::UserInteraction, [protectedThis = GCReachableRef { *this }] {
         auto cancelEvent = Event::create(eventNames().cancelEvent, Event::CanBubble::No, Event::IsCancelable::Yes);
@@ -103,6 +118,46 @@ void HTMLDialogElement::cancel()
         if (!cancelEvent->defaultPrevented())
             protectedThis->close(nullString());
     });
+}
+
+// https://html.spec.whatwg.org/multipage/interactive-elements.html#dialog-focusing-steps
+void HTMLDialogElement::runFocusingSteps()
+{
+    RefPtr<Element> control;
+    for (auto& element : descendantsOfType<Element>(*this)) {
+        if (!element.isFocusable())
+            continue;
+
+        if (element.hasAttribute(autofocusAttr)) {
+            control = &element;
+            break;
+        }
+
+        // FIXME: Potentially remove this and adjust related WPTs after https://github.com/whatwg/html/pull/4184.
+        if (!control)
+            control = &element;
+    }
+
+    if (!control)
+        control = this;
+
+    if (control->isFocusable())
+        control->runFocusingStepsForAutofocus();
+    else if (m_isModal)
+        document().setFocusedElement(nullptr); // Focus fixup rule
+
+    if (!control->document().isSameOriginAsTopDocument())
+        return;
+
+    Ref topDocument = control->document().topDocument();
+    topDocument->clearAutofocusCandidates();
+    topDocument->setAutofocusProcessed();
+}
+
+void HTMLDialogElement::removedFromAncestor(RemovalType removalType, ContainerNode& oldParentOfRemovedTree)
+{
+    HTMLElement::removedFromAncestor(removalType, oldParentOfRemovedTree);
+    m_isModal = false;
 }
 
 }

@@ -12,7 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -29,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)uniq.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: head/usr.bin/uniq/uniq.1 216370 2010-12-11 08:32:16Z joel $
+.\" $FreeBSD$
 .\"
-.Dd December 17, 2009
+.Dd June 7, 2020
 .Dt UNIQ 1
 .Os
 .Sh NAME
@@ -39,7 +39,7 @@
 .Nd report or filter out repeated lines in a file
 .Sh SYNOPSIS
 .Nm
-.Op Fl c | Fl d | Fl u
+.Op Fl c | Fl d | Fl D | Fl u
 .Op Fl i
 .Op Fl f Ar num
 .Op Fl s Ar chars
@@ -70,34 +70,51 @@ so it may be necessary to sort the files first.
 .Pp
 The following options are available:
 .Bl -tag -width Ds
-.It Fl c
+.It Fl c , Fl -count
 Precede each output line with the count of the number of times the line
 occurred in the input, followed by a single space.
-.It Fl d
-Only output lines that are repeated in the input.
-.It Fl f Ar num
+.It Fl d , Fl -repeated
+Output a single copy of each line that is repeated in the input.
+.It Fl D , Fl -all-repeated Op Ar septype
+Output all lines that are repeated (like
+.Fl d ,
+but each copy of the repeated line is written).
+The optional
+.Ar septype
+argument controls how to separate groups of repeated lines in the output;
+it must be one of the following values:
+.Pp
+.Bl -tag -compact -width separate
+.It none
+Do not separate groups of lines (this is the default).
+.It prepend
+Output an empty line before each group of lines.
+.It separate
+Output an empty line after each group of lines.
+.El
+.It Fl f Ar num , Fl -skip-fields Ar num
 Ignore the first
 .Ar num
 fields in each input line when doing comparisons.
 A field is a string of non-blank characters separated from adjacent fields
 by blanks.
 Field numbers are one based, i.e., the first field is field one.
-.It Fl s Ar chars
+.It Fl i , Fl -ignore-case
+Case insensitive comparison of lines.
+.It Fl s Ar chars , Fl -skip-chars Ar chars
 Ignore the first
 .Ar chars
 characters in each input line when doing comparisons.
 If specified in conjunction with the
-.Fl f
+.Fl f , Fl -unique
 option, the first
 .Ar chars
 characters after the first
 .Ar num
 fields will be ignored.
 Character numbers are one based, i.e., the first character is character one.
-.It Fl u
+.It Fl u , Fl -unique
 Only output lines that are not repeated in the input.
-.It Fl i
-Case insensitive comparison of lines.
 .\".It Fl Ns Ar n
 .\"(Deprecated; replaced by
 .\".Fl f ) .
@@ -130,6 +147,56 @@ as described in
 .Xr environ 7 .
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Assuming a file named cities.txt with the following content:
+.Bd -literal -offset indent
+Madrid
+Lisbon
+Madrid
+.Ed
+.Pp
+The following command reports three different lines since identical elements
+are not adjacent:
+.Bd -literal -offset indent
+$ uniq -u cities.txt
+Madrid
+Lisbon
+Madrid
+.Ed
+.Pp
+Sort the file and count the number of identical lines:
+.Bd -literal -offset indent
+$ sort cities.txt | uniq -c
+	1 Lisbon
+	2 Madrid
+.Ed
+.Pp
+Assuming the following content for the file cities.txt:
+.Bd -literal -offset indent
+madrid
+Madrid
+Lisbon
+.Ed
+.Pp
+Show repeated lines ignoring case sensitiveness:
+.Bd -literal -offset indent
+$ uniq -d -i cities.txt
+madrid
+.Ed
+.Pp
+Same as above but showing the whole group of repeated lines:
+.Bd -literal -offset indent
+$ uniq -D -i cities.txt
+madrid
+Madrid
+.Ed
+.Pp
+Report the number of identical lines ignoring the first character of every line:
+.Bd -literal -offset indent
+$ uniq -s 1 -c cities.txt
+	2 madrid
+	1 Lisbon
+.Ed
 .Sh COMPATIBILITY
 The historic
 .Cm \&\(pl Ns Ar number

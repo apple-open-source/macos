@@ -240,7 +240,7 @@ sfi_init(void)
 			timer_call_setup(&sfi_classes[i].on_timer, sfi_timer_per_class_on, (void *)(uintptr_t)i);
 			sfi_classes[i].on_timer_programmed = FALSE;
 
-			waitq_init(&sfi_classes[i].waitq, SYNC_POLICY_FIFO | SYNC_POLICY_DISABLE_IRQ);
+			waitq_init(&sfi_classes[i].waitq, WQT_QUEUE, SYNC_POLICY_FIFO);
 		} else {
 			/* The only allowed gap is for SFI_CLASS_UNSPECIFIED */
 			if (i != SFI_CLASS_UNSPECIFIED) {

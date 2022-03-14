@@ -11,6 +11,7 @@
 // Since ICU doesn't follow the traditional fallback model where all keys fallback to root,
 // root can't be used to validate the structure.
 structLocale:table(nofallback){
+    ___{""}
     %%Parent{""}
     BreakDictionaryData:bin {00}
     Countries{
@@ -675,10 +676,6 @@ structLocale:table(nofallback){
             "",
         }
         EGP{
-            "",
-            "",
-        }
-        EQE{
             "",
             "",
         }
@@ -1382,6 +1379,10 @@ structLocale:table(nofallback){
             "",
             "",
         }
+        VES{
+            "",
+            "",
+        }
         VND{
             "",
             "",
@@ -1637,7 +1638,9 @@ structLocale:table(nofallback){
         UAH{""}
         USD{""}
         UYU{""}
+        UYW{""}
         VEF{""}
+        VES{""}
         VND{""}
         XCD{""}
         ZAR{""}
@@ -2331,14 +2334,6 @@ structLocale:table(nofallback){
             other{""}
         }
         EGP{
-            zero{""}
-            one{""}
-            two{""}
-            few{""}
-            many{""}
-            other{""}
-        }
-        EQE{
             zero{""}
             one{""}
             two{""}
@@ -3715,6 +3710,14 @@ structLocale:table(nofallback){
             other{""}
         }
         VEF{
+            zero{""}
+            one{""}
+            two{""}
+            few{""}
+            many{""}
+            other{""}
+        }
+        VES{
             zero{""}
             one{""}
             two{""}
@@ -11078,6 +11081,337 @@ structLocale:table(nofallback){
                 timeSeparator{""}
             }
         }
+        hmnp{
+            miscPatterns{
+                approximately{""}
+                atLeast{""}
+                atMost{""}
+                range{""}
+            }
+            patterns{
+                accountingFormat{""}
+                currencyFormat{""}
+                decimalFormat{""}
+                percentFormat{""}
+                scientificFormat{""}
+            }
+            patternsLong{
+                decimalFormat{
+                    1000{
+                        1{""}
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                }
+            }
+            patternsShort{
+                currencyFormat{
+                    1000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                }
+                decimalFormat{
+                    1000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    1000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    10000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                    100000000000000{
+                        zero{""}
+                        one{""}
+                        two{""}
+                        few{""}
+                        many{""}
+                        other{""}
+                    }
+                }
+            }
+            symbols{
+                approximatelySign{""}
+                decimal{""}
+                exponential{""}
+                group{""}
+                infinity{""}
+                list{""}
+                minusSign{""}
+                nan{""}
+                perMille{""}
+                percentSign{""}
+                plusSign{""}
+                currencyDecimal{""}
+                currencyGroup{""}
+                superscriptingExponent{""}
+                timeSeparator{""}
+            }
+        }
         java{
             miscPatterns{
                 approximately{""}
@@ -14389,6 +14723,32 @@ structLocale:table(nofallback){
             }
         }
         minimalPairs{
+            case{
+                ablative{""}
+                accusative{""}
+                dative{""}
+                elative{""}
+                ergative{""}
+                genitive{""}
+                illative{""}
+                instrumental{""}
+                locative{""}
+                nominative{""}
+                oblique{""}
+                partitive{""}
+                prepositional{""}
+                sociative{""}
+                terminative{""}
+                translative{""}
+                vocative{""}
+            }
+            gender {
+                common{""}
+                feminine{""}
+                inanimate{""}
+                masculine{""}
+                neuter{""}
+            }
             ordinal{
                 zero{""}
                 one{""}
@@ -21538,10 +21898,16 @@ structLocale:table(nofallback){
         }
         collation{
             big5han{""}
+            dictionary{""}
             direct{""}
+            ducet{""}
+            emoji{""}
+            eor{""}
             gb2312han{""}
             phonebook{""}
+            phonetic{""}
             pinyin{""}
+            reformed{""}
             search{""}
             searchjl{""}
             standard{""}
@@ -21551,19 +21917,26 @@ structLocale:table(nofallback){
             zhuyin{""}
         }
         numbers{
+            adlm{""}
+            ahom{""}
             arab{""}
+            arabext{""}
             armn{""}
             armnlow{""}
             bali{""}
             beng{""}
+            bhks{""}
             brah{""}
             cakm{""}
             cham{""}
             deva{""}
+            diak{""}
             ethi{""}
             finance{""}
             fullwide{""}
             geor{""}
+            gong{""}
+            gonm{""}
             grek{""}
             greklow{""}
             gujr{""}
@@ -21575,9 +21948,12 @@ structLocale:table(nofallback){
             hant{""}
             hantfin{""}
             hebr{""}
+            hmng{""}
+            hmnp{""}
             java{""}
             jpan{""}
             jpanfin{""}
+            jpanyear{""}
             kali{""}
             khmr{""}
             knda{""}
@@ -21588,19 +21964,26 @@ structLocale:table(nofallback){
             lepc{""}
             limb{""}
             mlym{""}
+            modi{""}
             mong{""}
+            mroo{""}
             mtei{""}
             mymr{""}
             mymrshan{""}
+            mymrtlng{""}
             native{""}
+            newa{""}
             nkoo{""}
             olck{""}
             orya{""}
             osma{""}
+            rohg{""}
             roman{""}
             romanlow{""}
             saur{""}
             shrd{""}
+            sind{""}
+            sinh{""}
             sora{""}
             sund{""}
             takr{""}
@@ -21610,8 +21993,12 @@ structLocale:table(nofallback){
             telu{""}
             thai{""}
             tibt{""}
+            tirh{""}
+            tnsa{""}
             traditional{""}
             vaii{""}
+            wara{""}
+            wcho{""}
         }
     }
     Types%short{
@@ -21702,6 +22089,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
             }
             eras{
                 abbreviated{
@@ -21818,20 +22215,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -21930,6 +22331,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
             }
             cyclicNameSets{
                 dayParts{
@@ -22781,20 +23192,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -23001,6 +23416,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
             }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -23134,20 +23559,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -23344,6 +23773,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
             }
             cyclicNameSets{
                 dayParts{
@@ -24195,20 +24634,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -24420,6 +24863,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
             }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -24553,20 +25006,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -24868,20 +25325,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -25067,6 +25528,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
             }
             appendItems{
                 Day{"{0} ({2}: {1})"}
@@ -25293,20 +25764,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -25471,6 +25946,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
             }
             NoonMarker{""}
             NoonMarkerAbbr{""}
@@ -25828,20 +26313,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -26072,6 +26561,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
             }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
+            }
             availableFormats{
                 HHmm{""}
                 HHmmss{""}
@@ -26202,20 +26701,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -26420,6 +26923,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
             }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            }
             eras{
                 abbreviated{
                     "",
@@ -26535,20 +27048,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -26711,21 +27228,6 @@ structLocale:table(nofallback){
                 "",
                 "",
             }
-            availableFormats{
-                HHmm{""}
-                HHmmss{""}
-                KKmm{""}
-                KKmmss{""}
-                MMMM{""}
-                MMMdd{""}
-                mmssSS{""}
-                ww{""}
-                yyMM{""}
-                yyMMMEEEd{""}
-                yyMMMd{""}
-                yyMd{""}
-                yyQQQQ{""}
-            }
             DateTimeElements:intvector{
                 1,
                 1,
@@ -26744,6 +27246,82 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            }
+            availableFormats{
+                HHmm{""}
+                HHmmss{""}
+                KKmm{""}
+                KKmmss{""}
+                MMMM{""}
+                MMMdd{""}
+                mmssSS{""}
+                ww{""}
+                yyMM{""}
+                yyMMMEEEd{""}
+                yyMMMd{""}
+                yyMd{""}
+                yyQQQQ{""}
+            }
+            dayNames{
+                format{
+                    abbreviated{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    wide{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    narrow{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                    wide{
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    }
+                }
             }
             eras{
                 abbreviated{
@@ -26860,20 +27438,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -27070,6 +27652,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
             }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            }
             eras{
                 abbreviated{
                     "",
@@ -27185,20 +27777,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -27439,6 +28035,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
                 "A4",
+            }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "A2",
+                "A2",
+                "A2",
+                "A2",
             }
             eras{
                 abbreviated{
@@ -28336,20 +28942,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }
@@ -28508,6 +29118,16 @@ structLocale:table(nofallback){
                 "A4",
                 "A4",
             }
+            DateTimeSkeletons{
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+            }
             eras{
                 abbreviated{
                     "",
@@ -28626,20 +29246,24 @@ structLocale:table(nofallback){
                 }
                 fallback{""}
                 h{
+                    B{""}
                     a{""}
                     h{""}
                 }
                 hm{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hmv{
+                    B{""}
                     a{""}
                     h{""}
                     m{""}
                 }
                 hv{
+                    B{""}
                     a{""}
                     h{""}
                 }

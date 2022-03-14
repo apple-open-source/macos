@@ -78,9 +78,9 @@ public:
      * @return the charset name.
      */
 
-    const char *getName() const = 0;
-    const char *getLanguage() const = 0;
-    UBool match(InputText* input, CharsetMatch *results) const = 0;
+    const char *getName() const override = 0;
+    const char *getLanguage() const override = 0;
+    UBool match(InputText* input, CharsetMatch *results) const override = 0;
 
     /**
      * Get the next character (however many bytes it is) from the input data
@@ -107,12 +107,12 @@ class CharsetRecog_sjis : public CharsetRecog_mbcs {
 public:
     virtual ~CharsetRecog_sjis();
 
-    UBool nextChar(IteratedChar *it, InputText *det) const;
+    UBool nextChar(IteratedChar *it, InputText *det) const override;
 
-    UBool match(InputText* input, CharsetMatch *results) const;
+    UBool match(InputText* input, CharsetMatch *results) const override;
 
-    const char *getName() const;
-    const char *getLanguage() const;
+    const char *getName() const override;
+    const char *getLanguage() const override;
 
 };
 
@@ -128,17 +128,17 @@ class CharsetRecog_euc : public CharsetRecog_mbcs
 public:
     virtual ~CharsetRecog_euc();
 
-    const char *getName() const = 0;
-    const char *getLanguage() const = 0;
+    const char *getName() const override = 0;
+    const char *getLanguage() const override = 0;
 
-    UBool match(InputText* input, CharsetMatch *results) const = 0;
+    UBool match(InputText* input, CharsetMatch *results) const override = 0;
     /*
      *  (non-Javadoc)
      *  Get the next character value for EUC based encodings.
      *  Character "value" is simply the raw bytes that make up the character
      *     packed into an int.
      */
-    UBool nextChar(IteratedChar *it, InputText *det) const;
+    UBool nextChar(IteratedChar *it, InputText *det) const override;
 };
 
 /**
@@ -150,10 +150,10 @@ class CharsetRecog_euc_jp : public CharsetRecog_euc
 public:
     virtual ~CharsetRecog_euc_jp();
 
-    const char *getName() const;
-    const char *getLanguage() const;
+    const char *getName() const override;
+    const char *getLanguage() const override;
 
-    UBool match(InputText* input, CharsetMatch *results) const;
+    UBool match(InputText* input, CharsetMatch *results) const override;
 };
 
 /**
@@ -165,10 +165,10 @@ class CharsetRecog_euc_kr : public CharsetRecog_euc
 public:
     virtual ~CharsetRecog_euc_kr();
 
-    const char *getName() const;
-    const char *getLanguage() const;
+    const char *getName() const override;
+    const char *getLanguage() const override;
 
-    UBool match(InputText* input, CharsetMatch *results) const;
+    UBool match(InputText* input, CharsetMatch *results) const override;
 };
 
 /**
@@ -181,12 +181,12 @@ class CharsetRecog_big5 : public CharsetRecog_mbcs
 public:
     virtual ~CharsetRecog_big5();
 
-    UBool nextChar(IteratedChar* it, InputText* det) const;
+    UBool nextChar(IteratedChar* it, InputText* det) const override;
 
-    const char *getName() const;
-    const char *getLanguage() const;
+    const char *getName() const override;
+    const char *getLanguage() const override;
 
-    UBool match(InputText* input, CharsetMatch *results) const;
+    UBool match(InputText* input, CharsetMatch *results) const override;
 };
 
 
@@ -200,12 +200,12 @@ class CharsetRecog_gb_18030 : public CharsetRecog_mbcs
 public:
     virtual ~CharsetRecog_gb_18030();
 
-    UBool nextChar(IteratedChar* it, InputText* det) const;
+    UBool nextChar(IteratedChar* it, InputText* det) const override;
 
-    const char *getName() const;
-    const char *getLanguage() const;
+    const char *getName() const override;
+    const char *getLanguage() const override;
 
-    UBool match(InputText* input, CharsetMatch *results) const;
+    UBool match(InputText* input, CharsetMatch *results) const override;
 };
 
 U_NAMESPACE_END

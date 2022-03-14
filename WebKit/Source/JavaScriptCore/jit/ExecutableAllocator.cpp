@@ -29,11 +29,11 @@
 #if ENABLE(JIT)
 
 #include "ExecutableAllocationFuzz.h"
-#include "IterationStatus.h"
 #include "JITOperationValidation.h"
 #include "LinkBuffer.h"
 #include <wtf/FastBitVector.h>
 #include <wtf/FileSystem.h>
+#include <wtf/IterationStatus.h>
 #include <wtf/PageReservation.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RedBlackTree.h>
@@ -400,10 +400,10 @@ static ALWAYS_INLINE JITReservation initializeJITPageReservation()
 #endif
 
         void* reservationEnd = reinterpret_cast<uint8_t*>(reservation.base) + reservation.size;
-        g_jscConfig.startExecutableMemory = tagCodePtr<ExecutableMemoryPtrTag>(reservation.base);
-        g_jscConfig.endExecutableMemory = tagCodePtr<ExecutableMemoryPtrTag>(reservationEnd);
+        g_jscConfig.startExecutableMemory = reservation.base;
+        g_jscConfig.endExecutableMemory = reservationEnd;
 
-#if ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
+#if !USE(SYSTEM_MALLOC) && ENABLE(UNIFIED_AND_FREEZABLE_CONFIG_RECORD)
         WebConfig::g_config[0] = bitwise_cast<uintptr_t>(reservation.base);
         WebConfig::g_config[1] = bitwise_cast<uintptr_t>(reservationEnd);
 #endif
@@ -471,9 +471,8 @@ public:
         m_reservation.deallocate();
     }
 
-    void* memoryStart() { return untagCodePtr<ExecutableMemoryPtrTag>(g_jscConfig.startExecutableMemory); }
-    void* memoryEnd() { return untagCodePtr<ExecutableMemoryPtrTag>(g_jscConfig.endExecutableMemory); }
-    bool isJITPC(void* pc) { return memoryStart() <= pc && pc < memoryEnd(); }
+    void* memoryStart() { return g_jscConfig.startExecutableMemory; }
+    void* memoryEnd() { return g_jscConfig.endExecutableMemory; }
     bool isValid() { return !!m_reservation; }
 
     RefPtr<ExecutableMemoryHandle> allocate(size_t sizeInBytes)
@@ -1129,12 +1128,6 @@ void* endOfFixedExecutableMemoryPoolImpl()
     return allocator->memoryEnd();
 }
 
-bool isJITPC(void* pc)
-{
-    FixedVMPoolExecutableAllocator* allocator = g_jscConfig.fixedVMPoolExecutableAllocator;
-    return allocator && allocator->isJITPC(pc);
-}
-
 void dumpJITMemory(const void* dst, const void* src, size_t size)
 {
     RELEASE_ASSERT(Options::dumpJITMemoryPath());
@@ -1188,7 +1181,7 @@ void dumpJITMemory(const void* dst, const void* src, size_t size)
     static std::once_flag once;
     std::call_once(once, [] {
         buffer = bitwise_cast<uint8_t*>(malloc(bufferSize));
-        flushQueue.construct(WorkQueue::create("jsc.dumpJITMemory.queue", WorkQueue::Type::Serial, WorkQueue::QOS::Background));
+        flushQueue.construct(WorkQueue::create("jsc.dumpJITMemory.queue", WorkQueue::QOS::Background));
         std::atexit([] {
             Locker locker { dumpJITMemoryLock };
             DumpJIT::flush();

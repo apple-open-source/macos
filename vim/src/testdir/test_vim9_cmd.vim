@@ -13,6 +13,74 @@ def Test_vim9cmd()
     vim9cm assert_equal('yes', y)
   END
   CheckScriptSuccess(lines)
+
+  assert_fails('vim9cmd', 'E1164:')
+  assert_fails('legacy', 'E1234:')
+  assert_fails('vim9cmd echo "con" . "cat"', 'E15:')
+
+  lines =<< trim END
+      let str = 'con'
+      vim9cmd str .= 'cat'
+  END
+  CheckScriptFailure(lines, 'E492:')
+
+  lines =<< trim END
+      vim9script
+      legacy echo "con" . "cat"
+      legacy let str = 'con'
+      legacy let str .= 'cat'
+  END
+  CheckScriptSuccess(lines)
+
+  lines =<< trim END
+      vim9script
+      def Foo()
+        g:found_bar = "bar"
+      enddef
+      nmap ,; :vim9cmd <SID>Foo()<CR>
+  END
+  CheckScriptSuccess(lines)
+
+  feedkeys(',;', 'xt')
+  assert_equal("bar", g:found_bar)
+  nunmap ,;
+  unlet g:found_bar
+
+  lines =<< trim END
+      vim9script
+      legacy echo 1'000
+  END
+  CheckScriptFailure(lines, 'E115:')
+
+  if has('float')
+    lines =<< trim END
+        vim9script
+        echo .10
+    END
+    CheckScriptSuccess(lines)
+    lines =<< trim END
+        vim9cmd echo .10
+    END
+    CheckScriptSuccess(lines)
+    lines =<< trim END
+        vim9script
+        legacy echo .10
+    END
+    CheckScriptFailure(lines, 'E15:')
+  endif
+
+  echo v:version
+  assert_fails('vim9cmd echo version', 'E121:')
+  lines =<< trim END
+      vim9script
+      echo version
+  END
+  CheckScriptFailure(lines, 'E121:')
+  lines =<< trim END
+      vim9script
+      legacy echo version
+  END
+  CheckScriptSuccess(lines)
 enddef
 
 def Test_edit_wildcards()
@@ -33,6 +101,27 @@ def Test_edit_wildcards()
 
   CheckDefFailure(['edit `=xxx`'], 'E1001:')
   CheckDefFailure(['edit `="foo"'], 'E1083:')
+
+  var files = ['file 1', 'file%2', 'file# 3']
+  args `=files`
+  assert_equal(files, argv())
+
+  filename = 'Xwindo'
+  windo edit `=filename`
+  assert_equal('Xwindo', bufname())
+
+  filename = 'Xtabdo'
+  tabdo edit `=filename`
+  assert_equal('Xtabdo', bufname())
+
+  filename = 'Xargdo'
+  argdo edit `=filename`
+  assert_equal('Xargdo', bufname())
+
+  :%bwipe!
+  filename = 'Xbufdo'
+  bufdo file `=filename`
+  assert_equal('Xbufdo', bufname())
 enddef
 
 def Test_expand_alternate_file()
@@ -94,11 +183,18 @@ def Test_expand_alternate_file()
 enddef
 
 def Test_global_backtick_expansion()
+  var name = 'xxx'
   new
-  setline(1, 'xx')
-  var name = 'foobar'
-  g/^xx/s/.*/`=name`
-  assert_equal('foobar', getline(1))
+  setline(1, ['one', 'two', 'three'])
+  set nomod
+  g/two/edit `=name`
+  assert_equal('xxx', bufname())
+  bwipe!
+
+  new
+  setline(1, ['one', 'two', 'three'])
+  g/two/s/^/`=name`/
+  assert_equal('`=name`two', getline(2))
   bwipe!
 enddef
 
@@ -117,6 +213,15 @@ def Test_folddo_backtick_expansion()
   folddoclose edit `=name`
   assert_equal('xxx', bufname())
   bwipe!
+
+  var lines =<< trim END
+      g:val = 'value'
+      def Test()
+        folddoopen echo `=g:val`
+      enddef
+      call Test()
+  END
+  CheckScriptFailure(lines, 'E15: Invalid expression: "`=g:val`"')
 enddef
 
 def Test_hardcopy_wildcards()
@@ -193,16 +298,24 @@ def Test_condition_types()
       elseif 'text'
       endif
   END
-  CheckDefFailure(lines, 'E1012:', 3)
-  CheckScriptFailure(['vim9script'] + lines, 'E1135:', 4)
+  CheckDefAndScriptFailure(lines, 'E1135:', 3)
 
   lines =<< trim END
+      g:cond = 0
+      if g:cond
+      elseif 'text' garbage
+      endif
+  END
+  CheckDefAndScriptFailure(lines, 'E488:', 3)
+
+  lines =<< trim END
+      g:cond = 0
       if g:cond
       elseif [1]
       endif
   END
-  CheckDefFailure(lines, 'E1012:', 2)
-  CheckScriptFailure(['vim9script'] + lines, 'E745:', 3)
+  CheckDefFailure(lines, 'E1012:', 3)
+  CheckScriptFailure(['vim9script'] + lines, 'E745:', 4)
 
   lines =<< trim END
       g:cond = 'text'
@@ -449,6 +562,94 @@ def Test_method_and_user_command()
   CheckScriptSuccess(lines)
 enddef
 
+def Test_option_use_linebreak()
+  var lines =<< trim END
+      new
+      &matchpairs = '(:)'
+      &matchpairs->setline(1)
+      &matchpairs = '[:]'
+      &matchpairs   ->setline(2)
+      &matchpairs = '{:}'
+      &matchpairs  
+          ->setline(3)
+      assert_equal(['(:)', '[:]', '{:}'], getline(1, '$'))
+      bwipe!
+  END
+  CheckDefAndScriptSuccess(lines)
+enddef
+
+def Test_use_register()
+  var lines =<< trim END
+      new
+      @a = 'one'
+      @a->setline(1)
+      @b = 'two'
+      @b   ->setline(2)
+      @c = 'three'
+      @c  
+          ->setline(3)
+      assert_equal(['one', 'two', 'three'], getline(1, '$'))
+      bwipe!
+  END
+  CheckDefAndScriptSuccess(lines)
+
+  lines =<< trim END
+      @a = 'echo "text"'
+      @a
+  END
+  CheckDefAndScriptFailure(lines, 'E1207:', 2)
+
+  lines =<< trim END
+      @/ = 'pattern'
+      @/
+  END
+  CheckDefAndScriptFailure(lines, 'E1207:', 2)
+
+  lines =<< trim END
+      &opfunc = 'nothing'
+      &opfunc
+  END
+  CheckDefAndScriptFailure(lines, 'E1207:', 2)
+  &opfunc = ''
+
+  lines =<< trim END
+      &l:showbreak = 'nothing'
+      &l:showbreak
+  END
+  CheckDefAndScriptFailure(lines, 'E1207:', 2)
+  &l:showbreak = ''
+
+  lines =<< trim END
+      &g:showbreak = 'nothing'
+      &g:showbreak
+  END
+  CheckDefAndScriptFailure(lines, 'E1207:', 2)
+  &g:showbreak = ''
+
+  lines =<< trim END
+      $SomeEnv = 'value'
+      $SomeEnv
+  END
+  CheckDefAndScriptFailure(lines, 'E1207:', 2)
+  $SomeEnv = ''
+enddef
+
+def Test_environment_use_linebreak()
+  var lines =<< trim END
+      new
+      $TESTENV = 'one'
+      $TESTENV->setline(1)
+      $TESTENV = 'two'
+      $TESTENV  ->setline(2)
+      $TESTENV = 'three'
+      $TESTENV  
+          ->setline(3)
+      assert_equal(['one', 'two', 'three'], getline(1, '$'))
+      bwipe!
+  END
+  CheckDefAndScriptSuccess(lines)
+enddef
+
 def Test_skipped_expr_linebreak()
   if 0
     var x = []
@@ -527,6 +728,24 @@ def Test_command_modifier_filter()
     @c = 'piyo'
 
     assert_equal(execute('filter /piyo/ registers abc'), expected)
+  END
+  CheckDefAndScriptSuccess(lines)
+
+  # also do this compiled
+  lines =<< trim END
+      @a = 'very specific z3d37dh234 string'
+      filter z3d37dh234 registers
+      assert_match('very specific z3d37dh234 string', Screenline(&lines))
+  END
+  CheckDefAndScriptSuccess(lines)
+
+  lines =<< trim END
+      edit foobar
+      redir => g:filter_out
+      filter #foobar# ls
+      redir END
+      assert_match('"foobar"', g:filter_out)
+      unlet g:filter_out
   END
   CheckDefAndScriptSuccess(lines)
 enddef
@@ -780,6 +999,17 @@ def Test_modifier_silent_unsilent()
     echomsg "caught"
   endtry
   assert_equal("\ncaught", execute(':1messages'))
+
+  var lines =<< trim END
+      vim9script
+      set history=11
+      silent! while 0
+        set history=22
+      silent! endwhile
+      assert_equal(11, &history)
+      set history&
+  END
+  CheckScriptSuccess(lines)
 enddef
 
 def Test_range_after_command_modifier()
@@ -789,6 +1019,11 @@ def Test_range_after_command_modifier()
   CheckScriptSuccess(['vim9script', 'silent keepjump :1d _'])
   assert_equal('', getline(1))
   bwipe!
+
+  var lines =<< trim END
+      legacy /pat/
+  END
+  CheckDefExecAndScriptFailure(lines, 'E486: Pattern not found: pat')
 enddef
 
 def Test_silent_pattern()
@@ -809,13 +1044,16 @@ def Test_useless_command_modifier()
       for i in [0]
       silent endfor
   END
-  CheckDefAndScriptFailure(lines, 'E1176:', 2)
+  CheckDefFailure(lines, 'E1176:', 2)
+  CheckScriptSuccess(['vim9script'] + lines)
 
   lines =<< trim END
       while g:maybe
       silent endwhile
   END
-  CheckDefAndScriptFailure(lines, 'E1176:', 2)
+  CheckDefFailure(lines, 'E1176:', 2)
+  g:maybe = false
+  CheckScriptSuccess(['vim9script'] + lines)
 
   lines =<< trim END
       silent try
@@ -984,18 +1222,26 @@ def Test_user_command_comment()
   command -nargs=1 Comd echom <q-args>
 
   var lines =<< trim END
-    vim9script
-    Comd # comment
+      vim9script
+      Comd # comment
   END
   CheckScriptSuccess(lines)
 
   lines =<< trim END
-    vim9script
-    Comd# comment
+      vim9script
+      Comd# comment
   END
   CheckScriptFailure(lines, 'E1144:')
-
   delcommand Comd
+
+  lines =<< trim END
+      vim9script
+      command Foo echo 'Foo'
+      Foo3Bar
+  END
+  CheckScriptFailure(lines, 'E1144: Command "Foo" is not followed by white space: Foo3Bar')
+
+  delcommand Foo
 enddef
 
 def Test_star_command()
@@ -1134,5 +1380,342 @@ def Test_windo_missing_endif()
   END
   CheckDefExecFailure(lines, 'E171:', 1)
 enddef
+
+let s:theList = [1, 2, 3]
+
+def Test_lockvar()
+  s:theList[1] = 22
+  assert_equal([1, 22, 3], s:theList)
+  lockvar s:theList
+  assert_fails('theList[1] = 77', 'E741:')
+  unlockvar s:theList
+  s:theList[1] = 44
+  assert_equal([1, 44, 3], s:theList)
+
+  if 0
+    lockvar whatever
+  endif
+
+  var d = {a: 1, b: 2}
+  d.a = 3
+  d.b = 4
+  assert_equal({a: 3, b: 4}, d)
+  lockvar d.a
+  d.b = 5
+  var ex = ''
+  try
+    d.a = 6
+  catch
+    ex = v:exception
+  endtry
+  assert_match('E1121:', ex)
+  unlockvar d.a
+  d.a = 7
+  assert_equal({a: 7, b: 5}, d)
+
+  var lines =<< trim END
+      vim9script
+      var theList = [1, 2, 3]
+      def SetList()
+        theList[1] = 22
+        assert_equal([1, 22, 3], theList)
+        lockvar theList
+        theList[1] = 77
+      enddef
+      SetList()
+  END
+  CheckScriptFailure(lines, 'E1119', 4)
+
+  lines =<< trim END
+      var theList = [1, 2, 3]
+      lockvar theList
+  END
+  CheckDefFailure(lines, 'E1178', 2)
+
+  lines =<< trim END
+      var theList = [1, 2, 3]
+      unlockvar theList
+  END
+  CheckDefFailure(lines, 'E1178', 2)
+
+  lines =<< trim END
+      vim9script
+      var name = 'john'
+      lockvar nameX
+  END
+  CheckScriptFailure(lines, 'E1246', 3)
+
+  lines =<< trim END
+      vim9script
+      var name = 'john'
+      def LockIt()
+        lockvar nameX
+      enddef
+      LockIt()
+  END
+  CheckScriptFailure(lines, 'E1246', 1)
+enddef
+
+def Test_substitute_expr()
+  var to = 'repl'
+  new
+  setline(1, 'one from two')
+  s/from/\=to
+  assert_equal('one repl two', getline(1))
+
+  setline(1, 'one from two')
+  s/from/\=to .. '_x'
+  assert_equal('one repl_x two', getline(1))
+
+  setline(1, 'one from two from three')
+  var also = 'also'
+  s/from/\=to .. '_' .. also/g#e
+  assert_equal('one repl_also two repl_also three', getline(1))
+
+  setline(1, 'abc abc abc')
+  for choice in [true, false]
+    :1s/abc/\=choice ? 'yes' : 'no'/
+  endfor
+  assert_equal('yes no abc', getline(1))
+
+  bwipe!
+
+  CheckDefFailure(['s/from/\="x")/'], 'E488:')
+  CheckDefFailure(['s/from/\="x"/9'], 'E488:')
+
+  # When calling a function the right instruction list needs to be restored.
+  g:cond = true
+  var lines =<< trim END
+      vim9script
+      def Foo()
+          Bar([])
+      enddef
+      def Bar(l: list<number>)
+        if g:cond
+          s/^/\=Rep()/
+          for n in l[:]
+          endfor
+        endif
+      enddef
+      def Rep(): string
+          return 'rep'
+      enddef
+      new
+      Foo()
+      assert_equal('rep', getline(1))
+      bwipe!
+  END
+  CheckScriptSuccess(lines)
+  unlet g:cond
+
+  # List results in multiple lines
+  new
+  setline(1, 'some text here')
+  s/text/\=['aaa', 'bbb', 'ccc']/
+  assert_equal(['some aaa', 'bbb', 'ccc', ' here'], getline(1, '$'))
+  bwipe!
+enddef
+
+def Test_redir_to_var()
+  var result: string
+  redir => result
+    echo 'something'
+  redir END
+  assert_equal("\nsomething", result)
+
+  redir =>> result
+    echo 'more'
+  redir END
+  assert_equal("\nsomething\nmore", result)
+
+  var d: dict<string>
+  redir => d.redir
+    echo 'dict'
+  redir END
+  assert_equal({redir: "\ndict"}, d)
+
+  var l = ['a', 'b', 'c']
+  redir => l[1]
+    echo 'list'
+  redir END
+  assert_equal(['a', "\nlist", 'c'], l)
+
+  var dl = {l: ['x']}
+  redir => dl.l[0]
+    echo 'dict-list'
+  redir END
+  assert_equal({l: ["\ndict-list"]}, dl)
+
+  redir =>> d.redir
+    echo 'more'
+  redir END
+  assert_equal({redir: "\ndict\nmore"}, d)
+
+  var lines =<< trim END
+    redir => notexist
+  END
+  CheckDefFailure(lines, 'E1089:')
+
+  lines =<< trim END
+    var ls = 'asdf'
+    redir => ls[1]
+    redir END
+  END
+  CheckDefFailure(lines, 'E1141:')
+
+  lines =<< trim END
+      var text: string
+      redir => text
+        echo 'hello'
+        redir > Xfile
+      redir END
+  END
+  CheckDefFailure(lines, 'E1185:')
+
+  lines =<< trim END
+      var text: number
+      redir => text
+        echo 'hello'
+      redir END
+  END
+  CheckDefFailure(lines, 'E1012:')
+enddef
+
+def Test_echo_void()
+  var lines =<< trim END
+      vim9script
+      def NoReturn()
+        echo 'nothing'
+      enddef
+      echo NoReturn()
+  END
+  CheckScriptFailure(lines, 'E1186:', 5)
+
+  lines =<< trim END
+      vim9script
+      def NoReturn()
+        echo 'nothing'
+      enddef
+      def Try()
+        echo NoReturn()
+      enddef
+      defcompile
+  END
+  CheckScriptFailure(lines, 'E1186:', 1)
+enddef
+
+def Test_cmdwin_block()
+  augroup justTesting
+    autocmd BufEnter * {
+      echomsg 'in block'
+    }
+  augroup END
+  feedkeys('q:', 'xt')
+  redraw
+  feedkeys("aclose\<CR>", 'xt')
+
+  au! justTesting
+enddef
+
+def Test_var_not_cmd()
+  var lines =<< trim END
+      g:notexist:cmd
+  END
+  CheckDefAndScriptFailure(lines, ['E488: Trailing characters: :cmd', 'E121: Undefined variable: g:notexist'], 1)
+
+  lines =<< trim END
+      g-pat-cmd
+  END
+  CheckDefAndScriptFailure(lines, 'E1241:', 1)
+  lines =<< trim END
+      g.pat.cmd
+  END
+  CheckDefAndScriptFailure(lines, ['E1001: Variable not found: g', 'E121: Undefined variable: g'], 1)
+
+  lines =<< trim END
+      s:notexist:repl
+  END
+  CheckDefAndScriptFailure(lines, ['E488: Trailing characters: :repl', 'E121: Undefined variable: s:notexist'], 1)
+
+  lines =<< trim END
+      s-pat-repl
+  END
+  CheckDefAndScriptFailure(lines, 'E1241:', 1)
+  lines =<< trim END
+      s.pat.repl
+  END
+  CheckDefAndScriptFailure(lines, ['E1001: Variable not found: s', 'E121: Undefined variable: s'], 1)
+
+  lines =<< trim END
+      w:notexist->len()
+  END
+  CheckDefExecAndScriptFailure(lines, 'E121: Undefined variable: w:notexist', 1)
+
+  lines =<< trim END
+      b:notexist->len()
+  END
+  CheckDefExecAndScriptFailure(lines, 'E121: Undefined variable: b:notexist', 1)
+
+  lines =<< trim END
+      t:notexist->len()
+  END
+  CheckDefExecAndScriptFailure(lines, 'E121: Undefined variable: t:notexist', 1)
+enddef
+
+def Test_no_space_after_command()
+  var lines =<< trim END
+      g /pat/cmd
+  END
+  CheckDefAndScriptFailure(lines, 'E1242:', 1)
+  lines =<< trim END
+      g #pat#cmd
+  END
+  CheckDefAndScriptFailure(lines, 'E1242:', 1)
+  lines =<< trim END
+      g#pat#cmd
+  END
+  CheckDefAndScriptSuccess(lines)
+  lines =<< trim END
+      g# pat#cmd
+  END
+  CheckDefAndScriptSuccess(lines)
+
+  lines =<< trim END
+      s /pat/repl
+  END
+  CheckDefAndScriptFailure(lines, 'E1242:', 1)
+  lines =<< trim END
+      s #pat#repl
+  END
+  CheckDefAndScriptFailure(lines, 'E1242:', 1)
+  lines =<< trim END
+      s#pat#repl
+  END
+  CheckDefExecAndScriptFailure(lines, 'E486:', 1)
+  lines =<< trim END
+      s# pat#repl
+  END
+  CheckDefExecAndScriptFailure(lines, 'E486:', 1)
+enddef
+
+" Test for the 'previewpopup' option
+def Test_previewpopup()
+  set previewpopup=height:10,width:60
+  pedit Xfile
+  var id = popup_findpreview()
+  assert_notequal(id, 0)
+  assert_match('Xfile', popup_getoptions(id).title)
+  popup_clear()
+  set previewpopup&
+enddef
+
+def Test_syntax_enable_clear()
+  syntax clear
+  syntax enable
+  highlight clear String
+  assert_equal(true, hlget('String')->get(0, {})->get('default', false))
+  syntax clear
+enddef
+
 
 " vim: ts=8 sw=2 sts=2 expandtab tw=80 fdm=marker

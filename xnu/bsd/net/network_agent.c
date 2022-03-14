@@ -104,6 +104,7 @@ struct netagent_wrapper {
 	void *event_context;
 	u_int32_t generation;
 	u_int64_t use_count;
+	u_int64_t need_tokens_event_deadline;
 	u_int32_t token_count;
 	u_int32_t token_low_water;
 	int32_t last_client_error;
@@ -1873,6 +1874,9 @@ netagent_handle_add_token_setopt(struct netagent_session *session, u_int8_t *tok
 
 	session->wrapper->token_count++;
 
+	// Reset deadline time, now that there are more than 0 tokens
+	session->wrapper->need_tokens_event_deadline = 0;
+
 	lck_rw_done(&netagent_lock);
 done:
 	return response_error;
@@ -2090,18 +2094,11 @@ netagent_find_agent_with_uuid(uuid_t uuid)
 void
 netagent_post_updated_interfaces(uuid_t uuid)
 {
-	struct netagent_wrapper *wrapper = NULL;
-	lck_rw_lock_shared(&netagent_lock);
-	wrapper = netagent_find_agent_with_uuid(uuid);
-	lck_rw_done(&netagent_lock);
-
-	if (wrapper != NULL) {
-		netagent_post_event(uuid, KEV_NETAGENT_UPDATED_INTERFACES, TRUE, false);
+	if (!uuid_is_null(uuid)) {
+		netagent_post_event(uuid, KEV_NETAGENT_UPDATED_INTERFACES, true, false);
 	} else {
 		NETAGENTLOG0(LOG_DEBUG, "Interface event with no associated agent");
 	}
-
-	return;
 }
 
 static u_int32_t
@@ -2619,6 +2616,8 @@ done:
 	return error;
 }
 
+#define NETAGENT_TOKEN_EVENT_INTERVAL_NSEC (NSEC_PER_SEC * 10) // Only fire repeated events up to once every 10 seconds
+
 int
 netagent_acquire_token(uuid_t agent_uuid, user_addr_t user_addr, u_int32_t user_size, int *retval)
 {
@@ -2636,7 +2635,17 @@ netagent_acquire_token(uuid_t agent_uuid, user_addr_t user_addr, u_int32_t user_
 	if (token == NULL) {
 		NETAGENTLOG0(LOG_DEBUG, "Network agent does not have any tokens");
 		if (wrapper->token_low_water != 0) {
-			(void)netagent_send_tokens_needed(wrapper);
+			// Only fire an event if one hasn't occurred in the last 10 seconds
+			if (mach_absolute_time() >= wrapper->need_tokens_event_deadline) {
+				int event_error = netagent_send_tokens_needed(wrapper);
+				if (event_error == 0) {
+					// Reset the deadline
+					uint64_t deadline = 0;
+					nanoseconds_to_absolutetime(NETAGENT_TOKEN_EVENT_INTERVAL_NSEC, &deadline);
+					clock_absolutetime_interval_to_deadline(deadline, &deadline);
+					wrapper->need_tokens_event_deadline = deadline;
+				}
+			}
 		}
 		error = ENODATA;
 		goto done;

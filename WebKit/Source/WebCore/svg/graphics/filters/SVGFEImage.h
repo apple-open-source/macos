@@ -3,6 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2010 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,41 +24,94 @@
 #pragma once
 
 #include "FilterEffect.h"
+#include "Image.h"
 #include "SVGPreserveAspectRatioValue.h"
 
 namespace WebCore {
 
-class Document;
 class Image;
-class RenderElement;
-class TreeScope;
+class ImageBuffer;
 
 class FEImage final : public FilterEffect {
 public:
-    static Ref<FEImage> createWithImage(Filter&, RefPtr<Image>, const SVGPreserveAspectRatioValue&);
-    static Ref<FEImage> createWithIRIReference(Filter&, TreeScope&, const String&, const SVGPreserveAspectRatioValue&);
+    using SourceImage = std::variant<
+        Ref<Image>,
+        Ref<ImageBuffer>,
+        RenderingResourceIdentifier
+    >;
+
+    static Ref<FEImage> create(Ref<Image>&&, const SVGPreserveAspectRatioValue&);
+    WEBCORE_EXPORT static Ref<FEImage> create(SourceImage&&, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue&);
+
+    const SourceImage& sourceImage() const { return m_sourceImage; }
+    void setImageSource(SourceImage&& sourceImage) { m_sourceImage = WTFMove(sourceImage); }
+
+    FloatRect sourceImageRect() const { return m_sourceImageRect; }
+    const SVGPreserveAspectRatioValue& preserveAspectRatio() const { return m_preserveAspectRatio; }
+
+    template<class Encoder> void encode(Encoder&) const;
+    template<class Decoder> static std::optional<Ref<FEImage>> decode(Decoder&);
 
 private:
-    virtual ~FEImage() = default;
-    FEImage(Filter&, RefPtr<Image>, const SVGPreserveAspectRatioValue&);
-    FEImage(Filter&, TreeScope&, const String&, const SVGPreserveAspectRatioValue&);
+    FEImage(SourceImage&&, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue&);
 
-    const char* filterName() const final { return "FEImage"; }
+    unsigned numberOfEffectInputs() const override { return 0; }
 
-    FilterEffectType filterEffectType() const final { return FilterEffectTypeImage; }
+    // FEImage results are always in DestinationColorSpace::SRGB()
+    void setOperatingColorSpace(const DestinationColorSpace&) override { }
 
-    RenderElement* referencedRenderer() const;
+    FloatRect calculateImageRect(const Filter&, const FilterImageVector& inputs, const FloatRect& primitiveSubregion) const override;
 
-    void platformApplySoftware() final;
-    void determineAbsolutePaintRect() final;
-    WTF::TextStream& externalRepresentation(WTF::TextStream&, RepresentationType) const final;
+    std::unique_ptr<FilterEffectApplier> createApplier(const Filter&) const final;
 
-    RefPtr<Image> m_image;
+    WTF::TextStream& externalRepresentation(WTF::TextStream&, FilterRepresentation) const final;
 
-    // m_treeScope will never be a dangling reference. See https://bugs.webkit.org/show_bug.cgi?id=99243
-    TreeScope* m_treeScope { nullptr };
-    String m_href;
+    SourceImage m_sourceImage;
+    FloatRect m_sourceImageRect;
     SVGPreserveAspectRatioValue m_preserveAspectRatio;
 };
 
+template<class Encoder>
+void FEImage::encode(Encoder& encoder) const
+{
+    WTF::switchOn(m_sourceImage,
+        [&] (const Ref<Image>& image) {
+            if (auto nativeImage = image->nativeImage())
+                encoder << nativeImage->renderingResourceIdentifier();
+        },
+        [&] (const Ref<ImageBuffer>& imageBuffer) {
+            encoder << imageBuffer->renderingResourceIdentifier();
+        },
+        [&] (RenderingResourceIdentifier renderingResourceIdentifier) {
+            encoder << renderingResourceIdentifier;
+        }
+    );
+
+    encoder << m_sourceImageRect;
+    encoder << m_preserveAspectRatio;
+}
+
+template<class Decoder>
+std::optional<Ref<FEImage>> FEImage::decode(Decoder& decoder)
+{
+    std::optional<RenderingResourceIdentifier> imageIdentifier;
+    decoder >> imageIdentifier;
+    if (!imageIdentifier)
+        return std::nullopt;
+
+    std::optional<FloatRect> sourceImageRect;
+    decoder >> sourceImageRect;
+    if (!sourceImageRect)
+        return std::nullopt;
+
+    std::optional<SVGPreserveAspectRatioValue> preserveAspectRatio;
+    decoder >> preserveAspectRatio;
+    if (!preserveAspectRatio)
+        return std::nullopt;
+
+    return FEImage::create(*imageIdentifier, *sourceImageRect, *preserveAspectRatio);
+}
+
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_FILTER_EFFECT(FEImage)

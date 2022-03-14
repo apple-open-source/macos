@@ -331,6 +331,10 @@ qu{
             "LRD",
             "Dólar Liberiano",
         }
+        LSL{
+            "LSL",
+            "Lesoto Loti Qullqi",
+        }
         LYD{
             "LYD",
             "Dinar Libio",
@@ -604,7 +608,7 @@ qu{
             "Dólar del Caribe Oriental",
         }
         XOF{
-            "CFA",
+            "F CFA",
             "Franco CFA de África Occidental",
         }
         XPF{
@@ -874,6 +878,9 @@ qu{
         }
         LRD{
             other{"Dólar liberiano"}
+        }
+        LSL{
+            other{"Lesoto lotis qullqi"}
         }
         LYD{
             other{"Dinar libio"}

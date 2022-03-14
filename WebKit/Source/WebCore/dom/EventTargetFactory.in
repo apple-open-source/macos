@@ -15,6 +15,7 @@ DOMWindow
 EventSource
 FileReader
 FontFaceSet
+GPUDevice
 IDBDatabase
 IDBOpenDBRequest
 IDBRequest
@@ -35,17 +36,23 @@ OffscreenCanvas conditional=OFFSCREEN_CANVAS
 PaymentRequest conditional=PAYMENT_REQUEST
 PaymentResponse conditional=PAYMENT_REQUEST
 Performance
+PermissionStatus
 PictureInPictureWindow conditional=PICTURE_IN_PICTURE_API
 RemotePlayback conditional=WIRELESS_PLAYBACK_TARGET
 RTCDataChannel conditional=WEB_RTC
+RTCDtlsTransport conditional=WEB_RTC
 RTCDTMFSender conditional=WEB_RTC
+RTCIceTransport conditional=WEB_RTC
 RTCPeerConnection conditional=WEB_RTC
 RTCRtpSFrameTransform conditional=WEB_RTC
 RTCRtpScriptTransform conditional=WEB_RTC
+RTCSctpTransport conditional=WEB_RTC
 ServiceWorker conditional=SERVICE_WORKER
 ServiceWorkerContainer conditional=SERVICE_WORKER
 ServiceWorkerGlobalScope conditional=SERVICE_WORKER
 ServiceWorkerRegistration conditional=SERVICE_WORKER
+SharedWorker
+SharedWorkerGlobalScope
 SourceBuffer conditional=MEDIA_SOURCE
 SourceBufferList conditional=MEDIA_SOURCE
 SpeechRecognition

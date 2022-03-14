@@ -65,13 +65,13 @@ static int _kern_nexus_ifattach(struct nxctl *nxctl, const uuid_t nx_uuid,
     struct ifnet *ifp, const uuid_t nx_uuid_attachee, boolean_t host,
     uuid_t *nx_if_uuid);
 
-static ZONE_DECLARE(ncd_zone, SKMEM_ZONE_PREFIX ".nx.kern.ctl.desc",
+static ZONE_DEFINE(ncd_zone, SKMEM_ZONE_PREFIX ".nx.kern.ctl.desc",
     sizeof(struct nexus_controller), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nxdom_prov_zone, SKMEM_ZONE_PREFIX ".nx.kern.dom.prov",
+static ZONE_DEFINE(nxdom_prov_zone, SKMEM_ZONE_PREFIX ".nx.kern.dom.prov",
     sizeof(struct kern_nexus_domain_provider), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nxa_zone, SKMEM_ZONE_PREFIX ".nx.kern.attr",
+static ZONE_DEFINE(nxa_zone, SKMEM_ZONE_PREFIX ".nx.kern.attr",
     sizeof(struct nexus_attr), ZC_ZFREE_CLEARMEM);
 
 static int __nxdom_inited = 0;
@@ -2193,6 +2193,8 @@ nxprov_params_adjust(struct kern_nexus_domain_provider *nxdom_prov,
 
 	/* flow advisory region size */
 	if (flowadv_max != 0) {
+		_CASSERT(NX_FLOWADV_DEFAULT * sizeof(struct __flowadv_entry) <=
+		    SKMEM_MIN_SEG_SIZE);
 		MUL(sizeof(struct __flowadv_entry), flowadv_max, &tmp1);
 		srp[SKMEM_REGION_FLOWADV].srp_r_obj_size = tmp1;
 		srp[SKMEM_REGION_FLOWADV].srp_r_obj_cnt = 1;

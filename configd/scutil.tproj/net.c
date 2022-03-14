@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011, 2014, 2016, 2017, 2019, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2008, 2010, 2011, 2014, 2016, 2017, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -139,7 +139,7 @@ _process_options(optionsRef options, int nOptions, int argc, char * const argv[]
 				// all option processing is managed by the "handler"
 				break;
 			case isHelp :
-				SCPrint(TRUE, stdout, CFSTR("%s\n"), options[optionIndex].info);
+				SCPrint(TRUE, stdout, CFSTR("%s\n"), (char *)options[optionIndex].info);
 				return FALSE;
 			case isChooseOne : {
 				CFStringRef	choice;
@@ -408,6 +408,17 @@ _process_options(optionsRef options, int nOptions, int argc, char * const argv[]
 
 #define	N_QUICK	32
 
+static CFComparisonResult
+compare_CFString(const void *val1, const void *val2, void *context)
+{
+#pragma unused(context)
+	CFStringRef		str1	= (CFStringRef)val1;
+	CFStringRef		str2	= (CFStringRef)val2;
+
+	return CFStringCompare(str1, str2, 0);
+}
+
+
 __private_extern__
 void
 _show_entity(CFDictionaryRef entity, CFStringRef prefix)
@@ -430,7 +441,7 @@ _show_entity(CFDictionaryRef entity, CFStringRef prefix)
 	if (n > 1) {
 		CFArraySortValues(sorted,
 				  CFRangeMake(0, n),
-				  (CFComparatorFunction)CFStringCompare,
+				  compare_CFString,
 				  NULL);
 	}
 

@@ -43,6 +43,7 @@
 #include "WebGLStateTracker.h"
 #include "WebGLTexture.h"
 #include "WebGLVertexArrayObjectOES.h"
+#include <JavaScriptCore/ArrayBufferView.h>
 #include <JavaScriptCore/ConsoleTypes.h>
 #include <limits>
 #include <memory>
@@ -123,9 +124,9 @@ class HTMLVideoElement;
 #endif
 
 #if ENABLE(OFFSCREEN_CANVAS)
-using WebGLCanvas = WTF::Variant<RefPtr<HTMLCanvasElement>, RefPtr<OffscreenCanvas>>;
+using WebGLCanvas = std::variant<RefPtr<HTMLCanvasElement>, RefPtr<OffscreenCanvas>>;
 #else
-using WebGLCanvas = WTF::Variant<RefPtr<HTMLCanvasElement>>;
+using WebGLCanvas = std::variant<RefPtr<HTMLCanvasElement>>;
 #endif
 
 #if ENABLE(MEDIA_STREAM)
@@ -157,7 +158,7 @@ public:
     void blendFunc(GCGLenum sfactor, GCGLenum dfactor);
     void blendFuncSeparate(GCGLenum srcRGB, GCGLenum dstRGB, GCGLenum srcAlpha, GCGLenum dstAlpha);
 
-    using BufferDataSource = WTF::Variant<RefPtr<ArrayBuffer>, RefPtr<ArrayBufferView>>;
+    using BufferDataSource = std::variant<RefPtr<ArrayBuffer>, RefPtr<ArrayBufferView>>;
     void bufferData(GCGLenum target, long long size, GCGLenum usage);
     void bufferData(GCGLenum target, std::optional<BufferDataSource>&&, GCGLenum usage);
     void bufferSubData(GCGLenum target, long long offset, BufferDataSource&&);
@@ -279,9 +280,9 @@ public:
     virtual void texImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLsizei width, GCGLsizei height, GCGLint border, GCGLenum format, GCGLenum type, RefPtr<ArrayBufferView>&&);
 
 #if ENABLE(VIDEO)
-    using TexImageSource = WTF::Variant<RefPtr<ImageBitmap>, RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>, RefPtr<HTMLVideoElement>>;
+    using TexImageSource = std::variant<RefPtr<ImageBitmap>, RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>, RefPtr<HTMLVideoElement>>;
 #else
-    using TexImageSource = WTF::Variant<RefPtr<ImageBitmap>, RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>>;
+    using TexImageSource = std::variant<RefPtr<ImageBitmap>, RefPtr<ImageData>, RefPtr<HTMLImageElement>, RefPtr<HTMLCanvasElement>>;
 #endif
 
     virtual ExceptionOr<void> texImage2D(GCGLenum target, GCGLint level, GCGLenum internalformat, GCGLenum format, GCGLenum type, std::optional<TexImageSource>);
@@ -296,7 +297,7 @@ public:
     template <class TypedArray, class DataType>
     class TypedList {
     public:
-        using VariantType = Variant<RefPtr<TypedArray>, Vector<DataType>>;
+        using VariantType = std::variant<RefPtr<TypedArray>, Vector<DataType>>;
 
         TypedList(VariantType&& variant)
             : m_variant(WTFMove(variant))
@@ -385,7 +386,7 @@ public:
 
     GraphicsContextGL* graphicsContextGL() const { return m_context.get(); }
     WebGLContextGroup* contextGroup() const { return m_contextGroup.get(); }
-    PlatformLayer* platformLayer() const override;
+    RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() override;
 
     void reshape(int width, int height) override;
 
@@ -515,6 +516,7 @@ protected:
     bool validateDrawElements(const char* functionName, GCGLenum mode, GCGLsizei count, GCGLenum type, long long offset, unsigned& numElements, GCGLsizei primcount);
     bool validateNPOTTextureLevel(GCGLsizei width, GCGLsizei height, GCGLint level, const char* functionName);
 #endif
+    bool validateVertexArrayObject(const char* functionName);
 
     // Adds a compressed texture format.
     void addCompressedTextureFormat(GCGLenum);
@@ -527,7 +529,7 @@ protected:
     RefPtr<Image> drawImageIntoBuffer(Image&, int width, int height, int deviceScaleFactor, const char* functionName);
 
 #if ENABLE(VIDEO)
-    RefPtr<Image> videoFrameToImage(HTMLVideoElement*, BackingStoreCopy);
+    RefPtr<Image> videoFrameToImage(HTMLVideoElement*, BackingStoreCopy, const char* functionName);
 #endif
 
     WebGLTexture::TextureExtensionFlag textureExtensionFlags() const;
@@ -535,7 +537,7 @@ protected:
     bool enableSupportedExtension(ASCIILiteral extensionNameLiteral);
     void loseExtensions(LostContextMode);
 
-    virtual void uncacheDeletedBuffer(const WTF::AbstractLocker&, WebGLBuffer*);
+    virtual void uncacheDeletedBuffer(const AbstractLocker&, WebGLBuffer*);
 
     bool compositingResultsNeedUpdating() const final { return m_compositingResultsNeedUpdating; }
     bool needsPreparationForDisplay() const final { return true; }
@@ -558,7 +560,7 @@ protected:
     RefPtr<WebGLVertexArrayObjectBase> m_defaultVertexArrayObject;
     RefPtr<WebGLVertexArrayObjectBase> m_boundVertexArrayObject;
 
-    void setBoundVertexArrayObject(const WTF::AbstractLocker&, WebGLVertexArrayObjectBase*);
+    void setBoundVertexArrayObject(const AbstractLocker&, WebGLVertexArrayObjectBase*);
     
     class VertexAttribValue {
     public:
@@ -617,11 +619,12 @@ protected:
     class LRUImageBufferCache {
     public:
         LRUImageBufferCache(int capacity);
-        // The pointer returned is owned by the image buffer map.
-        ImageBuffer* imageBuffer(const IntSize& size);
+        // Returns pointer to a cleared image buffer that is owned by the cache. The pointer is valid until next call.
+        // Using fillOperator == CompositeOperator::Copy can be used to omit the clear of the buffer.
+        ImageBuffer* imageBuffer(const IntSize&, DestinationColorSpace, CompositeOperator fillOperator = CompositeOperator::SourceOver);
     private:
         void bubbleToFront(size_t idx);
-        Vector<RefPtr<ImageBuffer>> m_buffers;
+        Vector<std::optional<std::pair<DestinationColorSpace, Ref<ImageBuffer>>>> m_buffers;
     };
     LRUImageBufferCache m_generatedImageCache { 0 };
 
@@ -1058,7 +1061,7 @@ protected:
 
     // Helper function for delete* (deleteBuffer, deleteProgram, etc) functions.
     // Return false if caller should return without further processing.
-    bool deleteObject(const WTF::AbstractLocker&, WebGLObject*);
+    bool deleteObject(const AbstractLocker&, WebGLObject*);
 
     // Helper function for APIs which can legally receive null objects, including
     // the bind* calls (bindBuffer, bindTexture, etc.) and useProgram. Checks that
@@ -1076,7 +1079,7 @@ protected:
     // Return the current bound buffer to target, or 0 if the target is invalid.
     virtual WebGLBuffer* validateBufferDataTarget(const char* functionName, GCGLenum target);
 
-    virtual bool validateAndCacheBufferBinding(const WTF::AbstractLocker&, const char* functionName, GCGLenum target, WebGLBuffer*);
+    virtual bool validateAndCacheBufferBinding(const AbstractLocker&, const char* functionName, GCGLenum target, WebGLBuffer*);
 
 #if !USE(ANGLE)
     // Helpers for simulating vertexAttrib0.
@@ -1105,7 +1108,7 @@ protected:
     virtual GCGLint getMaxColorAttachments() = 0;
 
     void setBackDrawBuffer(GCGLenum);
-    void setFramebuffer(const WTF::AbstractLocker&, GCGLenum, WebGLFramebuffer*);
+    void setFramebuffer(const AbstractLocker&, GCGLenum, WebGLFramebuffer*);
 
     virtual void restoreCurrentFramebuffer();
     void restoreCurrentTexture2D();

@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -53,6 +51,11 @@ static const char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
 #include <string.h>
 #include <unistd.h>
 
+#ifndef __APPLE__
+#include <libcasper.h>
+#include <casper/cap_fileargs.h>
+#endif
+
 #include "extern.h"
 
 /*
@@ -66,7 +69,7 @@ static const char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
  * the end.
  */
 int
-bytes(FILE *fp, off_t off)
+bytes(FILE *fp, const char *fn, off_t off)
 {
 	int ch, len, tlen;
 	char *ep, *p, *t;
@@ -84,7 +87,7 @@ bytes(FILE *fp, off_t off)
 		}
 	}
 	if (ferror(fp)) {
-		ierr();
+		ierr(fn);
 		free(sp);
 		return 1;
 	}
@@ -136,7 +139,7 @@ bytes(FILE *fp, off_t off)
  * the end.
  */
 int
-lines(FILE *fp, off_t off)
+lines(FILE *fp, const char *fn, off_t off)
 {
 	struct {
 		int blen;
@@ -147,10 +150,9 @@ lines(FILE *fp, off_t off)
 	char *p, *sp;
 	int blen, cnt, recno, wrap;
 
-	if ((llines = malloc(off * sizeof(*llines))) == NULL)
-		err(1, "malloc");
-	bzero(llines, off * sizeof(*llines));
-	sp = NULL;
+	if ((llines = calloc(off, sizeof(*llines))) == NULL)
+		err(1, "calloc");
+	p = sp = NULL;
 	blen = cnt = recno = wrap = 0;
 	rc = 0;
 
@@ -178,7 +180,7 @@ lines(FILE *fp, off_t off)
 		}
 	}
 	if (ferror(fp)) {
-		ierr();
+		ierr(fn);
 		rc = 1;
 		goto done;
 	}

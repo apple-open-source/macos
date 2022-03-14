@@ -189,6 +189,9 @@ public:
     void setRequiresUserActionForEditingControlsManager(bool value) { m_requiresUserActionForEditingControlsManager = value; }
 #endif
 
+    bool isCaptivePortalModeExplicitlySet() const;
+    bool captivePortalModeEnabled() const;
+
 private:
 
     RefPtr<WebKit::WebProcessPool> m_processPool;

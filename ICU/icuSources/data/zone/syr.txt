@@ -2,4 +2,12 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 syr{
+    zoneStrings{
+        "America:Denver"{
+            ec{"ܕܢܒ݂ܪ"}
+        }
+        regionFormat{"ܙܒ݂ܢܐ {0}"}
+        regionFormatDaylight{"ܙܒ݂ܢܐ {0} ܩܝܛܝܐ"}
+        regionFormatStandard{"ܙܒ݂ܢܐ {0} ܪܘܼܫܡܝܐ"}
+    }
 }

@@ -44,12 +44,12 @@ class FileSystemStorageHandle : public CanMakeWeakPtr<FileSystemStorageHandle, W
 public:
     enum class Type : uint8_t { File, Directory, Any };
     FileSystemStorageHandle(FileSystemStorageManager&, Type, String&& path, String&& name);
-    ~FileSystemStorageHandle();
 
     WebCore::FileSystemHandleIdentifier identifier() const { return m_identifier; }
     const String& path() const { return m_path; }
     Type type() const { return m_type; }
 
+    void close();
     bool isSameEntry(WebCore::FileSystemHandleIdentifier);
     std::optional<FileSystemStorageError> move(WebCore::FileSystemHandleIdentifier, const String& newName);
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> getFileHandle(IPC::Connection::UniqueID, String&& name, bool createIfNecessary);
@@ -61,10 +61,8 @@ public:
 
     using AccessHandleInfo = std::pair<WebCore::FileSystemSyncAccessHandleIdentifier, IPC::SharedFileHandle>;
     Expected<AccessHandleInfo, FileSystemStorageError> createSyncAccessHandle();
-    Expected<uint64_t, FileSystemStorageError> getSize(WebCore::FileSystemSyncAccessHandleIdentifier);
-    std::optional<FileSystemStorageError> truncate(WebCore::FileSystemSyncAccessHandleIdentifier, uint64_t size);
-    std::optional<FileSystemStorageError> flush(WebCore::FileSystemSyncAccessHandleIdentifier);
-    std::optional<FileSystemStorageError> close(WebCore::FileSystemSyncAccessHandleIdentifier);
+    std::optional<FileSystemStorageError> closeSyncAccessHandle(WebCore::FileSystemSyncAccessHandleIdentifier);
+    std::optional<WebCore::FileSystemSyncAccessHandleIdentifier> activeSyncAccessHandle() const { return m_activeSyncAccessHandle; }
 
 private:
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> requestCreateHandle(IPC::Connection::UniqueID, Type, String&& name, bool createIfNecessary);
@@ -75,7 +73,6 @@ private:
     String m_path;
     String m_name;
     std::optional<WebCore::FileSystemSyncAccessHandleIdentifier> m_activeSyncAccessHandle;
-    FileSystem::PlatformFileHandle m_handle { FileSystem::invalidPlatformFileHandle };
 };
 
 } // namespace WebKit

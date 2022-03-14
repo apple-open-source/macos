@@ -1,0 +1,20 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>dirname</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-06-06</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/usr.bin/who/</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-06</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>various who(1) options (-b, etc) are unimplemented and undocumented (4859581)</string>
+		    <string>utmpentry.c: eliminate confusing utmp messages</string>
+		    <string>who.c: Remove unncessary chdir</string>
+		    <string>STD: VSC: who.ex failures (6179576)</string>
+		    <string>Per POSIX, print "LOGIN" for LOGIN_PROCESS ttys (6591397)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

@@ -27,8 +27,8 @@
 #include "CaretRectComputation.h"
 
 #include "Editing.h"
-#include "LayoutIntegrationLineIterator.h"
-#include "LayoutIntegrationRunIterator.h"
+#include "InlineIteratorLine.h"
+#include "InlineIteratorTextBox.h"
 #include "RenderBlockFlow.h"
 #include "RenderInline.h"
 #include "RenderLineBreak.h"
@@ -109,7 +109,7 @@ static LayoutRect computeCaretRectForEmptyElement(const RenderBoxModelObject& re
     return currentStyle.isHorizontalWritingMode() ? rect : rect.transposedRect();
 }
 
-static LayoutRect computeCaretRectForLinePosition(const LayoutIntegration::LineIterator& line, float logicalLeftPosition, CaretRectMode caretRectMode)
+static LayoutRect computeCaretRectForLinePosition(const InlineIterator::LineIterator& line, float logicalLeftPosition, CaretRectMode caretRectMode)
 {
     auto& containingBlock = line->containingBlock();
     auto lineSelectionRect = line->selectionRect();
@@ -171,8 +171,8 @@ static LayoutRect computeCaretRectForText(const InlineRunAndOffset& runAndOffset
     if (!runAndOffset.run)
         return { };
 
-    auto& textRun = downcast<LayoutIntegration::TextRunIterator>(runAndOffset.run);
-    auto line = textRun.line();
+    auto& textRun = downcast<InlineIterator::TextBoxIterator>(runAndOffset.run);
+    auto line = textRun->line();
 
     float position = textRun->positionForOffset(runAndOffset.offset);
     return computeCaretRectForLinePosition(line, position, caretRectMode);
@@ -185,7 +185,7 @@ static LayoutRect computeCaretRectForLineBreak(const InlineRunAndOffset& runAndO
     if (!runAndOffset.run)
         return { };
 
-    auto line = runAndOffset.run.line();
+    auto line = runAndOffset.run->line();
     return computeCaretRectForLinePosition(line, line->contentLogicalLeft(), caretRectMode);
 }
 
@@ -227,7 +227,7 @@ static LayoutRect computeCaretRectForBox(const RenderBox& renderer, const Inline
         rect.move(LayoutSize(renderer.width() - caretWidth, 0_lu));
 
     if (runAndOffset.run) {
-        auto line = runAndOffset.run.line();
+        auto line = runAndOffset.run->line();
         LayoutUnit top = line->top();
         rect.setY(top);
         rect.setHeight(line->bottom() - top);

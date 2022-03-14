@@ -129,7 +129,7 @@ uint64_t hfc_max_file_size      = (10 * 1024 * 1024);
  * Hot File Recording Data (runtime).
  */
 typedef struct hotfile_data {
-	size_t				size;
+	size_t				maxentries;
 	struct hfsmount	   *hfsmp;
 	long				refcount;
 	u_int32_t			activefiles;  /* active number of hot files */
@@ -209,7 +209,6 @@ hfs_recording_start(struct hfsmount *hfsmp)
 	hotfile_data_t *hotdata;
 	struct timeval tv;
 	int maxentries;
-	size_t size;
 	int i;
 	int error;
 
@@ -227,11 +226,11 @@ hfs_recording_start(struct hfsmount *hfsmp)
 	hfsmp->hfc_stage = HFC_BUSY;
 
 	if (hfsmp->hfc_recdata) {
-		hfs_free(hfsmp->hfc_recdata, hfsmp->hfc_recdata->size);
+		hfs_delete_with_hdr(hfsmp->hfc_recdata, hotfile_data_t, hotfile_entry_t, hfsmp->hfc_recdata->maxentries);
 		hfsmp->hfc_recdata = NULL;
 	}
 	if (hfsmp->hfc_filelist) {
-		hfs_free(hfsmp->hfc_filelist, hfsmp->hfc_filelist->hfl_size);
+		hfs_free_data(hfsmp->hfc_filelist, hfsmp->hfc_filelist->hfl_size);
 		hfsmp->hfc_filelist = NULL;
 	}
 
@@ -323,9 +322,8 @@ hfs_recording_start(struct hfsmount *hfsmp)
 	}
 	maxentries = hfsmp->hfc_maxfiles;
 
-	size = sizeof(hotfile_data_t) + maxentries * sizeof(hotfile_entry_t);
-	hotdata = hfs_mallocz(size);
-	hotdata->size = size;
+	hotdata = hfs_new_with_hdr(hotfile_data_t, hotfile_entry_t, maxentries);
+	hotdata->maxentries = maxentries;
 
 	for (i = 1; i < maxentries ; i++)
 		hotdata->entries[i-1].right = &hotdata->entries[i];
@@ -417,7 +415,7 @@ hfs_recording_stop(struct hfsmount *hfsmp)
 	 */
 	size = sizeof(hotfilelist_t);
 	size += sizeof(hotfileinfo_t) * (hotdata->activefiles - 1);
-	listp = hfs_mallocz(size);
+	listp = hfs_malloc_zero_data(size);
 	listp->hfl_size = size;
 
 	hf_getsortedlist(hotdata, listp);	/* NOTE: destroys hot file tree! */
@@ -466,8 +464,8 @@ out:
 	else if (newstage == HFC_ADOPTION)
 		printf("hfs: adopting hotest files\n");
 #endif
-	hfs_free(hotdata, hotdata->size);
-
+	hfs_delete_with_hdr(hotdata, hotfile_data_t, hotfile_entry_t, hotdata->maxentries);
+	
 	hfsmp->hfc_stage = newstage;
 	wakeup((caddr_t)&hfsmp->hfc_stage);
 	return (error);
@@ -557,7 +555,7 @@ out:
 		hfsmp->hfc_filevp = NULL;
 	}
 	if (hotdata) {
-		hfs_free(hotdata, hotdata->size);
+		hfs_delete_with_hdr(hotdata, hotfile_data_t, hotfile_entry_t, hotdata->maxentries);
 		hfsmp->hfc_recdata = NULL;
 	}
 	hfsmp->hfc_stage = HFC_DISABLED;
@@ -769,9 +767,9 @@ hfs_hotfile_reset(struct hfsmount *hfsmp)
 	printf("hfs: %s: %s\n", hfsmp->vcbVN, __FUNCTION__);
 #endif
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
-	fileids = hfs_malloc(NUM_FILE_RESET_IDS * sizeof(uint32_t));
+	fileids = hfs_new_data(uint32_t, NUM_FILE_RESET_IDS);
 
 	record.bufferAddress = &data;
 	record.itemSize = sizeof(u_int32_t);
@@ -873,8 +871,8 @@ hfs_hotfile_reset(struct hfsmount *hfsmp)
 	(void) BTScanTerminate(&scanstate, &data, &data, &data);
 
 out:	
-	hfs_free(fileids, NUM_FILE_RESET_IDS * sizeof(uint32_t));
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_delete_data(fileids, uint32_t, NUM_FILE_RESET_IDS);
+	hfs_free_type(iterator, BTreeIterator);
 
 	//
 	// If the hotfile btree exists, delete it.  We need to open
@@ -933,7 +931,7 @@ hfs_hotfile_repin_files(struct hfsmount *hfsmp)
 	}
 
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	stage = hfsmp->hfc_stage;
 	hfsmp->hfc_stage = HFC_BUSY;
@@ -1087,7 +1085,7 @@ hfs_hotfile_repin_files(struct hfsmount *hfsmp)
 
 	hfs_unlock(VTOC(hfsmp->hfc_filevp));
 
-	hfs_free(iterator, sizeof(*iterator));	
+	hfs_free_type(iterator, BTreeIterator);
 	hfsmp->hfc_stage = stage;
 	wakeup((caddr_t)&hfsmp->hfc_stage);
 	return (error);
@@ -1147,7 +1145,7 @@ int hfs_pin_overflow_extents (struct hfsmount *hfsmp, uint32_t fileid,
     uint32_t pinned_blocks = 0;
 
 
-    ext_iter = hfs_mallocz(sizeof (*ext_iter));
+    ext_iter = hfs_malloc_type(struct BTreeIterator);
 
     BTInvalidateHint (ext_iter);
     ext_key_ptr = (ExtentKey*)&ext_iter->key;
@@ -1215,7 +1213,7 @@ int hfs_pin_overflow_extents (struct hfsmount *hfsmp, uint32_t fileid,
     } // end extent-getting loop
 
     /* dump the iterator */
-    hfs_free(ext_iter, sizeof(*ext_iter));
+    hfs_free_type(ext_iter, struct BTreeIterator);
 
     if (error == 0) {
         /*
@@ -1569,7 +1567,7 @@ hfs_recording_init(struct hfsmount *hfsmp)
 		goto recording_init_out;
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	key = (HotFileKey*) &iterator->key;
 	key->keyLength = HFC_KEYLENGTH;
@@ -1762,7 +1760,7 @@ recording_init_out:
 #endif
 	
 	if (iterator)
-		hfs_free(iterator, sizeof(*iterator));
+		hfs_free_type(iterator, BTreeIterator);
 
 	if (hfsmp->hfc_filevp) {
 		if (hfsmp->hfs_flags & HFS_CS_HOTFILE_PIN) {
@@ -2082,7 +2080,7 @@ hfs_hotfile_deleted(__unused struct vnode *vp)
 		return 0;
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	key = (HotFileKey*) &iterator->key;
 
@@ -2113,7 +2111,7 @@ hfs_hotfile_deleted(__unused struct vnode *vp)
 	}
 
 	lck_mtx_unlock(&hfsmp->hfc_mutex);
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 
 	hfc_btree_close(hfsmp, hfsmp->hfc_filevp);
 	
@@ -2250,7 +2248,7 @@ hotfiles_refine(struct hfsmount *hfsmp)
 
 	mp = HFSTOVFS(hfsmp);
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	key = (HotFileKey*) &iterator->key;
 
@@ -2333,7 +2331,7 @@ out1:
 	hfs_end_transaction(hfsmp);
 out:
 	if (iterator)
-		hfs_free(iterator, sizeof(*iterator));	
+		hfs_free_type(iterator, BTreeIterator);
 	return (error);
 }
 
@@ -2378,7 +2376,7 @@ hotfiles_adopt(struct hfsmount *hfsmp)
 		return (EPERM);
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 #if HFC_VERBOSE
 		printf("hfs:%s: hotfiles_adopt: (hfl_next: %d, hotfile start/end block: %d - %d; max/free: %d/%d; maxfiles: %d)\n",
@@ -2730,7 +2728,7 @@ hotfiles_adopt(struct hfsmount *hfsmp)
 #endif
 		stage = HFC_IDLE;
 	}
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 
 	if (stage != HFC_ADOPTION && hfsmp->hfc_filevp) {
 		(void) hfc_btree_close(hfsmp, hfsmp->hfc_filevp);
@@ -2781,7 +2779,7 @@ hotfiles_evict(struct hfsmount *hfsmp, vfs_context_t ctx)
 		       hfsmp->hfs_hotfile_maxblks, hfsmp->hfs_hotfile_freeblks, hfsmp->hfc_maxfiles);
 #endif
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	stage = hfsmp->hfc_stage;
 	hfsmp->hfc_stage = HFC_BUSY;
@@ -2983,7 +2981,7 @@ next:
 		printf("hfs: hotfiles_evict: %d blocks free in hot file band\n", hfsmp->hfs_hotfile_freeblks);
 #endif
 	}
-	hfs_free(iterator, sizeof(*iterator));	
+	hfs_free_type(iterator, BTreeIterator);
 	hfsmp->hfc_stage = stage;
 	wakeup((caddr_t)&hfsmp->hfc_stage);
 	return (error);
@@ -3020,8 +3018,7 @@ hotfiles_age(struct hfsmount *hfsmp)
 		return 0;
 	}
 
-	iterator = hfs_mallocz(2 * sizeof(*iterator));
-
+	iterator = hfs_new(BTreeIterator, 2);
 	key = (HotFileKey*) &iterator->key;
 
 	prev_iterator = &iterator[1];
@@ -3150,7 +3147,7 @@ out1:
 	hfs_end_transaction(hfsmp);
 out2:
 	if (iterator)
-		hfs_free(iterator, 2 * sizeof(*iterator));
+		hfs_delete(iterator, BTreeIterator, 2);
 	return (error);
 }
 
@@ -3515,7 +3512,7 @@ hfc_btree_create(struct hfsmount *hfsmp, unsigned int nodesize, unsigned int ent
 		((FndrFileInfo *)&cp->c_finderinfo[0])->fdFlags |=
 			SWAP_BE16 (kIsInvisible + kNameLocked);
 
-		buffer = hfs_mallocz(nodesize);
+		buffer = hfs_malloc_zero_data(nodesize);
 		index = (u_int16_t *)buffer;
 	
 		entirespernode = (nodesize - sizeof(BTNodeDescriptor) - 2) /
@@ -3602,7 +3599,7 @@ hfc_btree_create(struct hfsmount *hfsmp, unsigned int nodesize, unsigned int ent
 
 			uio_free(auio);
 		}
-		hfs_free(buffer, nodesize);
+		hfs_free_data(buffer, nodesize);
 	}
 out:
 	hfs_end_transaction(hfsmp);

@@ -13,7 +13,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -32,7 +32,7 @@
 .\"     @(#)date.1	8.3 (Berkeley) 4/28/95
 .\" $FreeBSD$
 .\"
-.Dd May 7, 2015
+.Dd August 25, 2020
 .Dt DATE 1
 .Os
 .Sh NAME
@@ -40,7 +40,7 @@
 .Nd display or set date and time
 .Sh SYNOPSIS
 .Nm
-.Op Fl jRu
+.Op Fl jnRu
 .Op Fl r Ar seconds | Ar filename
 .Oo
 .Fl v
@@ -52,18 +52,22 @@
 .Ar ...
 .Op Cm + Ns Ar output_fmt
 .Nm
-.Op Fl jnu
+.Op Fl ju
 .Sm off
 .Op Oo Oo Ar mm Oc Ar dd Oc Ar HH
 .Ar MM Oo Oo Ar cc Oc Ar yy Oc Op Ar .ss
 .Sm on
 .Nm
-.Op Fl jnRu
+.Op Fl jRu
 .Fl f Ar input_fmt new_date
 .Op Cm + Ns Ar output_fmt
 .Nm
-.Op Fl d Ar dst
-.Op Fl t Ar minutes_west
+.Op Fl jnu
+.Op Fl I Ns Op Ar FMT
+.Op Fl f Ar input_fmt
+.Op Fl r Ar ...
+.Op Fl v Ar ...
+.Op Ar new_date
 .Sh DESCRIPTION
 When invoked without arguments, the
 .Nm
@@ -86,15 +90,6 @@ the time may not be changed by more than 1 second.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
-.It Fl d Ar dst
-Set the kernel's value for daylight saving time.
-If
-.Ar dst
-is non-zero, future calls
-to
-.Xr gettimeofday 2
-will return a non-zero for
-.Fa tz_dsttime .
 .It Fl f
 Use
 .Ar input_fmt
@@ -115,6 +110,33 @@ provided rather than using the default
 format.
 Parsing is done using
 .Xr strptime 3 .
+.It Fl I Ns Op Ar FMT
+Use
+.St -iso8601
+output format.
+.Ar FMT
+may be omitted, in which case the default is
+.Sq date .
+Valid
+.Ar FMT
+values are
+.Sq date ,
+.Sq hours ,
+.Sq minutes ,
+and
+.Sq seconds .
+The date and time is formatted to the specified precision.
+When
+.Ar FMT
+is
+.Sq hours
+(or the more precise
+.Sq minutes
+or
+.Sq seconds ) ,
+the
+.St -iso8601
+format includes the timezone.
 .It Fl j
 Do not try to set the date.
 This allows you to use the
@@ -122,18 +144,14 @@ This allows you to use the
 flag in addition to the
 .Cm +
 option to convert one date format to another.
+Note that any date or time components unspecified by the
+.Fl f
+format string take their values from the current time.
 .It Fl n
-By default, if the
-.Xr timed 8
-daemon is running,
-.Nm
-sets the time on all of the machines in the local group.
-The
-.Fl n
-option suppresses this behavior and causes the time to be set only on the
-current machine.
+Obsolete flag, accepted and ignored for compatibility.
 .It Fl R
-Use RFC 2822 date and time output format. This is equivalent to use
+Use RFC 2822 date and time output format.
+This is equivalent to using
 .Dq Li %a, %d %b %Y \&%T %z
 as
 .Ar output_fmt
@@ -155,14 +173,6 @@ and can be specified in decimal, octal, or hex.
 .It Fl r Ar filename
 Print the date and time of the last modification of
 .Ar filename .
-.It Fl t Ar minutes_west
-Set the system's value for minutes west of
-.Tn GMT .
-.Ar minutes_west
-specifies the number of minutes returned in
-.Fa tz_minuteswest
-by future calls to
-.Xr gettimeofday 2 .
 .It Fl u
 Display or set the date in
 .Tn UTC
@@ -297,8 +307,8 @@ Hour, a number from 0 to 23.
 .It Ar MM
 Minutes, a number from 0 to 59.
 .It Ar ss
-Seconds, a number from 0 to 61
-(59 plus a maximum of two leap seconds).
+Seconds, a number from 0 to 60
+(59 plus a potential leap second).
 .El
 .Pp
 Everything but the minutes is optional.
@@ -397,6 +407,14 @@ sets the time to
 .Li "2:32 PM" ,
 without modifying the date.
 .Pp
+The command
+.Pp
+.Dl "TZ=America/Los_Angeles date -Iseconds -r 1533415339"
+.Pp
+will display
+.Pp
+.Dl "2018-08-04T13:42:19-07:00"
+.Pp
 Finally the command:
 .Pp
 .Dl "date -j -f ""%a %b %d %T %Z %Y"" ""`date`"" ""+%s"""
@@ -405,22 +423,18 @@ can be used to parse the output from
 .Nm
 and express it in Epoch time.
 .Sh DIAGNOSTICS
-Occasionally, when
-.Xr timed 8
-synchronizes the time on many hosts, the setting of a new time value may
-require more than a few seconds.
-On these occasions,
+It is invalid to combine the
+.Fl I
+flag with either
+.Fl R
+or an output format
+.Dq ( + Ns ... )
+operand.
+If this occurs,
 .Nm
 prints:
-.Ql Network time being set .
-The message
-.Ql Communication error with timed
-occurs when the communication
-between
-.Nm
-and
-.Xr timed 8
-fails.
+.Ql multiple output formats specified
+and exits with an error status.
 .Sh LEGACY SYNOPSIS
 As above, except for the second line, which is:
 .Pp
@@ -430,16 +444,6 @@ As above, except for the second line, which is:
 .Op Oo Oo Oo Oo Ar cc Oc Ar yy Oc Ar mm Oc Ar dd Oc Ar HH
 .Ar MM Op Ar .ss
 .Sm on
-.Sh LEGACY DIAGNOSTICS
-When invoked in legacy mode, the following exit values are returned:
-.Bl -tag -width X -compact
-.It 0
-The date was written successfully
-.It 1
-Unable to set the date
-.It 2
-Able to set the local date, but unable to set it globally
-.El
 .Pp
 For more information about legacy mode, see
 .Xr compat 5 .
@@ -448,8 +452,7 @@ For more information about legacy mode, see
 .Xr gettimeofday 2 ,
 .Xr getutxent 3 ,
 .Xr strftime 3 ,
-.Xr strptime 3 ,
-.Xr timed 8
+.Xr strptime 3
 .Rs
 .%T "TSP: The Time Synchronization Protocol for UNIX 4.3BSD"
 .%A R. Gusella
@@ -461,12 +464,22 @@ The
 utility is expected to be compatible with
 .St -p1003.2 .
 The
-.Fl d , f , j , n , r , t ,
+.Fl d , f , I , j , r , t ,
 and
 .Fl v
 options are all extensions to the standard.
+.Pp
+The format selected by the
+.Fl I
+flag is compatible with
+.St -iso8601 .
 .Sh HISTORY
 A
 .Nm
 command appeared in
 .At v1 .
+.Pp
+The
+.Fl I
+flag was added in
+.Fx 12.0 .

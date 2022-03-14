@@ -100,16 +100,72 @@ eu{
             }
         }
         compound{
+            1024p1{"kibi{0}"}
+            1024p2{"mebi{0}"}
+            1024p3{"gibi{0}"}
+            1024p4{"tebi{0}"}
+            1024p5{"pebi{0}"}
+            1024p6{"exbi{0}"}
+            1024p7{"zebi{0}"}
+            1024p8{"yobe{0}"}
+            10p-1{"dezi{0}"}
+            10p-12{"piko{0}"}
+            10p-15{"femto{0}"}
+            10p-18{"atto{0}"}
+            10p-2{"zenti{0}"}
+            10p-21{"zepto{0}"}
+            10p-24{"jokto{0}"}
+            10p-3{"mili{0}"}
+            10p-6{"mikro{0}"}
+            10p-9{"nano{0}"}
+            10p1{"deka{0}"}
+            10p12{"tera{0}"}
+            10p15{"peta{0}"}
+            10p18{"exa{0}"}
+            10p2{"hekto{0}"}
+            10p21{"zetta{0}"}
+            10p24{"yotta{0}"}
+            10p3{"kilo{0}"}
+            10p6{"mega{0}"}
+            10p9{"giga{0}"}
             per{"{0}/{1}"}
+            power2{
+                one{
+                    _{
+                        _{"{0} karratu"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} karratu"}
+                    }
+                }
+            }
+            power3{
+                one{
+                    _{
+                        _{"{0} kubiko"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} kubiko"}
+                    }
+                }
+            }
             times{"{0}-{1}"}
         }
         concentr{
+            item{
+                one{"{0} elementu"}
+                other{"{0} elementu"}
+            }
             karat{
                 dnam{"kilateak"}
                 one{"{0} kilate"}
                 other{"{0} kilate"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"miligramo dezilitro bakoitzeko"}
                 one{"{0} miligramo dezilitro bakoitzeko"}
                 other{"{0} miligramo dezilitro bakoitzeko"}
@@ -599,9 +655,9 @@ eu{
                 per{"{0} kilogramo bakoitzeko"}
             }
             metric-ton{
-                dnam{"tonak"}
-                one{"{0} tona"}
-                other{"{0} tona"}
+                dnam{"tona metrikoak"}
+                one{"{0} tona metriko"}
+                other{"{0} tona metriko"}
             }
             microgram{
                 dnam{"mikrogramoak"}
@@ -1008,8 +1064,16 @@ eu{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
             per{"{0}/{1}"}
-            times{"{0}{1}"}
+            times{"{0}-{1}"}
         }
         concentr{
             percent{
@@ -1033,10 +1097,19 @@ eu{
             west{"{0} M"}
         }
         duration{
+            century{
+                one{"{0}m."}
+                other{"{0}m."}
+            }
             day{
                 dnam{"egun"}
                 one{"{0} e."}
                 other{"{0} e."}
+            }
+            decade{
+                dnam{"hamark."}
+                one{"{0} hamark."}
+                other{"{0} hamark."}
             }
             hour{
                 dnam{"ordu"}
@@ -1072,6 +1145,12 @@ eu{
                 dnam{"urte"}
                 one{"{0} u."}
                 other{"{0} u."}
+            }
+        }
+        energy{
+            therm-us{
+                one{"{0} US therm"}
+                other{"{0} US therms"}
             }
         }
         length{
@@ -1121,6 +1200,10 @@ eu{
             }
         }
         mass{
+            earth-mass{
+                one{"{0} M⊕"}
+                other{"{0} M⊕"}
+            }
             gram{
                 dnam{"gramo"}
                 one{"{0} g"}
@@ -1135,9 +1218,21 @@ eu{
                 one{"{0} oz"}
                 other{"{0} oz"}
             }
+            ounce-troy{
+                one{"{0} oz t"}
+                other{"{0} oz t"}
+            }
             pound{
                 one{"{0} lb"}
                 other{"{0} lb"}
+            }
+            solar-mass{
+                one{"{0} M☉"}
+                other{"{0} M☉"}
+            }
+            ton{
+                one{"{0}tn"}
+                other{"{0}tn"}
             }
         }
         power{
@@ -1155,6 +1250,10 @@ eu{
             }
         }
         pressure{
+            atmosphere{
+                one{"{0} atm"}
+                other{"{0} atm"}
+            }
             hectopascal{
                 one{"{0} hPa"}
                 other{"{0} hPa"}
@@ -1173,6 +1272,10 @@ eu{
                 dnam{"km/h"}
                 one{"{0} km/h"}
                 other{"{0} km/h"}
+            }
+            knot{
+                one{"{0}kn"}
+                other{"{0}kn"}
             }
             meter-per-second{
                 one{"{0} m/s"}
@@ -1194,7 +1297,17 @@ eu{
                 other{"{0}°F"}
             }
         }
+        torque{
+            pound-force-foot{
+                one{"{0} lbf⋅ft"}
+                other{"{0} lbf⋅ft"}
+            }
+        }
         volume{
+            acre-foot{
+                one{"{0}ac ft"}
+                other{"{0}ac ft"}
+            }
             cubic-kilometer{
                 one{"{0} km³"}
                 other{"{0} km³"}
@@ -1203,10 +1316,50 @@ eu{
                 one{"{0} mi³"}
                 other{"{0} mi³"}
             }
+            cup{
+                one{"{0}c"}
+                other{"{0}c"}
+            }
+            cup-metric{
+                one{"{0}mc"}
+                other{"{0}mc"}
+            }
+            dessert-spoon{
+                one{"{0}dsp"}
+                other{"{0}dsp"}
+            }
+            dessert-spoon-imperial{
+                one{"{0}dsp-Imp"}
+                other{"{0}dsp-Imp"}
+            }
+            fluid-ounce{
+                one{"{0}fl oz"}
+                other{"{0}fl oz"}
+            }
+            fluid-ounce-imperial{
+                one{"{0}fl oz Im"}
+                other{"{0}fl oz Im"}
+            }
             liter{
                 dnam{"litro"}
                 one{"{0} l"}
                 other{"{0} l"}
+            }
+            pint-metric{
+                one{"{0}mpt"}
+                other{"{0}mpt"}
+            }
+            quart{
+                one{"{0}qt"}
+                other{"{0}qt"}
+            }
+            tablespoon{
+                one{"{0}tbsp"}
+                other{"{0}tbsp"}
+            }
+            teaspoon{
+                one{"{0}tsp"}
+                other{"{0}tsp"}
             }
         }
     }
@@ -1303,16 +1456,29 @@ eu{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
             per{"{0}/{1}"}
-            times{"{0}{1}"}
+            times{"{0}-{1}"}
         }
         concentr{
+            item{
+                dnam{"elementua"}
+                one{"{0} elementu"}
+                other{"{0} elementu"}
+            }
             karat{
                 dnam{"kt"}
                 one{"{0} kt"}
                 other{"{0} kt"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dl"}
                 one{"{0} mg/dl"}
                 other{"{0} mg/dl"}
@@ -1334,8 +1500,6 @@ eu{
             }
             permillion{
                 dnam{"zati/milioi"}
-                one{"{0} ppm"}
-                other{"{0} ppm"}
             }
             permyriad{
                 one{"‱ {0}"}
@@ -1589,6 +1753,8 @@ eu{
         graphics{
             dot{
                 dnam{"puntua"}
+                one{"{0} puntu"}
+                other{"{0} ptu"}
             }
             dot-per-centimeter{
                 dnam{"dpcm"}
@@ -1683,9 +1849,9 @@ eu{
                 per{"{0}/m"}
             }
             micrometer{
-                dnam{"µm"}
-                one{"{0} µm"}
-                other{"{0} µm"}
+                dnam{"μm"}
+                one{"{0} μm"}
+                other{"{0} μm"}
             }
             mile{
                 dnam{"milia"}
@@ -1793,9 +1959,9 @@ eu{
                 other{"{0} t"}
             }
             microgram{
-                dnam{"µg"}
-                one{"{0} µg"}
-                other{"{0} µg"}
+                dnam{"μg"}
+                one{"{0} μg"}
+                other{"{0} μg"}
             }
             milligram{
                 dnam{"mg"}

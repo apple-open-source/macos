@@ -28,32 +28,41 @@
 #if ENABLE(CSS_TYPED_OM)
 
 #include "CSSStyleValue.h"
-#include <wtf/RefCounted.h>
+#include <variant>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+template<typename> class ExceptionOr;
+class CSSOMVariableReferenceValue;
+class CSSParserTokenRange;
+using CSSUnparsedSegment = std::variant<String, RefPtr<CSSOMVariableReferenceValue>>;
+
 class CSSUnparsedValue final : public CSSStyleValue {
     WTF_MAKE_ISO_ALLOCATED(CSSUnparsedValue);
 public:
-    static Ref<CSSUnparsedValue> create(const String& serializedValue)
-    {
-        return adoptRef(*new CSSUnparsedValue(serializedValue));
-    }
+    static Ref<CSSUnparsedValue> create(Vector<CSSUnparsedSegment>&&);
+    static Ref<CSSUnparsedValue> create(CSSParserTokenRange);
 
-    String toString() final { return m_serializedValue; }
+    String toString() const final;
+    void serialize(StringBuilder&) const;
+    size_t length() const { return m_segments.size(); }
+    
+    ExceptionOr<CSSUnparsedSegment> item(size_t);
+    ExceptionOr<CSSUnparsedSegment> setItem(size_t, CSSUnparsedSegment&&);
+
+    CSSStyleValueType getType() const final { return CSSStyleValueType::CSSUnparsedValue; }
 
 private:
-    explicit CSSUnparsedValue(const String& serializedValue)
-        : m_serializedValue(serializedValue)
-    {
-    }
-
-    bool isUnparsedValue() final { return true; }
-
-    String m_serializedValue;
+    explicit CSSUnparsedValue(Vector<CSSUnparsedSegment>&& segments);
+    
+    Vector<CSSUnparsedSegment> m_segments;
 };
 
 } // namespace WebCore
+
+SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::CSSUnparsedValue)
+    static bool isType(const WebCore::CSSStyleValue& styleValue) { return styleValue.getType() == WebCore::CSSStyleValueType::CSSUnparsedValue; }
+SPECIALIZE_TYPE_TRAITS_END()
 
 #endif

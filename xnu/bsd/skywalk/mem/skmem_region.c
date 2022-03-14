@@ -202,7 +202,7 @@ SYSCTL_UINT(_kern_skywalk_mem, OID_AUTO, region_update_interval,
 	(&(_skr)->skr_hash_table[SKMEM_REGION_HASH_INDEX((uintptr_t)_addr, \
 	    (_skr)->skr_hash_shift, (_skr)->skr_hash_mask)])
 
-static ZONE_DECLARE(skr_zone, SKMEM_ZONE_PREFIX ".mem.skr",
+static ZONE_DEFINE(skr_zone, SKMEM_ZONE_PREFIX ".mem.skr",
     sizeof(struct skmem_region), ZC_ZFREE_CLEARMEM);
 
 static unsigned int sg_size;                    /* size of zone element */

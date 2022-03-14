@@ -1,15 +1,17 @@
 import CoreData
 import Foundation
 
+private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "escrowrecords")
+
 extension Container {
 
     func onqueueCachedRecordsContainEgoPeerBottle(cachedRecords: [OTEscrowRecord]) -> Bool {
         guard let egoPeerID = self.containerMO.egoPeerID else {
-            os_log("onqueueCachedRecordsContainEgoPeerBottle: No identity.", log: tplogDebug, type: .default)
+            logger.debug("onqueueCachedRecordsContainEgoPeerBottle: No identity.")
             return false
         }
         guard let bottles: Set<BottleMO> = self.containerMO.bottles as? Set<BottleMO>  else {
-            os_log("onqueueCachedRecordsContainEgoPeerBottle: No Bottles.", log: tplogDebug, type: .default)
+            logger.debug("onqueueCachedRecordsContainEgoPeerBottle: No Bottles.")
             return false
         }
         var matchesCached: Bool = false
@@ -136,7 +138,7 @@ extension Container {
 
         escrowRecordMetadataMO.clientMetadata = escrowRecordClientMetadataMO
 
-        os_log("setEscrowRecord saving new escrow record: %@", log: tplogDebug, type: .default, escrowRecordMO)
+        logger.debug("setEscrowRecord saving new escrow record: \(escrowRecordMO, privacy: .public)")
         switch viability {
         case .full:
             self.containerMO.addToFullyViableEscrowRecords(escrowRecordMO)
@@ -193,7 +195,7 @@ extension Container {
     func fetchEscrowRecords(forceFetch: Bool, reply: @escaping ([Data]?, Error?) -> Void) {
         self.semaphore.wait()
         let reply: ([Data]?, Error?) -> Void = {
-            os_log("fetchEscrowRecords complete: %@", log: tplogTrace, type: .info, traceError($1))
+            logger.info("fetchEscrowRecords complete: \(traceError($1), privacy: .public)")
             self.semaphore.signal()
             reply($0, $1)
         }

@@ -24,6 +24,7 @@
 
 #include "Animation.h"
 #include "CSSKeyframeRule.h"
+#include "CSSPropertyAnimation.h"
 #include "RenderObject.h"
 #include "StyleResolver.h"
 
@@ -87,6 +88,8 @@ void KeyframeList::copyKeyframes(KeyframeList& other)
         KeyframeValue keyframeValue(keyframe.key(), RenderStyle::clonePtr(*keyframe.style()));
         for (auto propertyId : keyframe.properties())
             keyframeValue.addProperty(propertyId);
+        keyframeValue.setTimingFunction(keyframe.timingFunction());
+        keyframeValue.setCompositeOperation(keyframe.compositeOperation());
         insert(WTFMove(keyframeValue));
     }
 }
@@ -119,16 +122,25 @@ void KeyframeList::fillImplicitKeyframes(const Element& element, Style::Resolver
     auto initialSize = size();
     if (initialSize > 0 && m_keyframes[0].key()) {
         KeyframeValue keyframeValue(0, nullptr);
-        keyframeValue.setStyle(styleResolver.styleForKeyframe(element, elementStyle, parentElementStyle, &zeroPercentKeyframe(), keyframeValue));
+        keyframeValue.setStyle(styleResolver.styleForKeyframe(element, elementStyle, { parentElementStyle }, &zeroPercentKeyframe(), keyframeValue));
         insert(WTFMove(keyframeValue));
     }
 
     // If the 100% keyframe is missing, create it (but only if there is at least one other keyframe).
     if (initialSize > 0 && (m_keyframes[size() - 1].key() != 1)) {
         KeyframeValue keyframeValue(1, nullptr);
-        keyframeValue.setStyle(styleResolver.styleForKeyframe(element, elementStyle, parentElementStyle, &hundredPercentKeyframe(), keyframeValue));
+        keyframeValue.setStyle(styleResolver.styleForKeyframe(element, elementStyle, { parentElementStyle }, &hundredPercentKeyframe(), keyframeValue));
         insert(WTFMove(keyframeValue));
     }
+}
+
+bool KeyframeList::containsAnimatableProperty() const
+{
+    for (auto cssPropertyId : m_properties) {
+        if (CSSPropertyAnimation::isPropertyAnimatable(cssPropertyId))
+            return true;
+    }
+    return false;
 }
 
 } // namespace WebCore

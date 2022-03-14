@@ -107,6 +107,7 @@ private:
         return s_offset16TableSize;
     }
 
+
     using Offset32 = uint32_t;
     using Offset16 = uint16_t;
 

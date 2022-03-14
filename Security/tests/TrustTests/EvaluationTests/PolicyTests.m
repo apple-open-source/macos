@@ -965,4 +965,27 @@ exit:
     CFReleaseNull(dateOutsideRange);
 }
 
+- (void)testApplePayModelSigning
+{
+    id leaf = [self SecCertificateCreateFromResource:@"ApplePayModelSigning" subdirectory:(NSString *)kSecTrustTestPinningPolicyResources];
+    id intermediate = [self SecCertificateCreateFromResource:@"AppleSystemIntegrationCA4" subdirectory:(NSString *)kSecTrustTestPinningPolicyResources];
+    NSArray *certs = @[ leaf, intermediate];
+    SecPolicyRef noExpirationPolicy = SecPolicyCreateApplePayModelSigning(false);
+    SecPolicyRef expirationPolicy = SecPolicyCreateApplePayModelSigning(true);
+
+    TestTrustEvaluation *test = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)noExpirationPolicy]];
+    XCTAssert([test evaluate:nil]);
+
+    NSError *error = nil;
+    test = [[TestTrustEvaluation alloc] initWithCertificates:certs policies:@[(__bridge id)expirationPolicy]];
+    XCTAssertFalse([test evaluate:&error]);
+    XCTAssertNotNil(error);
+    XCTAssertEqual(error.code, errSecCertificateExpired);
+
+    CFBridgingRelease((__bridge SecCertificateRef)leaf);
+    CFBridgingRelease((__bridge SecCertificateRef)intermediate);
+    CFReleaseNull(noExpirationPolicy);
+    CFReleaseNull(expirationPolicy);
+}
+
 @end

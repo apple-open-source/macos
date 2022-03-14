@@ -118,13 +118,17 @@ int32_t xar_attr_set(xar_file_t f, const char *prop, const char *key, const char
 int32_t xar_attr_pset(xar_file_t f, xar_prop_t p, const char *key, const char *value);
 const char *xar_attr_get(xar_file_t f, const char *prop, const char *key);
 const char *xar_attr_pget(xar_file_t f, xar_prop_t p, const char *key);
+int xar_attr_equals_attr(xar_attr_t a1, xar_attr_t a2);
+int xar_attr_equals_attr_ignoring_keys(xar_attr_t a1, xar_attr_t a2, uint64_t key_count, char** keys_to_ignore);
 void xar_attr_free(xar_attr_t a);
 void xar_file_serialize(xar_file_t f, xmlTextWriterPtr writer);
 int xar_prop_serializable(xar_prop_t p);
 xar_file_t xar_file_unserialize(xar_t x, xar_file_t parent, xmlTextReaderPtr reader);
 xar_file_t xar_file_find(xar_file_t f, const char *path);
-xar_file_t xar_file_new(xar_file_t f);
+xar_file_t xar_file_new(const char *name);
+xar_file_t xar_file_new_from_parent(xar_file_t parent, const char *name);
 xar_file_t xar_file_replicate(xar_file_t original, xar_file_t newparent);
+int xar_file_equals_file(xar_file_t f1, xar_file_t f2);
 void xar_file_free(xar_file_t f);
 
 void xar_prop_serialize(xar_prop_t p, xmlTextWriterPtr writer);
@@ -141,5 +145,6 @@ int32_t xar_prop_setvalue(xar_prop_t p, const char *value);
 xar_prop_t xar_prop_pfirst(xar_file_t f);
 xar_prop_t xar_prop_pnext(xar_prop_t p);
 void xar_prop_punset(xar_file_t f, xar_prop_t p);
+int xar_prop_equals_prop(xar_prop_t prop1, xar_prop_t prop2);
 
 #endif /* _XAR_FILETREE_H_ */

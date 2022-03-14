@@ -43,15 +43,20 @@ public:
     ExceptionOr<void> showModal();
     void close(const String&);
 
-    void cancel();
-
     bool isModal() const { return m_isModal; };
+
+    void queueCancelTask();
+
+    void runFocusingSteps();
 
 private:
     HTMLDialogElement(const QualifiedName&, Document&);
 
+    void removedFromAncestor(RemovalType, ContainerNode& oldParentOfRemovedTree) final;
+
     String m_returnValue;
     bool m_isModal { false };
+    WeakPtr<Element> m_previouslyFocusedElement;
 };
 
 } // namespace WebCore

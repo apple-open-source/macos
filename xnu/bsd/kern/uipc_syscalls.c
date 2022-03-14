@@ -1291,6 +1291,10 @@ sendit(struct proc *p, struct socket *so, struct user_msghdr *mp, uio_t uiop,
 	if (to != NULL &&
 	    !(so->so_state & SS_DEFUNCT) &&
 	    (error = mac_socket_check_send(kauth_cred_get(), so, to)) != 0) {
+		if (control != NULL) {
+			m_freem(control);
+		}
+
 		goto bad;
 	}
 #endif /* MAC_SOCKET_SUBSET */

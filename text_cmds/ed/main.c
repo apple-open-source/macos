@@ -34,6 +34,9 @@ static const char copyright[] =
 #endif
 #endif /* not lint */
 
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
+
 /*
  * CREDITS
  *
@@ -43,10 +46,6 @@ static const char copyright[] =
  *
  *	The buffering algorithm is attributed to Rodney Ruddock of
  *	the University of Guelph, Guelph, Ontario.
- *
- *	The cbc.c encryption code is adapted from
- *	the bdes program by Matt Bishop of Dartmouth College,
- *	Hanover, NH.
  *
  */
 
@@ -69,58 +68,52 @@ static const char copyright[] =
 
 
 #ifdef _POSIX_SOURCE
-sigjmp_buf env;
+static sigjmp_buf env;
 #else
-jmp_buf env;
+static jmp_buf env;
 #endif
 
 /* static buffers */
 char stdinbuf[1];		/* stdin buffer */
-char *shcmd;			/* shell command buffer */
-int shcmdsz;			/* shell command buffer size */
-int shcmdi;			/* shell command buffer index */
+static char *shcmd;		/* shell command buffer */
+static int shcmdsz;		/* shell command buffer size */
+static int shcmdi;		/* shell command buffer index */
 char *ibuf;			/* ed command-line buffer */
 int ibufsz;			/* ed command-line buffer size */
 char *ibufp;			/* pointer to ed command-line buffer */
 
 /* global flags */
-int des = 0;			/* if set, use crypt(3) for i/o */
-int garrulous = 0;		/* if set, print all error messages */
+static int garrulous = 0;	/* if set, print all error messages */
 int isbinary;			/* if set, buffer contains ASCII NULs */
 int isglobal;			/* if set, doing a global command */
 int modified;			/* if set, buffer modified since last write */
 int mutex = 0;			/* if set, signals set "sigflags" */
-int red = 0;			/* if set, restrict shell/directory access */
+static int red = 0;		/* if set, restrict shell/directory access */
 int scripted = 0;		/* if set, suppress diagnostics */
 int sigflags = 0;		/* if set, signals received while mutex set */
-int sigactive = 0;		/* if set, signal handlers are enabled */
-int posixly_correct = 0;	/* if set, POSIX behavior as per */
+static int sigactive = 0;	/* if set, signal handlers are enabled */
+static int unix2003_compat = 0;	/* if set, POSIX behavior as per */
 /* http://www.opengroup.org/onlinepubs/009695399/utilities/ed.html */
 
-char old_filename[PATH_MAX + 1] = "";	/* default filename */
+static char old_filename[PATH_MAX + 1] = "";	/* default filename */
 long current_addr;		/* current address in editor buffer */
 long addr_last;			/* last address in editor buffer */
 int lineno;			/* script line number */
-const char *prompt;		/* command-line prompt */
-const char *dps = "*";		/* default command-line prompt */
+static const char *prompt;	/* command-line prompt */
+static const char *dps = "*";	/* default command-line prompt */
 
-const char usage[] = "usage: %s [-] [-sx] [-p string] [file]\n";
+static const char *usage = "usage: %s [-] [-sx] [-p string] [file]\n";
 
 /* ed: line editor */
 int
-main(int argc, char *argv[])
+main(volatile int argc, char ** volatile argv)
 {
 	int c, n;
 	long status = 0;
-#if __GNUC__
-	/* Avoid longjmp clobbering */
-	(void) &argc;
-	(void) &argv;
-#endif
 
 	(void)setlocale(LC_ALL, "");
 
-	posixly_correct = COMPAT_MODE("bin/ed", "Unix2003");
+	unix2003_compat = COMPAT_MODE("bin/ed", "Unix2003");
 
 	red = argv[0]!=NULL && (n = strlen(argv[0])) > 2 && argv[0][n - 3] == 'r';
 top:
@@ -133,11 +126,7 @@ top:
 			scripted = 1;
 			break;
 		case 'x':				/* use crypt */
-#ifdef DES
-			des = get_keyword();
-#else
 			fprintf(stderr, "crypt unavailable\n?\n");
-#endif
 			break;
 
 		default:
@@ -208,9 +197,10 @@ top:
 				fputs("?\n", stderr);
 				errmsg = "warning: file modified";
 				if (!isatty(0)) {
-					fprintf(stderr, garrulous ?
-					    "script, line %d: %s\n" :
-					    "", lineno, errmsg);
+					if (garrulous)
+						fprintf(stderr,
+						    "script, line %d: %s\n",
+						    lineno, errmsg);
 					quit(2);
 				}
 				clearerr(stdin);
@@ -241,27 +231,26 @@ top:
 			fputs("?\n", stderr);		/* give warning */
 			errmsg = "warning: file modified";
 			if (!isatty(0)) {
-				fprintf(stderr, garrulous ?
-				    "script, line %d: %s\n" :
-				    "", lineno, errmsg);
+				if (garrulous)
+					fprintf(stderr, "script, line %d: %s\n",
+					    lineno, errmsg);
 				quit(2);
 			}
 			break;
 		case FATAL:
-			if (!isatty(0))
-				fprintf(stderr, garrulous ?
-				    "script, line %d: %s\n" : "",
-				    lineno, errmsg);
-			else
-				fprintf(stderr, garrulous ? "%s\n" : "",
-				    errmsg);
+			if (!isatty(0)) {
+				if (garrulous)
+					fprintf(stderr, "script, line %d: %s\n",
+					    lineno, errmsg);
+			} else if (garrulous)
+				fprintf(stderr, "%s\n", errmsg);
 			quit(3);
 		default:
 			fputs("?\n", stdout);
 			if (!isatty(0)) {
-				fprintf(stderr, garrulous ?
-				    "script, line %d: %s\n" : "",
-				    lineno, errmsg);
+				if (garrulous)
+					fprintf(stderr, "script, line %d: %s\n",
+					    lineno, errmsg);
 				quit(2);
 			}
 			break;
@@ -270,7 +259,8 @@ top:
 	/*NOTREACHED*/
 }
 
-long first_addr, second_addr, addr_cnt;
+long first_addr, second_addr;
+static long addr_cnt;
 
 /* extract_addr_range: get line addresses from the command buffer until an
    illegal address is seen; return status */
@@ -303,7 +293,7 @@ extract_addr_range(void)
 		errmsg = "invalid address";			\
 		return ERR;					\
 	}							\
-} while (0);
+} while (0)
 
 /*  next_addr: return the next line address in the command buffer */
 long
@@ -372,7 +362,8 @@ next_addr(void)
 				ibufp++;
 				addr_cnt++;
 				second_addr = (c == ';') ? current_addr : 1;
-				addr = addr_last;
+				if ((addr = next_addr()) < 0)
+					addr = addr_last;
 				break;
 			}
 			/* FALLTHROUGH */
@@ -389,6 +380,7 @@ next_addr(void)
 }
 
 
+#ifdef BACKWARDS
 /* GET_THIRD_ADDR: get a legal address from the command buffer */
 #define GET_THIRD_ADDR(addr) \
 { \
@@ -397,7 +389,7 @@ next_addr(void)
 	ol1 = first_addr, ol2 = second_addr; \
 	if (extract_addr_range() < 0) \
 		return ERR; \
-	else if (!posixly_correct && addr_cnt == 0) { \
+	else if (addr_cnt == 0) { \
 		errmsg = "destination expected"; \
 		return ERR; \
 	} else if (second_addr < 0 || addr_last < second_addr) { \
@@ -407,6 +399,23 @@ next_addr(void)
 	addr = second_addr; \
 	first_addr = ol1, second_addr = ol2; \
 }
+#else	/* BACKWARDS */
+/* GET_THIRD_ADDR: get a legal address from the command buffer */
+#define GET_THIRD_ADDR(addr) \
+{ \
+	long ol1, ol2; \
+\
+	ol1 = first_addr, ol2 = second_addr; \
+	if (extract_addr_range() < 0) \
+		return ERR; \
+	if (second_addr < 0 || addr_last < second_addr) { \
+		errmsg = "invalid address"; \
+		return ERR; \
+	} \
+	addr = second_addr; \
+	first_addr = ol1, second_addr = ol2; \
+}
+#endif
 
 
 /* GET_COMMAND_SUFFIX: verify the command suffix in the command buffer */
@@ -516,18 +525,19 @@ exec_command(void)
 		else if (open_sbuf() < 0)
 			return FATAL;
 		if (*fnp && *fnp != '!') {
-			if (strlen(fnp) < sizeof(old_filename)) {
-				strcpy(old_filename, fnp);
-			} else {
+			if (strlcpy(old_filename, fnp, sizeof(old_filename)) >=
+			    sizeof(old_filename)) {
 				fprintf(stderr, "%s: filename too long\n", fnp);
 				quit(2);
 			}
 		}
 
-		if (!posixly_correct && *fnp == '\0' && *old_filename == '\0') {
+#ifdef BACKWARDS
+		if (*fnp == '\0' && *old_filename == '\0') {
 			errmsg = "no current filename";
 			return ERR;
 		}
+#endif
 		if (read_file(*fnp ? fnp : old_filename, 0) < 0)
 			return ERR;
 		clear_undo_stack();
@@ -549,9 +559,8 @@ exec_command(void)
 		}
 		GET_COMMAND_SUFFIX();
 		if (*fnp) {
-			if (strlen(fnp) < sizeof(old_filename)) {
-				strcpy(old_filename, fnp);
-			} else {
+			if (strlcpy(old_filename, fnp, sizeof(old_filename)) >=
+			    sizeof(old_filename)) {
 				fprintf(stderr, "%s: filename too long\n", fnp);
 				quit(2);
 			}
@@ -690,17 +699,18 @@ exec_command(void)
 		GET_COMMAND_SUFFIX();
 		if (!isglobal) clear_undo_stack();
 		if (*old_filename == '\0' && *fnp != '!') {
-			if (strlen(fnp) < sizeof(old_filename)) {
-				strcpy(old_filename, fnp);
-			} else {
+			if (strlcpy(old_filename, fnp, sizeof(old_filename)) >=
+			    sizeof(old_filename)) {
 				fprintf(stderr, "%s: filename too long\n", fnp);
 				quit(2);
 			}
 		}
-		if (!posixly_correct && *fnp == '\0' && *old_filename == '\0') {
+#ifdef BACKWARDS
+		if (*fnp == '\0' && *old_filename == '\0') {
 			errmsg = "no current filename";
 			return ERR;
 		}
+#endif
 		if ((addr = read_file(*fnp ? fnp : old_filename, second_addr)) < 0)
 			return ERR;
 		else if (addr && addr != addr_last)
@@ -711,7 +721,7 @@ exec_command(void)
 		 * POSIX requires ed to process srabcr123r as
 		 * replace abc with 123 delimiter='r'
 		 */
-		if (!posixly_correct) do {
+		if (!unix2003_compat) do {
 			switch(*ibufp) {
 			case '\n':
 				sflags |=SGF;
@@ -832,21 +842,22 @@ exec_command(void)
 			return ERR;
 		GET_COMMAND_SUFFIX();
 		if (*old_filename == '\0' && *fnp != '!') {
-			if  (strlen(fnp) < sizeof(old_filename)) {
-				strcpy(old_filename, fnp);
-			} else {
+			if (strlcpy(old_filename, fnp, sizeof(old_filename)) >=
+			    sizeof(old_filename)) {
 				fprintf(stderr, "%s: filename too long\n", fnp);
 				quit(2);
 			}
 		}
-		if (!posixly_correct && *fnp == '\0' && *old_filename == '\0') {
+#ifdef BACKWARDS
+		if (*fnp == '\0' && *old_filename == '\0') {
 			errmsg = "no current filename";
 			return ERR;
 		}
+#endif
 		if ((addr = write_file(*fnp ? fnp : old_filename,
 		    (c == 'W') ? "a" : "w", first_addr, second_addr)) < 0)
 			return ERR;
-		else if (addr == addr_last)
+		else if (addr == addr_last && *fnp != '!')
 			modified = 0;
 		else if (modified && !scripted && n == 'q')
 			gflag = EMOD;
@@ -857,15 +868,14 @@ exec_command(void)
 			return ERR;
 		}
 		GET_COMMAND_SUFFIX();
-#ifdef DES
-		des = get_keyword();
-		break;
-#else
 		errmsg = "crypt unavailable";
 		return ERR;
-#endif
 	case 'z':
-		if (check_addr_range(first_addr = 1, current_addr + (posixly_correct ? !isglobal : 1)) < 0)
+#ifdef BACKWARDS
+		if (check_addr_range(first_addr = 1, current_addr + 1) < 0)
+#else
+		if (check_addr_range(first_addr = 1, current_addr + !isglobal) < 0)
+#endif
 			return ERR;
 		else if ('0' < *ibufp && *ibufp <= '9')
 			STRTOL(rows, ibufp);
@@ -892,7 +902,11 @@ exec_command(void)
 		if (!scripted) printf("!\n");
 		break;
 	case '\n':
-		if (check_addr_range(first_addr = 1, current_addr + (posixly_correct ? !isglobal : 1)) < 0
+#ifdef BACKWARDS
+		if (check_addr_range(first_addr = 1, current_addr + 1) < 0
+#else
+		if (check_addr_range(first_addr = 1, current_addr + !isglobal) < 0
+#endif
 		 || display_lines(second_addr, second_addr, 0) < 0)
 			return ERR;
 		break;
@@ -976,10 +990,12 @@ get_filename(void)
 			return  NULL;
 		}
 	}
-	else if (posixly_correct && *old_filename == '\0') {
+#ifndef BACKWARDS
+	else if (*old_filename == '\0') {
 		errmsg = "no current filename";
 		return  NULL;
 	}
+#endif
 	REALLOC(file, filesz, PATH_MAX + 1, NULL);
 	for (n = 0; *ibufp != '\n';)
 		file[n++] = *ibufp++;
@@ -1020,7 +1036,11 @@ get_shell_command(void)
 				REALLOC(buf, n, i + 1, ERR);
 				buf[i++] = *ibufp++;
 			}
-			else if (shcmd == NULL || (!posixly_correct && *(shcmd + 1) == '\0'))
+#ifdef BACKWARDS
+			else if (shcmd == NULL || *(shcmd + 1) == '\0')
+#else
+			else if (shcmd == NULL)
+#endif
 			{
 				errmsg = "no previous command";
 				return ERR;
@@ -1270,8 +1290,8 @@ display_lines(long from, long to, int gflag)
 
 #define MAXMARK 26			/* max number of marks */
 
-line_t	*mark[MAXMARK];			/* line markers */
-int markno;				/* line marker count */
+static line_t *mark[MAXMARK];		/* line markers */
+static int markno;			/* line marker count */
 
 /* mark_line_node: set a line node mark */
 int
@@ -1392,7 +1412,7 @@ handle_hup(int signo)
 	char *hup = NULL;		/* hup filename */
 	char *s;
 	char ed_hup[] = "ed.hup";
-	int n;
+	size_t n;
 
 	if (!sigactive)
 		quit(1);

@@ -691,7 +691,6 @@ static void __DAStageProbeCallback( int             status,
         
         if ( ( DAUnitGetState( disk, _kDAUnitStateHasAPFS ) ) && ( cleanStatus >= EX__BASE ) )
         {
-            DALogDebug( "Ignoring FSCK failure with error code %d for id %@ since it does not indicate EDIRTY" , cleanStatus, disk );
             clean = kCFBooleanTrue;
         }
 ///w:stop

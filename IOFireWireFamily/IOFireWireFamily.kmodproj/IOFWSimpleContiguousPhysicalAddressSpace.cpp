@@ -97,7 +97,7 @@ bool IOFWSimpleContiguousPhysicalAddressSpace::createMemberVariables( void )
 		
 		if( success )
 		{
-			fSimpleContigPhysSpaceMembers = IOMalloc( sizeof(MemberVariables) );
+			fSimpleContigPhysSpaceMembers = IOMallocType( MemberVariables );
 			if( fSimpleContigPhysSpaceMembers == NULL )
 				success = false;
 		}
@@ -106,8 +106,6 @@ bool IOFWSimpleContiguousPhysicalAddressSpace::createMemberVariables( void )
 		
 		if( success )
 		{
-			bzero( fSimpleContigPhysSpaceMembers, sizeof(MemberVariables) );
-			
 			// largely redundant
 			_members->fFWPhysicalAddress.nodeID = 0x0000;
 			_members->fFWPhysicalAddress.addressHi = 0x0000;
@@ -135,8 +133,7 @@ void IOFWSimpleContiguousPhysicalAddressSpace::destroyMemberVariables( void )
 	
 	if( fSimpleContigPhysSpaceMembers != NULL )
 	{
-		IOFree( fSimpleContigPhysSpaceMembers, sizeof(MemberVariables) );
-		fSimpleContigPhysSpaceMembers = NULL;
+		IOFreeType( fSimpleContigPhysSpaceMembers, MemberVariables );
 	}
 }
 

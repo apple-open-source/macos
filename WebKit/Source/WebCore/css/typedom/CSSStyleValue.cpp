@@ -32,11 +32,64 @@
 
 #if ENABLE(CSS_TYPED_OM)
 
+#include "CSSParser.h"
+#include "CSSPropertyParser.h"
+#include "CSSStyleValueFactory.h"
+#include "CSSUnitValue.h"
+#include "CSSValueList.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/text/StringView.h>
 
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(CSSStyleValue);
+
+ExceptionOr<Ref<CSSStyleValue>> CSSStyleValue::parse(const String& property, const String& cssText)
+{
+    constexpr bool parseMultiple = false;
+    auto parseResult = CSSStyleValueFactory::parseStyleValue(property, cssText, parseMultiple);
+    if (parseResult.hasException())
+        return parseResult.releaseException();
+    
+    auto returnValue = parseResult.releaseReturnValue();
+    
+    // Returned vector should not be empty. If parsing failed, an exception should be returned.
+    if (returnValue.isEmpty())
+        return Exception { SyntaxError, makeString(cssText, " cannot be parsed as a ", property) };
+
+    return WTFMove(returnValue.at(0));
+}
+
+ExceptionOr<Vector<Ref<CSSStyleValue>>> CSSStyleValue::parseAll(const String& property, const String& cssText)
+{
+    constexpr bool parseMultiple = true;
+    return CSSStyleValueFactory::parseStyleValue(property, cssText, parseMultiple);
+}
+
+Ref<CSSStyleValue> CSSStyleValue::create(RefPtr<CSSValue>&& cssValue, String&& property)
+{
+    return adoptRef(*new CSSStyleValue(WTFMove(cssValue), WTFMove(property)));
+}
+
+Ref<CSSStyleValue> CSSStyleValue::create()
+{
+    return adoptRef(*new CSSStyleValue());
+}
+
+CSSStyleValue::CSSStyleValue(RefPtr<CSSValue>&& cssValue, String&& property)
+    : m_customPropertyName(WTFMove(property))
+    , m_propertyValue(WTFMove(cssValue))
+{
+}
+
+
+String CSSStyleValue::toString() const
+{
+    if (!m_propertyValue)
+        return emptyString();
+    
+    return m_propertyValue->cssText();
+}
 
 } // namespace WebCore
 

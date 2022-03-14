@@ -36,9 +36,9 @@ namespace LayoutIntegration {
 class Line {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    Line(size_t firstRunIndex, size_t runCount, const FloatRect& lineBoxRect, float enclosingContentTop, float enclosingContentBottom, const FloatRect& scrollableOverflow, const FloatRect& inkOverflow, float baseline, float contentLeft, float contentWidth)
-        : m_firstRunIndex(firstRunIndex)
-        , m_runCount(runCount)
+    Line(size_t firstBoxIndex, size_t boxCount, const FloatRect& lineBoxRect, float enclosingContentTop, float enclosingContentBottom, const FloatRect& scrollableOverflow, const FloatRect& inkOverflow, float baseline, float contentLeft, float contentWidth)
+        : m_firstBoxIndex(firstBoxIndex)
+        , m_boxCount(boxCount)
         , m_lineBoxRect(lineBoxRect)
         , m_enclosingContentTop(enclosingContentTop)
         , m_enclosingContentBottom(enclosingContentBottom)
@@ -50,8 +50,8 @@ public:
     {
     }
 
-    size_t firstRunIndex() const { return m_firstRunIndex; }
-    size_t runCount() const { return m_runCount; }
+    size_t firstBoxIndex() const { return m_firstBoxIndex; }
+    size_t boxCount() const { return m_boxCount; }
 
     float lineBoxTop() const { return m_lineBoxRect.y(); }
     float lineBoxBottom() const { return m_lineBoxRect.maxY(); }
@@ -70,8 +70,8 @@ public:
     float contentWidth() const { return m_contentWidth; }
 
 private:
-    size_t m_firstRunIndex { 0 };
-    size_t m_runCount { 0 };
+    size_t m_firstBoxIndex { 0 };
+    size_t m_boxCount { 0 };
     // This is line box geometry (see https://www.w3.org/TR/css-inline-3/#line-box).
     FloatRect m_lineBoxRect;
     // Enclosing top and bottom includes all inline level boxes (border box) vertically.
@@ -84,32 +84,6 @@ private:
     float m_baseline { 0 };
     float m_contentLeft { 0 };
     float m_contentWidth { 0 };
-};
-
-class NonRootInlineBox {
-public:
-    NonRootInlineBox(size_t lineIndex, const Layout::Box& layoutBox, const FloatRect& rect, bool canContributeToLineOverflow)
-        : m_lineIndex(lineIndex)
-        , m_layoutBox(makeWeakPtr(layoutBox))
-        , m_rect(rect)
-        , m_canContributeToLineOverflow(canContributeToLineOverflow)
-    {
-    }
-
-    const Layout::Box& layoutBox() const { return *m_layoutBox; }
-    const RenderStyle& style() const { return m_layoutBox->style(); }
-
-    size_t lineIndex() const { return m_lineIndex; }
-
-    FloatRect rect() const { return m_rect; }
-
-    bool canContributeToLineOverflow() const { return m_canContributeToLineOverflow; }
-
-private:
-    const size_t m_lineIndex;
-    WeakPtr<const Layout::Box> m_layoutBox;
-    FloatRect m_rect;
-    bool m_canContributeToLineOverflow { false };
 };
 
 }

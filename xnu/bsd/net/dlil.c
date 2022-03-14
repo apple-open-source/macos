@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -151,7 +151,6 @@
 
 #define MAX_FRAME_TYPE_SIZE 4 /* LONGWORDS */
 #define MAX_LINKADDR        4 /* LONGWORDS */
-#define M_NKE M_IFADDR
 
 #if 1
 #define DLIL_PRINTF     printf
@@ -305,13 +304,13 @@ static unsigned int dlif_bufsize;       /* size of dlif_size + headroom */
 static struct zone *dlif_zone;          /* zone for dlil_ifnet */
 #define DLIF_ZONE_NAME          "ifnet"         /* zone name */
 
-static ZONE_DECLARE(dlif_filt_zone, "ifnet_filter",
+static ZONE_DEFINE(dlif_filt_zone, "ifnet_filter",
     sizeof(struct ifnet_filter), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(dlif_phash_zone, "ifnet_proto_hash",
+static ZONE_DEFINE(dlif_phash_zone, "ifnet_proto_hash",
     sizeof(struct proto_hash_entry) * PROTO_HASH_SLOTS, ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(dlif_proto_zone, "ifnet_proto",
+static ZONE_DEFINE(dlif_proto_zone, "ifnet_proto",
     sizeof(struct if_proto), ZC_ZFREE_CLEARMEM);
 
 static unsigned int dlif_tcpstat_size;  /* size of tcpstat_local to allocate */
@@ -519,7 +518,7 @@ RB_HEAD(ifnet_fc_tree, ifnet_fc_entry) ifnet_fc_tree;
 RB_PROTOTYPE(ifnet_fc_tree, ifnet_fc_entry, ifce_entry, ifce_cmp);
 RB_GENERATE(ifnet_fc_tree, ifnet_fc_entry, ifce_entry, ifce_cmp);
 
-static ZONE_DECLARE(ifnet_fc_zone, "ifnet_fc_zone",
+static ZONE_DEFINE(ifnet_fc_zone, "ifnet_fc_zone",
     sizeof(struct ifnet_fc_entry), ZC_ZFREE_CLEARMEM);
 
 extern void bpfdetach(struct ifnet *);
@@ -1182,6 +1181,7 @@ dlil_is_native_netif_nexus(ifnet_t ifp)
 	return (ifp->if_eflags & IFEF_SKYWALK_NATIVE) && ifp->if_na != NULL;
 }
 
+__attribute__((noinline))
 static void
 dlil_detach_netif_nexus(if_nexus_netif_t nexus_netif)
 {
@@ -1433,11 +1433,44 @@ dlil_attach_flowswitch_nexus(ifnet_t ifp)
 	return attached;
 }
 
+__attribute__((noinline))
 static void
 dlil_detach_flowswitch_nexus(if_nexus_flowswitch_t nexus_fsw)
 {
 	dlil_detach_nexus(__func__, nexus_fsw->if_fsw_provider,
 	    nexus_fsw->if_fsw_instance, nexus_fsw->if_fsw_device);
+}
+
+__attribute__((noinline))
+static void
+dlil_quiesce_and_detach_nexuses(ifnet_t ifp)
+{
+	if_nexus_flowswitch *nx_fsw = &ifp->if_nx_flowswitch;
+	if_nexus_netif *nx_netif = &ifp->if_nx_netif;
+
+	ifnet_datamov_suspend_and_drain(ifp);
+	if (!uuid_is_null(nx_fsw->if_fsw_device)) {
+		ASSERT(!uuid_is_null(nx_fsw->if_fsw_provider));
+		ASSERT(!uuid_is_null(nx_fsw->if_fsw_instance));
+		dlil_detach_flowswitch_nexus(nx_fsw);
+		bzero(nx_fsw, sizeof(*nx_fsw));
+	} else {
+		ASSERT(uuid_is_null(nx_fsw->if_fsw_provider));
+		ASSERT(uuid_is_null(nx_fsw->if_fsw_instance));
+		DTRACE_IP1(fsw__not__attached, ifnet_t, ifp);
+	}
+
+	if (!uuid_is_null(nx_netif->if_nif_attach)) {
+		ASSERT(!uuid_is_null(nx_netif->if_nif_provider));
+		ASSERT(!uuid_is_null(nx_netif->if_nif_instance));
+		dlil_detach_netif_nexus(nx_netif);
+		bzero(nx_netif, sizeof(*nx_netif));
+	} else {
+		ASSERT(uuid_is_null(nx_netif->if_nif_provider));
+		ASSERT(uuid_is_null(nx_netif->if_nif_instance));
+		DTRACE_IP1(netif__not__attached, ifnet_t, ifp);
+	}
+	ifnet_datamov_resume(ifp);
 }
 
 boolean_t
@@ -1687,7 +1720,7 @@ if_proto_free(struct if_proto *proto)
 
 	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_PROTO_DETACHED,
 	    (struct net_event_data *)&ev_pr_data,
-	    sizeof(struct kev_dl_proto_data));
+	    sizeof(struct kev_dl_proto_data), FALSE);
 
 	if (ev_pr_data.proto_remaining_count == 0) {
 		/*
@@ -1872,7 +1905,7 @@ if_free_protolist(u_int32_t *list)
 __private_extern__ int
 dlil_post_msg(struct ifnet *ifp, u_int32_t event_subclass,
     u_int32_t event_code, struct net_event_data *event_data,
-    u_int32_t event_data_len)
+    u_int32_t event_data_len, boolean_t suppress_generation)
 {
 	struct net_event_data ev_data;
 	struct kev_msg ev_msg;
@@ -1908,14 +1941,24 @@ dlil_post_msg(struct ifnet *ifp, u_int32_t event_subclass,
 		switch (event_code) {
 		case KEV_DL_LINK_QUALITY_METRIC_CHANGED:
 		case KEV_DL_RRC_STATE_CHANGED:
-		case KEV_DL_NODE_PRESENCE:
-		case KEV_DL_NODE_ABSENCE:
 		case KEV_DL_PRIMARY_ELECTED:
 			update_generation = false;
 			break;
 		default:
 			break;
 		}
+	}
+
+	/*
+	 * Some events that update generation counts might
+	 * want to suppress generation count.
+	 * One example is node presence/absence where we still
+	 * issue kernel event for the invocation but want to avoid
+	 * expensive operation of updating generation which triggers
+	 * NECP client updates.
+	 */
+	if (suppress_generation) {
+		update_generation = false;
 	}
 
 	return dlil_event_internal(ifp, &ev_msg, update_generation);
@@ -6162,10 +6205,9 @@ dlil_event_internal(struct ifnet *ifp, struct kev_msg *event, bool update_genera
 	struct ifnet_filter *filter = NULL;
 	struct if_proto *proto = NULL;
 	int if_proto_count = 0;
-	struct if_proto **tmp_ifproto_arr = NULL;
 	struct if_proto *tmp_ifproto_stack_arr[TMP_IF_PROTO_ARR_SIZE] = {NULL};
+	struct if_proto **tmp_ifproto_arr = tmp_ifproto_stack_arr;
 	int tmp_ifproto_arr_idx = 0;
-	bool tmp_malloc = false;
 
 	/*
 	 * Pass the event to the interface filters
@@ -6205,14 +6247,12 @@ dlil_event_internal(struct ifnet *ifp, struct kev_msg *event, bool update_genera
 		if (if_proto_count <= TMP_IF_PROTO_ARR_SIZE) {
 			tmp_ifproto_arr = tmp_ifproto_stack_arr;
 		} else {
-			MALLOC(tmp_ifproto_arr, struct if_proto **,
-			    sizeof(*tmp_ifproto_arr) * if_proto_count,
-			    M_TEMP, M_ZERO);
+			tmp_ifproto_arr = kalloc_type(struct if_proto *,
+			    if_proto_count, Z_WAITOK | Z_ZERO);
 			if (tmp_ifproto_arr == NULL) {
 				ifnet_lock_done(ifp);
 				goto cleanup;
 			}
-			tmp_malloc = true;
 		}
 
 		for (i = 0; i < PROTO_HASH_SLOTS; i++) {
@@ -6244,8 +6284,8 @@ dlil_event_internal(struct ifnet *ifp, struct kev_msg *event, bool update_genera
 	}
 
 cleanup:
-	if (tmp_malloc) {
-		FREE(tmp_ifproto_arr, M_TEMP);
+	if (tmp_ifproto_arr != tmp_ifproto_stack_arr) {
+		kfree_type(struct if_proto *, if_proto_count, tmp_ifproto_arr);
 	}
 
 	/* Pass the event to the interface */
@@ -7173,7 +7213,7 @@ done:
 }
 
 /* The following is used to enqueue work items for ifnet ioctl events */
-static void ifnet_ioctl_event_callback(void *);
+static void ifnet_ioctl_event_callback(struct nwk_wq_entry *);
 
 struct ifnet_ioctl_event {
 	struct ifnet *ifp;
@@ -7202,25 +7242,23 @@ ifnet_ioctl_async(struct ifnet *ifp, u_long ioctl_code)
 		return;
 	}
 
-	MALLOC(p_ifnet_ioctl_ev, struct ifnet_ioctl_event_nwk_wq_entry *,
-	    sizeof(struct ifnet_ioctl_event_nwk_wq_entry),
-	    M_NWKWQ, M_WAITOK | M_ZERO);
+	p_ifnet_ioctl_ev = kalloc_type(struct ifnet_ioctl_event_nwk_wq_entry,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	p_ifnet_ioctl_ev->ifnet_ioctl_ev_arg.ifp = ifp;
 	p_ifnet_ioctl_ev->ifnet_ioctl_ev_arg.ioctl_code = ioctl_code;
-
 	p_ifnet_ioctl_ev->nwk_wqe.func = ifnet_ioctl_event_callback;
-	p_ifnet_ioctl_ev->nwk_wqe.is_arg_managed = TRUE;
-	p_ifnet_ioctl_ev->nwk_wqe.arg = &p_ifnet_ioctl_ev->ifnet_ioctl_ev_arg;
-	nwk_wq_enqueue((struct nwk_wq_entry*)p_ifnet_ioctl_ev);
+	nwk_wq_enqueue(&p_ifnet_ioctl_ev->nwk_wqe);
 }
 
 static void
-ifnet_ioctl_event_callback(void *arg)
+ifnet_ioctl_event_callback(struct nwk_wq_entry *nwk_item)
 {
-	struct ifnet_ioctl_event *p_ifnet_ioctl_ev = (struct ifnet_ioctl_event *)arg;
-	struct ifnet *ifp = p_ifnet_ioctl_ev->ifp;
-	u_long ioctl_code = p_ifnet_ioctl_ev->ioctl_code;
+	struct ifnet_ioctl_event_nwk_wq_entry *p_ev = __container_of(nwk_item,
+	    struct ifnet_ioctl_event_nwk_wq_entry, nwk_wqe);
+
+	struct ifnet *ifp = p_ev->ifnet_ioctl_ev_arg.ifp;
+	u_long ioctl_code = p_ev->ifnet_ioctl_ev_arg.ioctl_code;
 	int ret = 0;
 
 	if ((ret = ifnet_ioctl(ifp, 0, ioctl_code, NULL)) != 0) {
@@ -7232,6 +7270,7 @@ ifnet_ioctl_event_callback(void *arg)
 		    __func__, __LINE__, if_name(ifp), ioctl_code);
 	}
 	ifnet_decr_iorefcnt(ifp);
+	kfree_type(struct ifnet_ioctl_event_nwk_wq_entry, p_ev);
 	return;
 }
 
@@ -7803,10 +7842,23 @@ ifnet_datamov_end(struct ifnet *ifp)
 	 * drainers that's blocked waiting for this.
 	 */
 	if (--ifp->if_datamov == 0 && ifp->if_drainers > 0) {
+		DLIL_PRINTF("Waking up drainers on %s\n", if_name(ifp));
+		DTRACE_IP1(datamov__drain__wake, struct ifnet *, ifp);
 		wakeup(&(ifp->if_datamov));
 	}
 	ifnet_decr_iorefcnt_locked(ifp);
 	lck_mtx_unlock(&ifp->if_ref_lock);
+}
+
+static void
+ifnet_datamov_suspend_locked(struct ifnet *ifp)
+{
+	LCK_MTX_ASSERT(&ifp->if_ref_lock, LCK_MTX_ASSERT_OWNED);
+	ifp->if_refio++;
+	if (ifp->if_suspend++ == 0) {
+		VERIFY(ifp->if_refflags & IFRF_READY);
+		ifp->if_refflags &= ~IFRF_READY;
+	}
 }
 
 void
@@ -7814,12 +7866,22 @@ ifnet_datamov_suspend(struct ifnet *ifp)
 {
 	lck_mtx_lock_spin(&ifp->if_ref_lock);
 	VERIFY(ifp->if_refflags & (IFRF_ATTACHED | IFRF_DETACHING));
-	ifp->if_refio++;
-	if (ifp->if_suspend++ == 0) {
-		VERIFY(ifp->if_refflags & IFRF_READY);
-		ifp->if_refflags &= ~IFRF_READY;
-	}
+	ifnet_datamov_suspend_locked(ifp);
 	lck_mtx_unlock(&ifp->if_ref_lock);
+}
+
+boolean_t
+ifnet_datamov_suspend_if_needed(struct ifnet *ifp)
+{
+	lck_mtx_lock_spin(&ifp->if_ref_lock);
+	VERIFY(ifp->if_refflags & (IFRF_ATTACHED | IFRF_DETACHING));
+	if (ifp->if_suspend > 0) {
+		lck_mtx_unlock(&ifp->if_ref_lock);
+		return FALSE;
+	}
+	ifnet_datamov_suspend_locked(ifp);
+	lck_mtx_unlock(&ifp->if_ref_lock);
+	return TRUE;
 }
 
 void
@@ -7832,12 +7894,12 @@ ifnet_datamov_drain(struct ifnet *ifp)
 	VERIFY(!(ifp->if_refflags & IFRF_READY));
 	ifp->if_drainers++;
 	while (ifp->if_datamov != 0) {
-#if SKYWALK
-		SK_ERR("Waiting for data path(s) to quiesce on %s",
+		DLIL_PRINTF("Waiting for data path(s) to quiesce on %s\n",
 		    if_name(ifp));
-#endif /* SKYWALK */
+		DTRACE_IP1(datamov__wait, struct ifnet *, ifp);
 		(void) msleep(&(ifp->if_datamov), &ifp->if_ref_lock,
 		    (PZERO - 1), __func__, NULL);
+		DTRACE_IP1(datamov__wake, struct ifnet *, ifp);
 	}
 	VERIFY(!(ifp->if_refflags & IFRF_READY));
 	VERIFY(ifp->if_drainers > 0);
@@ -7848,6 +7910,13 @@ ifnet_datamov_drain(struct ifnet *ifp)
 	if ((ifp->if_eflags & IFEF_TXSTART) != 0) {
 		if_qflush_snd(ifp, false);
 	}
+}
+
+void
+ifnet_datamov_suspend_and_drain(struct ifnet *ifp)
+{
+	ifnet_datamov_suspend(ifp);
+	ifnet_datamov_drain(ifp);
 }
 
 void
@@ -8018,7 +8087,7 @@ dlil_attach_protocol(struct if_proto *proto,
 
 	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_PROTO_ATTACHED,
 	    (struct net_event_data *)&ev_pr_data,
-	    sizeof(struct kev_dl_proto_data));
+	    sizeof(struct kev_dl_proto_data), FALSE);
 	if (proto_count != NULL) {
 		*proto_count = ev_pr_data.proto_remaining_count;
 	}
@@ -8811,7 +8880,7 @@ ifnet_attach(ifnet_t ifp, const struct sockaddr_dl *ll_addr)
 	pf_ifnet_hook(ifp, 1);
 #endif /* PF */
 
-	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_IF_ATTACHED, NULL, 0);
+	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_IF_ATTACHED, NULL, 0, FALSE);
 
 	if (dlil_verbose) {
 		DLIL_PRINTF("%s: attached%s\n", if_name(ifp),
@@ -8867,10 +8936,8 @@ dlil_alloc_lladdr(struct ifnet *ifp, const struct sockaddr_dl *ll_addr)
 		 */
 		if (ifa == NULL || ifa == &dl_if->dl_if_lladdr.ifa) {
 			int ifasize = sizeof(*ifa) + 2 * SOCK_MAXADDRLEN;
-			ifa = _MALLOC(ifasize, M_IFADDR, M_WAITOK | M_ZERO);
-			if (ifa == NULL) {
-				return NULL;
-			}
+
+			ifa = zalloc_permanent(ifasize, ZALIGN(struct ifaddr));
 			ifa_lock_init(ifa);
 			/* Don't set IFD_ALLOC, as this is permanent */
 			ifa->ifa_debug = IFD_LINK;
@@ -8956,10 +9023,6 @@ ifnet_detach(ifnet_t ifp)
 {
 	struct ifnet *delegated_ifp;
 	struct nd_ifinfo *ndi = NULL;
-#if SKYWALK
-	if_nexus_netif nexus_netif;
-	if_nexus_flowswitch nexus_fsw;
-#endif /* SKYWALK */
 
 	if (ifp == NULL) {
 		return EINVAL;
@@ -9072,21 +9135,8 @@ ifnet_detach(ifnet_t ifp)
 	/* Reset interface state */
 	bzero(&ifp->if_interface_state, sizeof(ifp->if_interface_state));
 
-#if SKYWALK
-	/* save then clear the nexus configuration */
-	nexus_netif = ifp->if_nx_netif;
-	bzero(&ifp->if_nx_netif, sizeof(ifp->if_nx_netif));
-	nexus_fsw = ifp->if_nx_flowswitch;
-	bzero(&ifp->if_nx_flowswitch, sizeof(ifp->if_nx_flowswitch));
-#endif /* SKYWALK */
 	ifnet_lock_done(ifp);
 	ifnet_head_done();
-
-#if SKYWALK
-	/* detach nexus configuration */
-	dlil_detach_flowswitch_nexus(&nexus_fsw);
-	dlil_detach_netif_nexus(&nexus_netif);
-#endif /* SKYWALK */
 
 	/* Release reference held on the delegated interface */
 	if (delegated_ifp != NULL) {
@@ -9151,7 +9201,7 @@ ifnet_detach(ifnet_t ifp)
 	/* Clean up any netns tokens still pointing to to this ifnet */
 	netns_ifnet_detach(ifp);
 #endif /* SKYWALK */
-	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_IF_DETACHING, NULL, 0);
+	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_IF_DETACHING, NULL, 0, FALSE);
 
 	/* Let worker thread take care of the rest, to avoid reentrancy */
 	dlil_if_lock();
@@ -9261,6 +9311,14 @@ ifnet_detach_final(struct ifnet *ifp)
 	struct ifaddr *ifa;
 	ifnet_detached_func if_free;
 	int i;
+
+#if SKYWALK
+	/*
+	 * Wait for the datapath to quiesce before tearing down
+	 * netif/flowswitch nexuses.
+	 */
+	dlil_quiesce_and_detach_nexuses(ifp);
+#endif /* SKYWALK */
 
 	lck_mtx_lock(&ifp->if_ref_lock);
 	if (!(ifp->if_refflags & IFRF_DETACHING)) {
@@ -9590,7 +9648,7 @@ ifnet_detach_final(struct ifnet *ifp)
 
 	ifnet_llreach_ifdetach(ifp);
 
-	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_IF_DETACHED, NULL, 0);
+	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_IF_DETACHED, NULL, 0, FALSE);
 
 	/*
 	 * Finally, mark this ifnet as detached.
@@ -9857,8 +9915,8 @@ dlil_if_acquire(u_int32_t family, const void *uniqueid,
 	dlifp1 = base;
 
 	if (uniqueid_len) {
-		MALLOC(dlifp1->dl_if_uniqueid, void *, uniqueid_len,
-		    M_NKE, M_WAITOK);
+		dlifp1->dl_if_uniqueid = kalloc_data(uniqueid_len,
+		    Z_WAITOK);
 		if (dlifp1->dl_if_uniqueid == NULL) {
 			zfree(dlif_zone, buf);
 			ret = ENOMEM;
@@ -9905,6 +9963,8 @@ dlil_if_acquire(u_int32_t family, const void *uniqueid,
 	    &ifnet_lock_attr);
 	ifp1->if_inetdata = NULL;
 #endif
+	lck_mtx_init(&ifp1->if_inet6_ioctl_lock, &ifnet_lock_group, &ifnet_lock_attr);
+	ifp1->if_inet6_ioctl_busy = FALSE;
 	lck_rw_init(&ifp1->if_inet6data_lock, &ifnet_lock_group,
 	    &ifnet_lock_attr);
 	ifp1->if_inet6data = NULL;
@@ -10194,7 +10254,7 @@ if_lqm_update(struct ifnet *ifp, int lqm, int locked)
 	ev_lqm_data.link_quality_metric = lqm;
 
 	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_LINK_QUALITY_METRIC_CHANGED,
-	    (struct net_event_data *)&ev_lqm_data, sizeof(ev_lqm_data));
+	    (struct net_event_data *)&ev_lqm_data, sizeof(ev_lqm_data), FALSE);
 
 	/*
 	 * Reacquire the lock for the caller
@@ -10229,7 +10289,7 @@ if_rrc_state_update(struct ifnet *ifp, unsigned int rrc_state)
 	kev.rrc_state = rrc_state;
 
 	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_RRC_STATE_CHANGED,
-	    (struct net_event_data *)&kev, sizeof(struct kev_dl_rrc_state));
+	    (struct net_event_data *)&kev, sizeof(struct kev_dl_rrc_state), FALSE);
 
 	ifnet_lock_exclusive(ifp);
 }
@@ -10643,13 +10703,17 @@ dlil_node_present(struct ifnet *ifp, struct sockaddr *sa,
 	bcopy(srvinfo, kev.node_service_info, sizeof(kev.node_service_info));
 
 	ret = nd6_alt_node_present(ifp, sin6, sdl, rssi, lqm, npm);
-	if (ret == 0) {
+	if (ret == 0 || ret == EEXIST) {
 		int err = dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_NODE_PRESENCE,
-		    &kev.link_data, sizeof(kev));
+		    &kev.link_data, sizeof(kev), (ret == EEXIST) ? TRUE : FALSE);
 		if (err != 0) {
 			log(LOG_ERR, "%s: Post DL_NODE_PRESENCE failed with"
 			    "error %d\n", __func__, err);
 		}
+	}
+
+	if (ret == EEXIST) {
+		ret = 0;
 	}
 	return ret;
 }
@@ -10660,6 +10724,7 @@ dlil_node_absent(struct ifnet *ifp, struct sockaddr *sa)
 	struct kev_dl_node_absence kev = {};
 	struct sockaddr_in6 *kev_sin6 = NULL;
 	struct sockaddr_dl *kev_sdl = NULL;
+	int error = 0;
 
 	VERIFY(ifp != NULL);
 	VERIFY(sa != NULL);
@@ -10675,21 +10740,23 @@ dlil_node_absent(struct ifnet *ifp, struct sockaddr *sa)
 		 */
 		VERIFY(sa->sa_len <= sizeof(*kev_sin6));
 		bcopy(sa, kev_sin6, sa->sa_len);
-		nd6_alt_node_absent(ifp, kev_sin6, kev_sdl);
+		error = nd6_alt_node_absent(ifp, kev_sin6, kev_sdl);
 	} else {
 		/*
 		 * If passed address is AF_LINK type, derive the address
 		 * based on the link address.
 		 */
 		nd6_alt_node_addr_decompose(ifp, sa, kev_sdl, kev_sin6);
-		nd6_alt_node_absent(ifp, kev_sin6, NULL);
+		error = nd6_alt_node_absent(ifp, kev_sin6, NULL);
 	}
 
-	kev_sdl->sdl_type = ifp->if_type;
-	kev_sdl->sdl_index = ifp->if_index;
+	if (error == 0) {
+		kev_sdl->sdl_type = ifp->if_type;
+		kev_sdl->sdl_index = ifp->if_index;
 
-	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_NODE_ABSENCE,
-	    &kev.link_data, sizeof(kev));
+		dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_NODE_ABSENCE,
+		    &kev.link_data, sizeof(kev), FALSE);
+	}
 }
 
 int
@@ -10722,12 +10789,16 @@ dlil_node_present_v2(struct ifnet *ifp, struct sockaddr *sa, struct sockaddr_dl 
 	bcopy(srvinfo, kev.node_service_info, sizeof(kev.node_service_info));
 
 	ret = nd6_alt_node_present(ifp, SIN6(sa), sdl, rssi, lqm, npm);
-	if (ret == 0) {
+	if (ret == 0 || ret == EEXIST) {
 		int err = dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_NODE_PRESENCE,
-		    &kev.link_data, sizeof(kev));
+		    &kev.link_data, sizeof(kev), (ret == EEXIST) ? TRUE : FALSE);
 		if (err != 0) {
 			log(LOG_ERR, "%s: Post DL_NODE_PRESENCE failed with error %d\n", __func__, err);
 		}
+	}
+
+	if (ret == EEXIST) {
+		ret = 0;
 	}
 	return ret;
 }
@@ -10794,7 +10865,7 @@ dlil_report_issues(struct ifnet *ifp, u_int8_t modid[DLIL_MODIDLEN],
 	}
 
 	dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_ISSUES,
-	    &kev.link_data, sizeof(kev));
+	    &kev.link_data, sizeof(kev), FALSE);
 }
 
 errno_t

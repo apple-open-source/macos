@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -329,7 +329,7 @@ extern boolean_t dlil_has_if_filter(struct ifnet *);
 extern void dlil_proto_unplumb_all(ifnet_t);
 
 extern int dlil_post_msg(struct ifnet *, u_int32_t, u_int32_t,
-    struct net_event_data *, u_int32_t);
+    struct net_event_data *, u_int32_t, boolean_t);
 
 extern void dlil_post_sifflags_msg(struct ifnet *);
 

@@ -46,6 +46,7 @@
 #include "JSDOMPoint.h"
 #include "JSDOMQuad.h"
 #include "JSDOMRect.h"
+#include "JSExecState.h"
 #include "JSFile.h"
 #include "JSFileList.h"
 #include "JSIDBSerializationGlobalObject.h"
@@ -56,15 +57,8 @@
 #include "JSRTCCertificate.h"
 #include "JSRTCDataChannel.h"
 #include "ScriptExecutionContext.h"
-#include "ScriptState.h"
 #include "SharedBuffer.h"
 #include "WebCoreJSClientData.h"
-#if PLATFORM(COCOA)
-#include <CoreFoundation/CoreFoundation.h>
-#endif
-#if USE(CG)
-#include <CoreGraphics/CoreGraphics.h>
-#endif
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/BigIntObject.h>
 #include <JavaScriptCore/BooleanObject.h>
@@ -101,6 +95,14 @@
 #include <wtf/Vector.h>
 #include <wtf/threads/BinarySemaphore.h>
 
+#if USE(CG)
+#include <CoreGraphics/CoreGraphics.h>
+#endif
+
+#if PLATFORM(COCOA)
+#include <CoreFoundation/CoreFoundation.h>
+#endif
+
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
 #include "JSOffscreenCanvas.h"
 #include "OffscreenCanvas.h"
@@ -113,6 +115,7 @@
 #endif
 
 namespace WebCore {
+
 using namespace JSC;
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(SerializedScriptValue);
@@ -556,18 +559,14 @@ protected:
 #if ENABLE(WEB_CRYPTO)
 static bool wrapCryptoKey(JSGlobalObject* lexicalGlobalObject, const Vector<uint8_t>& key, Vector<uint8_t>& wrappedKey)
 {
-    ScriptExecutionContext* scriptExecutionContext = scriptExecutionContextFromExecState(lexicalGlobalObject);
-    if (!scriptExecutionContext)
-        return false;
-    return scriptExecutionContext->wrapCryptoKey(key, wrappedKey);
+    auto context = executionContext(lexicalGlobalObject);
+    return context && context->wrapCryptoKey(key, wrappedKey);
 }
 
 static bool unwrapCryptoKey(JSGlobalObject* lexicalGlobalObject, const Vector<uint8_t>& wrappedKey, Vector<uint8_t>& key)
 {
-    ScriptExecutionContext* scriptExecutionContext = scriptExecutionContextFromExecState(lexicalGlobalObject);
-    if (!scriptExecutionContext)
-        return false;
-    return scriptExecutionContext->unwrapCryptoKey(wrappedKey, key);
+    auto context = executionContext(lexicalGlobalObject);
+    return context && context->unwrapCryptoKey(wrappedKey, key);
 }
 #endif
 
@@ -958,7 +957,7 @@ private:
         auto& vm = m_lexicalGlobalObject->vm();
         auto* globalObject = m_lexicalGlobalObject;
         if (globalObject->inherits<JSDOMGlobalObject>(vm))
-            return toJS(m_lexicalGlobalObject, jsCast<JSDOMGlobalObject*>(globalObject), &arrayBuffer);
+            return toJS(globalObject, jsCast<JSDOMGlobalObject*>(globalObject), &arrayBuffer);
 
         if (auto* buffer = arrayBuffer.m_wrapper.get())
             return buffer;
@@ -1113,7 +1112,7 @@ private:
 
         // FIXME: We should try to avoid converting pixel format.
         PixelBufferFormat format { AlphaPremultiplication::Premultiplied, PixelFormat::RGBA8, buffer->colorSpace() };
-        const IntSize& logicalSize = buffer->logicalSize();
+        const IntSize& logicalSize = buffer->truncatedLogicalSize();
         auto pixelBuffer = buffer->getPixelBuffer(format, { IntPoint::zero(), logicalSize });
         if (!pixelBuffer) {
             code = SerializationReturnCode::ValidationError;
@@ -1390,7 +1389,7 @@ private:
                     return false;
 
                 uint32_t index = m_wasmModules.size(); 
-                m_wasmModules.append(makeRef(module->module()));
+                m_wasmModules.append(&module->module());
                 write(WasmModuleTag);
                 write(index);
                 return true;
@@ -1405,7 +1404,7 @@ private:
                     return true;
                 }
                 uint32_t index = m_wasmMemoryHandles.size();
-                m_wasmMemoryHandles.append(makeRef(memory->memory().handle()));
+                m_wasmMemoryHandles.append(&memory->memory().handle());
                 write(WasmMemoryTag);
                 write(index);
                 return true;
@@ -2566,7 +2565,7 @@ private:
         if (!m_canCreateDOMObject)
             return true;
 
-        file = File::deserialize(scriptExecutionContextFromExecState(m_lexicalGlobalObject), filePath, URL(URL(), url->string()), type->string(), name->string(), optionalLastModified);
+        file = File::deserialize(executionContext(m_lexicalGlobalObject), filePath, URL(URL(), url->string()), type->string(), name->string(), optionalLastModified);
         return true;
     }
 
@@ -3296,7 +3295,7 @@ private:
         }
 
         if (!m_offscreenCanvases[index])
-            m_offscreenCanvases[index] = OffscreenCanvas::create(*scriptExecutionContextFromExecState(m_lexicalGlobalObject), WTFMove(m_detachedOffscreenCanvases.at(index)));
+            m_offscreenCanvases[index] = OffscreenCanvas::create(*executionContext(m_lexicalGlobalObject), WTFMove(m_detachedOffscreenCanvases.at(index)));
 
         auto offscreenCanvas = m_offscreenCanvases[index].get();
         return getJSValue(offscreenCanvas);
@@ -3360,7 +3359,7 @@ private:
 
         if (!m_rtcDataChannels[index]) {
             auto detachedChannel = WTFMove(m_detachedRTCDataChannels.at(index));
-            m_rtcDataChannels[index] = RTCDataChannel::create(*scriptExecutionContextFromExecState(m_lexicalGlobalObject), detachedChannel->identifier, WTFMove(detachedChannel->label), WTFMove(detachedChannel->options), detachedChannel->state);
+            m_rtcDataChannels[index] = RTCDataChannel::create(*executionContext(m_lexicalGlobalObject), detachedChannel->identifier, WTFMove(detachedChannel->label), WTFMove(detachedChannel->options), detachedChannel->state);
         }
 
         return getJSValue(m_rtcDataChannels[index].get());
@@ -3385,7 +3384,7 @@ private:
         auto imageDataSize = logicalSize;
         imageDataSize.scale(resolutionScale);
 
-        auto buffer = ImageBitmap::createImageBuffer(*scriptExecutionContextFromExecState(m_lexicalGlobalObject), logicalSize, RenderingMode::Unaccelerated, colorSpace, resolutionScale);
+        auto buffer = ImageBitmap::createImageBuffer(*executionContext(m_lexicalGlobalObject), logicalSize, RenderingMode::Unaccelerated, colorSpace, resolutionScale);
         if (!buffer) {
             fail();
             return JSValue();
@@ -3651,7 +3650,7 @@ private:
                 return JSValue();
             if (!m_canCreateDOMObject)
                 return jsNull();
-            return getJSValue(Blob::deserialize(scriptExecutionContextFromExecState(m_lexicalGlobalObject), URL(URL(), url->string()), type->string(), size, blobFilePathForBlobURL(url->string())).get());
+            return getJSValue(Blob::deserialize(executionContext(m_lexicalGlobalObject), URL(URL(), url->string()), type->string(), size, blobFilePathForBlobURL(url->string())).get());
         }
         case StringTag: {
             CachedStringRef cachedString;
@@ -4586,7 +4585,7 @@ void SerializedScriptValue::writeBlobsToDiskForIndexedDB(CompletionHandler<void(
     ASSERT(isMainThread());
     ASSERT(hasBlobURLs());
 
-    blobRegistry().writeBlobsToTemporaryFilesForIndexedDB(blobURLs(), [completionHandler = WTFMove(completionHandler), this, protectedThis = makeRef(*this)] (auto&& blobFilePaths) mutable {
+    blobRegistry().writeBlobsToTemporaryFilesForIndexedDB(blobURLs(), [completionHandler = WTFMove(completionHandler), this, protectedThis = Ref { *this }] (auto&& blobFilePaths) mutable {
         ASSERT(isMainThread());
 
         if (blobFilePaths.isEmpty()) {

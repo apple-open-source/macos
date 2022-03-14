@@ -119,7 +119,7 @@ void UnlinkedCodeBlockGenerator::finalize(std::unique_ptr<InstructionStream> ins
     {
         Locker locker { m_codeBlock->cellLock() };
         m_codeBlock->m_instructions = WTFMove(instructions);
-        m_codeBlock->allocateSharedProfiles();
+        m_codeBlock->allocateSharedProfiles(m_numBinaryArithProfiles, m_numUnaryArithProfiles);
         m_codeBlock->m_metadata->finalize();
 
         m_codeBlock->m_jumpTargets = WTFMove(m_jumpTargets);
@@ -156,7 +156,7 @@ void UnlinkedCodeBlockGenerator::finalize(std::unique_ptr<InstructionStream> ins
         if (UNLIKELY(Options::returnEarlyFromInfiniteLoopsForFuzzing()))
             m_codeBlock->initializeLoopHintExecutionCounter();
     }
-    m_vm.heap.writeBarrier(m_codeBlock.get());
+    m_vm.writeBarrier(m_codeBlock.get());
     m_vm.heap.reportExtraMemoryAllocated(m_codeBlock->m_instructions->sizeInBytes() + m_codeBlock->m_metadata->sizeInBytes());
 }
 

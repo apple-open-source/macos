@@ -271,12 +271,12 @@ hfs_readdirattr_internal(struct vnode *dvp, struct attrlist *alist,
 		if (alist->commonattr & ATTR_CMN_NAME)
 			maxattrblocksize += kHFSPlusMaxFileNameBytes + 1;
 
-		attrbufptr = hfs_malloc(maxattrblocksize);
+		attrbufptr = hfs_malloc_data(maxattrblocksize);
 		attrptr = attrbufptr;
 		varptr = (char *)attrbufptr + fixedblocksize;  /* Point to variable-length storage */
 	} else {
 		if ((alist->commonattr & ATTR_CMN_NAME) && !vap->va_name) {
-			namebuf = hfs_malloc(MAXPATHLEN);
+			namebuf = hfs_malloc_data(MAXPATHLEN);
 			if (!namebuf) {
 				error = ENOMEM;
 				goto exit2;
@@ -305,14 +305,14 @@ hfs_readdirattr_internal(struct vnode *dvp, struct attrlist *alist,
 	/* There is maxcount for the bulk vnop */
 	if (!vap)
 		maxentries = min(maxentries, maxcount);
-	maxentries = min(maxentries, MAXCATENTRIES);
+	maxentries = min(maxentries, (int)MAXCATENTRIES);
 	if (maxentries < 1) {
 		error = EINVAL;
 		goto exit2;
 	}
 
 	/* Initialize a catalog entry list. */
-	ce_list = hfs_mallocz(CE_LIST_SIZE(maxentries));
+	ce_list = hfs_malloc_zero_data(CE_LIST_SIZE(maxentries));
 	ce_list->maxentries = maxentries;
 
 	/*
@@ -577,13 +577,13 @@ exit2:
 			hfs_insertdirhint(dcp, dirhint);
 	}
 	if (namebuf) {
-		hfs_free(namebuf, MAXPATHLEN);
+		hfs_free_data(namebuf, MAXPATHLEN);
 		vap->va_name = NULL;
 	}
 	if (attrbufptr)
-		hfs_free(attrbufptr, maxattrblocksize);
+		hfs_free_data(attrbufptr, maxattrblocksize);
 	if (ce_list)
-		hfs_free(ce_list, CE_LIST_SIZE(maxentries));
+		hfs_free_data(ce_list, CE_LIST_SIZE(maxentries));
 
 	if (vap && *actualcount && error)
 		error = 0;

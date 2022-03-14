@@ -211,7 +211,7 @@ static void fasttrap_proc_release(fasttrap_proc_t *);
  * 20k elements allocated, the space saved is substantial.
  */
 
-ZONE_DECLARE(fasttrap_tracepoint_t_zone, "dtrace.fasttrap_tracepoint_t",
+ZONE_DEFINE(fasttrap_tracepoint_t_zone, "dtrace.fasttrap_tracepoint_t",
     sizeof(fasttrap_tracepoint_t), ZC_NONE);
 
 /*
@@ -2760,7 +2760,7 @@ fasttrap_init( void )
 		}
 
 		dev_t device = makedev( (uint32_t)majdevno, 0 );
-		if (NULL == devfs_make_node( device, DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666, "fasttrap", 0 )) {
+		if (NULL == devfs_make_node( device, DEVFS_CHAR, UID_ROOT, GID_WHEEL, 0666, "fasttrap" )) {
 			return;
 		}
 

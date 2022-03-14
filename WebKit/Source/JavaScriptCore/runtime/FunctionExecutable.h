@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ExecutableToCodeBlockEdge.h"
+#include "JSFunction.h"
 #include "ScriptExecutable.h"
 #include "SourceCode.h"
 #include <wtf/Box.h>
@@ -45,12 +46,12 @@ public:
     template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.functionExecutableSpace.space;
+        return &vm.functionExecutableSpace().space;
     }
 
     static FunctionExecutable* create(VM& vm, ScriptExecutable* topLevelExecutable, const SourceCode& source, UnlinkedFunctionExecutable* unlinkedExecutable, Intrinsic intrinsic, bool isInsideOrdinaryFunction)
     {
-        FunctionExecutable* executable = new (NotNull, allocateCell<FunctionExecutable>(vm.heap)) FunctionExecutable(vm, source, unlinkedExecutable, intrinsic, isInsideOrdinaryFunction);
+        FunctionExecutable* executable = new (NotNull, allocateCell<FunctionExecutable>(vm)) FunctionExecutable(vm, source, unlinkedExecutable, intrinsic, isInsideOrdinaryFunction);
         executable->finishCreation(vm, topLevelExecutable);
         return executable;
     }
@@ -289,6 +290,8 @@ public:
 
     static inline ptrdiff_t offsetOfRareData() { return OBJECT_OFFSETOF(FunctionExecutable, m_rareData); }
     static inline ptrdiff_t offsetOfAsStringInRareData() { return OBJECT_OFFSETOF(RareData, m_asString); }
+    static inline ptrdiff_t offsetOfCodeBlockForCall() { return OBJECT_OFFSETOF(FunctionExecutable, m_codeBlockForCall); }
+    static inline ptrdiff_t offsetOfCodeBlockForConstruct() { return OBJECT_OFFSETOF(FunctionExecutable, m_codeBlockForConstruct); }
 
 private:
     friend class ExecutableBase;

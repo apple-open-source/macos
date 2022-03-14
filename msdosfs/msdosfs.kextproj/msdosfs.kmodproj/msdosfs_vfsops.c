@@ -96,6 +96,7 @@
 #include <libkern/OSKextLib.h>
 #include <libkern/crypto/md5.h>
 #include <TargetConditionals.h>
+#include <IOKit/IOLib.h>
 
 #include "bpb.h"
 #include "bootsect.h"
@@ -478,8 +479,7 @@ int msdosfs_mount(vnode_t devvp, struct mount *mp, vfs_context_t context)
 		goto error_exit;
 	}
 
-	MALLOC(pmp, struct msdosfsmount *, sizeof(*pmp), M_TEMP, M_WAITOK);
-	bzero((caddr_t)pmp, sizeof *pmp);
+	pmp = IOMallocType(msdosfsmount_t);
 	pmp->pm_mountp = mp;
 	pmp->pm_fat_lock = lck_mtx_alloc_init(msdosfs_lck_grp, msdosfs_lck_attr);
 	pmp->pm_rename_lock = lck_mtx_alloc_init(msdosfs_lck_grp, msdosfs_lck_attr);
@@ -1005,7 +1005,7 @@ error_exit:
 		lck_mtx_free(pmp->pm_fat_lock, msdosfs_lck_grp);
 		lck_mtx_free(pmp->pm_rename_lock, msdosfs_lck_grp);
 		
-		FREE(pmp, M_TEMP);
+		IOFreeType(pmp, msdosfsmount_t);
 
 		vfs_setfsprivate(mp, (void *)NULL);
 	}
@@ -1101,7 +1101,7 @@ int msdosfs_vfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 	lck_mtx_free(pmp->pm_fat_lock, msdosfs_lck_grp);
 	lck_mtx_free(pmp->pm_rename_lock, msdosfs_lck_grp);
 	
-	FREE(pmp, M_TEMP);
+	IOFreeType(pmp, msdosfsmount_t);
 
 	vfs_setfsprivate(mp, (void *)NULL);
 

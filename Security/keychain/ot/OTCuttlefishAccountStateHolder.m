@@ -3,7 +3,9 @@
 
 #import "keychain/categories/NSError+UsefulConstructors.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
+
 #import "keychain/ot/ObjCImprovements.h"
+
 
 @interface OTCuttlefishAccountStateHolder ()
 @property dispatch_queue_t queue;
@@ -190,6 +192,8 @@
         return metadata;
     } error:error];
 }
+
+
 
 - (BOOL)_onqueuePersistAccountChanges:(OTAccountMetadataClassC* _Nullable (^)(OTAccountMetadataClassC* metadata))makeChanges
                                 error:(NSError**)error

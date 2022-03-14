@@ -291,7 +291,7 @@ static struct kern_nexus_domain_provider nx_monitor_prov_s = {
 	},
 };
 
-static ZONE_DECLARE(na_mon_zone, SKMEM_ZONE_PREFIX ".na.mon",
+static ZONE_DEFINE(na_mon_zone, SKMEM_ZONE_PREFIX ".na.mon",
     sizeof(struct nexus_monitor_adapter), ZC_ZFREE_CLEARMEM);
 
 #define SKMEM_TAG_MONITORS      "com.apple.skywalk.monitors"

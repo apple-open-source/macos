@@ -67,7 +67,7 @@ diff -Nur pciutils-3.2.0/lib/darwin-device.c pciutils-3.2.0-darwin/lib/darwin-de
 +	io_connect_t           connect;
 +	kern_return_t          status;
 +
-+	service = IOServiceGetMatchingService(kIOMasterPortDefault, 
++	service = IOServiceGetMatchingService(kIOMainPortDefault, 
 +																					IOServiceMatching("IOPCIBridge"));
 +	if (service) 
 +	{

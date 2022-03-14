@@ -61,7 +61,7 @@ static int fsw_vp_na_special(struct nexus_adapter *,
 static struct nexus_vp_adapter *fsw_vp_na_alloc(zalloc_flags_t);
 static void fsw_vp_na_free(struct nexus_adapter *);
 
-static ZONE_DECLARE(na_vp_zone, SKMEM_ZONE_PREFIX ".na.fsw.vp",
+static ZONE_DEFINE(na_vp_zone, SKMEM_ZONE_PREFIX ".na.fsw.vp",
     sizeof(struct nexus_vp_adapter), ZC_ZFREE_CLEARMEM);
 
 /* na_activate() callback for flow switch ports */

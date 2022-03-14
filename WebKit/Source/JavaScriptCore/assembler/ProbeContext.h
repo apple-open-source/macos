@@ -116,6 +116,8 @@ inline void*& CPUState::pc()
     return *reinterpret_cast<void**>(&gpr(ARMRegisters::pc));
 #elif CPU(MIPS)
     return *reinterpret_cast<void**>(&spr(MIPSRegisters::pc));
+#elif CPU(RISCV64)
+    return *reinterpret_cast<void**>(&spr(RISCV64Registers::pc));
 #else
 #error "Unsupported CPU"
 #endif
@@ -131,6 +133,8 @@ inline void*& CPUState::fp()
     return *reinterpret_cast<void**>(&gpr(ARMRegisters::fp));
 #elif CPU(MIPS)
     return *reinterpret_cast<void**>(&gpr(MIPSRegisters::fp));
+#elif CPU(RISCV64)
+    return *reinterpret_cast<void**>(&gpr(RISCV64Registers::fp));
 #else
 #error "Unsupported CPU"
 #endif
@@ -146,6 +150,8 @@ inline void*& CPUState::sp()
     return *reinterpret_cast<void**>(&gpr(ARMRegisters::sp));
 #elif CPU(MIPS)
     return *reinterpret_cast<void**>(&gpr(MIPSRegisters::sp));
+#elif CPU(RISCV64)
+    return *reinterpret_cast<void**>(&gpr(RISCV64Registers::sp));
 #else
 #error "Unsupported CPU"
 #endif
@@ -243,7 +249,7 @@ private:
     friend JS_EXPORT_PRIVATE void* probeStateForContext(Context&); // Not for general use. This should only be for writing tests.
 };
 
-void executeProbe(State*);
+extern "C" void executeJSCJITProbe(State*) REFERENCED_FROM_ASM WTF_INTERNAL;
 
 } // namespace Probe
 } // namespace JSC

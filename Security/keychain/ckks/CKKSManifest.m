@@ -1405,10 +1405,8 @@ static NSUInteger LeafBucketIndexForUUID(NSString* uuid)
     }
     else {
         NSError* error = nil;
-        SOSPeerInfoRef egoPeerInfo = SOSCCCopyMyPeerInfo(NULL);
-        NSString* egoPeerID = egoPeerInfo ? (__bridge NSString*)SOSPeerInfoGetPeerID(egoPeerInfo) : nil;
+        NSString* egoPeerID = (NSString*)CFBridgingRelease(SOSCCCopyMyPID_Server(NULL));
         handler(egoPeerID, error);
-        CFReleaseNull(egoPeerInfo);
     }
 }
 

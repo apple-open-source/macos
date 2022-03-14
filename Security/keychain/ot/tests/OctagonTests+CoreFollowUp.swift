@@ -24,6 +24,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           policySecrets: nil,
                           syncUserControllableViews: .UNKNOWN,
                           secureElementIdentity: nil,
+                          setting: nil,
                           signingPrivKeyPersistentRef: nil,
                           encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
@@ -89,6 +90,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           policySecrets: nil,
                           syncUserControllableViews: .UNKNOWN,
                           secureElementIdentity: nil,
+                          setting: nil,
                           signingPrivKeyPersistentRef: nil,
                           encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
@@ -156,6 +158,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           policySecrets: nil,
                           syncUserControllableViews: .UNKNOWN,
                           secureElementIdentity: nil,
+                          setting: nil,
                           signingPrivKeyPersistentRef: nil,
                           encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")
@@ -237,6 +240,7 @@ class OctagonCoreFollowUpTests: OctagonTestsBase {
                           policySecrets: nil,
                           syncUserControllableViews: .UNKNOWN,
                           secureElementIdentity: nil,
+                          setting: nil,
                           signingPrivKeyPersistentRef: nil,
                           encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                             XCTAssertNil(error, "Should be no error preparing identity")

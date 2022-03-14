@@ -53,7 +53,7 @@ MALLOC_NOEXPORT extern size_t nanov2_pointer_size(nanozonev2_t *nanozone, void *
 MALLOC_NOEXPORT extern size_t nanov2_pressure_relief(nanozonev2_t *nanozone, size_t goal);
 
 #if OS_VARIANT_RESOLVED
-MALLOC_NOEXPORT extern boolean_t nanov2_allocate_new_region(nanozonev2_t *nanozone);
+MALLOC_NOEXPORT extern nanov2_arena_t *nanov2_allocate_new_region(nanozonev2_t *nanozone);
 #endif // OS_VARIANT_RESOLVED
 
 #pragma mark -
@@ -313,7 +313,6 @@ nanov2_arena_address_for_ptr(void *ptr)
 	return (void *)(((uintptr_t)ptr) & NANOV2_ARENA_ADDRESS_MASK);
 }
 
-#if OS_VARIANT_RESOLVED
 // Given a pointer that is assumed to be in the Nano zone, returns the address
 // of its containing region. Works for both real and logical pointers.
 static MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_region_t *
@@ -321,7 +320,6 @@ nanov2_region_address_for_ptr(void *ptr)
 {
 	return (nanov2_region_t *)(((uintptr_t)ptr) & NANOV2_REGION_ADDRESS_MASK);
 }
-#endif // OS_VARIANT_RESOLVED
 
 // Given a pointer that is assumed to be in the Nano zone, returns the real
 // address of its metadata block. Works for both real and logical pointers.
@@ -395,15 +393,40 @@ nanov2_first_arena_for_region(nanov2_region_t *region)
 	return (nanov2_arena_t *)region;
 }
 
+#if OS_VARIANT_RESOLVED
+// Given an atomically-observed current_region_next_arena pointer, returns
+// whether or not it's a usable arena or a limit arena (indicating exhaustion of
+// the current region).
+static MALLOC_ALWAYS_INLINE MALLOC_INLINE bool
+nanov2_current_region_next_arena_is_limit(
+		nanov2_arena_t *current_region_next_arena)
+{
+	// The first arena of a region is never stored in current_region_next_arena,
+	// so a value at the beginning of a region must be a limit arena.
+	return current_region_next_arena == (nanov2_arena_t *)(
+			nanov2_region_address_for_ptr(current_region_next_arena));
+}
+#endif // OS_VARIANT_RESOLVED
+
+// Given an atomically-observed current_region_next_arena pointer, returns the
+// base of the current region at the time of the observation.
+static MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_region_t *
+nanov2_current_region_base(nanov2_arena_t *current_region_next_arena)
+{
+	return nanov2_region_address_for_ptr(
+			(void *)(((uintptr_t)current_region_next_arena) - 1));
+}
+
 // Given a region pointer, returns a pointer to the arena after the last
 // active arena in the region.
 static MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_arena_t *
-nanov2_limit_arena_for_region(nanozonev2_t *nanozone, nanov2_region_t *region)
+nanov2_limit_arena_for_region(nanozonev2_t __unused *nanozone,
+		nanov2_region_t *region, nanov2_arena_t *current_region_next_arena)
 {
 	// The first arena is colocated with the region itself.
 	nanov2_arena_t *limit_arena;
-	if (region == nanozone->current_region_base) {
-		limit_arena = nanozone->current_region_next_arena;
+	if (region == nanov2_current_region_base(current_region_next_arena)) {
+		limit_arena = current_region_next_arena;
 	} else {
 		limit_arena = nanov2_first_arena_for_region(region + 1);
 	}
@@ -424,14 +447,23 @@ nanov2_region_linkage_for_region(nanozonev2_t *nanozone, nanov2_region_t *region
 
 #if OS_VARIANT_RESOLVED
 // Given a pointer to a region, returns a pointer to the region that follows it,
-// or NULL if there isn't one.
+// or NULL if there isn't one. We may observe linkage to a new region that
+// hasn't yet actually been installed into current_region_next_arena; ignore the
+// linkage in this case.
 static MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_region_t *
-nanov2_next_region_for_region(nanozonev2_t *nanozone, nanov2_region_t *region)
+nanov2_next_region_for_region(nanozonev2_t *nanozone, nanov2_region_t *region,
+		nanov2_arena_t *current_region_next_arena)
 {
 	nanov2_region_linkage_t *linkage =
 			nanov2_region_linkage_for_region(nanozone, region);
-	int offset = linkage->next_region_offset;
-	return offset ? region + offset : NULL;
+	int offset = os_atomic_load(&linkage->next_region_offset, relaxed);
+	if (!offset) {
+		return NULL;
+	}
+
+	nanov2_region_t *next_region = region + offset;
+	return (nanov2_arena_t *)next_region < current_region_next_arena ?
+			next_region : NULL;
 }
 #endif // OS_VARIANT_RESOLVED
 
@@ -441,14 +473,21 @@ nanov2_next_region_for_region(nanozonev2_t *nanozone, nanov2_region_t *region)
 // for another process.
 static MALLOC_ALWAYS_INLINE MALLOC_INLINE nanov2_region_t *
 nanov2_next_region_for_region_offset(nanozonev2_t *nanozone,
-        nanov2_region_t *region, off_t region_offset)
+		nanov2_region_t *region, off_t region_offset,
+		nanov2_arena_t *current_region_next_arena)
 {
-    nanov2_region_linkage_t *linkage =
-            nanov2_region_linkage_for_region(nanozone, region);
-    nanov2_region_linkage_t *mapped_linkage = (nanov2_region_linkage_t *)
-        ((uintptr_t)linkage + region_offset);
-    int offset = mapped_linkage->next_region_offset;
-    return offset ? region + offset : NULL;
+	nanov2_region_linkage_t *linkage =
+			nanov2_region_linkage_for_region(nanozone, region);
+	nanov2_region_linkage_t *mapped_linkage = (nanov2_region_linkage_t *)(
+			((uintptr_t)linkage + region_offset));
+	int offset = os_atomic_load(&mapped_linkage->next_region_offset, relaxed);
+	if (!offset) {
+		return NULL;
+	}
+
+	nanov2_region_t *next_region = region + offset;
+	return (nanov2_arena_t *)next_region < current_region_next_arena ?
+			next_region : NULL;
 }
 #endif // OS_VARIANT_NOTRESOLVED
 
@@ -1243,9 +1282,12 @@ nanov2_pressure_relief(nanozonev2_t *nanozone, size_t goal)
 	// until we reach our goal.
 	nanov2_region_t *region = nanozone->first_region_base;
 	nanov2_meta_index_t metablock_meta_index = nanov2_metablock_meta_index(nanozone);
+	nanov2_arena_t *current_region_next_arena = os_atomic_load(
+			&nanozone->current_region_next_arena, acquire);
 	while (region) {
 		nanov2_arena_t *arena = nanov2_first_arena_for_region(region);
-		nanov2_arena_t *arena_after_region = nanov2_limit_arena_for_region(nanozone, region);
+		nanov2_arena_t *arena_after_region = nanov2_limit_arena_for_region(
+				nanozone, region, current_region_next_arena);
 		while (arena < arena_after_region) {
 			// Scan all of the blocks in the arena, skipping the metadata block.
 			nanov2_arena_metablock_t *meta_blockp =
@@ -1277,7 +1319,8 @@ nanov2_pressure_relief(nanozonev2_t *nanozone, size_t goal)
 			}
 			arena++;
 		}
-		region = nanov2_next_region_for_region(nanozone, region);
+		region = nanov2_next_region_for_region(nanozone, region,
+				current_region_next_arena);
 	}
 
 done:
@@ -1342,6 +1385,8 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 	// Process the zone one region at a time. Report each in-use block as a
 	// pointer range and each in-use slot as a pointer.
 	nanov2_region_t *region = nanozone->first_region_base;
+	nanov2_arena_t *current_region_next_arena = os_atomic_load(
+			&nanozone->current_region_next_arena, acquire);
 	while (region) {
 		mach_vm_address_t vm_addr = (mach_vm_address_t)NULL;
 		kern_return_t kr = reader(task, (vm_address_t)region, NANOV2_REGION_SIZE, (void **)&vm_addr);
@@ -1353,7 +1398,8 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 		// and its mapped address in this process.
 		mach_vm_offset_t ptr_offset = (mach_vm_address_t)region - vm_addr;
 		nanov2_arena_t *arena = nanov2_first_arena_for_region(region);
-		nanov2_arena_t *limit_arena = nanov2_limit_arena_for_region(nanozone, region);
+		nanov2_arena_t *limit_arena = nanov2_limit_arena_for_region(nanozone, region,
+				current_region_next_arena);
 		vm_range_t ptr_range;
 		while (arena < limit_arena) {
 			// Find the metadata block and process every entry, apart from the
@@ -1467,7 +1513,8 @@ nanov2_ptr_in_use_enumerator(task_t task, void *context, unsigned type_mask,
 		nanov2_region_linkage_t *mapped_region_linkagep =
 				NANOV2_ZONE_PTR_TO_MAPPED_PTR(nanov2_region_linkage_t *,
 				region_linkagep, ptr_offset);
-		int offset = mapped_region_linkagep->next_region_offset;
+		int offset = os_atomic_load(&mapped_region_linkagep->next_region_offset,
+				relaxed);
 		region = offset ? region + offset : NULL;
 	}
 	return 0;
@@ -1546,6 +1593,10 @@ nanov2_print(task_t task, unsigned level, vm_address_t zone_address,
 	nanov2_meta_index_t metablock_meta_index =
 			nanov2_metablock_meta_index(mapped_nanozone);
 	nanov2_region_t *region = mapped_nanozone->first_region_base;
+	// Use a single, consistent snapshot of current_region_next_arena throughout
+	// iteration, ignoring any arenas or regions allocated after it.
+	nanov2_arena_t *current_region_next_arena = os_atomic_load(
+			&mapped_nanozone->current_region_next_arena, acquire);
 	int region_index = 0;
 	while (region) {
 		printer("\nRegion %d: base address %p\n", region_index, region);
@@ -1559,7 +1610,7 @@ nanov2_print(task_t task, unsigned level, vm_address_t zone_address,
 
 		nanov2_arena_t *arena = nanov2_first_arena_for_region(region);
 		nanov2_arena_t *limit_arena = nanov2_limit_arena_for_region(
-				mapped_nanozone, region);
+				mapped_nanozone, region, current_region_next_arena);
 		int arena_index = 0;
 		while (arena < limit_arena) {
 			// Find the metadata block and process every entry, apart from the
@@ -1700,7 +1751,7 @@ nanov2_print(task_t task, unsigned level, vm_address_t zone_address,
 		}
 
 		region = nanov2_next_region_for_region_offset(mapped_nanozone, region,
-                region_offset);
+                region_offset, current_region_next_arena);
 		region_index++;
 	}
 }
@@ -1788,6 +1839,8 @@ nanov2_statistics(task_t task, vm_address_t zone_address,
 
 	// Iterate over each arena in each region. Within each region, add
 	// statistics for each slot in each block, excluding the meta data block.
+	nanov2_arena_t *current_region_next_arena = os_atomic_load(
+			&mapped_nanozone->current_region_next_arena, acquire);
 	for (region = mapped_nanozone->first_region_base; region;) {
         nanov2_region_t *mapped_region;
 		err = reader(task, (vm_address_t)region, sizeof(nanov2_region_t), (void **)&mapped_region);
@@ -1797,7 +1850,8 @@ nanov2_statistics(task_t task, vm_address_t zone_address,
         }
         off_t region_offset = (uintptr_t)mapped_region - (uintptr_t)region;
 		for (arena = nanov2_first_arena_for_region(region);
-				arena < nanov2_limit_arena_for_region(mapped_nanozone, region);
+				arena < nanov2_limit_arena_for_region(mapped_nanozone, region,
+						current_region_next_arena);
 				arena++) {
 			nanov2_arena_metablock_t *meta_block =
 					nanov2_metablock_address_for_ptr(mapped_nanozone, arena);
@@ -1849,7 +1903,7 @@ nanov2_statistics(task_t task, vm_address_t zone_address,
 			}
 		}
         region = nanov2_next_region_for_region_offset(mapped_nanozone,
-                region, region_offset);
+                region, region_offset, current_region_next_arena);
 	}
 	return KERN_SUCCESS;
 }
@@ -1922,25 +1976,40 @@ nanov2_pointer_size(nanozonev2_t *nanozone, void *ptr, boolean_t allow_inner)
 		return 0;
 	}
 
+	// Atomically load the value of current_region_next_arena. No thread is
+	// allowed to allocate from an arena until it observes a greater value of
+	// current_region_next_arena, which must have happened before now if we're
+	// being called in the context of a deallocation, so we can safely use it as
+	// the upper bound for an overall address range check.
+	nanov2_arena_t *current_region_next_arena = os_atomic_load(
+			&nanozone->current_region_next_arena, relaxed);
+
 	// Bounds check against the active address space.
 	if (ptr < (void *)nanozone->first_region_base ||
-			ptr > (void *)nanozone->current_region_next_arena) {
+			ptr > (void *)current_region_next_arena) {
 		return 0;
 	}
 
 #if NANOV2_MULTIPLE_REGIONS
 	// Need to check that the region part is valid because there could be holes.
 	// Do this only if we know there is a hole.
-	// NOTE: in M2 convergence, use a hashed structure to make this more
-	// efficient.
-	if (nanozone->statistics.region_address_clashes) {
+	//
+	// If we're looking at a legitimately-allocated nano pointer, a load-acquire
+	// of current_region_next_arena must have already happened when its
+	// containing arena was first allocated from, so any region_address_clashes
+	// increment that preceded the store-release of current_region_next_arena
+	// should be visible.
+	//
+	// TODO: use a hashed structure to make this more efficient.
+	if (os_atomic_load(&nanozone->statistics.region_address_clashes, relaxed)) {
 		nanov2_region_t *ptr_region = nanov2_region_address_for_ptr(ptr);
 		nanov2_region_t *region = nanozone->first_region_base;
 		while (region) {
 			if (ptr_region == region) {
 				break;
 			}
-			region = nanov2_next_region_for_region(nanozone, region);
+			region = nanov2_next_region_for_region(nanozone, region,
+					current_region_next_arena);
 		}
 		if (!region) {
 			// Reached the end of the region list without matching - not a
@@ -2069,45 +2138,62 @@ nanov2_allocate_region(nanov2_region_t *region)
 
 // Allocates a new region adjacent to the current one. If the allocation fails,
 // keep sliding up by the size of a region until we either succeed or run out of
-// address space. The caller must own the Nanozone regions lock.
-MALLOC_NOEXPORT boolean_t
+// address space. The caller must own the Nanozone regions lock. Returns the
+// first arena of the newly-allocated region if successful, or NULL otherwise.
+MALLOC_NOEXPORT nanov2_arena_t *
 nanov2_allocate_new_region(nanozonev2_t *nanozone)
 {
 #if NANOV2_MULTIPLE_REGIONS
-	boolean_t result = FALSE;
+	bool allocated = false;
 
 	_malloc_lock_assert_owner(&nanozone->regions_lock);
-	nanov2_region_t *current_region = nanozone->current_region_base;
-	nanov2_region_t *next_region = (nanov2_region_t *)nanozone->current_region_limit;
+	nanov2_region_t *current_region = nanov2_current_region_base(
+			os_atomic_load(&nanozone->current_region_next_arena, relaxed));
+	nanov2_region_t *next_region = current_region + 1;
 	while ((void *)next_region <= nanov2_max_region_base.addr) {
 		if (nanov2_allocate_region(next_region)) {
-			nanozone->current_region_base = next_region;
-			nanozone->current_region_next_arena = (nanov2_arena_t *)next_region;
-			nanozone->current_region_limit = next_region + 1;
 			nanozone->statistics.allocated_regions++;
-			result = TRUE;
+			allocated = true;
 			break;
 		}
 		next_region++;
-		nanozone->statistics.region_address_clashes++;
+
+		// Loaded atomically in nanov2_pointer_size() to determine whether or
+		// not it's necessary to walk the region list, so we need to increment
+		// atomically here. Published by the store-release of
+		// current_region_next_arena.
+		os_atomic_inc(&nanozone->statistics.region_address_clashes, relaxed);
 	}
 
-	if (result) {
-		// Link this region to the previous one.
-		nanov2_region_linkage_t *current_region_linkage =
-				nanov2_region_linkage_for_region(nanozone, current_region);
-		nanov2_region_linkage_t *next_region_linkage =
-				nanov2_region_linkage_for_region(nanozone, next_region);
-		uint16_t offset = next_region - current_region;
-		current_region_linkage->next_region_offset = offset;
-		next_region_linkage->next_region_offset = 0;
+	if (!allocated) {
+		return NULL;
 	}
 
-	return result;
+	// Link this region to the previous one.
+	nanov2_region_linkage_t *current_region_linkage =
+			nanov2_region_linkage_for_region(nanozone, current_region);
+
+	// The linkage of the next region is in pristine memory, so already zero -
+	// don't touch it.
+
+	// Store-release the linkage update so any dependent loads through it
+	// observe the (implicit zero-)initialization of the next region.
+	uint16_t offset = next_region - current_region;
+	os_atomic_store(&current_region_linkage->next_region_offset, offset,
+			release);
+
+	// Store-release the update to current_region_next_arena to publish the
+	// linkage update. Pairs with load-acquires of current_region_next_arena
+	// followed by walks of the region list.
+	nanov2_arena_t *first_arena = nanov2_first_arena_for_region(next_region);
+	os_atomic_store(&nanozone->current_region_next_arena, first_arena + 1,
+			release);
+
+	return first_arena;
 #else // NANOV2_MULTIPLE_REGIONS
 	// On iOS, only one region is supported, so we fail since the first
 	// region is allocated separately.
-	return FALSE;
+	return NULL;
 #endif // CONFIG_NANOV2_MULTIPLE_REGIONS
 }
 #endif // OS_VARIANT_NOTRESOLVED
@@ -2458,8 +2544,13 @@ retry:
 	start_region = nanov2_region_address_for_ptr(arena);
 	nanov2_arena_t *start_arena = arena;
 	nanov2_region_t *region = start_region;
-	nanov2_arena_t *limit_arena = nanov2_limit_arena_for_region(nanozone, start_region);
-	nanov2_arena_t *initial_region_next_arena = nanozone->current_region_next_arena;
+	// The load-acquire pairs with store-release in nanov2_allocate_new_region()
+	// to make the most recent region linkage update visible when we load it in
+	// nanov2_next_region_for_region() below.
+	nanov2_arena_t *initial_region_next_arena = os_atomic_load(
+			&nanozone->current_region_next_arena, acquire);
+	nanov2_arena_t *limit_arena = nanov2_limit_arena_for_region(nanozone,
+			start_region, initial_region_next_arena);
 	do {
 		nanov2_block_meta_t *block_metap = nanov2_find_block_in_arena(nanozone,
 				arena, size_class, start_block);
@@ -2495,13 +2586,15 @@ retry:
 		start_block = NULL;
 		arena++;
 		if (arena >= limit_arena) {
-			region = nanov2_next_region_for_region(nanozone, region);
+			region = nanov2_next_region_for_region(nanozone, region,
+					initial_region_next_arena);
 			if (!region) {
 				// Reached the last region -- loop back to the first.
 				region = nanozone->first_region_base;
 			}
 			arena = nanov2_first_arena_for_region(region);
-			limit_arena = nanov2_limit_arena_for_region(nanozone, region);
+			limit_arena = nanov2_limit_arena_for_region(nanozone, region,
+					initial_region_next_arena);
 		}
 	} while (arena != start_arena);
 
@@ -2513,36 +2606,41 @@ retry:
 
 	// Allocate a new arena and maybe a new region. To do either of those
 	// things, we need to take the regions_lock. After doing so, check that the
-	// state is unchanged. If it has _and_ the initial next arena is safe, just
-	// assume that we might have some new space to allocate into and try again.
-	boolean_t failed = FALSE;
-	arena = initial_region_next_arena;
+	// state is unchanged. If it has, just assume that we might have some new
+	// space to allocate into and try again.
 
-	// The initial next arena may actually be the limit arena of its region, in
-	// which case it's not safe to attempt to allocate from.
-	bool initial_region_next_arena_is_limit =
-			(arena == (nanov2_arena_t *)nanov2_region_address_for_ptr(arena));
+	boolean_t failed = FALSE;
 
 	_malloc_lock_lock(&nanozone->regions_lock);
-	if (nanozone->current_region_next_arena == arena ||
-			initial_region_next_arena_is_limit) {
-		if ((void *)nanozone->current_region_next_arena >=
-				nanozone->current_region_limit) {
+	nanov2_arena_t *current_region_next_arena = os_atomic_load(
+			&nanozone->current_region_next_arena, relaxed);
+	if (current_region_next_arena == initial_region_next_arena) {
+		if (nanov2_current_region_next_arena_is_limit(
+				current_region_next_arena)) {
 			// Reached the end of the region. Allocate a new one, if we can.
-			if (nanov2_allocate_new_region(nanozone)) {
-				arena = nanozone->current_region_next_arena++;
-			} else {
+			arena = nanov2_allocate_new_region(nanozone);
+			if (!arena) {
 				failed = TRUE;
 			}
 		} else {
 			// Assign the new arena, in the current region.
-			arena = nanozone->current_region_next_arena++;
+			arena = current_region_next_arena;
+
+			// Bump current_region_next_arena by 1. No need for an atomic add
+			// because we're under the regions_lock.
+			os_atomic_store(&nanozone->current_region_next_arena,
+					current_region_next_arena + 1, relaxed);
 		}
 
 		// Set up the guard blocks for the new arena, if requested
 		if (!failed) {
 			nanov2_init_guard_blocks(nanozone, arena);
 		}
+	} else {
+		// The arena just before current_region_next_arena is always the most
+		// recently allocated arena. Let's retry from that arena, which was
+		// allocated in the time since we started our last try.
+		arena = current_region_next_arena - 1;
 	}
 	_malloc_lock_unlock(&nanozone->regions_lock);
 
@@ -2818,13 +2916,12 @@ nanov2_create_zone(malloc_zone_t *helper_zone, unsigned debug_flags)
 	}
 	nanov2_region_linkage_t *region_linkage =
 			nanov2_region_linkage_for_region(nanozone, region);
-	region_linkage->next_region_offset = 0;
+	os_atomic_store(&region_linkage->next_region_offset, 0, relaxed);
 
 	// Install the first region and pre-allocate the first arena.
 	nanozone->first_region_base = region;
-	nanozone->current_region_base = region;
-	nanozone->current_region_next_arena = ((nanov2_arena_t *)region) + 1;
-	nanozone->current_region_limit = region + 1;
+	os_atomic_store(&nanozone->current_region_next_arena,
+			((nanov2_arena_t *)region) + 1, release);
 	nanozone->statistics.allocated_regions = 1;
 
 	// Set up the guard blocks for the initial arena, if requested

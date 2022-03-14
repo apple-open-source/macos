@@ -601,7 +601,6 @@ feth_has_intf_advisory_configured(if_fake_ref fakeif)
 
 #define FETH_MAXUNIT    IF_MAXUNIT
 #define FETH_ZONE_MAX_ELEM      MIN(IFNETS_MAX, FETH_MAXUNIT)
-#define M_FAKE          M_DEVBUF
 
 static  int feth_clone_create(struct if_clone *, u_int32_t, void *);
 static  int feth_clone_destroy(ifnet_t);
@@ -862,7 +861,7 @@ feth_clone_packet(if_fake_ref dif, kern_packet_t sph, kern_packet_t *pdph)
 	errno_t err = 0;
 	kern_pbufpool_t pp = dif->iff_rx_pp;
 	kern_packet_t dph = 0, dph0 = 0;
-	kern_buflet_t sbuf, dbuf0, dbuf;
+	kern_buflet_t sbuf, dbuf0 = NULL, dbuf;
 	void *saddr, *daddr;
 	uint32_t soff, doff;
 	uint32_t slen, dlen;

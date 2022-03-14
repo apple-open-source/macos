@@ -929,58 +929,52 @@ pcap_ng_dump_pktap_comment(pcap_t *pcap, pcap_dumper_t *dumper,
 	
 	pcap_ng_block_packet_set_data(block, pkt_data, epb->caplen);
 	
-	if (proc_info != NULL)
+	if (proc_info != NULL) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PIB_INDEX, &proc_info->proc_dump_index, 4);
-	if (e_proc_info != NULL)
+	}
+	if (e_proc_info != NULL) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_E_PIB_INDEX, &e_proc_info->proc_dump_index, 4);
-	
-	if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_IN))
+	}
+	if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_IN)) {
 		pktflags = PCAPNG_PBF_DIR_INBOUND;
-	else if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT))
+	} else if ((pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT)) {
 		pktflags = PCAPNG_PBF_DIR_OUTBOUND;
-	if (pktflags != 0)
+	}
+	if (pktflags != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLAGS , &pktflags, 4);
-	
-	if (pktp_hdr->pth_svc != -1)
+	}
+	if (pktp_hdr->pth_svc != -1) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_SVC , &pktp_hdr->pth_svc, 4);
-	
-	if (comment != NULL)
+	}
+	if (pktp_hdr->pth_flowid != 0) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLOW_ID , &pktp_hdr->pth_flowid, 4);
+	}
+#ifdef PKTAP_HAS_TRACE_TAG
+	if (pktp_hdr->pth_trace_tag != 0) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG , &pktp_hdr->pth_trace_tag, 2);
+	}
+#endif /* PKTAP_HAS_TRACE_TAG */
+	if (comment != NULL) {
 		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
-
+	}
 	if (pktp_hdr->pth_flags & PTH_FLAG_NEW_FLOW) {
 		pmdflags |= PCAPNG_EPB_PMDF_NEW_FLOW;
 	}
-
-#ifdef PTH_FLAG_REXMIT
 	if (pktp_hdr->pth_flags & PTH_FLAG_REXMIT) {
 		pmdflags |= PCAPNG_EPB_PMDF_REXMIT;
 	}
-#endif /* PTH_FLAG_REXMIT */
-
-#ifdef PTH_FLAG_KEEP_ALIVE
 	if (pktp_hdr->pth_flags & PTH_FLAG_KEEP_ALIVE) {
 		pmdflags |= PCAPNG_EPB_PMDF_KEEP_ALIVE;
 	}
-#endif /* PTH_FLAG_KEEP_ALIVE */
-
-#ifdef PTH_FLAG_SOCKET
 	if (pktp_hdr->pth_flags & PTH_FLAG_SOCKET) {
 		pmdflags |= PCAPNG_EPB_PMDF_SOCKET;
 	}
-#endif /* PTH_FLAG_SOCKET */
-
-#ifdef PTH_FLAG_NEXUS_CHAN
 	if (pktp_hdr->pth_flags & PTH_FLAG_NEXUS_CHAN) {
 		pmdflags |= PCAPNG_EPB_PMDF_NEXUS_CHANNEL;
 	}
-#endif /* PTH_FLAG_NEXUS_CHAN */
-
-#ifdef PTH_FLAG_WAKE_PKT
 	if (pktp_hdr->pth_flags & PTH_FLAG_WAKE_PKT) {
 		pmdflags |= PCAPNG_EPB_PMDF_WAKE_PKT;
 	}
-#endif /* PTH_FLAG_WAKE_PKT */
-
 	if (pmdflags != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
 	}
@@ -1041,7 +1035,7 @@ pcap_apple_set_exthdr(pcap_t *p, int v)
                  pcap_strerror(errno));
         status = PCAP_ERROR;
     } else {
-        p->extendedhdr = !!v;
+        p->extendedhdr = v;
 		status = 0;
 	}
 #endif /* BIOCSEXTHDR */
@@ -1219,6 +1213,27 @@ pcap_read_bpf_header(pcap_t *p, u_char *bp, struct pcap_pkthdr *pkthdr)
 			strsep = ", ";
 		}
 	}
+
+	if (bhep->bh_flowid > 0) {
+		bzero(&tmpbuf, sizeof (tmpbuf));
+		tlen = snprintf(tmpbuf, sizeof (tmpbuf),
+				"%sflowid 0x%x", strsep, bhep->bh_flowid);
+		if (tlen > 0) {
+			strlcat(pkthdr->comment, tmpbuf, sizeof (pkthdr->comment));
+			strsep = ", ";
+		}
+	}
+#if BPF_HDR_EXT_HAS_TRACE_TAG
+	if (bhep->bh_trace_tag > 0) {
+		bzero(&tmpbuf, sizeof (tmpbuf));
+		tlen = snprintf(tmpbuf, sizeof (tmpbuf),
+				"%sttag 0x%x", strsep, bhep->bh_trace_tag);
+		if (tlen > 0) {
+			strlcat(pkthdr->comment, tmpbuf, sizeof (pkthdr->comment));
+			strsep = ", ";
+		}
+	}
+#endif /* BPF_HDR_EXT_HAS_TRACE_TAG */
 }
 
 #ifdef PTH_FLAG_V2_HDR
@@ -1426,42 +1441,35 @@ pcap_ng_dump_pktap_v2(pcap_t *pcap, pcap_dumper_t *dumper,
 		uint32_t svc = pktap_v2_hdr->pth_svc;
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_SVC , &svc, 4);
 	}
+	if (pktap_v2_hdr->pth_flowid != 0) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLOW_ID , &pktap_v2_hdr->pth_flowid, 4);
+	}
+#ifdef PKTAP_HAS_TRACE_TAG
+	if (pktp_hdr->pth_trace_tag != 0) {
+		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG , &pktap_v2_hdr->pth_trace_tag, 2);
+	}
+#endif /* PKTAP_HAS_TRACE_TAG */
 	if (comment != NULL) {
 		pcap_ng_block_add_option_with_string(block, PCAPNG_OPT_COMMENT, comment);
 	}
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_NEW_FLOW) {
 		pmdflags |= PCAPNG_EPB_PMDF_NEW_FLOW;
 	}
-#ifdef PTH_FLAG_REXMIT
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_REXMIT) {
 		pmdflags |= PCAPNG_EPB_PMDF_REXMIT;
 	}
-#endif /* PTH_FLAG_REXMIT */
-	
-#ifdef PTH_FLAG_KEEP_ALIVE
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_KEEP_ALIVE) {
 		pmdflags |= PCAPNG_EPB_PMDF_KEEP_ALIVE;
 	}
-#endif /* PTH_FLAG_KEEP_ALIVE */
-	
-#ifdef PTH_FLAG_SOCKET
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_SOCKET) {
 		pmdflags |= PCAPNG_EPB_PMDF_SOCKET;
 	}
-#endif /* PTH_FLAG_SOCKET */
-	
-#ifdef PTH_FLAG_NEXUS_CHAN
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_NEXUS_CHAN) {
 		pmdflags |= PCAPNG_EPB_PMDF_NEXUS_CHANNEL;
 	}
-#endif /* PTH_FLAG_NEXUS_CHAN */
-
-#ifdef PTH_FLAG_WAKE_PKT
 	if (pktap_v2_hdr->pth_flags & PTH_FLAG_WAKE_PKT) {
 		pmdflags |= PCAPNG_EPB_PMDF_WAKE_PKT;
 	}
-#endif /* PTH_FLAG_WAKE_PKT */
-
 	if (pmdflags != 0) {
 		pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
 	}

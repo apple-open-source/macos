@@ -261,6 +261,8 @@ CFMutableSetRef SOSAccountCopyUnsyncedInitialViews(SOSAccount*  account);
 //
 // MARK: State Logging
 //
+
+CFStringRef SOSAccountCopyStateString(SOSAccount*  account);
 void SOSAccountLogState(SOSAccount*  account);
 void SOSAccountLogViewState(SOSAccount*  account);
 void SOSAccountConsiderLoggingEngineState(SOSAccountTransaction* txn);

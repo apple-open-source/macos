@@ -30,11 +30,15 @@
 
 #include "FloatingContext.h"
 #include "FontCascade.h"
+#include "InlineDamage.h"
+#include "InlineDisplayBox.h"
+#include "InlineDisplayContentBuilder.h"
+#include "InlineDisplayLineBuilder.h"
 #include "InlineFormattingState.h"
+#include "InlineItemsBuilder.h"
 #include "InlineLineBox.h"
-#include "InlineLineRun.h"
+#include "InlineLineBoxBuilder.h"
 #include "InlineTextItem.h"
-#include "InvalidationState.h"
 #include "LayoutBox.h"
 #include "LayoutContainerBox.h"
 #include "LayoutContext.h"
@@ -54,8 +58,9 @@ namespace Layout {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(InlineFormattingContext);
 
-InlineFormattingContext::InlineFormattingContext(const ContainerBox& formattingContextRoot, InlineFormattingState& formattingState)
+InlineFormattingContext::InlineFormattingContext(const ContainerBox& formattingContextRoot, InlineFormattingState& formattingState, const InlineDamage* lineDamage)
     : FormattingContext(formattingContextRoot, formattingState)
+    , m_lineDamage(lineDamage)
     , m_inlineFormattingGeometry(*this)
     , m_inlineFormattingQuirks(*this)
 {
@@ -81,12 +86,12 @@ static inline const Box* nextInlineLevelBoxToLayout(const Box& layoutBox, const 
     return nullptr;
 }
 
-void InlineFormattingContext::layoutInFlowContent(InvalidationState& invalidationState, const ConstraintsForInFlowContent& constraints)
+void InlineFormattingContext::layoutInFlowContent(const ConstraintsForInFlowContent& constraints)
 {
     LOG_WITH_STREAM(FormattingContextLayout, stream << "[Start] -> inline formatting context -> formatting root(" << &root() << ")");
     ASSERT(root().hasInFlowOrFloatingChild());
 
-    invalidateFormattingState(invalidationState);
+    invalidateFormattingState();
     auto* layoutBox = root().firstInFlowOrFloatingChild();
     // 1. Visit each inline box and partially compute their geometry (margins, padding and borders).
     // 2. Collect the inline items (flatten the the layout tree) and place them on lines in bidirectional order. 
@@ -104,9 +109,9 @@ void InlineFormattingContext::layoutInFlowContent(InvalidationState& invalidatio
                 if (formattingRoot.hasChild()) {
                     auto formattingContext = LayoutContext::createFormattingContext(formattingRoot, layoutState());
                     if (formattingRoot.hasInFlowOrFloatingChild())
-                        formattingContext->layoutInFlowContent(invalidationState, formattingGeometry().constraintsForInFlowContent(formattingRoot));
+                        formattingContext->layoutInFlowContent(formattingGeometry().constraintsForInFlowContent(formattingRoot));
                     computeHeightAndMargin(formattingRoot, constraints.horizontal());
-                    formattingContext->layoutOutOfFlowContent(invalidationState, formattingGeometry().constraintsForOutOfFlowContent(formattingRoot));
+                    formattingContext->layoutOutOfFlowContent(formattingGeometry().constraintsForOutOfFlowContent(formattingRoot));
                 } else
                     computeHeightAndMargin(formattingRoot, constraints.horizontal());
             } else {
@@ -123,7 +128,7 @@ void InlineFormattingContext::layoutInFlowContent(InvalidationState& invalidatio
             boxGeometry.setContentBoxWidth({ });
             boxGeometry.setVerticalMargin({ });
         } else if (layoutBox->isInlineBox()) {
-            // Text wrapper boxes (anonymous inline level boxes) don't have box geometries (they only generate runs).
+            // Text wrapper boxes (anonymous inline level boxes) don't have box geometries (they only generate boxes).
             if (!layoutBox->isInlineTextBox()) {
                 // Inline boxes (<span>) can't get sized/positioned yet. At this point we can only compute their margins, borders and padding.
                 computeBorderAndPadding(*layoutBox, constraints.horizontal());
@@ -136,19 +141,38 @@ void InlineFormattingContext::layoutInFlowContent(InvalidationState& invalidatio
         layoutBox = nextInlineLevelBoxToLayout(*layoutBox, root());
     }
 
-    collectInlineContentIfNeeded();
+    collectContentIfNeeded();
 
     auto& inlineItems = formattingState().inlineItems();
     lineLayout(inlineItems, { 0, inlineItems.size() }, constraints);
+    computeStaticPositionForOutOfFlowContent(formattingState().outOfFlowBoxes());
+    InlineDisplayContentBuilder::computeIsFirstIsLastBoxForInlineContent(formattingState().boxes());
     LOG_WITH_STREAM(FormattingContextLayout, stream << "[End] -> inline formatting context -> formatting root(" << &root() << ")");
 }
 
-void InlineFormattingContext::lineLayoutForIntergration(InvalidationState& invalidationState, const ConstraintsForInFlowContent& constraints)
+void InlineFormattingContext::lineLayoutForIntergration(const ConstraintsForInFlowContent& constraints)
 {
-    invalidateFormattingState(invalidationState);
-    collectInlineContentIfNeeded();
+    invalidateFormattingState();
+    collectContentIfNeeded();
     auto& inlineItems = formattingState().inlineItems();
     lineLayout(inlineItems, { 0, inlineItems.size() }, constraints);
+    computeStaticPositionForOutOfFlowContent(formattingState().outOfFlowBoxes());
+    InlineDisplayContentBuilder::computeIsFirstIsLastBoxForInlineContent(formattingState().boxes());
+}
+
+IntrinsicWidthConstraints InlineFormattingContext::computedIntrinsicWidthConstraintsForIntegration()
+{
+    if (formattingState().intrinsicWidthConstraints())
+        return *formattingState().intrinsicWidthConstraints();
+
+    collectContentIfNeeded();
+
+    auto constraints = IntrinsicWidthConstraints {
+        ceiledLayoutUnit(computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Minimum)),
+        ceiledLayoutUnit(computedIntrinsicWidthForConstraint(IntrinsicWidthMode::Maximum))
+    };
+    formattingState().setIntrinsicWidthConstraints(constraints);
+    return constraints;
 }
 
 LayoutUnit InlineFormattingContext::usedContentHeight() const
@@ -163,8 +187,8 @@ LayoutUnit InlineFormattingContext::usedContentHeight() const
     auto& lines = formattingState().lines();
     // Even empty content generates a line.
     ASSERT(!lines.isEmpty());
-    auto top = LayoutUnit { lines.first().lineBoxLogicalRect().top() };
-    auto bottom = LayoutUnit { lines.last().lineBoxLogicalRect().bottom() + formattingState().clearGapAfterLastLine() };
+    auto top = LayoutUnit { lines.first().top() };
+    auto bottom = LayoutUnit { lines.last().bottom() + formattingState().clearGapAfterLastLine() };
 
     auto floatingContext = FloatingContext { *this, formattingState().floatingState() };
     if (auto floatBottom = floatingContext.bottom()) {
@@ -177,7 +201,7 @@ LayoutUnit InlineFormattingContext::usedContentHeight() const
 void InlineFormattingContext::lineLayout(InlineItems& inlineItems, LineBuilder::InlineItemRange needsLayoutRange, const ConstraintsForInFlowContent& constraints)
 {
     auto& formattingState = this->formattingState();
-    formattingState.lineRuns().reserveInitialCapacity(formattingState.inlineItems().size());
+    formattingState.boxes().reserveInitialCapacity(formattingState.inlineItems().size());
     InlineLayoutUnit lineLogicalTop = constraints.logicalTop();
     struct PreviousLine {
         LineBuilder::InlineItemRange range;
@@ -202,7 +226,7 @@ void InlineFormattingContext::lineLayout(InlineItems& inlineItems, LineBuilder::
         }();
         auto initialLineConstraints = InlineRect { lineLogicalTop, constraints.horizontal().logicalLeft, constraints.horizontal().logicalWidth, initialLineHeight };
         auto lineContent = lineBuilder.layoutInlineContent(needsLayoutRange, partialLeadingContentLength, leadingLogicalWidth, initialLineConstraints, isFirstLine);
-        auto lineLogicalRect = computeGeometryForLineContent(lineContent, constraints.horizontal());
+        auto lineLogicalRect = computeGeometryForLineContent(lineContent);
 
         auto lineContentRange = lineContent.inlineItemRange;
         if (!lineContentRange.isEmpty()) {
@@ -253,10 +277,108 @@ void InlineFormattingContext::lineLayout(InlineItems& inlineItems, LineBuilder::
     }
 }
 
+void InlineFormattingContext::computeStaticPositionForOutOfFlowContent(const FormattingState::OutOfFlowBoxList& outOfFlowBoxes)
+{
+    // This function computes the static position for out-of-flow content inside the inline formatting context.
+    // As per spec, the static position of an out-of-flow box is computed as if the position was set to static.
+    // However it does not mean that the out-of-flow box should be involved in the inline layout process.
+    // Instead we figure out this static position after the inline layout by looking at the previous/next sibling (or parent) box's geometry and
+    // place the out-of-flow box at the logical right position.
+    auto& formattingState = this->formattingState();
+    auto& lines = formattingState.lines();
+    auto& boxes = formattingState.boxes();
+
+    for (auto& outOfFlowBox : outOfFlowBoxes) {
+        auto& outOfFlowGeometry = formattingState.boxGeometry(outOfFlowBox);
+        // Both previous float and out-of-flow boxes are skipped here. A series of adjoining out-of-flow boxes should all be placed
+        // at the same static position (they don't affect next-sibling positions) and while floats do participate in the inline layout
+        // their positions have already been taken into account during the inline layout.
+        auto previousContentSkippingFloats = [&]() -> const Layout::Box* {
+            auto* previousSibling = outOfFlowBox->previousSibling();
+            for (; previousSibling && previousSibling->isFloatingPositioned(); previousSibling = previousSibling->previousSibling()) { }
+            if (previousSibling)
+                return previousSibling;
+            // Parent is either the root here or another inline box (e.g. <span><img style="position: absolute"></span>)
+            auto& parent = outOfFlowBox->parent();
+            return &parent == &root() ? nullptr : &parent;
+        }();
+
+        if (!previousContentSkippingFloats) {
+            // This is the first (non-float)child. Let's place it to the left of the first box.
+            // <div><img style="position: absolute">text content</div>
+            ASSERT(boxes.size());
+            outOfFlowGeometry.setLogicalTopLeft({ boxes[0].left(), lines[0].top() });
+            continue;
+        }
+
+        if (previousContentSkippingFloats->isOutOfFlowPositioned()) {
+            // Subsequent out-of-flow positioned boxes share the same static position.
+            // <div>text content<img style="position: absolute"><img style="position: absolute"></div>
+            outOfFlowGeometry.setLogicalTopLeft(BoxGeometry::borderBoxTopLeft(geometryForBox(*previousContentSkippingFloats)));
+            continue;
+        }
+
+        ASSERT(previousContentSkippingFloats->isInFlow());
+        auto placeOutOfFlowBoxAfterPreviousInFlowBox = [&] {
+            // The out-of-flow box should be placed after this inflow box.
+            // Skip to the last box of this layout box. The last box's geometry is used to compute the out-of-flow box's static position.
+            size_t lastBoxIndexOnPreviousLayoutBox = 0;
+            for (; lastBoxIndexOnPreviousLayoutBox < boxes.size() && &boxes[lastBoxIndexOnPreviousLayoutBox].layoutBox() != previousContentSkippingFloats; ++lastBoxIndexOnPreviousLayoutBox) { }
+            if (lastBoxIndexOnPreviousLayoutBox == boxes.size()) {
+                // FIXME: In very rare cases, the previous box's content might have been completely collapsed and left us with no box.
+                ASSERT_NOT_IMPLEMENTED_YET();
+                return;
+            }
+            for (; lastBoxIndexOnPreviousLayoutBox < boxes.size() && &boxes[lastBoxIndexOnPreviousLayoutBox].layoutBox() == previousContentSkippingFloats; ++lastBoxIndexOnPreviousLayoutBox) { }
+                --lastBoxIndexOnPreviousLayoutBox;
+            // Let's check if the previous box is the last box on the current line and use the next box's left instead.
+            auto& previousBox = boxes[lastBoxIndexOnPreviousLayoutBox];
+            auto* nextBox = lastBoxIndexOnPreviousLayoutBox + 1 < boxes.size() ? &boxes[lastBoxIndexOnPreviousLayoutBox + 1] : nullptr;
+
+            if (nextBox && nextBox->lineIndex() == previousBox.lineIndex()) {
+                // Previous and next boxes are on the same line. The out-of-flow box is right at the previous box's logical right.
+                // <div>text<img style="position: absolute">content</div>
+                auto left = previousBox.right();
+                if (previousContentSkippingFloats->isInlineBox() && !previousContentSkippingFloats->isAnonymous()) {
+                    // <div>text<span><img style="position: absolute">content</span></div>
+                    // or
+                    // <div>text<span>content</span><img style="position: absolute"></div>
+                    auto& inlineBoxBoxGeometry = geometryForBox(*previousContentSkippingFloats);
+                    left = previousContentSkippingFloats == &outOfFlowBox->parent()
+                        ? BoxGeometry::borderBoxLeft(inlineBoxBoxGeometry) + inlineBoxBoxGeometry.contentBoxLeft()
+                        : BoxGeometry::borderBoxRect(inlineBoxBoxGeometry).right();
+                }
+                outOfFlowGeometry.setLogicalTopLeft({ left, lines[previousBox.lineIndex()].top() });
+                return;
+            }
+
+            if (nextBox) {
+                // The out of flow box is placed at the beginning of the next line (where the first box on the line is).
+                // <div>text<br><img style="position: absolute"><img style="position: absolute">content</div>
+                outOfFlowGeometry.setLogicalTopLeft({ nextBox->left(), lines[nextBox->lineIndex()].top() });
+                return;
+            }
+
+            auto& lastLine = lines[previousBox.lineIndex()];
+            // This out-of-flow box is the last box.
+            // FIXME: Use isLineBreak instead to cover preserved new lines too.
+            if (previousBox.layoutBox().isLineBreakBox()) {
+                // <div>text<br><img style="position: absolute"><img style="position: absolute"></div>
+                outOfFlowGeometry.setLogicalTopLeft({ lastLine.left(), lastLine.bottom() });
+                return;
+            }
+            // FIXME: We may need to check if this box actually fits the last line and move it over to the "next" line.
+            outOfFlowGeometry.setLogicalTopLeft({ previousBox.right(), lastLine.top() });
+        };
+        placeOutOfFlowBoxAfterPreviousInFlowBox();
+    }
+}
+
 IntrinsicWidthConstraints InlineFormattingContext::computedIntrinsicWidthConstraints()
 {
     auto& layoutState = this->layoutState();
-    ASSERT(!formattingState().intrinsicWidthConstraints());
+    if (formattingState().intrinsicWidthConstraints())
+        return *formattingState().intrinsicWidthConstraints();
 
     if (!root().hasInFlowOrFloatingChild()) {
         auto constraints = formattingGeometry().constrainByMinMaxWidth(root(), { });
@@ -291,37 +413,39 @@ IntrinsicWidthConstraints InlineFormattingContext::computedIntrinsicWidthConstra
         layoutBox = nextInlineLevelBoxToLayout(*layoutBox, root());
     }
 
-    collectInlineContentIfNeeded();
+    collectContentIfNeeded();
 
-    auto maximumLineWidth = [&](auto availableWidth) {
+    auto maximumLineWidth = [&](auto intrinsicWidthMode) {
         // Switch to the min/max formatting root width values before formatting the lines.
         for (auto* formattingRoot : formattingContextRootList) {
             auto intrinsicWidths = layoutState.formattingStateForBox(*formattingRoot).intrinsicWidthConstraintsForBox(*formattingRoot);
             auto& boxGeometry = formattingState().boxGeometry(*formattingRoot);
-            auto contentWidth = (availableWidth ? intrinsicWidths->maximum : intrinsicWidths->minimum) - boxGeometry.horizontalMarginBorderAndPadding();
+            auto contentWidth = (intrinsicWidthMode == IntrinsicWidthMode::Maximum ? intrinsicWidths->maximum : intrinsicWidths->minimum) - boxGeometry.horizontalMarginBorderAndPadding();
             boxGeometry.setContentBoxWidth(contentWidth);
         }
-        return computedIntrinsicWidthForConstraint(availableWidth);
+        return computedIntrinsicWidthForConstraint(intrinsicWidthMode);
     };
 
-    auto minimumContentWidth = ceiledLayoutUnit(maximumLineWidth(0));
-    auto maximumContentWidth = ceiledLayoutUnit(maximumLineWidth(maxInlineLayoutUnit()));
+    auto minimumContentWidth = ceiledLayoutUnit(maximumLineWidth(IntrinsicWidthMode::Minimum));
+    auto maximumContentWidth = ceiledLayoutUnit(maximumLineWidth(IntrinsicWidthMode::Maximum));
     auto constraints = formattingGeometry().constrainByMinMaxWidth(root(), { minimumContentWidth, maximumContentWidth });
     formattingState().setIntrinsicWidthConstraints(constraints);
     return constraints;
 }
 
-InlineLayoutUnit InlineFormattingContext::computedIntrinsicWidthForConstraint(InlineLayoutUnit availableWidth) const
+InlineLayoutUnit InlineFormattingContext::computedIntrinsicWidthForConstraint(IntrinsicWidthMode intrinsicWidthMode) const
 {
     auto& inlineItems = formattingState().inlineItems();
-    auto lineBuilder = LineBuilder { *this, inlineItems };
+    auto lineBuilder = LineBuilder { *this, inlineItems, intrinsicWidthMode };
     auto layoutRange = LineBuilder::InlineItemRange { 0 , inlineItems.size() };
     auto maximumLineWidth = InlineLayoutUnit { };
     auto maximumFloatWidth = LayoutUnit { };
+    auto isFirstLine = true;
     while (!layoutRange.isEmpty()) {
-        auto intrinsicContent = lineBuilder.computedIntrinsicWidth(layoutRange, availableWidth);
+        auto intrinsicContent = lineBuilder.computedIntrinsicWidth(layoutRange, isFirstLine);
         layoutRange.start = intrinsicContent.inlineItemRange.end;
         maximumLineWidth = std::max(maximumLineWidth, intrinsicContent.logicalWidth);
+        isFirstLine = false;
         // FIXME: Add support for clear.
         for (auto* floatBox : intrinsicContent.floats)
             maximumFloatWidth += geometryForBox(*floatBox).marginBoxWidth();
@@ -415,211 +539,59 @@ void InlineFormattingContext::computeHeightAndMargin(const Box& layoutBox, const
     boxGeometry.setVerticalMargin({ contentHeightAndMargin.nonCollapsedMargin.before, contentHeightAndMargin.nonCollapsedMargin.after });
 }
 
-void InlineFormattingContext::collectInlineContentIfNeeded()
+void InlineFormattingContext::collectContentIfNeeded()
 {
     auto& formattingState = this->formattingState();
     if (!formattingState.inlineItems().isEmpty())
         return;
-    // Traverse the tree and create inline items out of inline boxes and leaf nodes. This essentially turns the tree inline structure into a flat one.
-    // <span>text<span></span><img></span> -> [InlineBoxStart][InlineLevelBox][InlineBoxStart][InlineBoxEnd][InlineLevelBox][InlineBoxEnd]
-    ASSERT(root().hasInFlowOrFloatingChild());
-    LayoutQueue layoutQueue;
-    layoutQueue.append(root().firstInFlowOrFloatingChild());
-    while (!layoutQueue.isEmpty()) {
-        while (true) {
-            auto& layoutBox = *layoutQueue.last();
-            auto isBoxWithInlineContent = layoutBox.isInlineBox() && !layoutBox.isInlineTextBox() && !layoutBox.isLineBreakBox();
-            if (!isBoxWithInlineContent)
-                break;
-            // This is the start of an inline box (e.g. <span>).
-            formattingState.addInlineItem({ layoutBox, InlineItem::Type::InlineBoxStart });
-            auto& inlineBoxWithInlineContent = downcast<ContainerBox>(layoutBox);
-            if (!inlineBoxWithInlineContent.hasInFlowOrFloatingChild())
-                break;
-            layoutQueue.append(inlineBoxWithInlineContent.firstInFlowOrFloatingChild());
-        }
-
-        while (!layoutQueue.isEmpty()) {
-            auto& layoutBox = *layoutQueue.takeLast();
-            if (is<LineBreakBox>(layoutBox)) {
-                auto& lineBreakBox = downcast<LineBreakBox>(layoutBox);
-                formattingState.addInlineItem({ layoutBox, lineBreakBox.isOptional() ? InlineItem::Type::WordBreakOpportunity : InlineItem::Type::HardLineBreak });
-            } else if (layoutBox.isFloatingPositioned())
-                formattingState.addInlineItem({ layoutBox, InlineItem::Type::Float });
-            else if (layoutBox.isAtomicInlineLevelBox())
-                formattingState.addInlineItem({ layoutBox, InlineItem::Type::Box });
-            else if (layoutBox.isInlineTextBox()) {
-                InlineTextItem::createAndAppendTextItems(formattingState.inlineItems(), downcast<InlineTextBox>(layoutBox));
-            } else if (layoutBox.isInlineBox())
-                formattingState.addInlineItem({ layoutBox, InlineItem::Type::InlineBoxEnd });
-            else
-                ASSERT_NOT_REACHED();
-
-            if (auto* nextSibling = layoutBox.nextInFlowOrFloatingSibling()) {
-                layoutQueue.append(nextSibling);
-                break;
-            }
-        }
-    }
+    auto inlineItemsBuilder = InlineItemsBuilder { root(), formattingState };
+    formattingState.addInlineItems(inlineItemsBuilder.build());
 }
 
-InlineRect InlineFormattingContext::computeGeometryForLineContent(const LineBuilder::LineContent& lineContent, const HorizontalConstraints& horizontalConstraints)
+InlineRect InlineFormattingContext::computeGeometryForLineContent(const LineBuilder::LineContent& lineContent)
 {
     auto& formattingState = this->formattingState();
-    auto& formattingGeometry = this->formattingGeometry();
+    auto currentLineIndex = formattingState.lines().size();
 
-    formattingState.addLineBox(formattingGeometry.lineBoxForLineContent(lineContent));
-    const auto& lineBox = formattingState.lineBoxes().last();
-    auto lineIndex = formattingState.lines().size();
-    auto& lineBoxLogicalRect = lineBox.logicalRect();
-    if (!lineBox.hasContent()) {
-        // Fast path for lines with no content e.g. <div><span></span><span></span></div> or <span><div></div></span> where we construct empty pre and post blocks.
-        ASSERT(!lineBox.contentLogicalWidth() && !lineBoxLogicalRect.height());
-        auto updateInlineBoxesGeometryIfApplicable = [&] {
-            if (!lineBox.hasInlineBox())
-                return;
-            Vector<const Box*> layoutBoxList;
-            // Collect the empty inline boxes that showed up first on this line.
-            // Note that an inline box end on an empty line does not make the inline box taller.
-            // (e.g. <div>text<span><br></span></div>) <- the <span> inline box is as tall as the line even though the </span> is after a <br> so technically is on the following (empty)line.
-            for (auto& lineRun : lineContent.runs) {
-                if (lineRun.isInlineBoxStart())
-                    layoutBoxList.append(&lineRun.layoutBox());
-            }
-            for (auto* layoutBox : layoutBoxList) {
-                auto& boxGeometry = formattingState.boxGeometry(*layoutBox);
-                auto inlineBoxLogicalHeight = LayoutUnit::fromFloatCeil(lineBox.logicalBorderBoxForInlineBox(*layoutBox, boxGeometry).height());
-                boxGeometry.setContentBoxHeight(inlineBoxLogicalHeight);
-                boxGeometry.setContentBoxWidth({ });
-                boxGeometry.setLogicalTopLeft(toLayoutPoint(lineBoxLogicalRect.topLeft()));
-            }
-        };
-        updateInlineBoxesGeometryIfApplicable();
-        formattingState.addLine({ lineBoxLogicalRect, { { }, { } }, { }, { }, { } });
-        return lineBoxLogicalRect;
-    }
+    auto lineBoxAndHeight = LineBoxBuilder { *this }.build(lineContent, currentLineIndex);
+    auto displayLine = InlineDisplayLineBuilder { *this }.build(lineContent
+        , lineBoxAndHeight.lineBox
+        , lineBoxAndHeight.lineBoxLogicalHeight
+        , currentLineIndex
+    );
+    formattingState.addBoxes(InlineDisplayContentBuilder { root(), formattingState }.build(lineContent
+        , lineBoxAndHeight.lineBox
+        , displayLine
+        , currentLineIndex)
+    );
+    formattingState.addLineBox(WTFMove(lineBoxAndHeight.lineBox));
+    formattingState.addLine(displayLine);
 
-    auto rootInlineBoxLogicalRect = lineBox.logicalRectForRootInlineBox();
-    auto enclosingTopAndBottom = InlineLineGeometry::EnclosingTopAndBottom { rootInlineBoxLogicalRect.top(), rootInlineBoxLogicalRect.bottom() };
-    HashSet<const Box*> inlineBoxStartSet;
-    HashSet<const Box*> inlineBoxEndSet;
-
-    auto constructLineRunsAndUpdateBoxGeometry = [&] {
-        // Create the inline runs on the current line. This is mostly text and atomic inline runs.
-        for (auto& lineRun : lineContent.runs) {
-            // FIXME: We should not need to construct a line run for <br>.
-            auto& layoutBox = lineRun.layoutBox();
-            if (lineRun.isText()) {
-                formattingState.addLineRun({ lineIndex, layoutBox, lineBox.logicalRectForTextRun(lineRun), lineRun.expansion(), lineRun.textContent() });
-                continue;
-            }
-            if (lineRun.isLineBreak()) {
-                if (layoutBox.isLineBreakBox()) {
-                    // Only hard linebreaks have associated layout boxes.
-                    auto lineBreakBoxRect = lineBox.logicalRectForLineBreakBox(layoutBox);
-                    formattingState.addLineRun({ lineIndex, layoutBox, lineBreakBoxRect, lineRun.expansion(), { } });
-
-                    auto& boxGeometry = formattingState.boxGeometry(layoutBox);
-                    lineBreakBoxRect.moveBy(lineBoxLogicalRect.topLeft());
-                    boxGeometry.setLogicalTopLeft(toLayoutPoint(lineBreakBoxRect.topLeft()));
-                    boxGeometry.setContentBoxHeight(toLayoutUnit(lineBreakBoxRect.height()));
-                } else 
-                    formattingState.addLineRun({ lineIndex, layoutBox, lineBox.logicalRectForTextRun(lineRun), lineRun.expansion(), lineRun.textContent() });
-                continue;
-            }
-            if (lineRun.isBox()) {
-                ASSERT(layoutBox.isAtomicInlineLevelBox());
-                auto& boxGeometry = formattingState.boxGeometry(layoutBox);
-                auto logicalBorderBox = lineBox.logicalBorderBoxForAtomicInlineLevelBox(layoutBox, boxGeometry);
-                formattingState.addLineRun({ lineIndex, layoutBox, logicalBorderBox, lineRun.expansion(), { } });
-
-                auto borderBoxLogicalTopLeft = logicalBorderBox.topLeft();
-                // Note that inline boxes are relative to the line and their top position can be negative.
-                borderBoxLogicalTopLeft.moveBy(lineBoxLogicalRect.topLeft());
-                if (layoutBox.isInFlowPositioned())
-                    borderBoxLogicalTopLeft += formattingGeometry.inFlowPositionedPositionOffset(layoutBox, horizontalConstraints);
-                // Atomic inline boxes are all set. Their margin/border/content box geometries are already computed. We just have to position them here.
-                boxGeometry.setLogicalTopLeft(toLayoutPoint(borderBoxLogicalTopLeft));
-
-                auto borderBoxTop = borderBoxLogicalTopLeft.y();
-                auto borderBoxBottom = borderBoxTop + boxGeometry.borderBoxHeight();
-                enclosingTopAndBottom.top = std::min(enclosingTopAndBottom.top, borderBoxTop);
-                enclosingTopAndBottom.bottom = std::max(enclosingTopAndBottom.bottom, borderBoxBottom);
-                continue;
-            }
-            if (lineRun.isInlineBoxStart()) {
-                auto& boxGeometry = formattingState.boxGeometry(layoutBox);
-                auto inlineBoxLogicalRect = lineBox.logicalBorderBoxForInlineBox(layoutBox, boxGeometry);
-                formattingState.addLineRun({ lineIndex, layoutBox, inlineBoxLogicalRect, lineRun.expansion(), { } });
-                inlineBoxStartSet.add(&layoutBox);
-                enclosingTopAndBottom.top = std::min(enclosingTopAndBottom.top, inlineBoxLogicalRect.top());
-                continue;
-            }
-            if (lineRun.isInlineBoxEnd()) {
-                inlineBoxEndSet.add(&layoutBox);
-                if (!inlineBoxStartSet.contains(&layoutBox)) {
-                    // An inline box can span multiple lines. Use the [inline box end] signal to include it in the enclosing geometry
-                    // only when it starts at a previous line.
-                    auto inlineBoxLogicalRect = lineBox.logicalBorderBoxForInlineBox(layoutBox, formattingState.boxGeometry(layoutBox));
-                    enclosingTopAndBottom.bottom = std::max(enclosingTopAndBottom.bottom, inlineBoxLogicalRect.bottom());
-                }
-                continue;
-            }
-            ASSERT(lineRun.isWordBreakOpportunity());
-        }
-    };
-    constructLineRunsAndUpdateBoxGeometry();
-
-    auto updateBoxGeometryForInlineBoxes = [&] {
-        // FIXME: We may want to keep around an inline box only set.
-        if (!lineBox.hasInlineBox())
-            return;
-        // Grab the inline boxes (even those that don't have associated layout boxes on the current line due to line wrapping)
-        // and update their geometries.
-        for (auto& inlineLevelBox : lineBox.nonRootInlineLevelBoxes()) {
-            if (!inlineLevelBox.isInlineBox())
-                continue;
-            auto& layoutBox = inlineLevelBox.layoutBox();
-            auto& boxGeometry = formattingState.boxGeometry(layoutBox);
-            // Inline boxes may or may not be wrapped and have runs on multiple lines (e.g. <span>first line<br>second line<br>third line</span>)
-            auto inlineBoxBorderBox = lineBox.logicalBorderBoxForInlineBox(layoutBox, boxGeometry);
-            auto inlineBoxSize = LayoutSize { LayoutUnit::fromFloatCeil(inlineBoxBorderBox.width()), LayoutUnit::fromFloatCeil(inlineBoxBorderBox.height()) };
-            auto logicalRect = Rect { LayoutPoint { inlineBoxBorderBox.topLeft() }, inlineBoxSize };
-            logicalRect.moveBy(LayoutPoint { lineBoxLogicalRect.topLeft() });
-            if (inlineBoxStartSet.contains(&layoutBox)) {
-                // This inline box showed up first on this line.
-                boxGeometry.setLogicalTopLeft(logicalRect.topLeft());
-                auto contentBoxHeight = logicalRect.height() - (boxGeometry.verticalBorder() + boxGeometry.verticalPadding().value_or(0_lu));
-                boxGeometry.setContentBoxHeight(contentBoxHeight);
-                auto contentBoxWidth = logicalRect.width() - (boxGeometry.horizontalBorder() + boxGeometry.horizontalPadding().value_or(0_lu));
-                boxGeometry.setContentBoxWidth(contentBoxWidth);
-                continue;
-            }
-            // Middle or end of the inline box. Let's stretch the box as needed.
-            auto enclosingBorderBoxRect = BoxGeometry::borderBoxRect(boxGeometry);
-            enclosingBorderBoxRect.expandToContain(logicalRect);
-            boxGeometry.setLogicalLeft(enclosingBorderBoxRect.left());
-
-            boxGeometry.setContentBoxHeight(enclosingBorderBoxRect.height() - (boxGeometry.verticalBorder() + boxGeometry.verticalPadding().value_or(0_lu)));
-            boxGeometry.setContentBoxWidth(enclosingBorderBoxRect.width() - (boxGeometry.horizontalBorder() + boxGeometry.horizontalPadding().value_or(0_lu)));
-        }
-    };
-    updateBoxGeometryForInlineBoxes();
-
-    auto constructLineGeometry = [&] {
-        formattingState.addLine({ lineBoxLogicalRect, enclosingTopAndBottom, lineBox.alignmentBaseline(), rootInlineBoxLogicalRect.left(), lineContent.contentLogicalWidth });
-    };
-    constructLineGeometry();
-
-    return lineBoxLogicalRect;
+    return formattingState.lines().last().lineBoxRect();
 }
 
-void InlineFormattingContext::invalidateFormattingState(const InvalidationState&)
+void InlineFormattingContext::invalidateFormattingState()
 {
-    // Find out what we need to invalidate. This is where we add some smarts to do partial line layout.
-    // For now let's just clear the runs.
-    formattingState().clearLineAndRuns();
-    // FIXME: This is also where we would delete inline items if their content changed.
+    if (!m_lineDamage) {
+        // Non-empty formatting state with no damage means we are trying to layout a clean tree.
+        // FIXME: Add ASSERT(formattingState().inlineItems().isEmpty()) when all the codepaths are covered.
+        formattingState().clearLineAndBoxes();
+        return;
+    }
+    // FIXME: Lines and boxes are moved out to under Integration::InlineContent in the integration codepath, so clearLineAndBoxes is no-op.
+    switch (m_lineDamage->type()) {
+    case InlineDamage::Type::NeedsContentUpdateAndLineLayout:
+        formattingState().clearInlineItems();
+        FALLTHROUGH;
+    case InlineDamage::Type::NeedsLineLayout:
+        formattingState().clearLineAndBoxes();
+        break;
+    case InlineDamage::Type::NeedsVerticalAdjustment:
+    case InlineDamage::Type::NeedsHorizontalAdjustment:
+    default:
+        ASSERT_NOT_IMPLEMENTED_YET();
+        break;
+    }
 }
 
 }

@@ -240,6 +240,10 @@ sv{
             }
         }
         minimalPairs{
+            gender{
+                common{"En {0} är"}
+                neuter{"Ett {0} är"}
+            }
             ordinal{
                 one{"Ta {0}:a svängen till höger"}
                 other{"Ta {0}:e svängen till höger"}
@@ -255,6 +259,8 @@ sv{
     calendar{
         buddhist{
             availableFormats{
+                MMdd{"d/M"}
+                yyyyMM{"y-MM G"}
                 yyyyMMMM{"MMMM y G"}
             }
             eras{
@@ -325,6 +331,16 @@ sv{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "rMMMMEEEEd",
+                "rMMMMd",
+                "rMMMd",
+                "rMMdd",
             }
             availableFormats{
                 Ed{"E d"}
@@ -656,6 +672,16 @@ sv{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GyMMdd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h:mm B"}
@@ -672,6 +698,7 @@ sv{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"y-MM-dd GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -874,6 +901,16 @@ sv{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMMdd",
+            }
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -893,6 +930,7 @@ sv{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"y-MM-dd GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}

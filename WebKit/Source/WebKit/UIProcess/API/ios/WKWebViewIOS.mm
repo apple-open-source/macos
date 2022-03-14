@@ -53,16 +53,18 @@
 #import "WebIOSEventFactory.h"
 #import "WebPageProxy.h"
 #import "_WKActivatedElementInfoInternal.h"
+#import <WebCore/ColorCocoa.h>
 #import <WebCore/GraphicsContextCG.h>
 #import <WebCore/IOSurface.h>
 #import <WebCore/LocalCurrentTraitCollection.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/RuntimeApplicationChecks.h>
-#import <WebCore/VersionChecks.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <pal/spi/ios/GraphicsServicesSPI.h>
 #import <wtf/BlockPtr.h>
+#import <wtf/FixedVector.h>
 #import <wtf/SystemTracing.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/cocoa/VectorCocoa.h>
 
 #if ENABLE(DATA_DETECTION)
@@ -245,6 +247,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     return deviceOrientationForUIInterfaceOrientation(orientation);
 }
 
+- (void)_dynamicUserInterfaceTraitDidChange
+{
+    if (!_page)
+        return;
+    _page->effectiveAppearanceDidChange();
+    [self _updateScrollViewBackground];
+}
+
 - (BOOL)_effectiveAppearanceIsDark
 {
     return self.traitCollection.userInterfaceStyle == UIUserInterfaceStyleDark;
@@ -306,6 +316,14 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         return [_contentView resignFirstResponderForWebView];
 
     return [super resignFirstResponder];
+}
+
+- (NSUndoManager *)undoManager
+{
+    if (self._currentContentView == _contentView)
+        return [_contentView undoManagerForWebView];
+
+    return [super undoManager];
 }
 
 FOR_EACH_WKCONTENTVIEW_ACTION(FORWARD_ACTION_TO_WKCONTENTVIEW)
@@ -518,15 +536,12 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 #endif
     }
 
-    CGFloat zoomScale = contentZoomScale(webView);
-    CGFloat minimumZoomScale = [webView->_scrollView minimumZoomScale];
-    if (zoomScale < minimumZoomScale) {
-        CGFloat slope = 12;
-        CGFloat opacity = std::max<CGFloat>(1 - slope * (minimumZoomScale - zoomScale), 0);
-        color = color.colorWithAlpha(opacity);
-    }
-
     return color;
+}
+
+- (void)_resetCachedScrollViewBackgroundColor
+{
+    _scrollViewBackgroundColor = WebCore::Color();
 }
 
 - (void)_updateScrollViewBackground
@@ -534,17 +549,20 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     auto newScrollViewBackgroundColor = scrollViewBackgroundColor(self, AllowPageBackgroundColorOverride::Yes);
     if (_scrollViewBackgroundColor != newScrollViewBackgroundColor) {
         _scrollViewBackgroundColor = newScrollViewBackgroundColor;
-
-        auto uiBackgroundColor = adoptNS([[UIColor alloc] initWithCGColor:cachedCGColor(newScrollViewBackgroundColor).get()]);
-        [_scrollView setBackgroundColor:uiBackgroundColor.get()];
+        [_scrollView _setBackgroundColorInternal:cocoaColor(newScrollViewBackgroundColor).get()];
     }
 
+    [self _updateScrollViewIndicatorStyle];
+}
+
+- (void)_updateScrollViewIndicatorStyle
+{
     // Update the indicator style based on the lightness/darkness of the background color.
     auto newPageBackgroundColor = scrollViewBackgroundColor(self, AllowPageBackgroundColorOverride::No);
     if (newPageBackgroundColor.lightness() <= .5f && newPageBackgroundColor.isVisible())
-        [_scrollView setIndicatorStyle:UIScrollViewIndicatorStyleWhite];
+        [_scrollView _setIndicatorStyleInternal:UIScrollViewIndicatorStyleWhite];
     else
-        [_scrollView setIndicatorStyle:UIScrollViewIndicatorStyleBlack];
+        [_scrollView _setIndicatorStyleInternal:UIScrollViewIndicatorStyleBlack];
 }
 
 - (void)_videoControlsManagerDidChange
@@ -615,7 +633,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
 
 - (UIEdgeInsets)_computedObscuredInset
 {
-    if (!linkedOnOrAfter(WebCore::SDKVersion::FirstWhereScrollViewContentInsetsAreNotObscuringInsets)) {
+    if (!linkedOnOrAfter(SDKVersion::FirstWhereScrollViewContentInsetsAreNotObscuringInsets)) {
         // For binary compability with third party apps, treat scroll view content insets as obscuring insets when the app is compiled
         // against a WebKit version without the fix in r229641.
         return [self _computedContentInset];
@@ -694,6 +712,7 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     _didDeferUpdateVisibleContentRectsForUnstableScrollView = NO;
     _currentlyAdjustingScrollViewInsetsForKeyboard = NO;
     _lastSentViewLayoutSize = std::nullopt;
+    _lastSentMinimumUnobscuredSize = std::nullopt;
     _lastSentMaximumUnobscuredSize = std::nullopt;
     _lastSentDeviceOrientation = std::nullopt;
 
@@ -724,14 +743,14 @@ static WebCore::Color scrollViewBackgroundColor(WKWebView *webView, AllowPageBac
     [self _processWillSwapOrDidExit];
 
     [_contentView setFrame:self.bounds];
-    [_scrollView setBackgroundColor:[_contentView backgroundColor]];
+    [_scrollView _setBackgroundColorInternal:[_contentView backgroundColor]];
     [_scrollView setContentOffset:[self _initialContentOffsetForScrollView]];
     [_scrollView setZoomScale:1];
 }
 
 - (void)_didRelaunchProcess
 {
-    WKWEBVIEW_RELEASE_LOG("%p -[WKWebView _didRelaunchProcess]", self);
+    WKWEBVIEW_RELEASE_LOG("%p -[WKWebView _didRelaunchProcess] (pid=%d)", self, _page->processIdentifier());
     _hasScheduledVisibleRectUpdate = NO;
     _viewStabilityWhenVisibleContentRectUpdateScheduled = { };
     if (_gestureController)
@@ -1124,7 +1143,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     return contentOffset.constrainedBetween(WebCore::FloatPoint(), WebCore::FloatPoint(maximumContentOffset));
 }
 
-- (void)_scrollToContentScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::IntPoint)scrollOrigin
+- (void)_scrollToContentScrollPosition:(WebCore::FloatPoint)scrollPosition scrollOrigin:(WebCore::IntPoint)scrollOrigin animated:(BOOL)animated
 {
     if (_commitDidRestoreScrollPosition || _dynamicViewportUpdateMode != WebKit::DynamicViewportUpdateMode::NotResizing)
         return;
@@ -1147,7 +1166,7 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     [_scrollView _stopScrollingAndZoomingAnimations];
 
     if (!CGPointEqualToPoint(contentOffsetInScrollViewCoordinates, [_scrollView contentOffset]))
-        [_scrollView setContentOffset:contentOffsetInScrollViewCoordinates];
+        [_scrollView setContentOffset:contentOffsetInScrollViewCoordinates animated:animated];
     else {
         // If we haven't changed anything, there would not be any VisibleContentRect update sent to the content.
         // The WebProcess would keep the invalid contentOffset as its scroll position.
@@ -1622,6 +1641,8 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     CGFloat scrollDecelerationFactor = (coordinator && coordinator->shouldSetScrollViewDecelerationRateFast()) ? UIScrollViewDecelerationRateFast : UIScrollViewDecelerationRateNormal;
     scrollView.horizontalScrollDecelerationFactor = scrollDecelerationFactor;
     scrollView.verticalScrollDecelerationFactor = scrollDecelerationFactor;
+
+    coordinator->setRootNodeIsInUserScroll(true);
 #endif
 }
 
@@ -1632,6 +1653,10 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
 
     [self _scheduleVisibleContentRectUpdate];
     [_contentView didFinishScrolling];
+
+#if ENABLE(ASYNC_SCROLLING)
+    _page->scrollingCoordinatorProxy()->setRootNodeIsInUserScroll(false);
+#endif
 }
 
 - (void)scrollViewWillEndDragging:(UIScrollView *)scrollView withVelocity:(CGPoint)velocity targetContentOffset:(inout CGPoint *)targetContentOffset
@@ -1895,6 +1920,15 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     _lastSentViewLayoutSize = viewLayoutSize;
 }
 
+- (void)_dispatchSetMinimumUnobscuredSize:(WebCore::FloatSize)minimumUnobscuredSize
+{
+    if (_lastSentMinimumUnobscuredSize && CGSizeEqualToSize(_lastSentMinimumUnobscuredSize.value(), minimumUnobscuredSize))
+        return;
+
+    _page->setMinimumUnobscuredSize(minimumUnobscuredSize);
+    _lastSentMinimumUnobscuredSize = minimumUnobscuredSize;
+}
+
 - (void)_dispatchSetMaximumUnobscuredSize:(WebCore::FloatSize)maximumUnobscuredSize
 {
     if (_lastSentMaximumUnobscuredSize && CGSizeEqualToSize(_lastSentMaximumUnobscuredSize.value(), maximumUnobscuredSize))
@@ -1930,6 +1964,8 @@ static WebCore::FloatPoint constrainContentOffset(WebCore::FloatPoint contentOff
     if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing) {
         if (!_viewLayoutSizeOverride)
             [self _dispatchSetViewLayoutSize:[self activeViewLayoutSize:self.bounds]];
+        if (!_minimumUnobscuredSizeOverride)
+            [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(bounds.size)];
         if (!_maximumUnobscuredSizeOverride)
             [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(bounds.size)];
 
@@ -2093,16 +2129,16 @@ static bool scrollViewCanScroll(UIScrollView *scrollView)
     CGPoint contentOffset = [_scrollView contentOffset];
     CGPoint boundedOffset = contentOffsetBoundedInValidRange(_scrollView.get(), contentOffset);
 
-    CGFloat horiontalRubberbandAmountInContentCoordinates = (contentOffset.x - boundedOffset.x) / scaleFactor;
+    CGFloat horizontalRubberbandAmountInContentCoordinates = (contentOffset.x - boundedOffset.x) / scaleFactor;
     CGFloat verticalRubberbandAmountInContentCoordinates = (contentOffset.y - boundedOffset.y) / scaleFactor;
 
     CGRect extendedBounds = [_contentView bounds];
 
-    if (horiontalRubberbandAmountInContentCoordinates < 0) {
-        extendedBounds.origin.x += horiontalRubberbandAmountInContentCoordinates;
-        extendedBounds.size.width -= horiontalRubberbandAmountInContentCoordinates;
-    } else if (horiontalRubberbandAmountInContentCoordinates > 0)
-        extendedBounds.size.width += horiontalRubberbandAmountInContentCoordinates;
+    if (horizontalRubberbandAmountInContentCoordinates < 0) {
+        extendedBounds.origin.x += horizontalRubberbandAmountInContentCoordinates;
+        extendedBounds.size.width -= horizontalRubberbandAmountInContentCoordinates;
+    } else if (horizontalRubberbandAmountInContentCoordinates > 0)
+        extendedBounds.size.width += horizontalRubberbandAmountInContentCoordinates;
 
     if (verticalRubberbandAmountInContentCoordinates < 0) {
         extendedBounds.origin.y += verticalRubberbandAmountInContentCoordinates;
@@ -2250,6 +2286,11 @@ static bool scrollViewCanScroll(UIScrollView *scrollView)
         _gestureController->didStartProvisionalLoadForMainFrame();
 }
 
+static WebCore::FloatSize activeMinimumUnobscuredSize(WKWebView *webView, const CGRect& bounds)
+{
+    return WebCore::FloatSize(webView->_minimumUnobscuredSizeOverride.value_or(bounds.size));
+}
+
 static WebCore::FloatSize activeMaximumUnobscuredSize(WKWebView *webView, const CGRect& bounds)
 {
     return WebCore::FloatSize(webView->_maximumUnobscuredSizeOverride.value_or(bounds.size));
@@ -2339,11 +2380,15 @@ static int32_t activeOrientation(WKWebView *webView)
 
     CGRect newBounds = self.bounds;
     auto newViewLayoutSize = [self activeViewLayoutSize:newBounds];
+    auto newMinimumUnobscuredSize = activeMinimumUnobscuredSize(self, newBounds);
     auto newMaximumUnobscuredSize = activeMaximumUnobscuredSize(self, newBounds);
     int32_t newOrientation = activeOrientation(self);
 
     if (!_lastSentViewLayoutSize || newViewLayoutSize != _lastSentViewLayoutSize.value())
         [self _dispatchSetViewLayoutSize:newViewLayoutSize];
+
+    if (!_lastSentMinimumUnobscuredSize || newMinimumUnobscuredSize != _lastSentMinimumUnobscuredSize.value())
+        [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(newMinimumUnobscuredSize)];
 
     if (!_lastSentMaximumUnobscuredSize || newMaximumUnobscuredSize != _lastSentMaximumUnobscuredSize.value())
         [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(newMaximumUnobscuredSize)];
@@ -2447,6 +2492,7 @@ static int32_t activeOrientation(WKWebView *webView)
 - (void)_keyboardDidShow:(NSNotification *)notification
 {
     _page->setIsKeyboardAnimatingIn(false);
+    [_contentView _keyboardDidShow];
 }
 
 - (void)_keyboardWillHide:(NSNotification *)notification
@@ -2625,10 +2671,10 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
             WebCore::PrivateClickMeasurement::SourceSite(attribution.reportEndpoint),
             WebCore::PrivateClickMeasurement::AttributionDestinationSite(attribution.destinationURL),
             WebCore::applicationBundleIdentifier(),
-            attribution.sourceDescription,
-            attribution.purchaser
+            WallTime::now(),
+            WebCore::PrivateClickMeasurement::AttributionEphemeral::No
         );
-        _page->setPrivateClickMeasurement(WTFMove(measurement));
+        _page->setPrivateClickMeasurement({{ WTFMove(measurement), attribution.sourceDescription, attribution.purchaser }});
     } else
         _page->setPrivateClickMeasurement(std::nullopt);
 #endif
@@ -2638,11 +2684,11 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 {
 #if HAVE(UI_EVENT_ATTRIBUTION)
     auto& measurement = _page->privateClickMeasurement();
-    if (!measurement || !measurement->sourceID().isValid())
+    if (!measurement)
         return nil;
 
-    auto destinationURL = URL(URL(), makeString("https://", measurement->destinationSite().registrableDomain.string()));
-    return adoptNS([[UIEventAttribution alloc] initWithSourceIdentifier:measurement->sourceID().id destinationURL:destinationURL sourceDescription:measurement->sourceDescription() purchaser:measurement->purchaser()]).autorelease();
+    auto destinationURL = URL(URL(), makeString("https://", measurement->pcm.destinationSite().registrableDomain.string()));
+    return adoptNS([[UIEventAttribution alloc] initWithSourceIdentifier:measurement->pcm.sourceID().id destinationURL:destinationURL sourceDescription:measurement->sourceDescription purchaser:measurement->purchaser]).autorelease();
 #else
     return nil;
 #endif
@@ -2663,12 +2709,10 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
             WebCore::PrivateClickMeasurement::SourceSite(attribution.reportEndpoint),
             WebCore::PrivateClickMeasurement::AttributionDestinationSite(attribution.destinationURL),
             bundleID,
-            attribution.sourceDescription,
-            attribution.purchaser,
             WallTime::now(),
-            WebCore::PrivateClickMeasurementAttributionEphemeral::Yes
+            WebCore::PrivateClickMeasurement::AttributionEphemeral::Yes
         );
-        _page->setPrivateClickMeasurement(WTFMove(measurement));
+        _page->setPrivateClickMeasurement({{ WTFMove(measurement), attribution.sourceDescription, attribution.purchaser }});
     } else
         _page->setPrivateClickMeasurement(std::nullopt);
 #endif
@@ -2699,6 +2743,21 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
     if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing)
         [self _dispatchSetViewLayoutSize:WebCore::FloatSize(viewLayoutSizeOverride)];
+}
+
+- (CGSize)_minimumUnobscuredSizeOverride
+{
+    ASSERT(_minimumUnobscuredSizeOverride);
+    return _minimumUnobscuredSizeOverride.value_or(CGSizeZero);
+}
+
+- (void)_setMinimumUnobscuredSizeOverride:(CGSize)size
+{
+    ASSERT(size.width <= self.bounds.size.width && size.height <= self.bounds.size.height);
+    _minimumUnobscuredSizeOverride = size;
+
+    if (_dynamicViewportUpdateMode == WebKit::DynamicViewportUpdateMode::NotResizing)
+        [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(size)];
 }
 
 // Deprecated SPI
@@ -2941,7 +3000,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 - (void)_detectDataWithTypes:(WKDataDetectorTypes)types completionHandler:(dispatch_block_t)completion
 {
 #if ENABLE(DATA_DETECTION)
-    _page->detectDataInAllFrames(fromWKDataDetectorTypes(types), [completion = makeBlockPtr(completion), page = makeWeakPtr(_page.get())] (auto& result) {
+    _page->detectDataInAllFrames(fromWKDataDetectorTypes(types), [completion = makeBlockPtr(completion), page = WeakPtr { _page.get() }] (auto& result) {
         if (page)
             page->setDataDetectionResult(result);
         if (completion)
@@ -3025,6 +3084,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
         oldObscuredInsets = _obscuredInsets;
     }
     auto oldViewLayoutSize = [self activeViewLayoutSize:oldBounds];
+    auto oldMinimumUnobscuredSize = activeMinimumUnobscuredSize(self, oldBounds);
     auto oldMaximumUnobscuredSize = activeMaximumUnobscuredSize(self, oldBounds);
 
     updateBlock();
@@ -3032,6 +3092,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     CGRect newBounds = self.bounds;
     auto newMinimumEffectiveDeviceWidth = [self _minimumEffectiveDeviceWidth];
     auto newViewLayoutSize = [self activeViewLayoutSize:newBounds];
+    auto newMinimumUnobscuredSize = activeMinimumUnobscuredSize(self, newBounds);
     auto newMaximumUnobscuredSize = activeMaximumUnobscuredSize(self, newBounds);
     int32_t newOrientation = activeOrientation(self);
     UIEdgeInsets newObscuredInsets = _obscuredInsets;
@@ -3053,6 +3114,8 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
         [self _frameOrBoundsChanged];
         if (_viewLayoutSizeOverride)
             [self _dispatchSetViewLayoutSize:newViewLayoutSize];
+        if (_minimumUnobscuredSizeOverride)
+            [self _dispatchSetMinimumUnobscuredSize:WebCore::FloatSize(newMinimumUnobscuredSize)];
         if (_maximumUnobscuredSizeOverride)
             [self _dispatchSetMaximumUnobscuredSize:WebCore::FloatSize(newMaximumUnobscuredSize)];
         if (_overridesInterfaceOrientation)
@@ -3063,6 +3126,7 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 
     if (CGRectEqualToRect(oldBounds, newBounds)
         && oldViewLayoutSize == newViewLayoutSize
+        && oldMinimumUnobscuredSize == newMinimumUnobscuredSize
         && oldMaximumUnobscuredSize == newMaximumUnobscuredSize
         && oldOrientation == newOrientation
         && oldMinimumEffectiveDeviceWidth == newMinimumEffectiveDeviceWidth
@@ -3130,10 +3194,11 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     WebCore::FloatBoxExtent unobscuredSafeAreaInsetsExtent(unobscuredSafeAreaInsets.top, unobscuredSafeAreaInsets.right, unobscuredSafeAreaInsets.bottom, unobscuredSafeAreaInsets.left);
 
     _lastSentViewLayoutSize = newViewLayoutSize;
+    _lastSentMinimumUnobscuredSize = newMinimumUnobscuredSize;
     _lastSentMaximumUnobscuredSize = newMaximumUnobscuredSize;
     _lastSentDeviceOrientation = newOrientation;
 
-    _page->dynamicViewportSizeUpdate(newViewLayoutSize, newMaximumUnobscuredSize, visibleRectInContentCoordinates, unobscuredRectInContentCoordinates, futureUnobscuredRectInSelfCoordinates, unobscuredSafeAreaInsetsExtent, targetScale, newOrientation, newMinimumEffectiveDeviceWidth, ++_currentDynamicViewportSizeUpdateID);
+    _page->dynamicViewportSizeUpdate(newViewLayoutSize, newMinimumUnobscuredSize, newMaximumUnobscuredSize, visibleRectInContentCoordinates, unobscuredRectInContentCoordinates, futureUnobscuredRectInSelfCoordinates, unobscuredSafeAreaInsetsExtent, targetScale, newOrientation, newMinimumEffectiveDeviceWidth, ++_currentDynamicViewportSizeUpdateID);
     if (WebKit::DrawingAreaProxy* drawingArea = _page->drawingArea())
         drawingArea->setSize(WebCore::IntSize(newBounds.size));
 
@@ -3176,12 +3241,12 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
 // FIXME (<rdar://problem/80986330>): This method should be updated to take an image
 // width in points (for consistency) and a completion handler with a UIImage parameter
 // (to avoid redundant copies for PDFs), once it is no longer in use by internal clients.
-- (void)_snapshotRect:(CGRect)rectInViewCoordinates intoImageOfWidth:(CGFloat)imageWidth completionHandler:(void(^)(CGImageRef))completionHandler
+- (void)_snapshotRectAfterScreenUpdates:(BOOL)afterScreenUpdates rectInViewCoordinates:(CGRect)rectInViewCoordinates intoImageOfWidth:(CGFloat)imageWidth completionHandler:(void(^)(CGImageRef))completionHandler
 {
     if (_dynamicViewportUpdateMode != WebKit::DynamicViewportUpdateMode::NotResizing) {
         // Defer snapshotting until after the current resize completes.
-        _callbacksDeferredDuringResize.append([retainedSelf = retainPtr(self), rectInViewCoordinates, imageWidth, completionHandler = makeBlockPtr(completionHandler)] {
-            [retainedSelf _snapshotRect:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:completionHandler.get()];
+        _callbacksDeferredDuringResize.append([retainedSelf = retainPtr(self), afterScreenUpdates, rectInViewCoordinates, imageWidth, completionHandler = makeBlockPtr(completionHandler)] {
+            [retainedSelf _snapshotRectAfterScreenUpdates:afterScreenUpdates rectInViewCoordinates:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:completionHandler.get()];
         });
         return;
     }
@@ -3206,6 +3271,8 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
             completionHandler(nullptr);
             return;
         }
+        if (afterScreenUpdates)
+            [CATransaction synchronize];
         CGFloat imageScaleInViewCoordinates = imageWidth / rectInViewCoordinates.size.width;
         CATransform3D transform = CATransform3DMakeScale(imageScaleInViewCoordinates, imageScaleInViewCoordinates, 1);
         transform = CATransform3DTranslate(transform, -rectInViewCoordinates.origin.x, -rectInViewCoordinates.origin.y, 0);
@@ -3247,6 +3314,11 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
     });
 }
 
+- (void)_snapshotRect:(CGRect)rectInViewCoordinates intoImageOfWidth:(CGFloat)imageWidth completionHandler:(void(^)(CGImageRef))completionHandler
+{
+    [self _snapshotRectAfterScreenUpdates:NO rectInViewCoordinates:rectInViewCoordinates intoImageOfWidth:imageWidth completionHandler:completionHandler];
+}
+
 - (void)_overrideLayoutParametersWithMinimumLayoutSize:(CGSize)minimumLayoutSize maximumUnobscuredSizeOverride:(CGSize)maximumUnobscuredSizeOverride
 {
     LOG_WITH_STREAM(VisibleRects, stream << "-[WKWebView " << _page->identifier() << " _overrideLayoutParametersWithMinimumLayoutSize:" << WebCore::FloatSize(minimumLayoutSize) << " maximumUnobscuredSizeOverride:" << WebCore::FloatSize(maximumUnobscuredSizeOverride) << "]");
@@ -3255,12 +3327,14 @@ static WebCore::UserInterfaceLayoutDirection toUserInterfaceLayoutDirection(UISe
         RELEASE_LOG_FAULT(VisibleRects, "%s: Error: attempting to override layout parameters with negative width or height: %@", __PRETTY_FUNCTION__, NSStringFromCGSize(minimumLayoutSize));
 
     [self _setViewLayoutSizeOverride:CGSizeMake(std::max<CGFloat>(0, minimumLayoutSize.width), std::max<CGFloat>(0, minimumLayoutSize.height))];
+    [self _setMinimumUnobscuredSizeOverride:minimumLayoutSize];
     [self _setMaximumUnobscuredSizeOverride:maximumUnobscuredSizeOverride];
 }
 
 - (void)_clearOverrideLayoutParameters
 {
     _viewLayoutSizeOverride = std::nullopt;
+    _minimumUnobscuredSizeOverride = std::nullopt;
     _maximumUnobscuredSizeOverride = std::nullopt;
 }
 
@@ -3407,6 +3481,64 @@ static std::optional<WebCore::ViewportArguments> viewportArgumentsFromDictionary
         completionHandler(isForcedIntoAppBoundMode);
     });
 }
+
+#if HAVE(UIFINDINTERACTION)
+
+- (BOOL)_findInteractionEnabled
+{
+    return _findInteractionEnabled;
+}
+
+- (void)_setFindInteractionEnabled:(BOOL)enabled
+{
+    if (_findInteractionEnabled != enabled) {
+        _findInteractionEnabled = enabled;
+
+        if (enabled) {
+            if (!_findInteraction) {
+                _findInteraction = adoptNS([[_UIFindInteraction alloc] init]);
+                [_findInteraction setSearchableObject:_contentView.get()];
+            }
+
+            [self addInteraction:_findInteraction.get()];
+        } else {
+            [self removeInteraction:_findInteraction.get()];
+            _findInteraction = nil;
+        }
+    }
+}
+
+- (_UIFindInteraction *)_findInteraction
+{
+    return _findInteraction.get();
+}
+
+- (UITextRange *)selectedTextRange
+{
+    return nil;
+}
+
+- (NSInteger)offsetFromPosition:(UITextPosition *)from toPosition:(UITextPosition *)toPosition inDocument:(_UITextSearchDocumentIdentifier)document
+{
+    return [_contentView offsetFromPosition:from toPosition:toPosition inDocument:document];
+}
+
+- (void)performTextSearchWithQueryString:(NSString *)string usingOptions:(_UITextSearchOptions *)options resultAggregator:(id<_UITextSearchAggregator>)aggregator
+{
+    [_contentView performTextSearchWithQueryString:string usingOptions:options resultAggregator:aggregator];
+}
+
+- (void)decorateFoundTextRange:(UITextRange *)range inDocument:(_UITextSearchDocumentIdentifier)document usingStyle:(_UIFoundTextStyle)style
+{
+    [_contentView decorateFoundTextRange:range inDocument:document usingStyle:style];
+}
+
+- (void)clearAllDecoratedFoundText
+{
+    [_contentView clearAllDecoratedFoundText];
+}
+
+#endif // HAVE(UIFINDINTERACTION)
 
 @end // WKWebView (WKPrivateIOS)
 

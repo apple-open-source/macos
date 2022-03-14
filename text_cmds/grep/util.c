@@ -688,11 +688,28 @@ procline(struct parsec *pc)
 				    (chkmatch.rm_eo - chkmatch.rm_so))) {
 					pc->matches[matchidx - 1] = pmatch;
 					nst = pmatch.rm_eo;
+#ifdef __APPLE__
+					/* rdar://problem/86536080 */
+					if (pmatch.rm_so == pmatch.rm_eo)
+						nst++;
+#endif
 				}
 			} else {
 				/* Advance as normal if not */
 				pc->matches[matchidx++] = pmatch;
 				nst = pmatch.rm_eo;
+#ifdef __APPLE__
+				/*
+				 * rdar://problem/86536080 - if our first match
+				 * was 0-length, we wouldn't progress past that
+				 * point.  Incrementing nst here ensures that if
+				 * no other pattern matches, we'll restart the
+				 * search at one past the 0-length match and
+				 * either make progress or end the search.
+				 */
+				if (pmatch.rm_so == pmatch.rm_eo)
+					nst++;
+#endif
 			}
 			/* avoid excessive matching - skip further patterns */
 			if ((color == NULL && !oflag) || qflag || lflag ||
@@ -725,9 +742,14 @@ procline(struct parsec *pc)
 		if (!lastmatched)
 			/* No matches */
 			break;
+#ifdef __APPLE__
+		/* rdar://problem/86536080 */
+		assert(nst > st);
+#else
 		else if (st == nst && lastmatch.rm_so == lastmatch.rm_eo)
 			/* Zero-length match -- advance one more so we don't get stuck */
 			nst++;
+#endif
 
 		/* Advance st based on previous matches */
 		st = nst;

@@ -75,7 +75,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestSetLikeWithOverriddenOperationsPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestSetLikeWithOverriddenOperationsPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestSetLikeWithOverriddenOperationsPrototype>(vm.heap)) JSTestSetLikeWithOverriddenOperationsPrototype(vm, globalObject, structure);
+        JSTestSetLikeWithOverriddenOperationsPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestSetLikeWithOverriddenOperationsPrototype>(vm)) JSTestSetLikeWithOverriddenOperationsPrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -85,7 +85,7 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestSetLikeWithOverriddenOperationsPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
@@ -114,9 +114,11 @@ template<> JSValue JSTestSetLikeWithOverriddenOperationsDOMConstructor::prototyp
 
 template<> void JSTestSetLikeWithOverriddenOperationsDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    putDirect(vm, vm.propertyNames->prototype, JSTestSetLikeWithOverriddenOperations::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestSetLikeWithOverriddenOperations"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    JSString* nameString = jsNontrivialString(vm, "TestSetLikeWithOverriddenOperations"_s);
+    m_originalName.set(vm, this, nameString);
+    putDirect(vm, vm.propertyNames->name, nameString, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->prototype, JSTestSetLikeWithOverriddenOperations::prototype(vm, globalObject), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::DontDelete);
 }
 
 /* Hash table for prototype */
@@ -352,9 +354,9 @@ JSC::IsoSubspace* JSTestSetLikeWithOverriddenOperations::subspaceForImpl(JSC::VM
         return space;
     static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestSetLikeWithOverriddenOperations> || !JSTestSetLikeWithOverriddenOperations::needsDestruction);
     if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestSetLikeWithOverriddenOperations>)
-        spaces.m_subspaceForTestSetLikeWithOverriddenOperations = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestSetLikeWithOverriddenOperations);
+        spaces.m_subspaceForTestSetLikeWithOverriddenOperations = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestSetLikeWithOverriddenOperations);
     else
-        spaces.m_subspaceForTestSetLikeWithOverriddenOperations = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestSetLikeWithOverriddenOperations);
+        spaces.m_subspaceForTestSetLikeWithOverriddenOperations = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestSetLikeWithOverriddenOperations);
     auto* space = spaces.m_subspaceForTestSetLikeWithOverriddenOperations.get();
 IGNORE_WARNINGS_BEGIN("unreachable-code")
 IGNORE_WARNINGS_BEGIN("tautological-compare")

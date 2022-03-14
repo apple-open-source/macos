@@ -27,7 +27,7 @@
 
 #pragma once
 
-#include "DisplayListFlushIdentifier.h"
+#include "GraphicsContextFlushIdentifier.h"
 #include "ImageBufferBackend.h"
 #include "RenderingMode.h"
 #include "RenderingResourceIdentifier.h"
@@ -42,6 +42,8 @@ class DrawingContext;
 struct ItemBufferHandle;
 }
 
+class Filter;
+
 class ImageBuffer : public ThreadSafeRefCounted<ImageBuffer, WTF::DestructionThread::Main>, public CanMakeWeakPtr<ImageBuffer> {
 public:
     // Will return a null pointer on allocation failure.
@@ -50,7 +52,12 @@ public:
 
     // Create an image buffer compatible with the context, with suitable resolution for drawing into the buffer and then into this context.
     static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, const GraphicsContext&);
-    static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, const DestinationColorSpace&, const GraphicsContext&);
+    struct CompatibleBufferDescription {
+        Ref<ImageBuffer> imageBuffer;
+        FloatRect inflatedRectInUserCoordinates;
+    };
+    static std::optional<CompatibleBufferDescription> createCompatibleBuffer(const FloatRect& rectInUserCoordinates, const GraphicsContext&);
+    WEBCORE_EXPORT static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, const DestinationColorSpace&, const GraphicsContext&);
     static RefPtr<ImageBuffer> createCompatibleBuffer(const FloatSize&, float resolutionScale, const DestinationColorSpace&, const GraphicsContext&);
 
     // These functions are used when clamping the ImageBuffer which is created for filter, masker or clipper.
@@ -61,6 +68,12 @@ public:
     static FloatRect clampedRect(const FloatRect&);
 
     static IntSize compatibleBufferSize(const FloatSize&, const GraphicsContext&);
+    struct CompatibleBufferInfo {
+        IntSize physicalSizeInDeviceCoordinates;
+        FloatRect inflatedRectInUserCoordinates;
+        FloatSize scale;
+    };
+    static CompatibleBufferInfo compatibleBufferInfo(const FloatRect&, const GraphicsContext&);
     
     WEBCORE_EXPORT virtual ~ImageBuffer() = default;
 
@@ -76,16 +89,17 @@ public:
     virtual GraphicsContext& context() const = 0;
     virtual void flushContext() = 0;
 
-    virtual DisplayList::DrawingContext* drawingContext() { return nullptr; }
+    virtual GraphicsContext* drawingContext() { return nullptr; }
     virtual bool prefersPreparationForDisplay() { return false; }
     virtual void flushDrawingContext() { }
     virtual void flushDrawingContextAsync() { }
-    virtual void didFlush(DisplayList::FlushIdentifier) { }
+    virtual void didFlush(GraphicsContextFlushIdentifier) { }
 
     virtual void changeDestinationImageBuffer(RenderingResourceIdentifier) { }
     virtual void prepareToAppendDisplayListItems(DisplayList::ItemBufferHandle&&) { }
 
-    virtual IntSize logicalSize() const = 0;
+    virtual FloatSize logicalSize() const = 0;
+    virtual IntSize truncatedLogicalSize() const = 0; // This truncates the real size. You probably should be calling logicalSize() instead.
     virtual float resolutionScale() const = 0;
     virtual DestinationColorSpace colorSpace() const = 0;
     virtual PixelFormat pixelFormat() const = 0;
@@ -106,6 +120,7 @@ public:
 
     virtual RefPtr<NativeImage> copyNativeImage(BackingStoreCopy = CopyBackingStore) const = 0;
     virtual RefPtr<Image> copyImage(BackingStoreCopy = CopyBackingStore, PreserveResolution = PreserveResolution::No) const = 0;
+    virtual RefPtr<Image> filteredImage(Filter&) = 0;
 
     // Create an image buffer compatible with the context and copy rect from this buffer into this new one.
     RefPtr<ImageBuffer> copyRectToBuffer(const FloatRect&, const DestinationColorSpace&, const GraphicsContext&);
@@ -141,7 +156,5 @@ protected:
     virtual RefPtr<Image> sinkIntoImage(PreserveResolution = PreserveResolution::No) = 0;
     virtual void drawConsuming(GraphicsContext&, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions&) = 0;
 };
-
-using ImageBufferHashMap = HashMap<RenderingResourceIdentifier, Ref<ImageBuffer>>;
 
 } // namespace WebCore

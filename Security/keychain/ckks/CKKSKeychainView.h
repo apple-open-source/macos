@@ -221,6 +221,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (CKKSResultOperation*)rpcProcessIncomingQueue:(NSSet<NSString*>* _Nullable)viewNames
                            errorOnClassAFailure:(bool)failOnClassA;
 
+- (CKKSResultOperation*)rpcWaitForPriorityViewProcessing;
+
 - (void)scanLocalItems;
 
 // This operation will complete directly after the next ProcessIncomingQueue, and should supply that IQO's result. Used mainly for testing; otherwise you'd just kick off a IQO directly.
@@ -243,11 +245,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (CKKSResultOperation*)rpcResetLocal:(NSSet<NSString*>* _Nullable)viewNames reply:(void(^)(NSError* _Nullable result))reply;
 - (CKKSResultOperation*)rpcResetCloudKit:(NSSet<NSString*>* _Nullable)viewNames reply:(void(^)(NSError* _Nullable result))reply;
 
-// Returns the current state of this view, fastStatus is the same, but as name promise, no expensive calculations
+// Returns the current state of this view, fastStatus is the same, but as name promises, no expensive calculations
 
 - (void)rpcStatus:(NSString* _Nullable)viewName
-             fast:(bool)fast
-            reply:(void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+        fast:(BOOL)fast
+        waitForNonTransientState:(dispatch_time_t)nonTransientStateTimeout
+        reply:(void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 
 - (BOOL)waitUntilReadyForRPCForOperation:(NSString*)opName
                                     fast:(BOOL)fast

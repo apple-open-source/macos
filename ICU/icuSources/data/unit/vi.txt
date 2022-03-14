@@ -79,7 +79,54 @@ vi{
                 other{"{0} yard vuông"}
             }
         }
+        compound{
+            1024p1{"kibi{0}"}
+            1024p2{"mebi{0}"}
+            1024p3{"gibi{0}"}
+            1024p4{"tebi{0}"}
+            1024p5{"pebi{0}"}
+            1024p6{"exbi{0}"}
+            1024p7{"zebi{0}"}
+            1024p8{"yobi{0}"}
+            10p-1{"đề-xi-{0}"}
+            10p-12{"pico{0}"}
+            10p-15{"femto{0}"}
+            10p-18{"atto{0}"}
+            10p-2{"xăng-ti-{0}"}
+            10p-21{"zepto{0}"}
+            10p-24{"yocto{0}"}
+            10p-3{"mili{0}"}
+            10p-9{"nano{0}"}
+            10p1{"deka{0}"}
+            10p12{"tera{0}"}
+            10p15{"peta{0}"}
+            10p18{"exa{0}"}
+            10p2{"hecto{0}"}
+            10p21{"zetta{0}"}
+            10p24{"yotta{0}"}
+            10p3{"kilo{0}"}
+            10p6{"mega{0}"}
+            10p9{"giga{0}"}
+            power2{
+                other{
+                    _{
+                        _{"{0} vuông"}
+                    }
+                }
+            }
+            power3{
+                other{
+                    _{
+                        _{"{0} khối"}
+                    }
+                }
+            }
+        }
         concentr{
+            item{
+                dnam{"mục"}
+                other{"{0} mục"}
+            }
             karat{
                 dnam{"karat"}
                 other{"{0} karat"}
@@ -97,8 +144,7 @@ vi{
                 other{"{0}‰"}
             }
             permyriad{
-                dnam{"phần chục nghìn"}
-                other{"{0} phần chục nghìn"}
+                other{"{0} phần vạn"}
             }
         }
         consumption{
@@ -618,7 +664,6 @@ vi{
             }
             cup{
                 dnam{"tách"}
-                other{"{0} cup"}
             }
             cup-metric{
                 dnam{"cup khối"}
@@ -735,10 +780,25 @@ vi{
                 other{"{0}ha"}
             }
         }
+        compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
+        }
+        concentr{
+            permyriad{
+                dnam{"‱"}
+            }
+        }
         consumption{
             liter-per-100-kilometer{
-                dnam{"L/100km"}
-                other{"{0}L/100km"}
+                dnam{"l/100km"}
+                other{"{0} l/100km"}
             }
         }
         coordinate{
@@ -747,6 +807,15 @@ vi{
             north{"{0}B"}
             south{"{0}N"}
             west{"{0}T"}
+        }
+        digital{
+            byte{
+                dnam{"B"}
+                other{"{0} B"}
+            }
+            petabyte{
+                dnam{"PB"}
+            }
         }
         duration{
             day{
@@ -780,6 +849,27 @@ vi{
             year{
                 dnam{"năm"}
                 other{"{0}năm"}
+            }
+        }
+        energy{
+            electronvolt{
+                dnam{"eV"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                other{"{0}kWh/100km"}
+            }
+            newton{
+                dnam{"N"}
+            }
+            pound-force{
+                dnam{"lbf"}
+            }
+        }
+        graphics{
+            megapixel{
+                dnam{"MPMM"}
             }
         }
         length{
@@ -818,11 +908,25 @@ vi{
                 dnam{"điểm"}
                 other{"{0}đ"}
             }
+            solar-radius{
+                dnam{"R☉"}
+            }
             yard{
                 other{"{0}yd"}
             }
         }
+        light{
+            solar-luminosity{
+                dnam{"L☉"}
+            }
+        }
         mass{
+            dalton{
+                dnam{"Da"}
+            }
+            earth-mass{
+                dnam{"M⊕"}
+            }
             gram{
                 dnam{"g"}
                 other{"{0}g"}
@@ -835,7 +939,11 @@ vi{
                 other{"{0}oz"}
             }
             pound{
+                dnam{"lb"}
                 other{"{0}lb"}
+            }
+            solar-mass{
+                dnam{"M☉"}
             }
         }
         power{
@@ -889,9 +997,15 @@ vi{
                 dnam{"Oz"}
                 other{"{0} fl ozIm"}
             }
+            gallon{
+                per{"{0}/gal"}
+            }
             liter{
                 dnam{"l"}
                 other{"{0}L"}
+            }
+            teaspoon{
+                dnam{"thìa cà phê"}
             }
         }
     }
@@ -944,8 +1058,22 @@ vi{
                 per{"{0}/km²"}
             }
         }
+        compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
+        }
         concentr{
-            milligram-per-deciliter{
+            item{
+                dnam{"mục"}
+                other{"{0} mục"}
+            }
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dL"}
                 other{"{0} mg/dL"}
             }
@@ -967,6 +1095,10 @@ vi{
             }
         }
         consumption{
+            liter-per-100-kilometer{
+                dnam{"l/100km"}
+                other{"{0} l/100km"}
+            }
             liter-per-kilometer{
                 dnam{"l/km"}
                 other{"{0} l/km"}
@@ -1119,6 +1251,14 @@ vi{
                 dnam{"chấm"}
                 other{"{0} chấm"}
             }
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                other{"{0} dpi"}
+            }
             megapixel{
                 dnam{"megapixel"}
             }
@@ -1243,8 +1383,8 @@ vi{
                 other{"{0} t"}
             }
             microgram{
-                dnam{"µg"}
-                other{"{0} µg"}
+                dnam{"μg"}
+                other{"{0} μg"}
             }
             milligram{
                 dnam{"mg"}

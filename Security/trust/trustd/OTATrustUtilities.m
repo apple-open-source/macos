@@ -722,6 +722,90 @@ static BOOL LastPendingRequestAllowsDownload(NSString *assetType) {
     return YES; // always default to downloading
 }
 
+static bool QueryOTATrustAsset(NSString *assetType, BOOL wait, dispatch_semaphore_t done, NSNumber **version, NSError **error) {
+#if !TARGET_OS_BRIDGE
+    MAAssetQuery *query = [[MAAssetQuery alloc] initWithType:(NSString *)assetType];
+
+    secnotice("OTATrust", "begin MobileAsset metadata sync request %{public}@", assetType);
+    MAQueryResult queryResult = [query queryMetaDataSync];
+    if (queryResult != MAQuerySuccessful) {
+        MakeOTATrustError(assetType, error, OTATrustLogLevelError, @"MAQueryResult", (OSStatus)queryResult,
+                          @"failed to query MobileAsset %@ metadata: %ld", assetType, (long)queryResult);
+        return false;
+    }
+
+    if (!query.results) {
+        MakeOTATrustError(assetType, error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
+                          @"no results in MobileAsset query for %@", assetType);
+        return false;
+    }
+
+    __block NSError *ma_error = nil;
+    __block NSNumber *updated_version = nil;
+    bool began_async_job = false;
+    for (MAAsset *asset in query.results) {
+        /* Check Compatibility Version against this software version */
+        NSNumber *asset_version = [asset assetProperty:@"_ContentVersion"];
+        if (!assetVersionCheck(assetType, asset)) {
+            continue;
+        }
+
+        if ([assetType isEqualToString:OTATrustMobileAssetType]) {
+            GetKillSwitchAttributes(asset.attributes);
+        }
+
+        switch (asset.state) {
+            default:
+                MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
+                                  @"unknown asset state %ld", (long)asset.state);
+                continue;
+            case MAInstalled:
+                /* The asset is already in the cache, get it from disk. */
+                secdebug("OTATrust", "OTATrust asset %{public}@ already installed", assetType);
+                updated_version = UpdateAndPurgeAsset(assetType, asset, asset_version, &ma_error);
+                break;
+            case MAUnknown:
+                MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, @"MAAssetState", (OSStatus)asset.state,
+                                  @"asset %@ is unknown", assetType);
+                continue;
+            case MADownloading:
+                secnotice("OTATrust", "asset %{public}@ is downloading", assetType);
+                /* fall through */
+            case MANotPresent:
+                secnotice("OTATrust", "begin download of OTATrust asset");
+                began_async_job = true;
+                [asset startDownload:GetMADownloadOptions(wait) then:^(MADownLoadResult downloadResult) {
+                    @autoreleasepool {
+                        os_transaction_t inner_transaction = os_transaction_create("com.apple.trustd.asset.downloadAsset");
+                        if (downloadResult != MADownloadSuccessful) {
+                            MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, @"MADownLoadResult", (OSStatus)downloadResult,
+                                              @"failed to download asset %@: %ld", assetType, (long)downloadResult);
+                            return;
+                        }
+                        updated_version = UpdateAndPurgeAsset(assetType, asset, asset_version, &ma_error);
+                        if (wait && done) {
+                            dispatch_semaphore_signal(done);
+                        }
+                        (void)inner_transaction; // dead store
+                        inner_transaction = nil;
+                    }
+                }];
+                break;
+        } /* switch (asset.state) */
+    } /* for (MAAsset.. */
+
+    if (error && ma_error) {
+        *error = ma_error;
+    }
+    if (version && updated_version) {
+        *version = updated_version;
+    }
+    return began_async_job;
+#else // TARGET_OS_BRIDGE
+    return NO;
+#endif
+}
+
 static BOOL DownloadOTATrustAsset(BOOL receivedNotification, BOOL wait, NSString *assetType, NSError **error) {
     if (!CanCheckMobileAsset()) {
         MakeOTATrustError(assetType, error, OTATrustLogLevelNotice, NSOSStatusErrorDomain, errSecServiceNotAvailable,
@@ -754,74 +838,8 @@ static BOOL DownloadOTATrustAsset(BOOL receivedNotification, BOOL wait, NSString
                 }
                 return;
             }
-            MAAssetQuery *query = [[MAAssetQuery alloc] initWithType:(NSString *)assetType];
-            [query augmentResultsWithState:true];
 
-            secnotice("OTATrust", "begin MobileAsset metadata sync request %{public}@", assetType);
-            MAQueryResult queryResult = [query queryMetaDataSync];
-            if (queryResult != MAQuerySuccessful) {
-                MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, @"MAQueryResult", (OSStatus)queryResult,
-                                  @"failed to query MobileAsset %@ metadata: %ld", assetType, (long)queryResult);
-                return;
-            }
-
-            if (!query.results) {
-                MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
-                                  @"no results in MobileAsset query for %@", assetType);
-                return;
-            }
-
-            bool began_async_job = false;
-            for (MAAsset *asset in query.results) {
-                /* Check Compatibility Version against this software version */
-                NSNumber *asset_version = [asset assetProperty:@"_ContentVersion"];
-                if (!assetVersionCheck(assetType, asset)) {
-                    continue;
-                }
-
-                if ([assetType isEqualToString:OTATrustMobileAssetType]) {
-                    GetKillSwitchAttributes(asset.attributes);
-                }
-
-                switch (asset.state) {
-                    default:
-                        MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, NSOSStatusErrorDomain, errSecInternal,
-                                          @"unknown asset state %ld", (long)asset.state);
-                        continue;
-                    case MAInstalled:
-                        /* The asset is already in the cache, get it from disk. */
-                        secdebug("OTATrust", "OTATrust asset %{public}@ already installed", assetType);
-                        updated_version = UpdateAndPurgeAsset(assetType, asset, asset_version, &ma_error);
-                        break;
-                    case MAUnknown:
-                        MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, @"MAAssetState", (OSStatus)asset.state,
-                                          @"asset %@ is unknown", assetType);
-                        continue;
-                    case MADownloading:
-                        secnotice("OTATrust", "asset %{public}@ is downloading", assetType);
-                        /* fall through */
-                    case MANotPresent:
-                        secnotice("OTATrust", "begin download of OTATrust asset");
-                        began_async_job = true;
-                        [asset startDownload:GetMADownloadOptions(wait) then:^(MADownLoadResult downloadResult) {
-                            @autoreleasepool {
-                                os_transaction_t inner_transaction = os_transaction_create("com.apple.trustd.asset.downloadAsset");
-                                if (downloadResult != MADownloadSuccessful) {
-                                    MakeOTATrustError(assetType, &ma_error, OTATrustLogLevelError, @"MADownLoadResult", (OSStatus)downloadResult,
-                                                      @"failed to download asset %@: %ld", assetType, (long)downloadResult);
-                                    return;
-                                }
-                                updated_version = UpdateAndPurgeAsset(assetType, asset, asset_version, &ma_error);
-                                if (wait) {
-                                    dispatch_semaphore_signal(done);
-                                }
-                                (void)inner_transaction; // dead store
-                                inner_transaction = nil;
-                            }
-                        }];
-                        break;
-                } /* switch (asset.state) */
-            } /* for (MAAsset.. */
+            bool began_async_job = QueryOTATrustAsset(assetType, wait, done, &updated_version, &ma_error);
             if (wait && !began_async_job) {
                 dispatch_semaphore_signal(done);
             }
@@ -908,7 +926,7 @@ static void InitializeOTATrustAsset(dispatch_queue_t queue) {
             int out_token = 0;
             notify_register_dispatch(kOTATrustMobileAssetNotification, &out_token, queue, ^(int __unused token) {
                 secnotice("OTATrust", "Got notification about a new PKITrustSupplementals asset from mobileassetd.");
-                (void)DownloadOTATrustAsset(YES, NO, OTATrustMobileAssetType, nil);
+                (void)QueryOTATrustAsset(OTATrustMobileAssetType, NO, nil, nil, nil);
             });
         }
 

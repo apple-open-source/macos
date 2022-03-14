@@ -27,10 +27,11 @@
 #include "CSSHelper.h"
 #include "FontMetrics.h"
 #include "Frame.h"
+#include "LegacyRenderSVGRoot.h"
 #include "LengthFunctions.h"
-#include "RenderSVGRoot.h"
 #include "RenderSVGViewportContainer.h"
 #include "RenderView.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGSVGElement.h"
 #include <wtf/MathExtras.h>
 
@@ -231,7 +232,7 @@ static inline const RenderStyle* renderStyleForLengthResolving(const SVGElement*
         currentContext = currentContext->parentNode();
     } while (currentContext);
 
-    // There must be at least a RenderSVGRoot renderer, carrying a style.
+    // There must be at least a LegacyRenderSVGRoot renderer, carrying a style.
     ASSERT_NOT_REACHED();
     return nullptr;
 }
@@ -302,7 +303,7 @@ bool SVGLengthContext::determineViewport(FloatSize& viewportSize) const
     }
 
     // Take size from nearest viewport element.
-    auto viewportElement = makeRefPtr(m_context->viewportElement());
+    RefPtr viewportElement = m_context->viewportElement();
     if (!is<SVGSVGElement>(viewportElement))
         return false;
 

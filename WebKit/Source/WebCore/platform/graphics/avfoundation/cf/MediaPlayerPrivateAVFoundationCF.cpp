@@ -894,17 +894,18 @@ void MediaPlayerPrivateAVFoundationCF::paint(GraphicsContext& context, const Flo
         context.scale(FloatSize(1.0f, -1.0f));
         context.setImageInterpolationQuality(InterpolationQuality::Low);
         FloatRect paintRect(FloatPoint(), rect.size());
-#if USE(DIRECT2D)
-        notImplemented();
-#else
         CGContextDrawImage(context.platformContext(), CGRectMake(0, 0, paintRect.width(), paintRect.height()), image.get());
-#endif
         context.restore();
         image = 0;
     }
     setDelayCallbacks(false);
     
     m_videoFrameHasDrawn = true;
+}
+
+DestinationColorSpace MediaPlayerPrivateAVFoundationCF::colorSpace()
+{
+    return DestinationColorSpace::SRGB();
 }
 
 #if HAVE(AVFOUNDATION_LOADER_DELEGATE) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
@@ -1759,12 +1760,10 @@ void AVFWrapper::checkPlayability()
 {
     LOG(Media, "AVFWrapper::checkPlayability(%p)", this);
 
-    static auto propertyKeyName = makeNeverDestroyed([] {
-        const void* keyNames[] = {
-            AVCFAssetPropertyPlayable
-        };
+    static NeverDestroyed propertyKeyName = [] {
+        const void* keyNames[] = { AVCFAssetPropertyPlayable };
         return adoptCF(CFArrayCreate(0, keyNames, std::size(keyNames), &kCFTypeArrayCallBacks));
-    }());
+    }();
 
     AVCFAssetLoadValuesAsynchronouslyForProperties(avAsset(), propertyKeyName.get().get(), loadPlayableCompletionCallback, callbackContext());
 }

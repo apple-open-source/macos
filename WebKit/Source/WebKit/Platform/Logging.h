@@ -56,6 +56,7 @@ extern "C" {
     M(Fullscreen) \
     M(Gamepad) \
     M(IPC) \
+    M(IPCMessages) \
     M(ITPDebug) \
     M(IconDatabase) \
     M(Images) \
@@ -86,6 +87,7 @@ extern "C" {
     M(ProcessSuspension) \
     M(ProcessSwapping) \
     M(ProximityNetworking) \
+    M(Push) \
     M(RemoteLayerTree) \
     M(Resize) \
     M(ResourceLoadStatistics) \
@@ -98,6 +100,7 @@ extern "C" {
     M(Storage) \
     M(StorageAPI) \
     M(TextInput) \
+    M(Translation) \
     M(UIHitTesting) \
     M(ViewGestures) \
     M(ViewState) \

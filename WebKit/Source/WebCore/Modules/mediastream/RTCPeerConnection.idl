@@ -35,7 +35,7 @@ typedef RTCRtpTransceiverDirection RtpTransceiverDirection;
 
 [
     Conditional=WEB_RTC,
-    EnabledBySetting=PeerConnection
+    EnabledBySetting=PeerConnectionEnabled
 ] dictionary RTCDataChannelInit {
     boolean ordered = true;
     unsigned short maxPacketLifeTime;
@@ -48,7 +48,7 @@ typedef RTCRtpTransceiverDirection RtpTransceiverDirection;
 
 [
     Conditional=WEB_RTC,
-    EnabledBySetting=PeerConnection
+    EnabledBySetting=PeerConnectionEnabled
 ] dictionary RTCCertificateParameters {
     DOMString name;
     DOMString hash;
@@ -62,7 +62,7 @@ typedef (object or DOMString) AlgorithmIdentifier;
 
 [
     Conditional=WEB_RTC,
-    EnabledBySetting=PeerConnection,
+    EnabledBySetting=PeerConnectionEnabled,
     ImplementedAs=RTCRtpTransceiverInit
 ] dictionary RTCRtpTransceiverInit {
     RtpTransceiverDirection direction = "sendrecv";
@@ -73,7 +73,7 @@ typedef (object or DOMString) AlgorithmIdentifier;
 [
     ActiveDOMObject,
     Conditional=WEB_RTC,
-    EnabledBySetting=PeerConnection,
+    EnabledBySetting=PeerConnectionEnabled,
     ExportMacro=WEBCORE_EXPORT,
     Exposed=Window
 ] interface RTCPeerConnection : EventTarget {
@@ -83,24 +83,23 @@ typedef (object or DOMString) AlgorithmIdentifier;
     Promise<RTCSessionDescriptionInit> createOffer(optional RTCOfferOptions offerOptions);
     Promise<RTCSessionDescriptionInit> createAnswer(optional RTCAnswerOptions answerOptions);
 
-    Promise<undefined> setLocalDescription(optional (RTCSessionDescriptionInit or RTCSessionDescription) description);
+    Promise<undefined> setLocalDescription(optional RTCLocalSessionDescriptionInit description);
     readonly attribute RTCSessionDescription? localDescription;
     readonly attribute RTCSessionDescription? currentLocalDescription;
     readonly attribute RTCSessionDescription? pendingLocalDescription;
 
-    Promise<undefined> setRemoteDescription((RTCSessionDescriptionInit or RTCSessionDescription) description);
+    Promise<undefined> setRemoteDescription(RTCSessionDescriptionInit description);
     readonly attribute RTCSessionDescription? remoteDescription;
     readonly attribute RTCSessionDescription? currentRemoteDescription;
     readonly attribute RTCSessionDescription? pendingRemoteDescription;
 
-    Promise<undefined> addIceCandidate((RTCIceCandidateInit or RTCIceCandidate) candidate);
+    Promise<undefined> addIceCandidate(optional (RTCIceCandidateInit or RTCIceCandidate) candidate);
 
     readonly attribute RTCSignalingState signalingState;
     readonly attribute RTCIceGatheringState iceGatheringState;
     readonly attribute RTCIceConnectionState iceConnectionState;
     readonly attribute RTCPeerConnectionState connectionState;
-    // FIXME 169644: missing canTrickleIceCandidates
-    // FIXME 169644: missing defaultIceServers
+    readonly attribute boolean? canTrickleIceCandidates;
 
     undefined restartIce();
     RTCConfiguration getConfiguration();
@@ -132,7 +131,7 @@ typedef (object or DOMString) AlgorithmIdentifier;
     attribute EventHandler ontrack;
 
     // 6.1 Peer-to-peer data API
-    // FIXME 169644: missing sctp
+    readonly attribute RTCSctpTransport? sctp;
 
     RTCDataChannel createDataChannel([LegacyNullToEmptyString] USVString label, optional RTCDataChannelInit options);
     attribute EventHandler ondatachannel;
@@ -140,8 +139,4 @@ typedef (object or DOMString) AlgorithmIdentifier;
 
     // 8.2 Statistics API
     Promise<RTCStatsReport> getStats(optional MediaStreamTrack? selector = null);
-
-
-    // 9.6 Identity Provider API
-    // FIXME 169644: missing IdP
 };

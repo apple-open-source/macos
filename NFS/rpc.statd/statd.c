@@ -86,9 +86,9 @@ __unused static const char rcsid[] = "$FreeBSD$";
 
 int bindresvport_sa(int sd, struct sockaddr * sa);
 
-int statd_server = 0;		/* are we the statd server (not notify, list...) */
-int notify_only = 0;		/* just send SM_NOTIFY messages */
-int list_only = 0;		/* just list status database entries */
+int statd_server = 0;           /* are we the statd server (not notify, list...) */
+int notify_only = 0;            /* just send SM_NOTIFY messages */
+int list_only = 0;              /* just list status database entries */
 
 int udpport, tcpport;
 int udp6port, tcp6port;
@@ -100,12 +100,12 @@ struct pidfh *pfh = NULL;
 
 const struct nfs_conf_statd config_defaults =
 {
-	0,			/* port */
-	0,			/* send_using_tcp */
-	0,			/* simu_crash_allowed */
-	1,			/* tcp */
-	1,			/* udp */
-	0,			/* verbose */
+	0,                      /* port */
+	0,                      /* send_using_tcp */
+	0,                      /* simu_crash_allowed */
+	1,                      /* tcp */
+	1,                      /* udp */
+	0,                      /* verbose */
 };
 struct nfs_conf_statd config;
 
@@ -120,7 +120,7 @@ static int config_read(struct nfs_conf_statd * conf);
 int
 main(int argc, char **argv)
 {
-    SVCXPRT *transp = NULL;
+	SVCXPRT *transp = NULL;
 	struct sigaction sa;
 	int c, on = 1;
 	pid_t pid;
@@ -128,53 +128,61 @@ main(int argc, char **argv)
 	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
 	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
 	socklen_t socklen;
-	char *unnotify_host = NULL;	/* host to "unnotify" */
+	char *unnotify_host = NULL;     /* host to "unnotify" */
 	int rv, need_notify;
 
 	config = config_defaults;
 	config_read(&config);
 
-	while ((c = getopt(argc, argv, "dnlLN:")) != EOF)
+	while ((c = getopt(argc, argv, "dnlLN:")) != EOF) {
 		switch (c) {
 		case 'd':
 			config.verbose = INT_MAX;
 			break;
 		case 'n':
-			if (list_only || unnotify_host)
+			if (list_only || unnotify_host) {
 				usage();
+			}
 			notify_only = 1;
 			break;
 		case 'l':
-			if (notify_only || unnotify_host || (list_only == LIST_MODE_WATCH))
+			if (notify_only || unnotify_host || (list_only == LIST_MODE_WATCH)) {
 				usage();
+			}
 			list_only = LIST_MODE_ONCE;
 			break;
 		case 'L':
-			if (notify_only || unnotify_host || (list_only == LIST_MODE_ONCE))
+			if (notify_only || unnotify_host || (list_only == LIST_MODE_ONCE)) {
 				usage();
+			}
 			list_only = LIST_MODE_WATCH;
 			break;
 		case 'N':
-			if (notify_only || unnotify_host || list_only)
+			if (notify_only || unnotify_host || list_only) {
 				usage();
+			}
 			unnotify_host = optarg;
 			break;
 		default:
 			usage();
 		}
+	}
 
-	if (list_only || unnotify_host)
+	if (list_only || unnotify_host) {
 		log_to_stderr = 1;
+	}
 
-	if (list_only)
+	if (list_only) {
 		exit(list_hosts(list_only));
+	}
 
 	if (getuid()) {
 		log(LOG_ERR, "Sorry, rpc.statd must be run as root");
 		exit(0);
 	}
-	if (unnotify_host)
+	if (unnotify_host) {
 		exit(do_unnotify_host(unnotify_host));
+	}
 
 	/* Install signal handler to do cleanup */
 	signal(SIGINT, cleanup);
@@ -188,8 +196,9 @@ main(int argc, char **argv)
 
 	if (notify_only) {
 		rv = notify_hosts();
-		if (rv)
+		if (rv) {
 			log(LOG_NOTICE, "statd.notify exiting %d", rv);
+		}
 		exit(rv);
 	}
 	statd_server = 1;
@@ -205,20 +214,22 @@ main(int argc, char **argv)
 		}
 		exit(2);
 	}
-	if (pidfile_write(pfh) == -1)
+	if (pidfile_write(pfh) == -1) {
 		log(LOG_WARNING, "can't write to statd pidfile: %s (%d)", strerror(errno), errno);
+	}
 
 	need_notify = init_file(_PATH_STATD_DATABASE);
 	if (need_notify && !get_statd_notify_pid()) {
 		/*
-	         * It looks like there are notifications that need to be made, but that the
-	         * statd.notify service isn't running.  Let's try to start it up.
-	         */
+		 * It looks like there are notifications that need to be made, but that the
+		 * statd.notify service isn't running.  Let's try to start it up.
+		 */
 		log(LOG_INFO, "need to start statd notify");
-		if (statd_notify_is_loaded())
+		if (statd_notify_is_loaded()) {
 			statd_notify_start();
-		else
+		} else {
 			statd_notify_load();
+		}
 	}
 
 	statudpsock = stattcpsock = -1;
@@ -227,10 +238,10 @@ main(int argc, char **argv)
 	rpcb_unset(NULL, SM_PROG, SM_VERS);
 
 	if (config.udp) {
-
 		/* IPv4 */
-		if ((statudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+		if ((statudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_ERR, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (statudpsock >= 0) {
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
@@ -270,11 +281,13 @@ main(int argc, char **argv)
 		}
 
 		/* IPv6 */
-		if ((statudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+		if ((statudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_ERR, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (statudp6sock >= 0) {
-			if (setsockopt(statudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+			if (setsockopt(statudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on))) {
 				log(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
+			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.port);
@@ -311,17 +324,17 @@ main(int argc, char **argv)
 			close(statudp6sock);
 			statudp6sock = -1;
 		}
-
 	}
 
 	if (config.tcp) {
-
 		/* IPv4 */
-		if ((stattcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+		if ((stattcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			log(LOG_ERR, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (stattcpsock >= 0) {
-			if (setsockopt(stattcpsock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			if (setsockopt(stattcpsock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
 			sin->sin_port = htons(config.port);
@@ -355,11 +368,13 @@ main(int argc, char **argv)
 		}
 
 		/* IPv6 */
-		if ((stattcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+		if ((stattcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
 			log(LOG_ERR, "can't create TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (stattcp6sock >= 0) {
-			if (setsockopt(stattcp6sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			if (setsockopt(stattcp6sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			setsockopt(stattcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
@@ -392,13 +407,14 @@ main(int argc, char **argv)
 			close(stattcp6sock);
 			stattcp6sock = -1;
 		}
-
 	}
 
-	if ((statudp6sock < 0) && (stattcp6sock < 0))
+	if ((statudp6sock < 0) && (stattcp6sock < 0)) {
 		log(LOG_WARNING, "Can't create NSM IPv6 sockets");
-	if ((statudpsock < 0) && (stattcpsock < 0))
+	}
+	if ((statudpsock < 0) && (stattcpsock < 0)) {
 		log(LOG_WARNING, "Can't create NSM IPv4 sockets");
+	}
 	if ((statudp6sock < 0) && (stattcp6sock < 0) &&
 	    (statudpsock < 0) && (stattcpsock < 0)) {
 		log(LOG_ERR, "Can't create any NSM sockets!");
@@ -412,7 +428,7 @@ main(int argc, char **argv)
 	sa.sa_flags = SA_RESTART;
 	sigaction(SIGCHLD, &sa, NULL);
 
-	svc_run();		/* Should never return */
+	svc_run();              /* Should never return */
 	exit(1);
 }
 
@@ -430,36 +446,36 @@ pid_t
 get_statd_pid(void)
 {
 	char pidbuf[128], *pidend;
-    int fd, rv;
-    size_t len;
+	int fd, rv;
+	size_t len;
 	pid_t pid;
-    long tmp;
+	long tmp;
 	struct flock lock;
 
 	if ((fd = open(_PATH_STATD_PID, O_RDONLY)) < 0) {
 		DEBUG(9, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
-		return (0);
+		return 0;
 	}
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
 		DEBUG(9, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
-		return (0);
+		return 0;
 	}
 	/* parse PID */
 	pidbuf[len] = '\0';
 	tmp = strtol(pidbuf, &pidend, 10);
-    
-    if (tmp > INT32_MAX) {
-        tmp = INT32_MAX;
-    } else if (tmp < INT32_MIN) {
-        tmp = INT32_MIN;
-    }
-    
-    pid = (pid_t) tmp;
-    
+
+	if (tmp > INT32_MAX) {
+		tmp = INT32_MAX;
+	} else if (tmp < INT32_MIN) {
+		tmp = INT32_MIN;
+	}
+
+	pid = (pid_t) tmp;
+
 	if (!len || (pid < 1)) {
 		DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);
-		return (0);
+		return 0;
 	}
 	/* check for lock on file by PID */
 	lock.l_type = F_RDLCK;
@@ -470,12 +486,12 @@ get_statd_pid(void)
 	close(fd);
 	if (rv != 0) {
 		DEBUG(1, "%s: fcntl: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
-		return (0);
+		return 0;
 	} else if (lock.l_type == F_UNLCK) {
 		DEBUG(8, "%s: not locked\n", _PATH_STATD_PID);
-		return (0);
+		return 0;
 	}
-	return (pid);
+	return pid;
 }
 
 /*
@@ -486,19 +502,19 @@ get_statd_notify_pid(void)
 {
 	char pidbuf[128], *pidend;
 	int fd, rv;
-    size_t len;
+	size_t len;
 	pid_t pid;
 	struct flock lock;
 
 	if ((fd = open(_PATH_STATD_NOTIFY_PID, O_RDONLY)) < 0) {
 		DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
-		return (0);
+		return 0;
 	}
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
 		DEBUG(9, "%s: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
 		close(fd);
-		return (0);
+		return 0;
 	}
 	/* parse PID */
 	pidbuf[len] = '\0';
@@ -506,7 +522,7 @@ get_statd_notify_pid(void)
 	if (!len || (pid < 1)) {
 		DEBUG(1, "%s: bogus pid: %s", _PATH_STATD_NOTIFY_PID, pidbuf);
 		close(fd);
-		return (0);
+		return 0;
 	}
 	/* check for lock on file by PID */
 	lock.l_type = F_RDLCK;
@@ -517,44 +533,45 @@ get_statd_notify_pid(void)
 	close(fd);
 	if (rv != 0) {
 		DEBUG(1, "%s: fcntl: %s (%d)", _PATH_STATD_NOTIFY_PID, strerror(errno), errno);
-		return (0);
+		return 0;
 	} else if (lock.l_type == F_UNLCK) {
 		DEBUG(8, "%s: not locked\n", _PATH_STATD_NOTIFY_PID);
-		return (0);
+		return 0;
 	}
-	return (pid);
+	return pid;
 }
 
 
 /* handle_sigchld ---------------------------------------------------------- */
 /*
-   Purpose:	Catch SIGCHLD and collect process status
-   Returns:	Nothing.
-   Notes:	No special action required, other than to collect the
-		process status and hence allow the child to die:
-		we only use child processes for asynchronous transmission
-		of SM_NOTIFY to other systems, so it is normal for the
-		children to exit when they have done their work.
-*/
+ *  Purpose:	Catch SIGCHLD and collect process status
+ *  Returns:	Nothing.
+ *  Notes:	No special action required, other than to collect the
+ *               process status and hence allow the child to die:
+ *               we only use child processes for asynchronous transmission
+ *               of SM_NOTIFY to other systems, so it is normal for the
+ *               children to exit when they have done their work.
+ */
 
-static void 
+static void
 handle_sigchld(int sig __unused)
 {
 	int pid, status;
 	pid = wait4(-1, &status, WNOHANG, (struct rusage *) 0);
-	if (!pid)
+	if (!pid) {
 		log(LOG_ERR, "Phantom SIGCHLD??");
-	else if (status == 0)
+	} else if (status == 0) {
 		DEBUG(2, "Child %d exited OK", pid);
-	else
+	} else {
 		log(LOG_ERR, "Child %d failed with status %d", pid, WEXITSTATUS(status));
+	}
 }
 
 /* cleanup ------------------------------------------------------ */
 /*
-   Purpose:	call pid file cleanup function on signal
-   Returns:	Nothing
-*/
+ *  Purpose:	call pid file cleanup function on signal
+ *  Returns:	Nothing
+ */
 
 static void
 cleanup(int sig)
@@ -582,31 +599,41 @@ config_read(struct nfs_conf_statd * conf)
 	size_t len, linenum = 0;
 	char *line, *p, *key, *value;
 	int val;
-    long tmp;
-    
+	long tmp;
+
 	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			log(LOG_WARNING, "%s", _PATH_NFS_CONF);
-		return (1);
+		}
+		return 1;
 	}
 	for (; (line = fparseln(f, &len, &linenum, NULL, 0)); free(line)) {
-		if (len <= 0)
+		if (len <= 0) {
 			continue;
+		}
 		/* trim trailing whitespace */
 		p = line + len - 1;
-		while ((p > line) && isspace(*p))
+		while ((p > line) && isspace(*p)) {
 			*p-- = '\0';
+		}
 		/* find key start */
 		key = line;
-		while (isspace(*key))
+		while (isspace(*key)) {
 			key++;
+		}
 		/* find equals/value */
 		value = p = strchr(line, '=');
-		if (p)		/* trim trailing whitespace on key */
-			do { *p-- = '\0'; } while ((p > line) && isspace(*p));
+		if (p) {        /* trim trailing whitespace on key */
+			do {
+				*p-- = '\0';
+			} while ((p > line) && isspace(*p));
+		}
 		/* find value start */
-		if (value)
-			do { value++; } while (isspace(*value));
+		if (value) {
+			do {
+				value++;
+			} while (isspace(*value));
+		}
 
 		/* all statd keys start with "nfs.statd." */
 		if (strncmp(key, "nfs.statd.", 10)) {
@@ -616,17 +643,18 @@ config_read(struct nfs_conf_statd * conf)
 		tmp = !value ? 1 : strtol(value, NULL, 0);
 		DEBUG(1, "%4ld %s=%s (%d)\n", linenum, key, value ? value : "", tmp);
 
-        if (tmp > INT32_MAX) {
-            tmp = INT32_MAX;
-        } else if (tmp < INT32_MIN) {
-            tmp = INT32_MIN;
-        }
-        
-        val = (int) tmp;
-        
+		if (tmp > INT32_MAX) {
+			tmp = INT32_MAX;
+		} else if (tmp < INT32_MIN) {
+			tmp = INT32_MIN;
+		}
+
+		val = (int) tmp;
+
 		if (!strcmp(key, "nfs.statd.port")) {
-			if (value && val)
+			if (value && val) {
 				conf->port = val;
+			}
 		} else if (!strcmp(key, "nfs.statd.send_using_tcp")) {
 			conf->send_using_tcp = val;
 		} else if (!strcmp(key, "nfs.statd.simu_crash_allowed")) {
@@ -640,11 +668,10 @@ config_read(struct nfs_conf_statd * conf)
 		} else {
 			DEBUG(2, "ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
 		}
-
 	}
 
 	fclose(f);
-	return (0);
+	return 0;
 }
 
 /*
@@ -662,31 +689,33 @@ safe_exec(char *const argv[], int silent)
 		psfileactp = &psfileact;
 		if ((status = posix_spawn_file_actions_init(psfileactp))) {
 			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(status), status);
-			return (1);
+			return 1;
 		}
 		posix_spawn_file_actions_addopen(psfileactp, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
 		posix_spawn_file_actions_addopen(psfileactp, STDOUT_FILENO, "/dev/null", O_WRONLY, 0);
 		posix_spawn_file_actions_addopen(psfileactp, STDERR_FILENO, "/dev/null", O_WRONLY, 0);
 	}
 	status = posix_spawn(&pid, argv[0], psfileactp, NULL, argv, environ);
-	if (psfileactp)
+	if (psfileactp) {
 		posix_spawn_file_actions_destroy(psfileactp);
+	}
 	if (status) {
 		log(LOG_ERR, "spawn of %s failed: %s (%d)", argv[0], strerror(status), status);
-		return (1);
+		return 1;
 	}
-	while ((waitpid(pid, &status, 0) == -1) && (errno == EINTR))
+	while ((waitpid(pid, &status, 0) == -1) && (errno == EINTR)) {
 		usleep(1000);
+	}
 	if (WIFSIGNALED(status)) {
 		log(LOG_ERR, "%s aborted by signal %d", argv[0], WTERMSIG(status));
-		return (1);
+		return 1;
 	} else if (WIFSTOPPED(status)) {
 		log(LOG_ERR, "%s stopped by signal %d ?", argv[0], WSTOPSIG(status));
-		return (1);
+		return 1;
 	} else if (WEXITSTATUS(status) && !silent) {
 		log(LOG_ERR, "%s exited with status %d", argv[0], WEXITSTATUS(status));
 	}
-	return (WEXITSTATUS(status));
+	return WEXITSTATUS(status);
 }
 
 #pragma clang diagnostic push
@@ -696,10 +725,10 @@ int
 statd_notify_load(void)
 {
 	/*
-         * XXX Sorry, but it's just so much simpler to exec launchctl than to
-         * try to read the plist file, convert it to launchd data, and submit
-         * it ourselves.
-         */
+	 * XXX Sorry, but it's just so much simpler to exec launchctl than to
+	 * try to read the plist file, convert it to launchd data, and submit
+	 * it ourselves.
+	 */
 	const char *const args[] = {_PATH_LAUNCHCTL, "load", _PATH_STATD_NOTIFY_PLIST, NULL};
 	return safe_exec((char *const *) args, 1);
 }
@@ -711,21 +740,23 @@ statd_notify_is_loaded(void)
 	int rv = 0;
 
 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	if (!msg)
-		return (0);
+	if (!msg) {
+		return 0;
+	}
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_NOTIFY_SERVICE_LABEL), LAUNCH_KEY_GETJOB);
 
 	resp = launch_msg(msg);
 	if (resp) {
-		if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY)
+		if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY) {
 			rv = 1;
+		}
 		launch_data_free(resp);
 	} else {
 		log(LOG_ERR, "launch_msg(): %m");
 	}
 
 	launch_data_free(msg);
-	return (rv);
+	return rv;
 }
 
 int
@@ -735,21 +766,23 @@ statd_notify_start(void)
 	int rv = 1;
 
 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	if (!msg)
-		return (1);
+	if (!msg) {
+		return 1;
+	}
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_NOTIFY_SERVICE_LABEL), LAUNCH_KEY_STARTJOB);
 
 	resp = launch_msg(msg);
 	if (!resp) {
 		rv = errno;
 	} else {
-		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
 			rv = launch_data_get_errno(resp);
+		}
 		launch_data_free(resp);
 	}
 
 	launch_data_free(msg);
-	return (rv);
+	return rv;
 }
 #pragma clang diagnostic pop
 
@@ -760,12 +793,13 @@ statd_notify_start(void)
  * our own little logging function...
  */
 void
-SYSLOG(int pri, const char *fmt,...)
+SYSLOG(int pri, const char *fmt, ...)
 {
 	va_list ap;
 
-	if (pri > LOG_LEVEL)
+	if (pri > LOG_LEVEL) {
 		return;
+	}
 
 	va_start(ap, fmt);
 	if (log_to_stderr) {
@@ -785,10 +819,12 @@ SYSLOG(int pri, const char *fmt,...)
 static int
 addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
 {
-	if (a1->ai_family != a2->ai_family)
-		return (a1->ai_family - a2->ai_family);
-	if (a1->ai_addrlen != a2->ai_addrlen)
-		return (a1->ai_addrlen - a2->ai_addrlen);
+	if (a1->ai_family != a2->ai_family) {
+		return a1->ai_family - a2->ai_family;
+	}
+	if (a1->ai_addrlen != a2->ai_addrlen) {
+		return a1->ai_addrlen - a2->ai_addrlen;
+	}
 	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
 }
 
@@ -803,17 +839,18 @@ getaddresslist(const char *name, struct addrinfo **ailistp)
 	const char *hostname;
 
 	hostname = name;
-	if ((hostname[0] == '[') && (hostname[strlen(hostname)-1] == ']')) {
+	if ((hostname[0] == '[') && (hostname[strlen(hostname) - 1] == ']')) {
 		/* Looks like an IPv6 literal in brackets */
-		strlcpy(namebuf, hostname+1, sizeof(namebuf));
-		namebuf[strlen(namebuf)-1] = '\0';
+		strlcpy(namebuf, hostname + 1, sizeof(namebuf));
+		namebuf[strlen(namebuf) - 1] = '\0';
 		hostname = namebuf;
 	}
 
 	bzero(&aihints, sizeof(aihints));
 	aihints.ai_flags = AI_ADDRCONFIG;
-	if (getaddrinfo(hostname, NULL, &aihints, &ailist))
-		return (ENOENT);
+	if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
+		return ENOENT;
+	}
 
 	/* strip out addresses that don't match the options given */
 	aidiscard = NULL;
@@ -823,31 +860,34 @@ getaddresslist(const char *name, struct addrinfo **ailistp)
 		ainext = ai->ai_next;
 
 		/* eliminate unknown protocol families */
-		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) {
 			goto discard;
+		}
 
 		/* Eliminate duplicate addresses with different socktypes. */
 		if (aiprev && (ai->ai_socktype != aiprev->ai_socktype) &&
-		    !addrinfo_cmp(aiprev, ai))
+		    !addrinfo_cmp(aiprev, ai)) {
 			goto discard;
+		}
 
 		aiprev = ai;
 		continue;
 discard:
 		/* Add ai to the discard list */
-		if (aiprev)
+		if (aiprev) {
 			aiprev->ai_next = ai->ai_next;
-		else
+		} else {
 			ailist = ai->ai_next;
+		}
 		ai->ai_next = aidiscard;
 		aidiscard = ai;
 	}
 
 	/* free up any discarded addresses */
-	if (aidiscard)
+	if (aidiscard) {
 		freeaddrinfo(aidiscard);
+	}
 
 	*ailistp = ailist;
-	return (0);
+	return 0;
 }
-

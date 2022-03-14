@@ -16,16 +16,6 @@
 
 @implementation KCAESGCMTest
 
-- (void)setUp {
-    [super setUp];
-    // Put setup code here. This method is called before the invocation of each test method in the class.
-}
-
-- (void)tearDown {
-    // Put teardown code here. This method is called after the invocation of each test method in the class.
-    [super tearDown];
-}
-
 - (void) sendMessage: (NSData*) message
                 from: (KCAESGCMDuplexSession*) sender
                   to: (KCAESGCMDuplexSession*) receiver {
@@ -69,11 +59,12 @@
 - (KCAESGCMDuplexSession*) archiveDearchive: (KCAESGCMDuplexSession*) original {
     NSKeyedArchiver *archiver = [[NSKeyedArchiver alloc] initRequiringSecureCoding:YES];
     [archiver encodeObject:original forKey:@"Top"];
+    [archiver finishEncoding];
 
-    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:archiver.encodedData error:nil];
 
     // Customize the unarchiver.
-    KCAESGCMDuplexSession *result = [unarchiver decodeObjectForKey:@"Top"];
+    NSKeyedUnarchiver *unarchiver = [[NSKeyedUnarchiver alloc] initForReadingFromData:archiver.encodedData error:nil];
+    KCAESGCMDuplexSession *result = [unarchiver decodeObjectOfClass:[KCAESGCMDuplexSession class] forKey:@"Top"];
     [unarchiver finishDecoding];
 
     return result;
@@ -127,9 +118,15 @@
     }
 }
 
-- (void)testAESGCMDuplexCoding {
+- (void)testAESGCMDuplexCodingFlattenReceiver {
     [self doAESGCMDuplexCodingFlattenSender:NO Receiver:YES];
+}
+
+- (void)testAESGCMDuplexCodingFlattenSender {
     [self doAESGCMDuplexCodingFlattenSender:YES Receiver:NO];
+}
+
+- (void)testAESGCMDuplexCodingFlattenSenderReceiver {
     [self doAESGCMDuplexCodingFlattenSender:YES Receiver:YES];
 }
 

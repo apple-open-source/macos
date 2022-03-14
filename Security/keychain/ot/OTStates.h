@@ -129,6 +129,12 @@ extern OctagonState* const OctagonStateEstablishEnableCDPBit;
 extern OctagonState* const OctagonStateReEnactDeviceList;
 extern OctagonState* const OctagonStateReEnactPrepare;
 extern OctagonState* const OctagonStateReEnactReadyToEstablish;
+extern OctagonState* const OctagonStateResetAndEstablishClearLocalContextState;
+
+// local reset
+extern OctagonState* const OctagonStateLocalReset;
+extern OctagonState* const OctagonStateLocalResetClearLocalContextState;
+
 // this last state might loop through:
 extern OctagonState* const OctagonStateEstablishCKKSReset;
 extern OctagonState* const OctagonStateEstablishAfterCKKSReset;

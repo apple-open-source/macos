@@ -1,3 +1,8 @@
-#freebsd = https://github.com/freebsd/freebsd.git
-usr.bin/whois/whois.c	freebsd	whois/whois.c	872b698bd4a1bfc0bf008c09228e6fd238809c75
-usr.bin/whois/whois.1	freebsd	whois/whois.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
+#freebsd = https://github.com/freebsd/freebsd-legacy.git
+#freebsd-src = https://git.FreeBSD.org/src.git
+pkill/pkill.1	freebsd-src	bin/pkill/pkill.1	3d17b350e5c949d0d5a42aa907034a2a22f7312b
+pkill/pkill.c	freebsd-src	bin/pkill/pkill.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+tty/tty.1	freebsd-src	usr.bin/tty/tty.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+tty/tty.c	freebsd-src	usr.bin/tty/tty.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+whois/whois.1	freebsd	usr.bin/whois/whois.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
+whois/whois.c	freebsd	usr.bin/whois/whois.c	872b698bd4a1bfc0bf008c09228e6fd238809c75

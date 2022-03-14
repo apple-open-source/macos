@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,6 +81,7 @@ struct mntopt {
 #define MOPT_AUTOMOUNTED	{ "automounted",0, MNT_AUTOMOUNTED, 0 }
 #define MOPT_DEFWRITE		{ "defwrite",	0, MNT_DEFWRITE, 0}
 #define	MOPT_NOATIME		{ "atime",	1, MNT_NOATIME, 0}
+#define MOPT_NOFOLLOW		{ "follow", 1, MNT_NOFOLLOW, 0}
 #define MOPT_IGNORE_OWNERSHIP	{ "owners",	1, MNT_IGNORE_OWNERSHIP, 0}
 /* alias the deprecated name for compatibility */
 #define MOPT_PERMISSIONS	{ "perm",	1, MNT_IGNORE_OWNERSHIP, 0}
@@ -112,6 +113,7 @@ struct mntopt {
 	MOPT_NODEV,							\
 	MOPT_NOEXEC,							\
 	MOPT_NOSUID,							\
+	MOPT_NOFOLLOW,							\
 	MOPT_RDONLY,							\
 	MOPT_UNION,							\
         MOPT_BROWSE,							\

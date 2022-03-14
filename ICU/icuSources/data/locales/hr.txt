@@ -242,13 +242,24 @@ hr{
             }
         }
         minimalPairs{
+            case{
+                accusative{"Izmjerio je {0}"}
+                genitive{"Mjerenje {0}"}
+                instrumental{"Razgovara s {0}"}
+                nominative{"{0} je..."}
+            }
+            gender{
+                feminine{"Ova {0}..."}
+                inanimate{"Ovaj {0}..."}
+                neuter{"Ovo {0}..."}
+            }
             ordinal{
                 other{"Skrenite {0}. desno."}
             }
             plural{
-                few{"{0} dana"}
-                one{"{0} dan"}
-                other{"{0} dan/a"}
+                few{"{0} sata"}
+                one{"{0} sat"}
+                other{"{0} sati"}
             }
         }
         minimumGroupingDigits{"1"}
@@ -277,6 +288,16 @@ hr{
                 "{1} 'u' {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMEdd",
+                "yMMdd",
+                "yMMdd",
+                "yMMdd",
             }
         }
         ethiopic{
@@ -316,6 +337,16 @@ hr{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMMdd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h:mm B"}
@@ -332,6 +363,7 @@ hr{
                 GyMMM{"LLL y. G"}
                 GyMMMEd{"E, d. MMM y. G"}
                 GyMMMd{"d. MMM y. G"}
+                GyMd{"d. M. y. GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -531,6 +563,16 @@ hr{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMMdd",
+            }
             appendItems{
                 Timezone{"{0} ({1})"}
             }
@@ -550,6 +592,7 @@ hr{
                 GyMMM{"LLL y. G"}
                 GyMMMEd{"E, d. MMM y. G"}
                 GyMMMd{"d. MMM y. G"}
+                GyMd{"d. M. y. GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -1074,6 +1117,16 @@ hr{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMd",
+                "GGGGGyMd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h:mm B"}
@@ -1215,6 +1268,16 @@ hr{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMd",
+                "GGGGGyMd",
             }
             availableFormats{
                 Ed{"E, d."}

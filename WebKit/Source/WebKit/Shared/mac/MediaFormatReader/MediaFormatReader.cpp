@@ -28,21 +28,20 @@
 
 #if ENABLE(WEBM_FORMAT_READER)
 
+#include "Logging.h"
 #include "MediaTrackReader.h"
 #include <WebCore/AudioTrackPrivate.h>
 #include <WebCore/ContentType.h>
 #include <WebCore/Document.h>
 #include <WebCore/InbandTextTrackPrivate.h>
-#include <WebCore/Logging.h>
 #include <WebCore/MediaSample.h>
-#include <WebCore/SharedBuffer.h>
 #include <WebCore/SourceBufferParserWebM.h>
 #include <WebCore/VideoTrackPrivate.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <wtf/LoggerHelper.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/WorkQueue.h>
 
-#include <pal/cf/CoreMediaSoftLink.h>
 #include <pal/cocoa/MediaToolboxSoftLink.h>
 
 WTF_DECLARE_CF_TYPE_TRAIT(MTPluginFormatReader);
@@ -57,7 +56,11 @@ static const void* nextLogIdentifier()
     return reinterpret_cast<const void*>(++logIdentifier);
 }
 
-static WTFLogChannel& logChannel() { return WebCore::LogMedia; }
+static WTFLogChannel& logChannel()
+{
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
+}
+
 static const char* logClassName() { return "MediaFormatReader"; }
 
 class AbortAction {
@@ -113,15 +116,15 @@ MediaFormatReader::MediaFormatReader(Allocator&& allocator)
 
 void MediaFormatReader::startOnMainThread(MTPluginByteSourceRef byteSource)
 {
-    ensureOnMainRunLoop([this, protectedThis = makeRef(*this), byteSource = retainPtr(byteSource)]() mutable {
+    ensureOnMainRunLoop([this, protectedThis = Ref { *this }, byteSource = retainPtr(byteSource)]() mutable {
         parseByteSource(WTFMove(byteSource));
     });
 }
 
-static WorkQueue& readerQueue()
+static ConcurrentWorkQueue& readerQueue()
 {
-    static auto& queue = WorkQueue::create("WebKit::MediaFormatReader Queue", WorkQueue::Type::Concurrent).leakRef();
-    return queue;
+    static NeverDestroyed<Ref<ConcurrentWorkQueue>> queue = ConcurrentWorkQueue::create("WebKit::MediaFormatReader Queue");
+    return queue.get();
 }
 
 void MediaFormatReader::parseByteSource(RetainPtr<MTPluginByteSourceRef>&& byteSource)
@@ -137,7 +140,7 @@ void MediaFormatReader::parseByteSource(RetainPtr<MTPluginByteSourceRef>&& byteS
     }
 
     if (!m_logger) {
-        m_logger = makeRefPtr(Document::sharedLogger());
+        m_logger = &Document::sharedLogger();
         m_logIdentifier = nextLogIdentifier();
     }
 
@@ -151,15 +154,15 @@ void MediaFormatReader::parseByteSource(RetainPtr<MTPluginByteSourceRef>&& byteS
         MediaTrackReader::storageQueue().dispatch(WTFMove(function));
     });
 
-    parser->setDidParseInitializationDataCallback([this, protectedThis = makeRef(*this)](SourceBufferParser::InitializationSegment&& initializationSegment) {
+    parser->setDidParseInitializationDataCallback([this, protectedThis = Ref { *this }](SourceBufferParser::InitializationSegment&& initializationSegment) {
         didParseTracks(WTFMove(initializationSegment), noErr);
     });
 
-    parser->setDidEncounterErrorDuringParsingCallback([this, protectedThis = makeRef(*this)](uint64_t errorCode) {
+    parser->setDidEncounterErrorDuringParsingCallback([this, protectedThis = Ref { *this }](uint64_t errorCode) {
         didParseTracks({ }, errorCode);
     });
 
-    parser->setDidProvideMediaDataCallback([this, protectedThis = makeRef(*this)](Ref<MediaSample>&& mediaSample, uint64_t trackID, const String& mediaType) {
+    parser->setDidProvideMediaDataCallback([this, protectedThis = Ref { *this }](Ref<MediaSample>&& mediaSample, uint64_t trackID, const String& mediaType) {
         didProvideMediaData(WTFMove(mediaSample), trackID, mediaType);
     });
 
@@ -169,9 +172,9 @@ void MediaFormatReader::parseByteSource(RetainPtr<MTPluginByteSourceRef>&& byteS
     m_duration = MediaTime::invalidTime();
     m_trackReaders.clear();
 
-    readerQueue().dispatch([this, protectedThis = makeRef(*this), byteSource = m_byteSource, parser = parser.releaseNonNull()]() mutable {
+    readerQueue().dispatch([this, protectedThis = Ref { *this }, byteSource = m_byteSource, parser = parser.releaseNonNull()]() mutable {
         parser->appendData(WTFMove(byteSource));
-        MediaTrackReader::storageQueue().dispatch([this, protectedThis = makeRef(*this), parser = WTFMove(parser)]() mutable {
+        MediaTrackReader::storageQueue().dispatch([this, protectedThis = Ref { *this }, parser = WTFMove(parser)]() mutable {
             finishParsing(WTFMove(parser));
         });
     });
@@ -182,15 +185,15 @@ void MediaFormatReader::didParseTracks(SourceBufferPrivateClient::Initialization
     ASSERT(!isMainRunLoop());
 
     Locker locker { m_parseTracksLock };
-    ASSERT(!m_parseTracksStatus);
-    ASSERT(m_duration.isInvalid());
-    ASSERT(m_trackReaders.isEmpty());
+    ASSERT(!m_parseTracksStatus || (m_init && errorCode));
+    ASSERT(m_duration.isInvalid() || (m_init && errorCode));
+    ASSERT(m_trackReaders.isEmpty() || (m_init && errorCode));
 
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
     if (errorCode)
         ERROR_LOG_IF_POSSIBLE(LOGIDENTIFIER, errorCode);
 
-    m_parseTracksStatus = errorCode ? kMTPluginFormatReaderError_ParsingFailure : noErr;
+    m_parseTracksStatus = errorCode ? static_cast<OSStatus>(kMTPluginFormatReaderError_ParsingFailure) : noErr;
     m_duration = WTFMove(segment.duration);
 
     for (auto& videoTrack : segment.videoTracks) {
@@ -218,6 +221,7 @@ void MediaFormatReader::didParseTracks(SourceBufferPrivateClient::Initialization
     }
 
     m_parseTracksCondition.notifyAll();
+    m_init = true;
 }
 
 void MediaFormatReader::didProvideMediaData(Ref<MediaSample>&& mediaSample, uint64_t trackID, const String&)

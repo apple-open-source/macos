@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2008 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdlib.h>
@@ -80,7 +80,7 @@ socket_callback(CFSocketRef s, CFSocketCallBackType callbackType, CFDataRef addr
 #ifdef DEBUG
 #define Dused
 #else
-#define Dused	__unused
+#define Dused   __unused
 #endif
 
 static void
@@ -103,12 +103,12 @@ resolve_callback(
 	int len;
 
 	printf("resolve: %s %s:%d  TXT %d\n", fullName, hostTarget, port, txtLen);
-	if ((txtLen > 1) && ((s = malloc(txtLen+2)))) {
+	if ((txtLen > 1) && ((s = malloc(txtLen + 2)))) {
 		p = txtRecord;
 		q = s;
 		len = txtLen;
 		while (len > 0) {
-			strncpy(q, p+1, *p);
+			strncpy(q, p + 1, *p);
 			len -= *p + 1;
 			q += *p;
 			p += *p + 1;
@@ -146,17 +146,18 @@ browser_callback(
 	CFSocketContext ctx = { 0, NULL, NULL, NULL, NULL };
 	struct cbinfo *info;
 
-        if (errorCode != kDNSServiceErr_NoError) {
+	if (errorCode != kDNSServiceErr_NoError) {
 		printf("DNS service discovery error: %d\n", errorCode);
 		return;
 	}
 #ifdef DEBUG
 	printf("browse: %s: %s, %s, %s\n",
-		(servFlags & kDNSServiceFlagsAdd) ? "new" : "gone",
-		serviceName, regType, replyDomain);
+	    (servFlags & kDNSServiceFlagsAdd) ? "new" : "gone",
+	    serviceName, regType, replyDomain);
 #endif
-	if (!(servFlags & kDNSServiceFlagsAdd))
+	if (!(servFlags & kDNSServiceFlagsAdd)) {
 		return;
+	}
 
 	info = malloc(sizeof(*info));
 	if (!info) {
@@ -172,7 +173,7 @@ browser_callback(
 	}
 	ctx.info = (void*)info;
 	info->sockref = CFSocketCreateWithNative(kCFAllocatorDefault, DNSServiceRefSockFD(info->sdref),
-				kCFSocketReadCallBack, socket_callback, &ctx);
+	    kCFSocketReadCallBack, socket_callback, &ctx);
 	if (!info->sockref) {
 		printf("CFSocketCreateWithNative failed\n");
 		DNSServiceRefDeallocate(info->sdref);
@@ -190,25 +191,29 @@ browse(void)
 	CFSocketContext ctx = { 0, NULL, NULL, NULL, NULL };
 
 	err = DNSServiceBrowse(&nfsinfo.sdref, 0, 0, "_nfs._tcp", NULL, browser_callback, NULL);
-	if (err != kDNSServiceErr_NoError)
-		return (1);
+	if (err != kDNSServiceErr_NoError) {
+		return 1;
+	}
 	ctx.info = (void*)&nfsinfo;
 	nfsinfo.sockref = CFSocketCreateWithNative(kCFAllocatorDefault, DNSServiceRefSockFD(nfsinfo.sdref),
-			kCFSocketReadCallBack, socket_callback, &ctx);
-	if (!nfsinfo.sockref)
-		return (1);
+	    kCFSocketReadCallBack, socket_callback, &ctx);
+	if (!nfsinfo.sockref) {
+		return 1;
+	}
 	nfsinfo.rls = CFSocketCreateRunLoopSource(kCFAllocatorDefault, nfsinfo.sockref, 1);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), nfsinfo.rls, kCFRunLoopDefaultMode);
 
 	/* For backwards compatibility, browse for "mountd" services too */
 	err = DNSServiceBrowse(&mountdinfo.sdref, 0, 0, "_mountd._tcp", NULL, browser_callback, NULL);
-	if (err != kDNSServiceErr_NoError)
-		return (1);
+	if (err != kDNSServiceErr_NoError) {
+		return 1;
+	}
 	ctx.info = (void*)&mountdinfo;
 	mountdinfo.sockref = CFSocketCreateWithNative(kCFAllocatorDefault, DNSServiceRefSockFD(mountdinfo.sdref),
-			kCFSocketReadCallBack, socket_callback, &ctx);
-	if (!mountdinfo.sockref)
-		return (1);
+	    kCFSocketReadCallBack, socket_callback, &ctx);
+	if (!mountdinfo.sockref) {
+		return 1;
+	}
 	mountdinfo.rls = CFSocketCreateRunLoopSource(kCFAllocatorDefault, mountdinfo.sockref, 1);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), mountdinfo.rls, kCFRunLoopDefaultMode);
 
@@ -222,6 +227,5 @@ browse(void)
 	CFSocketInvalidate(mountdinfo.sockref);
 	CFRelease(mountdinfo.sockref);
 	DNSServiceRefDeallocate(mountdinfo.sdref);
-	return (0);
+	return 0;
 }
-

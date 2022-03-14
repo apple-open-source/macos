@@ -300,5 +300,173 @@
     XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound);
 }
 
+#pragma mark - Item Promotion SPI
+
+- (void)testPromotionSPINoEntitlement {
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)@"appClipAppID", (__bridge CFStringRef)@"parentAppID"), errSecMissingEntitlement);
+}
+
+- (void)testPromotionSPINoItems {
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)_applicationIdentifier, (__bridge CFStringRef)@"com.apple.security.parentapp"), errSecSuccess);
+}
+
+- (void)testPromotionSPIPromoteAppClipItems {
+    SecSecurityClientRegularToAppClip();
+    [self setEntitlements:@{@"com.apple.application-identifier" : _applicationIdentifier} validated:YES];
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)_applicationIdentifier, (__bridge CFStringRef)@"com.apple.security.parentapp"), errSecSuccess);
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound);
+
+    SecSecurityClientAppClipToRegular();
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"com.apple.security.parentapp"} validated:YES];
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+}
+
+- (void)testPromotionSPILeaveRegularItemsAlone {
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"RegularAppID"} validated:YES];
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecReturnAttributes : @YES,
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)@"RegularAppID", (__bridge CFStringRef)@"OtherAppID"), errSecSuccess);
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"OtherAppID"} validated:YES];
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound);
+}
+
+- (void)testPromotionSPILeaveOtherAppClipItemsAlone {
+    SecSecurityClientRegularToAppClip();
+    [self setEntitlements:@{@"com.apple.application-identifier" : _applicationIdentifier} validated:YES];
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecReturnAttributes : @YES,
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    SecSecurityClientSetApplicationIdentifier((__bridge CFStringRef)@"DifferentAppClipAppID");
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"DifferentAppClipAppID"} validated:YES];
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)_applicationIdentifier, (__bridge CFStringRef)@"UnusedParentAppID"), errSecSuccess);
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+}
+
+- (void)disabledtestPromotionSPIDeleteAppClipItemsWithACLs {
+    // in-memory DBs don't support ACLs, so this is disabled
+    SecSecurityClientRegularToAppClip();
+    [self setEntitlements:@{@"com.apple.application-identifier" : _applicationIdentifier} validated:YES];
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+
+    id acl = CFBridgingRelease(SecAccessControlCreateWithFlags(kCFAllocatorDefault, kSecAttrAccessibleWhenUnlocked, kSecAccessControlUserPresence, NULL));
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecReturnAttributes : @YES,
+        (id)kSecAttrAccessControl : acl,
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)_applicationIdentifier, (__bridge CFStringRef)@"ParentAppID"), errSecSuccess);
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound);
+
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"ParentAppID"} validated:YES];
+    SecSecurityClientAppClipToRegular();
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL), errSecItemNotFound);
+}
+
+- (void)testPromotionSPIKeychainLocked {
+    SecSecurityClientRegularToAppClip();
+    [self setEntitlements:@{@"com.apple.application-identifier" : _applicationIdentifier} validated:YES];
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+
+    self.lockState = LockStateLockedAndDisallowAKS;
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)_applicationIdentifier, (__bridge CFStringRef)@"com.apple.security.parentapp"), errSecInteractionNotAllowed);
+}
+
+- (void)testPromotionSPIDuplicateItem {
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"ParentAppID"} validated:YES];
+
+    NSDictionary* query = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrService : @"helloworld",
+        (id)kSecAttrComment : @"regular",
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+        (id)kSecReturnAttributes : @YES,
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query, NULL), errSecSuccess);
+
+    SecSecurityClientRegularToAppClip();
+    [self setEntitlements:@{@"com.apple.application-identifier" : _applicationIdentifier} validated:YES];
+
+    NSDictionary* query2 = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecAttrService : @"helloworld",
+        (id)kSecAttrComment : @"clip",
+        (id)kSecValueData : [@"password" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+    XCTAssertEqual(SecItemAdd((__bridge CFDictionaryRef)query2, NULL), errSecSuccess);
+
+    SecAddLocalSecuritydXPCFakeEntitlement(kSecEntitlementPrivateAppClipDeletion, kCFBooleanTrue);
+
+    // This should replace the old item with the new one, to be less surprising.
+    XCTAssertEqual(SecItemPromoteAppClipItemsToParentApp((__bridge CFStringRef)_applicationIdentifier, (__bridge CFStringRef)@"ParentAppID"), errSecSuccess);
+
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query2, NULL), errSecItemNotFound);
+
+    [self setEntitlements:@{@"com.apple.application-identifier" : @"ParentAppID"} validated:YES];
+    SecSecurityClientAppClipToRegular();
+
+    CFTypeRef result = NULL;
+    NSDictionary* query3 = @{
+        (id)kSecClass : (id)kSecClassGenericPassword,
+        (id)kSecAttrService : @"helloworld",
+        (id)kSecUseDataProtectionKeychain : @YES,
+        (id)kSecReturnAttributes : @YES,
+    };
+    XCTAssertEqual(SecItemCopyMatching((__bridge CFDictionaryRef)query3, &result), errSecSuccess);
+    if (result) {
+        XCTAssertEqual(CFGetTypeID(result), CFDictionaryGetTypeID());
+        XCTAssertEqualObjects([(__bridge NSDictionary*)result valueForKey:(id)kSecAttrComment], query2[(id)kSecAttrComment]);
+        CFReleaseNull(result);
+    }
+}
+
 @end
 #endif

@@ -557,6 +557,7 @@ nx_netif_default_llink_add(struct nx_netif *nif)
 		    (uint8_t)na_get_nrings(devna, NR_TX);
 		llink_init.nli_num_qsets = 1;
 		llink_init.nli_qsets = &qset;
+		llink_init.nli_ctx = NULL;
 		pllink_init = &llink_init;
 	}
 	llink = nx_netif_llink_create_locked(nif, pllink_init);

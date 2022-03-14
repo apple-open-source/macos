@@ -87,8 +87,8 @@ void AppleRAIDMirrorSet::free(void)
     if (arSetCompleteThreadCall) thread_call_free(arSetCompleteThreadCall);
     arSetCompleteThreadCall = 0;
 
-    if (arLastSeek) IODelete(arLastSeek, UInt64, arLastAllocCount);
-    if (arSkippedIOCount) IODelete(arSkippedIOCount, UInt64, arLastAllocCount);
+    if (arLastSeek) IODeleteData(arLastSeek, UInt64, arLastAllocCount);
+    if (arSkippedIOCount) IODeleteData(arSkippedIOCount, UInt64, arLastAllocCount);
 
     assert(queue_empty(&arFailedRequestQueue));
 
@@ -168,15 +168,13 @@ bool AppleRAIDMirrorSet::resizeSet(UInt32 newMemberCount)
     // if downsizing, just hold on to the extra space
     if (arLastAllocCount < newMemberCount) {
 	if (arLastSeek) IODelete(arLastSeek, UInt64, arLastAllocCount);
-	arLastSeek = IONew(UInt64, newMemberCount);
+	arLastSeek = IONewZeroData(UInt64, newMemberCount);
 	if (!arLastSeek) return false;
 
-	if (arSkippedIOCount) IODelete(arSkippedIOCount, UInt64, arLastAllocCount);
-	arSkippedIOCount = IONew(UInt64, newMemberCount);
+	if (arSkippedIOCount) IODeleteData(arSkippedIOCount, UInt64, arLastAllocCount);
+	arSkippedIOCount = IONewZeroData(UInt64, newMemberCount);
 	if (!arSkippedIOCount) return false;
     }
-    bzero(arLastSeek, sizeof(UInt64) * newMemberCount);
-    bzero(arSkippedIOCount, sizeof(UInt64) * newMemberCount);
 
     if (super::resizeSet(newMemberCount) == false) return false;
 

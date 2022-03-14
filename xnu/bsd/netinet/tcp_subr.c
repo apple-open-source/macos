@@ -1903,7 +1903,7 @@ static int
 tcp_pcblist SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
-	int error, i = 0, n;
+	int error, i = 0, n, sz;
 	struct inpcb **inp_list;
 	inp_gen_t gencnt;
 	struct xinpgen xig;
@@ -1930,7 +1930,7 @@ tcp_pcblist SYSCTL_HANDLER_ARGS
 	 * OK, now we're committed to doing something.
 	 */
 	gencnt = tcbinfo.ipi_gencnt;
-	n = tcbinfo.ipi_count;
+	sz = n = tcbinfo.ipi_count;
 
 	bzero(&xig, sizeof(xig));
 	xig.xig_len = sizeof(xig);
@@ -1950,8 +1950,8 @@ tcp_pcblist SYSCTL_HANDLER_ARGS
 		return 0;
 	}
 
-	inp_list = _MALLOC(n * sizeof(*inp_list), M_TEMP, M_WAITOK);
-	if (inp_list == 0) {
+	inp_list = kalloc_type(struct inpcb *, n, Z_WAITOK);
+	if (inp_list == NULL) {
 		lck_rw_done(&tcbinfo.ipi_lock);
 		return ENOMEM;
 	}
@@ -2013,8 +2013,9 @@ tcp_pcblist SYSCTL_HANDLER_ARGS
 		xig.xig_count = tcbinfo.ipi_count;
 		error = SYSCTL_OUT(req, &xig, sizeof(xig));
 	}
-	FREE(inp_list, M_TEMP);
+
 	lck_rw_done(&tcbinfo.ipi_lock);
+	kfree_type(struct inpcb *, sz, inp_list);
 	return error;
 }
 
@@ -2087,7 +2088,7 @@ static int
 tcp_pcblist64 SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
-	int error, i = 0, n;
+	int error, i = 0, n, sz;
 	struct inpcb **inp_list;
 	inp_gen_t gencnt;
 	struct xinpgen xig;
@@ -2114,7 +2115,7 @@ tcp_pcblist64 SYSCTL_HANDLER_ARGS
 	 * OK, now we're committed to doing something.
 	 */
 	gencnt = tcbinfo.ipi_gencnt;
-	n = tcbinfo.ipi_count;
+	sz = n = tcbinfo.ipi_count;
 
 	bzero(&xig, sizeof(xig));
 	xig.xig_len = sizeof(xig);
@@ -2134,8 +2135,8 @@ tcp_pcblist64 SYSCTL_HANDLER_ARGS
 		return 0;
 	}
 
-	inp_list = _MALLOC(n * sizeof(*inp_list), M_TEMP, M_WAITOK);
-	if (inp_list == 0) {
+	inp_list = kalloc_type(struct inpcb *, n, Z_WAITOK);
+	if (inp_list == NULL) {
 		lck_rw_done(&tcbinfo.ipi_lock);
 		return ENOMEM;
 	}
@@ -2195,8 +2196,9 @@ tcp_pcblist64 SYSCTL_HANDLER_ARGS
 		xig.xig_count = tcbinfo.ipi_count;
 		error = SYSCTL_OUT(req, &xig, sizeof(xig));
 	}
-	FREE(inp_list, M_TEMP);
+
 	lck_rw_done(&tcbinfo.ipi_lock);
+	kfree_type(struct inpcb *, sz, inp_list);
 	return error;
 }
 

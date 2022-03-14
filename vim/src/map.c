@@ -8,7 +8,7 @@
  */
 
 /*
- * map.c: functions for maps and abbreviations
+ * map.c: Code for mappings and abbreviations.
  */
 
 #include "vim.h"
@@ -85,6 +85,9 @@ map_free(mapblock_T **mpp)
     vim_free(mp->m_orig_str);
     *mpp = mp->m_next;
     vim_free(mp);
+#ifdef FEAT_EVAL
+    reset_last_used_map();
+#endif
 }
 
 /*
@@ -260,6 +263,7 @@ map_add(
     {
 	mp->m_script_ctx.sc_sid = sid;
 	mp->m_script_ctx.sc_lnum = lnum;
+	mp->m_script_ctx.sc_version = in_vim9script() ? SCRIPT_VERSION_VIM9 : 0;
     }
     else
     {
@@ -603,12 +607,11 @@ do_map(
 			    && STRNCMP(mp->m_keys, keys, (size_t)len) == 0)
 		    {
 			if (abbrev)
-			    semsg(_(
-			    "E224: global abbreviation already exists for %s"),
+			    semsg(
+			       _(e_global_abbreviation_already_exists_for_str),
 				    mp->m_keys);
 			else
-			    semsg(_(
-				 "E225: global mapping already exists for %s"),
+			    semsg(_(e_global_mapping_already_exists_for_str),
 				    mp->m_keys);
 			retval = 5;
 			goto theend;
@@ -659,9 +662,9 @@ do_map(
 	// Find an entry in the maphash[] list that matches.
 	// For :unmap we may loop two times: once to try to unmap an entry with
 	// a matching 'from' part, a second time, if the first fails, to unmap
-	// an entry with a matching 'to' part. This was done to allow ":ab foo
-	// bar" to be unmapped by typing ":unab foo", where "foo" will be
-	// replaced by "bar" because of the abbreviation.
+	// an entry with a matching 'to' part. This was done to allow
+	// ":ab foo bar" to be unmapped by typing ":unab foo", where "foo" will
+	// be replaced by "bar" because of the abbreviation.
 	for (round = 0; (round == 0 || maptype == 1) && round <= 1
 					       && !did_it && !got_int; ++round)
 	{
@@ -741,12 +744,11 @@ do_map(
 			    else if (unique)
 			    {
 				if (abbrev)
-				    semsg(_(
-				   "E226: abbreviation already exists for %s"),
+				    semsg(
+				      _(e_abbreviation_already_exists_for_str),
 					    p);
 				else
-				    semsg(_(
-					"E227: mapping already exists for %s"),
+				    semsg(_(e_mapping_already_exists_for_str),
 					    p);
 				retval = 5;
 				goto theend;
@@ -918,7 +920,7 @@ map_clear(
     local = (STRCMP(arg, "<buffer>") == 0);
     if (!local && *arg != NUL)
     {
-	emsg(_(e_invarg));
+	emsg(_(e_invalid_argument));
 	return;
     }
 
@@ -1540,10 +1542,23 @@ check_abbr(
 			tb[j++] = Ctrl_V;	// special char needs CTRL-V
 		    if (has_mbyte)
 		    {
+			int	newlen;
+			char_u	*escaped;
+
 			// if ABBR_OFF has been added, remove it here
 			if (c >= ABBR_OFF)
 			    c -= ABBR_OFF;
-			j += (*mb_char2bytes)(c, tb + j);
+			newlen = (*mb_char2bytes)(c, tb + j);
+			tb[j + newlen] = NUL;
+			// Need to escape K_SPECIAL.
+			escaped = vim_strsave_escape_csi(tb + j);
+			if (escaped != NULL)
+			{
+			    newlen = (int)STRLEN(escaped);
+			    mch_memmove(tb + j, escaped, newlen);
+			    j += newlen;
+			    vim_free(escaped);
+			}
 		    }
 		    else
 			tb[j++] = c;
@@ -1554,7 +1569,7 @@ check_abbr(
 	    }
 #ifdef FEAT_EVAL
 	    if (mp->m_expr)
-		s = eval_map_expr(mp->m_str, c);
+		s = eval_map_expr(mp, c);
 	    else
 #endif
 		s = mp->m_str;
@@ -1589,7 +1604,7 @@ check_abbr(
  */
     char_u *
 eval_map_expr(
-    char_u	*str,
+    mapblock_T	*mp,
     int		c)	    // NUL or typed character for abbreviation
 {
     char_u	*res;
@@ -1598,10 +1613,12 @@ eval_map_expr(
     pos_T	save_cursor;
     int		save_msg_col;
     int		save_msg_row;
+    scid_T	save_sctx_sid = current_sctx.sc_sid;
+    int		save_sctx_version = current_sctx.sc_version;
 
     // Remove escaping of CSI, because "str" is in a format to be used as
     // typeahead.
-    expr = vim_strsave(str);
+    expr = vim_strsave(mp->m_str);
     if (expr == NULL)
 	return NULL;
     vim_unescape_csi(expr);
@@ -1614,12 +1631,22 @@ eval_map_expr(
     save_cursor = curwin->w_cursor;
     save_msg_col = msg_col;
     save_msg_row = msg_row;
+    if (mp->m_script_ctx.sc_version == SCRIPT_VERSION_VIM9)
+    {
+	current_sctx.sc_sid = mp->m_script_ctx.sc_sid;
+	current_sctx.sc_version = SCRIPT_VERSION_VIM9;
+    }
+
+    // Note: the evaluation may make "mp" invalid.
     p = eval_to_string(expr, FALSE);
+
     --textwinlock;
     --ex_normal_lock;
     curwin->w_cursor = save_cursor;
     msg_col = save_msg_col;
     msg_row = save_msg_row;
+    current_sctx.sc_sid = save_sctx_sid;
+    current_sctx.sc_version = save_sctx_version;
 
     vim_free(expr);
 
@@ -1842,7 +1869,7 @@ makemap(
 			c1 = 't';
 			break;
 		    default:
-			iemsg(_("E228: makemap: Illegal mode"));
+			iemsg(_(e_makemap_illegal_mode));
 			return FAIL;
 		}
 		do	// do this twice if c2 is set, 3 times with c3
@@ -2171,7 +2198,7 @@ check_map(
     return NULL;
 }
 
-    void
+    static void
 get_maparg(typval_T *argvars, typval_T *rettv, int exact)
 {
     char_u	*keys;
@@ -2275,6 +2302,40 @@ get_maparg(typval_T *argvars, typval_T *rettv, int exact)
 }
 
 /*
+ * "maparg()" function
+ */
+    void
+f_maparg(typval_T *argvars, typval_T *rettv)
+{
+    if (in_vim9script()
+	    && (check_for_string_arg(argvars, 0) == FAIL
+		|| check_for_opt_string_arg(argvars, 1) == FAIL
+		|| (argvars[1].v_type != VAR_UNKNOWN
+		    && (check_for_opt_bool_arg(argvars, 2) == FAIL
+			|| (argvars[2].v_type != VAR_UNKNOWN
+			    && check_for_opt_bool_arg(argvars, 3) == FAIL)))))
+		return;
+
+    get_maparg(argvars, rettv, TRUE);
+}
+
+/*
+ * "mapcheck()" function
+ */
+    void
+f_mapcheck(typval_T *argvars, typval_T *rettv)
+{
+    if (in_vim9script()
+	    && (check_for_string_arg(argvars, 0) == FAIL
+		|| check_for_opt_string_arg(argvars, 1) == FAIL
+		|| (argvars[1].v_type != VAR_UNKNOWN
+		    && check_for_opt_bool_arg(argvars, 2) == FAIL)))
+	return;
+
+    get_maparg(argvars, rettv, FALSE);
+}
+
+/*
  * "mapset()" function
  */
     void
@@ -2295,12 +2356,19 @@ f_mapset(typval_T *argvars, typval_T *rettv UNUSED)
     int		noremap;
     int		expr;
     int		silent;
+    int		buffer;
     scid_T	sid;
     linenr_T	lnum;
     mapblock_T	**map_table = maphash;
     mapblock_T  **abbr_table = &first_abbr;
     int		nowait;
     char_u	*arg;
+
+    if (in_vim9script()
+	    && (check_for_string_arg(argvars, 0) == FAIL
+		|| check_for_bool_arg(argvars, 1) == FAIL
+		|| check_for_dict_arg(argvars, 2) == FAIL))
+	return;
 
     which = tv_get_string_buf_chk(&argvars[0], buf);
     if (which == NULL)
@@ -2310,7 +2378,7 @@ f_mapset(typval_T *argvars, typval_T *rettv UNUSED)
 
     if (argvars[2].v_type != VAR_DICT)
     {
-	emsg(_(e_dictkey));
+	emsg(_(e_key_not_present_in_dictionary));
 	return;
     }
     d = argvars[2].vval.v_dict;
@@ -2322,7 +2390,7 @@ f_mapset(typval_T *argvars, typval_T *rettv UNUSED)
     rhs = dict_get_string(d, (char_u *)"rhs", FALSE);
     if (lhs == NULL || lhsraw == NULL || rhs == NULL)
     {
-	emsg(_("E460: entries missing in mapset() dict argument"));
+	emsg(_(e_entries_missing_in_mapset_dict_argument));
 	return;
     }
     orig_rhs = rhs;
@@ -2336,18 +2404,31 @@ f_mapset(typval_T *argvars, typval_T *rettv UNUSED)
     silent = dict_get_number(d, (char_u *)"silent") != 0;
     sid = dict_get_number(d, (char_u *)"sid");
     lnum = dict_get_number(d, (char_u *)"lnum");
-    if (dict_get_number(d, (char_u *)"buffer"))
+    buffer = dict_get_number(d, (char_u *)"buffer");
+    nowait = dict_get_number(d, (char_u *)"nowait") != 0;
+    // mode from the dict is not used
+
+    if (buffer)
     {
 	map_table = curbuf->b_maphash;
 	abbr_table = &curbuf->b_first_abbr;
     }
-    nowait = dict_get_number(d, (char_u *)"nowait") != 0;
-    // mode from the dict is not used
 
     // Delete any existing mapping for this lhs and mode.
-    arg = vim_strsave(lhs);
-    if (arg == NULL)
-	return;
+    if (buffer)
+    {
+	arg = alloc(STRLEN(lhs) + STRLEN("<buffer>") + 1);
+	if (arg == NULL)
+	    return;
+	STRCPY(arg, "<buffer>");
+	STRCPY(arg + 8, lhs);
+    }
+    else
+    {
+	arg = vim_strsave(lhs);
+	if (arg == NULL)
+	    return;
+    }
     do_map(1, arg, mode, is_abbr);
     vim_free(arg);
 
@@ -2451,13 +2532,12 @@ init_mappings(void)
     if (!gui.starting)
 #  endif
     {
-	for (i = 0;
-		i < (int)(sizeof(cinitmappings) / sizeof(struct initmap)); ++i)
+	for (i = 0; i < (int)ARRAY_LENGTH(cinitmappings); ++i)
 	    add_map(cinitmappings[i].arg, cinitmappings[i].mode);
     }
 # endif
 # if defined(FEAT_GUI_MSWIN) || defined(MACOS_X)
-    for (i = 0; i < (int)(sizeof(initmappings) / sizeof(struct initmap)); ++i)
+    for (i = 0; i < (int)ARRAY_LENGTH(initmappings); ++i)
 	add_map(initmappings[i].arg, initmappings[i].mode);
 # endif
 #endif
@@ -2642,7 +2722,7 @@ langmap_set(void)
 	    }
 	    if (to == NUL)
 	    {
-		semsg(_("E357: 'langmap': Matching character missing for %s"),
+		semsg(_(e_langmap_matching_character_missing_for_str),
 							     transchar(from));
 		return;
 	    }
@@ -2664,7 +2744,7 @@ langmap_set(void)
 		    {
 			if (p[0] != ',')
 			{
-			    semsg(_("E358: 'langmap': Extra characters after semicolon: %s"), p);
+			    semsg(_(e_langmap_extra_characters_after_semicolon_str), p);
 			    return;
 			}
 			++p;
@@ -2689,9 +2769,10 @@ do_exmap(exarg_T *eap, int isabbrev)
     switch (do_map((*cmdp == 'n') ? 2 : (*cmdp == 'u'),
 						    eap->arg, mode, isabbrev))
     {
-	case 1: emsg(_(e_invarg));
+	case 1: emsg(_(e_invalid_argument));
 		break;
-	case 2: emsg((isabbrev ? _(e_noabbr) : _(e_nomap)));
+	case 2: emsg((isabbrev ? _(e_no_such_abbreviation)
+						      : _(e_no_such_mapping)));
 		break;
     }
 }

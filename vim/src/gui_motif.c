@@ -1996,7 +1996,11 @@ do_mnemonic(Widget w, unsigned int keycode)
  * Callback routine for dialog mnemonic processing.
  */
     static void
-mnemonic_event(Widget w, XtPointer call_data UNUSED, XKeyEvent *event)
+mnemonic_event(
+	Widget	    w,
+	XtPointer   call_data UNUSED,
+	XKeyEvent   *event,
+	Boolean	    *b UNUSED)
 {
     do_mnemonic(w, event->keycode);
 }
@@ -2764,7 +2768,7 @@ gui_mch_dialog(
     // Create the dialog message.
     // Since LessTif is apparently having problems with the creation of
     // properly localized string, we use LtoR here. The symptom is that the
-    // string sill not show properly in multiple lines as it does in native
+    // string is not shown properly in multiple lines as it does in native
     // Motif.
     label = XmStringCreateLtoR((char *)message, STRING_TAG);
     if (label == NULL)
@@ -3565,7 +3569,8 @@ find_replace_callback(
 find_replace_keypress(
     Widget		w UNUSED,
     SharedFindReplace	*frdp,
-    XKeyEvent		*event)
+    XKeyEvent		*event,
+    Boolean		*b UNUSED)
 {
     KeySym keysym;
 
@@ -3990,7 +3995,7 @@ gui_mch_replace_dialog(exarg_T *eap)
 }
 
 /*
- * Synchronize all gui elements, which are dependant upon the
+ * Synchronize all gui elements, which are dependent upon the
  * main text font used. Those are in esp. the find/replace dialogs.
  * If you don't understand why this should be needed, please try to
  * search for "pi\xea\xb6\xe6" in iso8859-2.

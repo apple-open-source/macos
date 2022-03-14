@@ -186,11 +186,7 @@ int ppp_if_attach(u_short *unit)
 	struct ifnet_init_eparams init;
 	struct ifnet_stats_param stats;
 	
-    MALLOC(wan, struct ppp_if *, sizeof(struct ppp_if), M_TEMP, M_WAITOK);
-    if (!wan)
-        return ENOMEM;
-		
-    bzero(wan, sizeof(struct ppp_if));
+    wan = kalloc_type(struct ppp_if, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	wan->unit = 0xFFFF;
 	
 	wan1 = TAILQ_FIRST(&ppp_if_head);
@@ -295,7 +291,7 @@ error_nolock:
 	if (wan->unit != 0xFFFF) {
 		TAILQ_REMOVE(&ppp_if_head, wan, next);
 	}
-	FREE(wan, M_TEMP);
+	kfree_type(struct ppp_if, wan);
     return ret;
 }
 
@@ -325,7 +321,7 @@ int ppp_if_detach(ifnet_t ifp)
 	lck_mtx_lock(ppp_domain_mutex);	
 	
     if (wan->vjcomp) {
-	FREE(wan->vjcomp, M_TEMP);
+	kfree_type(struct slcompress, wan->vjcomp);
 	wan->vjcomp = 0;
     }
 
@@ -357,7 +353,7 @@ int ppp_if_detach(ifnet_t ifp)
 	lck_mtx_lock(ppp_domain_mutex);
     TAILQ_REMOVE(&ppp_if_head, wan, next);
 	lck_mtx_free(wan->mtx, ppp_if_lck_grp);
-    FREE(wan, M_TEMP);
+    kfree_type(struct ppp_if, wan);
 
     return 0;
 }
@@ -833,10 +829,7 @@ int ppp_if_control(ifnet_t ifp, u_long cmd, void *data)
             LOGDBG(ifp, ("ppp_if_control: PPPIOCSMAXCID\n"));
             // allocate the vj structure first
             if (!wan->vjcomp) {
-                MALLOC(wan->vjcomp, struct slcompress *, sizeof(struct slcompress), 
-                    M_TEMP, M_WAITOK); 	
-                if (!wan->vjcomp) 
-                    return ENOMEM;
+                wan->vjcomp = kalloc_type(struct slcompress, Z_WAITOK | Z_NOFAIL);
                 sl_compress_init(wan->vjcomp, -1);
             }
             // reeinit the compressor

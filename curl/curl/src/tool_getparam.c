@@ -36,7 +36,6 @@
 #include "tool_getparam.h"
 #include "tool_helpers.h"
 #include "tool_libinfo.h"
-#include "tool_metalink.h"
 #include "tool_msgs.h"
 #include "tool_paramhlp.h"
 #include "tool_parsecfg.h"
@@ -1007,8 +1006,9 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         config->ftp_filemethod = ftpfilemethod(config, nextarg);
         break;
       case 's': { /* --local-port */
-        char lrange[7];  /* 16bit base 10 is 5 digits, but we allow 6 so that
-                            this catches overflows, not just truncates */
+        /* 16bit base 10 is 5 digits, but we allow 6 so that this catches
+           overflows, not just truncates */
+        char lrange[7]="";
         char *p = nextarg;
         while(ISDIGIT(*p))
           p++;
@@ -1140,29 +1140,8 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         GetStr(&config->mail_auth, nextarg);
         break;
       case 'J': /* --metalink */
-        {
-#ifdef USE_METALINK
-          int mlmaj, mlmin, mlpatch;
-          metalink_get_version(&mlmaj, &mlmin, &mlpatch);
-          if((mlmaj*10000)+(mlmin*100) + mlpatch < CURL_REQ_LIBMETALINK_VERS) {
-            warnf(global,
-                  "--metalink option cannot be used because the version of "
-                  "the linked libmetalink library is too old. "
-                  "Required: %d.%d.%d, found %d.%d.%d\n",
-                  CURL_REQ_LIBMETALINK_MAJOR,
-                  CURL_REQ_LIBMETALINK_MINOR,
-                  CURL_REQ_LIBMETALINK_PATCH,
-                  mlmaj, mlmin, mlpatch);
-            return PARAM_BAD_USE;
-          }
-          else
-            config->use_metalink = toggle;
-#else
-          warnf(global, "--metalink option is ignored because the binary is "
-                "built without the Metalink support.\n");
-#endif
-          break;
-        }
+        errorf(global, "--metalink is disabled\n");
+        return PARAM_BAD_USE;
       case '6': /* --sasl-authzid */
         GetStr(&config->sasl_authzid, nextarg);
         break;
@@ -1911,11 +1890,6 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
       }
       break;
     case 'i':
-      if(config->content_disposition) {
-        warnf(global,
-              "--include and --remote-header-name cannot be combined.\n");
-        return PARAM_BAD_USE;
-      }
       config->show_headers = toggle; /* show the headers as well in the
                                         general output stream */
       break;
@@ -1931,11 +1905,6 @@ ParameterError getparameter(const char *flag, /* f or -long-flag */
         return PARAM_BAD_USE;
       break;
     case 'J': /* --remote-header-name */
-      if(config->show_headers) {
-        warnf(global,
-              "--include and --remote-header-name cannot be combined.\n");
-        return PARAM_BAD_USE;
-      }
       config->content_disposition = toggle;
       break;
     case 'k': /* allow insecure SSL connects */
@@ -2413,6 +2382,13 @@ ParameterError parse_args(struct GlobalConfig *global, int argc,
 
     if(!result)
       curlx_unicodefree(orig_opt);
+  }
+
+  if(!result && config->content_disposition) {
+    if(config->show_headers)
+      result = PARAM_CONTDISP_SHOW_HEADER;
+    else if(config->resume_from_current)
+      result = PARAM_CONTDISP_RESUME_FROM;
   }
 
   if(result && result != PARAM_HELP_REQUESTED &&

@@ -1,4 +1,4 @@
-.\"	$NetBSD: seq.1,v 1.6 2008/11/26 15:03:47 ginsbach Exp $
+.\"	$NetBSD: seq.1,v 1.8 2013/04/07 17:37:45 jdf Exp $
 .\"
 .\" Copyright (c) 2005 The NetBSD Foundation, Inc.
 .\" All rights reserved.
@@ -27,9 +27,9 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/seq/seq.1,v 1.1 2010/02/19 23:54:12 delphij Exp $
+.\" $FreeBSD$
 .\"
-.Dd February 19, 2010
+.Dd June 20, 2020
 .Dt SEQ 1
 .Os
 .Sh NAME
@@ -59,7 +59,7 @@ as possible, in increments of
 When
 .Ar first
 is larger than
-.Ar last
+.Ar last ,
 the default
 .Ar incr
 is -1.
@@ -72,15 +72,18 @@ The
 .Nm
 utility accepts the following options:
 .Bl -tag -width Ar
-.It Fl f Ar format
+.It Fl f Ar format , Fl -format Ar format
 Use a
 .Xr printf 3
 style
 .Ar format
 to print each number.
 Only the
+.Cm A ,
+.Cm a ,
 .Cm E ,
 .Cm e ,
+.Cm F ,
 .Cm f ,
 .Cm G ,
 .Cm g ,
@@ -95,7 +98,7 @@ defined in
 .St -ansiC .
 The default is
 .Cm %g .
-.It Fl s Ar string
+.It Fl s Ar string , Fl -separator Ar string
 Use
 .Ar string
 to separate numbers.
@@ -106,7 +109,7 @@ defined in
 .St -ansiC .
 The default is
 .Cm \en .
-.It Fl t Ar string
+.It Fl t Ar string , Fl -terminator Ar string
 Use
 .Ar string
 to terminate sequence of numbers.
@@ -118,7 +121,7 @@ defined in
 This option is useful when the default separator
 does not contain a
 .Cm \en .
-.It Fl w
+.It Fl w , Fl -fixed-width
 Equalize the widths of all numbers by padding with zeros as necessary.
 This option has no effect with the
 .Fl f
@@ -127,26 +130,53 @@ If any sequence numbers will be printed in exponential notation,
 the default conversion is changed to
 .Cm %e .
 .El
-.Pp
-The
-.Nm
-utility exits 0 on success and non-zero if an error occurs.
+.Sh EXIT STATUS
+.Ex -std
 .Sh EXAMPLES
+Generate a sequence from 1 to 3 (included) with a default increment of 1:
 .Bd -literal -offset indent
 # seq 1 3
 1
 2
 3
-
+.Ed
+.Pp
+Generate a sequence from 3 to 1 (included) with a default increment of -1:
+.Bd -literal -offset indent
 # seq 3 1
 3
 2
 1
-
+.Ed
+.Pp
+Generate a sequence from 0 to 0.1 (included) with an increment of 0.05 and padding
+with leading zeroes.
+.Bd -literal -offset indent
 # seq -w 0 .05 .1
 0.00
 0.05
 0.10
+.Ed
+.Pp
+Generate a sequence from 1 to 3 (included) with a default increment of 1,
+a custom separator string and a custom terminator:
+.Bd -literal -offset indent
+# seq -s "-->" -t "[end of list]\\n" 1 3
+1-->2-->3-->[end of list]
+.Ed
+.Pp
+Generate a sequence from 1 to 2 (included) with an increment of 0.2 and
+print the results with two digits after the decimal point (using a
+.Xr printf 3
+style format):
+.Bd -literal -offset indent
+# seq -f %.2f 1 0.2 2
+1.00
+1.20
+1.40
+1.60
+1.80
+2.00
 .Ed
 .Sh SEE ALSO
 .Xr jot 1 ,
@@ -155,21 +185,17 @@ utility exits 0 on success and non-zero if an error occurs.
 .Sh HISTORY
 The
 .Nm
-command first appeared in
-.Tn "Plan 9 from Bell Labs" .
+command first appeared in Version\~8
+.At .
 A
 .Nm
 command appeared in
 .Nx 3.0 ,
-and ported to
+and was ported to
 .Fx 9.0 .
 This command was based on the command of the same name in
-.Tn "Plan 9 from Bell Labs"
-and the
-.Tn GNU
-core utilities.
-The
-.Tn GNU
+Plan 9 from Bell Labs and the GNU core utilities.
+The GNU
 .Nm
 command first appeared in the 1.13 shell utilities release.
 .Sh BUGS
@@ -179,9 +205,4 @@ option does not handle the transition from pure floating point
 to exponent representation very well.
 The
 .Nm
-command is not bug for bug compatible with the
-.Tn "Plan 9 from Bell Labs"
-or
-.Tn GNU
-versions of
-.Nm .
+command is not bug for bug compatible with other implementations.

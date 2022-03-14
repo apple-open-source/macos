@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -108,7 +108,7 @@ static struct mbuf *nx_netif_rx_split(struct mbuf *, uint32_t);
 #define NMB_GET_INDEX(p)        (((uint32_t)(p) & NMB_INDEX_MASK) >> 16)
 #define NMB_SET_INDEX(p, i)     (((uint32_t)(p) & ~NMB_INDEX_MASK) | (i << 16))
 
-static ZONE_DECLARE(na_netif_compat_zone, SKMEM_ZONE_PREFIX ".na.netif.compat",
+static ZONE_DEFINE(na_netif_compat_zone, SKMEM_ZONE_PREFIX ".na.netif.compat",
     sizeof(struct nexus_netif_compat_adapter), ZC_ZFREE_CLEARMEM);
 
 static int netif_tx_event_mode = 0;
@@ -1548,13 +1548,15 @@ nx_netif_compat_na_dtor(struct nexus_adapter *na)
 	/*
 	 * If the finalizer callback hasn't been called for whatever
 	 * reasons, pick up the embryonic ifnet stored in na_private.
-	 * na_release_locked() will release the I/O refcnt of a
-	 * non-NULL na_ifp.
+	 * Otherwise, release the I/O refcnt of a non-NULL na_ifp.
 	 */
 	if ((ifp = na->na_ifp) == NULL) {
 		ifp = na->na_private;
+		na->na_private = NULL;
+	} else {
+		ifnet_decr_iorefcnt(ifp);
+		na->na_ifp = NULL;
 	}
-	na->na_private = NULL;
 
 	if (nca->nca_up.nifna_netif != NULL) {
 		nx_netif_release(nca->nca_up.nifna_netif);
@@ -1643,7 +1645,6 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	devna->na_krings_delete = nx_netif_dev_krings_delete;
 	devna->na_special = nx_netif_na_special;
 
-	atomic_bitset_32(&devna->na_flags, NAF_ASYNC_DTOR);
 	*(nexus_stats_type_t *)(uintptr_t)&devna->na_stats_type =
 	    NEXUS_STATS_TYPE_INVALID;
 
@@ -1722,7 +1723,7 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	hostna->na_krings_delete = nx_netif_host_krings_delete;
 	hostna->na_special = nx_netif_host_na_special;
 
-	atomic_bitset_32(&hostna->na_flags, (NAF_HOST_ONLY | NAF_ASYNC_DTOR));
+	atomic_bitset_32(&hostna->na_flags, NAF_HOST_ONLY);
 	*(nexus_stats_type_t *)(uintptr_t)&hostna->na_stats_type =
 	    NEXUS_STATS_TYPE_INVALID;
 
@@ -1752,7 +1753,7 @@ nx_netif_compat_attach(struct kern_nexus *nx, struct ifnet *ifp)
 	na_retain_locked(devna);
 	na_retain_locked(hostna);
 
-	SKYWALK_SET_CAPABLE(ifp, devna);
+	SKYWALK_SET_CAPABLE(ifp);
 
 	NETIF_WLOCK(nif);
 	nif->nif_ifp = ifp;

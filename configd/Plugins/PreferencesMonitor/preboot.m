@@ -49,8 +49,8 @@
 @property (nonatomic)BOOL		update_in_progress;
 @property (nonatomic)BOOL		request_queued;
 @property (strong,nonatomic)DMManager *	manager;
-@property (nonatomic)DADiskRef 		disk;
-@property (strong, nonatomic)DMAPFS *	dmapfs; 
+@property (nonatomic)DADiskRef		disk;
+@property (strong, nonatomic)DMAPFS *	dmapfs;
 @end
 
 #if defined(TEST_PREBOOT)
@@ -71,6 +71,18 @@ static bool S_exit_on_completion;
 	_dmapfs = dmapfs;
 	[manager setDelegate:self];
 	return (self);
+}
+
+- (void)dealloc
+{
+	if (_manager != nil) {
+		[_manager release];
+	}
+	if (_dmapfs != nil) {
+		[_dmapfs release];
+	}
+	[super dealloc];
+	return;
 }
 
 - (BOOL) syncNetworkConfiguration
@@ -132,6 +144,9 @@ static bool S_exit_on_completion;
 		       _LOG_PREFIX);
 		_request_queued = NO;
 		sync_started = [self syncNetworkConfiguration];
+		if (sync_started) {
+			return;
+		}
 	}
 #if defined(TEST_PREBOOT)
 	if (!sync_started && S_exit_on_completion) {
@@ -147,10 +162,10 @@ static bool S_exit_on_completion;
 static PrebootUpdater *
 allocateUpdater(void)
 {
-	DADiskRef 		disk = NULL;
+	DADiskRef		disk = NULL;
 	DMAPFS *		dmapfs = nil;
 	DMDiskErrorType		error;
-	BOOL 			enabled = false;
+	BOOL			enabled = false;
 	DMManager *		manager = nil;
 	DASessionRef		session = NULL;
 	static PrebootUpdater * S_updater;
@@ -185,6 +200,7 @@ allocateUpdater(void)
 			    initWithManager:manager
 				       disk:disk
 				     DMAPFS:dmapfs];
+	CFRelease(session);
 	return (S_updater);
 
  failed:
@@ -220,7 +236,7 @@ get_boot_mode(void)
 bool
 syncNetworkConfigurationToPrebootVolume(void)
 {
-	const char * 	boot_mode;
+	const char *	boot_mode;
 	bool		success = false;
 
 	boot_mode = get_boot_mode();

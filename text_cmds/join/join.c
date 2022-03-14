@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -14,11 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -47,7 +45,7 @@ static char sccsid[] = "@(#)join.c	8.6 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/join/join.c,v 1.20 2004/08/26 06:28:05 maxim Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 
@@ -94,36 +92,40 @@ typedef struct {
 	u_long setcnt;		/* set count */
 	u_long setalloc;	/* set allocated count */
 } INPUT;
-INPUT input1 = { NULL, 0, 0, 1, NULL, 0, 0, 0, 0 },
-      input2 = { NULL, 0, 0, 2, NULL, 0, 0, 0, 0 };
+static INPUT input1 = { NULL, 0, 0, 1, NULL, 0, 0, 0, 0 },
+    input2 = { NULL, 0, 0, 2, NULL, 0, 0, 0, 0 };
 
 typedef struct {
 	u_long	filenum;	/* file number */
 	u_long	fieldno;	/* field number */
 } OLIST;
-OLIST *olist;			/* output field list */
-u_long olistcnt;		/* output field list count */
-u_long olistalloc;		/* output field allocated count */
+static OLIST *olist;		/* output field list */
+static u_long olistcnt;		/* output field list count */
+static u_long olistalloc;	/* output field allocated count */
 
-int joinout = 1;		/* show lines with matched join fields (-v) */
-int needsep;			/* need separator character */
-int spans = 1;			/* span multiple delimiters (-t) */
-char *empty;			/* empty field replacement string (-e) */
+static int joinout = 1;		/* show lines with matched join fields (-v) */
+static int needsep;		/* need separator character */
+static int spans = 1;		/* span multiple delimiters (-t) */
+static char *empty;		/* empty field replacement string (-e) */
 static wchar_t default_tabchar[] = L" \t";
-wchar_t *tabchar = default_tabchar;/* delimiter characters (-t) */
+static wchar_t *tabchar = default_tabchar; /* delimiter characters (-t) */
 
-int  cmp(LINE *, u_long, LINE *, u_long);
-void fieldarg(char *);
-void joinlines(INPUT *, INPUT *);
-int  mbscoll(const char *, const char *);
-char *mbssep(char **, const wchar_t *);
-void obsolete(char **);
-void outfield(LINE *, u_long, int);
-void outoneline(INPUT *, LINE *);
-void outtwoline(INPUT *, LINE *, INPUT *, LINE *);
-void slurp(INPUT *);
-wchar_t *towcs(const char *);
-void usage(void);
+#ifdef __APPLE__
+bool unix2003_compat;
+#endif
+
+static int  cmp(LINE *, u_long, LINE *, u_long);
+static void fieldarg(char *);
+static void joinlines(INPUT *, INPUT *);
+static int  mbscoll(const char *, const char *);
+static char *mbssep(char **, const wchar_t *);
+static void obsolete(char **);
+static void outfield(LINE *, u_long, int);
+static void outoneline(INPUT *, LINE *);
+static void outtwoline(INPUT *, LINE *, INPUT *, LINE *);
+static void slurp(INPUT *);
+static wchar_t *towcs(const char *);
+static void usage(void);
 
 int
 main(int argc, char *argv[])
@@ -132,13 +134,17 @@ main(int argc, char *argv[])
 	int aflag, ch, cval, vflag;
 	char *end;
 
+#ifdef __APPLE__
+    unix2003_compat = COMPAT_MODE("bin/join", "Unix2003");
+#endif
+
 	setlocale(LC_ALL, "");
 
 	F1 = &input1;
 	F2 = &input2;
 
 	aflag = vflag = 0;
-	if (!COMPAT_MODE("bin/join", "Unix2003"))
+	if (!unix2003_compat)
 		obsolete(argv);
 	while ((ch = getopt(argc, argv, "\01a:e:j:1:2:o:t:v:")) != -1) {
 		switch (ch) {
@@ -282,7 +288,7 @@ main(int argc, char *argv[])
 	exit(0);
 }
 
-void
+static void
 slurp(INPUT *F)
 {
 	LINE *lp, *lastlp, tmp;
@@ -375,7 +381,7 @@ slurp(INPUT *F)
 	}
 }
 
-char *
+static char *
 mbssep(char **stringp, const wchar_t *delim)
 {
 	char *s, *tok;
@@ -404,7 +410,7 @@ mbssep(char **stringp, const wchar_t *delim)
 	}
 }
 
-int
+static int
 cmp(LINE *lp1, u_long fieldno1, LINE *lp2, u_long fieldno2)
 {
 	if (lp1->fieldcnt <= fieldno1)
@@ -414,7 +420,7 @@ cmp(LINE *lp1, u_long fieldno1, LINE *lp2, u_long fieldno2)
 	return (mbscoll(lp1->fields[fieldno1], lp2->fields[fieldno2]));
 }
 
-int
+static int
 mbscoll(const char *s1, const char *s2)
 {
 	wchar_t *w1, *w2;
@@ -430,7 +436,7 @@ mbscoll(const char *s1, const char *s2)
 	return (ret);
 }
 
-wchar_t *
+static wchar_t *
 towcs(const char *s)
 {
 	wchar_t *wcs;
@@ -444,7 +450,7 @@ towcs(const char *s)
 	return (wcs);
 }
 
-void
+static void
 joinlines(INPUT *F1, INPUT *F2)
 {
 	u_long cnt1, cnt2;
@@ -464,7 +470,7 @@ joinlines(INPUT *F1, INPUT *F2)
 			outtwoline(F1, &F1->set[cnt1], F2, &F2->set[cnt2]);
 }
 
-void
+static void
 outoneline(INPUT *F, LINE *lp)
 {
 	u_long cnt;
@@ -483,16 +489,22 @@ outoneline(INPUT *F, LINE *lp)
 			else
 				outfield(lp, 0, 1);
 		}
-	else
+	else {
+		/*
+		 * Output the join field, then the remaining fields.
+		 */
+		outfield(lp, F->joinf, 0);
 		for (cnt = 0; cnt < lp->fieldcnt; ++cnt)
-			outfield(lp, cnt, 0);
+			if (F->joinf != cnt)
+				outfield(lp, cnt, 0);
+	}
 	(void)printf("\n");
 	if (ferror(stdout))
 		err(1, "stdout");
 	needsep = 0;
 }
 
-void
+static void
 outtwoline(INPUT *F1, LINE *lp1, INPUT *F2, LINE *lp2)
 {
 	u_long cnt;
@@ -528,18 +540,18 @@ outtwoline(INPUT *F1, LINE *lp1, INPUT *F2, LINE *lp2)
 	needsep = 0;
 }
 
-void
+static void
 outfield(LINE *lp, u_long fieldno, int out_empty)
 {
 	if (needsep++)
-		(void)printf("%lc", *tabchar);
+		(void)printf("%lc", (wint_t)*tabchar);
 	if (!ferror(stdout)) {
 		if (lp->fieldcnt <= fieldno || out_empty) {
 			if (empty != NULL)
 				(void)printf("%s", empty);
 		} else {
 			if (*lp->fields[fieldno] == '\0') {
-				if (COMPAT_MODE("bin/join", "Unix2003") && empty != NULL)
+				if (unix2003_compat && empty != NULL)
 					(void)printf("%s", empty);
 				else
 					return;
@@ -555,7 +567,7 @@ outfield(LINE *lp, u_long fieldno, int out_empty)
  * Convert an output list argument "2.1, 1.3, 2.4" into an array of output
  * fields.
  */
-void
+static void
 fieldarg(char *option)
 {
 	u_long fieldno, filenum;
@@ -589,7 +601,7 @@ fieldarg(char *option)
 	}
 }
 
-void
+static void
 obsolete(char **argv)
 {
 	size_t len;
@@ -674,7 +686,7 @@ jbad:				errx(1, "illegal option -- %s", ap);
 	}
 }
 
-void
+static void
 usage(void)
 {
 	(void)fprintf(stderr, "%s %s\n%s\n",

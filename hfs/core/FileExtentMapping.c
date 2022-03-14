@@ -217,7 +217,7 @@ static OSErr FindExtentRecord(
 		*foundHint = 0;
 	fcb = GetFileControlBlock(vcb->extentsRefNum);
 
-	btIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	btIterator = hfs_malloc_type(struct BTreeIterator);
 
 	/* HFS Plus / HFSX */
 	if (vcb->vcbSigWord != kHFSSigWord) {
@@ -264,7 +264,7 @@ static OSErr FindExtentRecord(
 	if (foundHint)
 		*foundHint = btIterator->hint.nodeNum;
 
-	hfs_free(btIterator, sizeof(*btIterator));
+	hfs_free_type(btIterator, struct BTreeIterator);
 	return err;
 }
 
@@ -285,7 +285,7 @@ static OSErr CreateExtentRecord(
 	err = noErr;
 	*hint = 0;
 
-	btIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	btIterator = hfs_malloc_type(struct BTreeIterator);
 
 	/*
 	 * The lock taken by callers of ExtendFileC is speculative and
@@ -316,7 +316,7 @@ static OSErr CreateExtentRecord(
 	
 	hfs_systemfile_unlock(vcb, lockflags);
 
-	hfs_free(btIterator, sizeof(*btIterator));
+	hfs_free_type(btIterator, struct BTreeIterator);
 	return err;
 }
 
@@ -332,7 +332,7 @@ static OSErr DeleteExtentRecord(
 	
 	err = noErr;
 
-	btIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	btIterator = hfs_malloc_type(struct BTreeIterator);
 
 	/* HFS+ / HFSX */
 	if (vcb->vcbSigWord != kHFSSigWord) {		//	HFS Plus volume
@@ -350,7 +350,7 @@ static OSErr DeleteExtentRecord(
 	(void) BTFlushPath(GetFileControlBlock(vcb->extentsRefNum));
 	
 
-	hfs_free(btIterator, sizeof(*btIterator));
+	hfs_free_type(btIterator, struct BTreeIterator);
 	return err;
 }
 
@@ -1827,7 +1827,7 @@ static OSErr UpdateExtentRecord (ExtendedVCB *vcb, FCB  *fcb, int deleted,
 		//
 		btFCB = GetFileControlBlock(vcb->extentsRefNum);
 		
-		btIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+		btIterator = hfs_malloc_type(struct BTreeIterator);
 
 		/*
 		 * The lock taken by callers of ExtendFileC/TruncateFileC is
@@ -1862,7 +1862,7 @@ static OSErr UpdateExtentRecord (ExtendedVCB *vcb, FCB  *fcb, int deleted,
 
 		hfs_systemfile_unlock(vcb, lockflags);
 
-		hfs_free(btIterator, sizeof(*btIterator));
+		hfs_free_type(btIterator, struct BTreeIterator);
 	}
 	
 	return err;

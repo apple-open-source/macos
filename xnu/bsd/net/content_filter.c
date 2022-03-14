@@ -385,7 +385,7 @@ struct content_filter {
 #define CFF_FLOW_CONTROLLED     0x04
 #define CFF_PRESERVE_CONNECTIONS 0x08
 
-struct content_filter **content_filters = NULL;
+struct content_filter *content_filters[MAX_CONTENT_FILTER];
 uint32_t cfil_active_count = 0; /* Number of active content filters */
 uint32_t cfil_sock_attached_count = 0;  /* Number of sockets attachements */
 uint32_t cfil_sock_attached_stats_count = 0;    /* Number of sockets requested periodic stats report */
@@ -404,7 +404,7 @@ void* cfil_rw_lock_history[CFIL_RW_LCK_MAX];
 int cfil_rw_nxt_unlck = 0;
 void* cfil_rw_unlock_history[CFIL_RW_LCK_MAX];
 
-static ZONE_DECLARE(content_filter_zone, "content_filter",
+static ZONE_DEFINE(content_filter_zone, "content_filter",
     sizeof(struct content_filter), ZC_NONE);
 
 MBUFQ_HEAD(cfil_mqhead);
@@ -546,7 +546,7 @@ struct cfil_info {
 
 #define CFI_ENTRY_KCUNIT(i, e) ((uint32_t)(((e) - &((i)->cfi_entries[0])) + 1))
 
-static ZONE_DECLARE(cfil_info_zone, "cfil_info",
+static ZONE_DEFINE(cfil_info_zone, "cfil_info",
     sizeof(struct cfil_info), ZC_NONE);
 
 TAILQ_HEAD(cfil_sock_head, cfil_info) cfil_sock_head;
@@ -1080,7 +1080,7 @@ cfil_queue_verify(struct cfil_queue *cfq)
 		}
 		queuesize += chainsize;
 	}
-	if (queuesize != cfq->q_end - cfq->q_start) {
+	OS_ANALYZER_SUPPRESS("81031590") if (queuesize != cfq->q_end - cfq->q_start) {
 		panic("%s - %p queuesize %llu != offsetdiffs %llu", __func__,
 		    m, queuesize, cfq->q_end - cfq->q_start);
 	}
@@ -1202,31 +1202,6 @@ cfil_ctl_connect(kern_ctl_ref kctlref, struct sockaddr_ctl *sac,
 	cfc = zalloc_flags(content_filter_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	cfil_rw_lock_exclusive(&cfil_lck_rw);
-	if (content_filters == NULL) {
-		struct content_filter **tmp;
-
-		cfil_rw_unlock_exclusive(&cfil_lck_rw);
-
-		MALLOC(tmp,
-		    struct content_filter **,
-		    MAX_CONTENT_FILTER * sizeof(struct content_filter *),
-		    M_TEMP,
-		    M_WAITOK | M_ZERO);
-
-		cfil_rw_lock_exclusive(&cfil_lck_rw);
-
-		if (tmp == NULL && content_filters == NULL) {
-			error = ENOMEM;
-			cfil_rw_unlock_exclusive(&cfil_lck_rw);
-			goto done;
-		}
-		/* Another thread may have won the race */
-		if (content_filters != NULL) {
-			FREE(tmp, M_TEMP);
-		} else {
-			content_filters = tmp;
-		}
-	}
 
 	if (sac->sc_unit == 0 || sac->sc_unit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "bad sc_unit %u", sac->sc_unit);
@@ -1272,7 +1247,7 @@ cfil_ctl_connect(kern_ctl_ref kctlref, struct sockaddr_ctl *sac,
 		}
 	}
 	cfil_rw_unlock_exclusive(&cfil_lck_rw);
-done:
+
 	if (error != 0 && cfc != NULL) {
 		zfree(content_filter_zone, cfc);
 	}
@@ -1293,10 +1268,6 @@ static void
 cfil_update_behavior_flags(void)
 {
 	struct content_filter *cfc = NULL;
-
-	if (content_filters == NULL) {
-		return;
-	}
 
 	// Update global flag
 	bool preserve_connections = false;
@@ -1331,11 +1302,6 @@ cfil_ctl_disconnect(kern_ctl_ref kctlref, u_int32_t kcunit, void *unitinfo)
 
 	CFIL_LOG(LOG_NOTICE, "");
 
-	if (content_filters == NULL) {
-		CFIL_LOG(LOG_ERR, "no content filter");
-		error = EINVAL;
-		goto done;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "kcunit %u > MAX_CONTENT_FILTER (%d)",
 		    kcunit, MAX_CONTENT_FILTER);
@@ -1910,11 +1876,6 @@ cfil_ctl_send(kern_ctl_ref kctlref, u_int32_t kcunit, void *unitinfo, mbuf_t m,
 		goto done;
 	}
 
-	if (content_filters == NULL) {
-		CFIL_LOG(LOG_ERR, "no content filter");
-		error = EINVAL;
-		goto done;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "kcunit %u > MAX_CONTENT_FILTER (%d)",
 		    kcunit, MAX_CONTENT_FILTER);
@@ -2163,11 +2124,6 @@ cfil_ctl_getopt(kern_ctl_ref kctlref, u_int32_t kcunit, void *unitinfo,
 
 	cfil_rw_lock_shared(&cfil_lck_rw);
 
-	if (content_filters == NULL) {
-		CFIL_LOG(LOG_ERR, "no content filter");
-		error = EINVAL;
-		goto done;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "kcunit %u > MAX_CONTENT_FILTER (%d)",
 		    kcunit, MAX_CONTENT_FILTER);
@@ -2319,11 +2275,6 @@ cfil_ctl_setopt(kern_ctl_ref kctlref, u_int32_t kcunit, void *unitinfo,
 
 	cfil_rw_lock_exclusive(&cfil_lck_rw);
 
-	if (content_filters == NULL) {
-		CFIL_LOG(LOG_ERR, "no content filter");
-		error = EINVAL;
-		goto done;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "kcunit %u > MAX_CONTENT_FILTER (%d)",
 		    kcunit, MAX_CONTENT_FILTER);
@@ -2399,11 +2350,6 @@ cfil_ctl_rcvd(kern_ctl_ref kctlref, u_int32_t kcunit, void *unitinfo, int flags)
 		return;
 	}
 
-	if (content_filters == NULL) {
-		CFIL_LOG(LOG_ERR, "no content filter");
-		OSIncrementAtomic(&cfil_stats.cfs_ctl_rcvd_bad);
-		return;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "kcunit %u > MAX_CONTENT_FILTER (%d)",
 		    kcunit, MAX_CONTENT_FILTER);
@@ -2668,9 +2614,7 @@ cfil_info_attach_unit(struct socket *so, uint32_t filter_control_unit, struct cf
 
 	cfil_rw_lock_exclusive(&cfil_lck_rw);
 
-	for (kcunit = 1;
-	    content_filters != NULL && kcunit <= MAX_CONTENT_FILTER;
-	    kcunit++) {
+	for (kcunit = 1; kcunit <= MAX_CONTENT_FILTER; kcunit++) {
 		struct content_filter *cfc = content_filters[kcunit - 1];
 		struct cfil_entry *entry;
 		struct cfil_entry *iter_entry;
@@ -2734,9 +2678,7 @@ cfil_info_free(struct cfil_info *cfil_info)
 		cfil_info_log(LOG_INFO, cfil_info, "CFIL: FREEING CFIL_INFO");
 	}
 
-	for (kcunit = 1;
-	    content_filters != NULL && kcunit <= MAX_CONTENT_FILTER;
-	    kcunit++) {
+	for (kcunit = 1; kcunit <= MAX_CONTENT_FILTER; kcunit++) {
 		struct cfil_entry *entry;
 		struct content_filter *cfc;
 
@@ -4744,10 +4686,6 @@ cfil_action_set_crypto_key(uint32_t kcunit, struct cfil_msg_hdr *msghdr)
 
 	CFIL_LOG(LOG_NOTICE, "");
 
-	if (content_filters == NULL) {
-		CFIL_LOG(LOG_ERR, "no content filter");
-		return EINVAL;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		CFIL_LOG(LOG_ERR, "kcunit %u > MAX_CONTENT_FILTER (%d)",
 		    kcunit, MAX_CONTENT_FILTER);
@@ -5516,7 +5454,7 @@ sysctl_cfil_filter_list(struct sysctl_oid *oidp, void *arg1, int arg2,
 
 	cfil_rw_lock_shared(&cfil_lck_rw);
 
-	for (i = 0; content_filters != NULL && i < MAX_CONTENT_FILTER; i++) {
+	for (i = 0; i < MAX_CONTENT_FILTER; i++) {
 		struct cfil_filter_stat filter_stat;
 		struct content_filter *cfc = content_filters[i];
 
@@ -5552,7 +5490,7 @@ sysctl_cfil_filter_list(struct sysctl_oid *oidp, void *arg1, int arg2,
 
 	if (cfil_log_level >= LOG_DEBUG) {
 		if (req->oldptr != USER_ADDR_NULL) {
-			for (i = 1; content_filters != NULL && i <= MAX_CONTENT_FILTER; i++) {
+			for (i = 1; i <= MAX_CONTENT_FILTER; i++) {
 				cfil_filter_show(i);
 			}
 		}
@@ -6502,9 +6440,6 @@ cfil_filter_show(u_int32_t kcunit)
 	struct cfil_entry *entry;
 	int count = 0;
 
-	if (content_filters == NULL) {
-		return;
-	}
 	if (kcunit > MAX_CONTENT_FILTER) {
 		return;
 	}
@@ -6844,7 +6779,7 @@ cfil_dispatch_stats_event_locked(int kcunit, struct cfil_stats_report_buffer *bu
 		return error;
 	}
 
-	if (content_filters == NULL || kcunit > MAX_CONTENT_FILTER) {
+	if (kcunit > MAX_CONTENT_FILTER) {
 		return error;
 	}
 

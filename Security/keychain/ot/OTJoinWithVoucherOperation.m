@@ -27,6 +27,7 @@
 
 #import <CloudKit/CloudKit_Private.h>
 
+#import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/OTJoinWithVoucherOperation.h"
 #import "keychain/ot/OTOperationDependencies.h"
 #import "keychain/ot/OTFetchCKKSKeysOperation.h"

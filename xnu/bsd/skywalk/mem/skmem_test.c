@@ -234,8 +234,7 @@ skmem_buflet_tests(uint32_t flags)
 	    Z_WAITOK | Z_ZERO);
 	pharyc = (kern_packet_t *) kalloc_data(sizeof(kern_packet_t) * MAX_PH_ARY,
 	    Z_WAITOK | Z_ZERO);
-	mbary = _MALLOC(sizeof(struct mbuf *) * MAX_PH_ARY, M_TEMP,
-	    M_WAITOK | M_ZERO);
+	mbary = kalloc_type(struct mbuf *, MAX_PH_ARY, Z_WAITOK | Z_ZERO);
 
 	os_ref_init(&skmem_pp_ctx.skmem_pp_ctx_refcnt, NULL);
 	bzero(&pp_init, sizeof(pp_init));
@@ -720,7 +719,7 @@ skmem_buflet_tests(uint32_t flags)
 		pp_mb = NULL;
 	}
 
-	_FREE(mbary, M_TEMP);
+	kfree_type(struct mbuf *, MAX_PH_ARY, mbary);
 	mbary = NULL;
 
 	kfree_data(phary, sizeof(kern_packet_t) * MAX_PH_ARY);
@@ -1939,8 +1938,7 @@ skmem_tests(uint32_t align)
 
 	SK_ERR("bufsize %u align %u", bufsize, align);
 
-	objary = _MALLOC(sizeof(void *) * objary_max, M_TEMP,
-	    M_WAITOK | M_ZERO);
+	objary = kalloc_type(void *, objary_max, Z_WAITOK | Z_ZERO);
 
 	(void) snprintf(name, sizeof(name), "skmem_test.%u.%u", bufsize, align);
 
@@ -1961,7 +1959,7 @@ skmem_tests(uint32_t align)
 	skmem_cache_destroy(skm);
 	VERIFY(skmem_test_objs == 0);
 
-	_FREE(objary, M_TEMP);
+	kfree_type(void *, objary_max, objary);
 	objary = NULL;
 }
 

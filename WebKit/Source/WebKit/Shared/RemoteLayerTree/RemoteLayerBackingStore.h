@@ -63,6 +63,7 @@ public:
     void setNeedsDisplay(const WebCore::IntRect);
     void setNeedsDisplay();
 
+    void setContents(WTF::MachSendRight&& surfaceHandle);
     bool display();
 
     WebCore::FloatSize size() const { return m_size; }
@@ -74,7 +75,7 @@ public:
     PlatformCALayerRemote* layer() const { return m_layer; }
 
     enum class LayerContentsType { IOSurface, CAMachPort };
-    void applyBackingStoreToLayer(CALayer *, LayerContentsType);
+    void applyBackingStoreToLayer(CALayer *, LayerContentsType, bool replayCGDisplayListsIntoBackingStore);
 
     void encode(IPC::Encoder&) const;
     static WARN_UNUSED_RETURN bool decode(IPC::Decoder&, RemoteLayerBackingStore&);
@@ -83,7 +84,7 @@ public:
 
     bool hasFrontBuffer() const
     {
-        return !!m_frontBuffer.imageBuffer;
+        return m_contentsBufferHandle || !!m_frontBuffer.imageBuffer;
     }
 
     Vector<std::unique_ptr<WebCore::ThreadSafeImageBufferFlusher>> takePendingFlushers();
@@ -99,9 +100,10 @@ public:
 
     MonotonicTime lastDisplayTime() const { return m_lastDisplayTime; }
 
+    void clearBackingStore();
+
 private:
     void drawInContext(WebCore::GraphicsContext&);
-    void clearBackingStore();
     void swapToValidFrontBuffer();
 
     bool supportsPartialRepaint();
@@ -135,6 +137,9 @@ private:
     Buffer m_backBuffer;
     Buffer m_secondaryBackBuffer;
     std::optional<ImageBufferBackendHandle> m_bufferHandle;
+    // FIXME: This should be removed and m_bufferHandle should be used to ref the buffer once ShareableBitmap::Handle
+    // can be encoded multiple times. http://webkit.org/b/234169
+    std::optional<MachSendRight> m_contentsBufferHandle;
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     std::optional<ImageBufferBackendHandle> m_displayListBufferHandle;
 #endif

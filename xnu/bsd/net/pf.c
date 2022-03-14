@@ -8574,7 +8574,7 @@ pf_test_state_grev1(struct pf_state **state, int direction,
 {
 	struct pf_state_peer *src;
 	struct pf_state_peer *dst;
-	struct pf_state_key_cmp key;
+	struct pf_state_key_cmp key = {};
 	struct pf_grev1_hdr *grev1 = pd->hdr.grev1;
 
 	key.app_state = 0;
@@ -8839,7 +8839,7 @@ pf_test_state_other(struct pf_state **state, int direction, struct pfi_kif *kif,
     struct pf_pdesc *pd)
 {
 	struct pf_state_peer    *src, *dst;
-	struct pf_state_key_cmp  key;
+	struct pf_state_key_cmp  key = {};
 
 	key.app_state = 0;
 	key.proto = pd->proto;
@@ -10757,7 +10757,8 @@ pool_init(struct pool *pp, size_t size, unsigned int align, unsigned int ioff,
 {
 #pragma unused(align, ioff, flags, palloc)
 	bzero(pp, sizeof(*pp));
-	pp->pool_zone = zone_create(wchan, size, ZC_DESTRUCTIBLE);
+	pp->pool_zone = zone_create(wchan, size,
+	    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM);
 	pp->pool_hiwat = pp->pool_limit = (unsigned int)-1;
 	pp->pool_name = wchan;
 }

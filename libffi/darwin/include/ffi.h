@@ -1,6 +1,7 @@
 /* -----------------------------------------------------------------*-C-*-
-   libffi 3.3-rc0 - Copyright (c) 2011, 2014 Anthony Green
-                    - Copyright (c) 1996-2003, 2007, 2008 Red Hat, Inc.
+   libffi 3.4-rc1
+     - Copyright (c) 2011, 2014, 2019, 2021 Anthony Green
+     - Copyright (c) 1996-2003, 2007, 2008 Red Hat, Inc.
 
    Permission is hereby granted, free of charge, to any person
    obtaining a copy of this software and associated documentation
@@ -59,6 +60,25 @@ extern "C" {
 #define FFI_AVAILABLE_APPLE      API_AVAILABLE(macos(10.0), iosmac(13.0)) SPI_AVAILABLE(ios(13.0), tvos(13.0)) API_UNAVAILABLE(watchos)
 #define FFI_AVAILABLE_APPLE_2019 API_AVAILABLE(macos(10.15), iosmac(13.0)) SPI_AVAILABLE(ios(13.0), tvos(13.0)) API_UNAVAILABLE(watchos)
 #define FFI_AVAILABLE_APPLE_2019_DEPRECATED_2020 API_DEPRECATED("Deprecated", macos(10.15, 10.16), iosmac(13.0, 14.0)) SPI_DEPRECATED("Deprecated", ios(13.0, 14.0), tvos(13.0, 14.0)) API_UNAVAILABLE(watchos)
+#endif
+
+/* Specify which architecture libffi is configured for. */
+#if defined(__arm64__)
+#ifndef AARCH64
+#define AARCH64
+#endif
+#elif defined(__arm__)
+#ifndef ARM
+#define ARM
+#endif
+#elif defined(__x86_64__)
+#ifndef X86_64
+#define X86_64
+#endif
+#elif defined(__i386__)
+#ifndef X86_DARWIN
+#define X86_DARWIN
+#endif
 #endif
 
 /* ---- System configuration information --------------------------------- */
@@ -225,7 +245,8 @@ FFI_AVAILABLE_APPLE_2019 FFI_EXTERN ffi_type ffi_type_complex_longdouble;
 typedef enum {
   FFI_OK = 0,
   FFI_BAD_TYPEDEF,
-  FFI_BAD_ABI
+  FFI_BAD_ABI,
+  FFI_BAD_ARGTYPE
 } ffi_status;
 
 typedef struct {
@@ -318,7 +339,10 @@ typedef struct {
   void *trampoline_table;
   void *trampoline_table_entry;
 #else
-  char tramp[FFI_TRAMPOLINE_SIZE];
+  union {
+    char tramp[FFI_TRAMPOLINE_SIZE];
+    void *ftramp;
+  };
 #endif
   ffi_cif   *cif;
   void     (*fun)(ffi_cif*,void*,void**,void*);
@@ -337,6 +361,14 @@ typedef struct {
 
 FFI_AVAILABLE_APPLE_2019 FFI_API void *ffi_closure_alloc (size_t size, void **code);
 FFI_AVAILABLE_APPLE_2019 FFI_API void ffi_closure_free (void *);
+
+#if defined(PA_LINUX) || defined(PA_HPUX)
+#define FFI_CLOSURE_PTR(X) ((void *)((unsigned int)(X) | 2))
+#define FFI_RESTORE_PTR(X) ((void *)((unsigned int)(X) & ~3))
+#else
+#define FFI_CLOSURE_PTR(X) (X)
+#define FFI_RESTORE_PTR(X) (X)
+#endif
 
 #if FFI_LEGACY_CLOSURE_API
 FFI_AVAILABLE_APPLE_2019 FFI_API ffi_status
@@ -378,8 +410,8 @@ typedef struct {
 
 #if !FFI_NATIVE_RAW_API
 
-  /* If this is enabled, then a raw closure has the same layout 
-     as a regular closure.  We use this to install an intermediate 
+  /* If this is enabled, then a raw closure has the same layout
+     as a regular closure.  We use this to install an intermediate
      handler to do the transaltion, void** -> ffi_raw*.  */
 
   void     (*translate_args)(ffi_cif*,void*,void**,void*);
@@ -404,8 +436,8 @@ typedef struct {
 
 #if !FFI_NATIVE_RAW_API
 
-  /* If this is enabled, then a raw closure has the same layout 
-     as a regular closure.  We use this to install an intermediate 
+  /* If this is enabled, then a raw closure has the same layout
+     as a regular closure.  We use this to install an intermediate
      handler to do the translation, void** -> ffi_raw*.  */
 
   void     (*translate_args)(ffi_cif*,void*,void**,void*);
@@ -448,7 +480,7 @@ ffi_prep_java_raw_closure_loc (ffi_java_raw_closure*,
 
 #endif /* FFI_CLOSURES */
 
-#if defined(FFI_GO_CLOSURES) && FFI_GO_CLOSURES
+#if FFI_GO_CLOSURES
 
 typedef struct {
   void      *tramp;
@@ -499,18 +531,18 @@ ffi_status ffi_get_struct_offsets (ffi_abi abi, ffi_type *struct_type,
 #endif
 
 /* If these change, update src/mips/ffitarget.h. */
-#define FFI_TYPE_VOID       0    
+#define FFI_TYPE_VOID       0
 #define FFI_TYPE_INT        1
-#define FFI_TYPE_FLOAT      2    
+#define FFI_TYPE_FLOAT      2
 #define FFI_TYPE_DOUBLE     3
 #if defined(__i386__) || defined(__x86_64__)
 #define FFI_TYPE_LONGDOUBLE 4
 #else
 #define FFI_TYPE_LONGDOUBLE FFI_TYPE_DOUBLE
 #endif
-#define FFI_TYPE_UINT8      5   
+#define FFI_TYPE_UINT8      5
 #define FFI_TYPE_SINT8      6
-#define FFI_TYPE_UINT16     7 
+#define FFI_TYPE_UINT16     7
 #define FFI_TYPE_SINT16     8
 #define FFI_TYPE_UINT32     9
 #define FFI_TYPE_SINT32     10

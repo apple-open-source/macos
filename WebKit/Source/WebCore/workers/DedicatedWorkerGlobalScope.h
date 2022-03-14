@@ -32,7 +32,6 @@
 #pragma once
 
 #include "MessagePort.h"
-#include "PostMessageOptions.h"
 #include "WorkerGlobalScope.h"
 
 namespace JSC {
@@ -50,6 +49,8 @@ class RTCRtpScriptTransformer;
 class RequestAnimationFrameCallback;
 class SerializedScriptValue;
 
+struct StructuredSerializeOptions;
+
 #if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
 class WorkerAnimationController;
 
@@ -66,7 +67,7 @@ public:
 
     const String& name() const { return m_name; }
 
-    ExceptionOr<void> postMessage(JSC::JSGlobalObject&, JSC::JSValue message, PostMessageOptions&&);
+    ExceptionOr<void> postMessage(JSC::JSGlobalObject&, JSC::JSValue message, StructuredSerializeOptions&&);
 
     DedicatedWorkerThread& thread();
 
@@ -86,8 +87,9 @@ private:
 
     DedicatedWorkerGlobalScope(const WorkerParameters&, Ref<SecurityOrigin>&&, DedicatedWorkerThread&, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy*, SocketProvider*);
 
-    bool isDedicatedWorkerGlobalScope() const final { return true; }
-    ExceptionOr<void> importScripts(const Vector<String>& urls) final;
+    Type type() const final { return Type::DedicatedWorker; }
+
+    ExceptionOr<void> importScripts(const FixedVector<String>& urls) final;
     EventTargetInterface eventTargetInterface() const final;
 
     void prepareForDestruction() final;
@@ -102,6 +104,6 @@ private:
 } // namespace WebCore
 
 SPECIALIZE_TYPE_TRAITS_BEGIN(WebCore::DedicatedWorkerGlobalScope)
-    static bool isType(const WebCore::ScriptExecutionContext& context) { return is<WebCore::WorkerGlobalScope>(context) && downcast<WebCore::WorkerGlobalScope>(context).isDedicatedWorkerGlobalScope(); }
-    static bool isType(const WebCore::WorkerGlobalScope& context) { return context.isDedicatedWorkerGlobalScope(); }
+    static bool isType(const WebCore::ScriptExecutionContext& context) { return is<WebCore::WorkerGlobalScope>(context) && downcast<WebCore::WorkerGlobalScope>(context).type() == WebCore::WorkerGlobalScope::Type::DedicatedWorker; }
+    static bool isType(const WebCore::WorkerGlobalScope& context) { return context.type() == WebCore::WorkerGlobalScope::Type::DedicatedWorker; }
 SPECIALIZE_TYPE_TRAITS_END()

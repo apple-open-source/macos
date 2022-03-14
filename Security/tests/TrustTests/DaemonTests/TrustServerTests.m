@@ -26,6 +26,7 @@
 #import <XCTest/XCTest.h>
 #import <Security/SecCertificatePriv.h>
 #import <Security/SecTrustPriv.h>
+#import <utilities/SecCFWrappers.h>
 #import "trust/trustd/SecCertificateServer.h"
 #import "trust/trustd/SecRevocationServer.h"
 #import "trust/trustd/SecRevocationDb.h"
@@ -160,8 +161,7 @@
         XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
     }
 
-    SecPathBuilderDestroy(builder);
-    free(builder);
+    CFReleaseNull(builder);
     CFRelease(path);
 }
 
@@ -204,7 +204,7 @@
     XCTAssertEqualObjects((NSDate*)info[(__bridge NSString*)kSecTrustInfoRevocationValidUntilKey], [NSDate dateWithTimeIntervalSinceReferenceDate:632142381.0]);
     XCTAssertEqualObjects((NSDate*)info[(__bridge NSString*)kSecTrustRevocationValidUntilDate], [NSDate dateWithTimeIntervalSinceReferenceDate:632142381.0]);
 
-    SecPathBuilderDestroy(builder);
+    CFReleaseNull(builder);
     free(builder);
     CFRelease(path);
 }
@@ -236,8 +236,7 @@
     // The notAfter should be the very near OCSP response expiration
     XCTAssertEqualWithAccuracy(notAfter, nextUpdate, 0.1);
 
-    SecPathBuilderDestroy(builder);
-    free(builder);
+    CFReleaseNull(builder);
     CFRelease(path);
 }
 
@@ -278,8 +277,7 @@
         XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.5);
     }
 
-    SecPathBuilderDestroy(builder);
-    free(builder);
+    CFReleaseNull(builder);
     CFRelease(path);
 }
 
@@ -310,8 +308,7 @@
     // The notAfter should be the very near OCSP response expiration
     XCTAssertEqualWithAccuracy(notAfter, CFAbsoluteTimeGetCurrent() + TRUST_TIME_LEEWAY, 0.1);
 
-    SecPathBuilderDestroy(builder);
-    free(builder);
+    CFReleaseNull(builder);
     CFRelease(path);
 }
 

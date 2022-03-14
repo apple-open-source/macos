@@ -38,7 +38,7 @@
 #import "Document.h"
 #import "DocumentLoader.h"
 #import "Editing.h"
-#import "Element.h"
+#import "ElementInlines.h"
 #import "ElementTraversal.h"
 #import "File.h"
 #import "FontCascade.h"
@@ -416,12 +416,12 @@ AttributedString HTMLConverter::convert()
 // Returns the font to be used if the NSFontAttributeName doesn't exist
 static NSFont *WebDefaultFont()
 {
-    static auto defaultFont = makeNeverDestroyed([] {
+    static NeverDestroyed defaultFont = [] {
         NSFont *font = [NSFont fontWithName:@"Helvetica" size:12];
         if (!font)
             font = [NSFont systemFontOfSize:12];
-        return retainPtr(font);
-    }());
+        return RetainPtr { font };
+    }();
     return defaultFont.get().get();
 }
 #endif
@@ -518,13 +518,13 @@ static PlatformFont *_fontForNameAndSize(NSString *fontName, CGFloat size, NSMut
 
 static NSParagraphStyle *defaultParagraphStyle()
 {
-    static auto defaultParagraphStyle = makeNeverDestroyed([] {
-        auto defaultParagraphStyle = adoptNS([[PlatformNSParagraphStyle defaultParagraphStyle] mutableCopy]);
-        [defaultParagraphStyle setDefaultTabInterval:36];
-        [defaultParagraphStyle setTabStops:@[]];
-        return defaultParagraphStyle;
-    }());
-    return defaultParagraphStyle.get().get();
+    static NeverDestroyed style = [] {
+        auto style = adoptNS([[PlatformNSParagraphStyle defaultParagraphStyle] mutableCopy]);
+        [style setDefaultTabInterval:36];
+        [style setTabStops:@[]];
+        return style;
+    }();
+    return style.get().get();
 }
 
 RefPtr<CSSValue> HTMLConverterCaches::computedStylePropertyForElement(Element& element, CSSPropertyID propertyId)
@@ -587,7 +587,7 @@ String HTMLConverterCaches::propertyValueForNode(Node& node, CSSPropertyID prope
 
     if (RefPtr<CSSValue> value = inlineStylePropertyForElement(element, propertyId)) {
         String result;
-        if (value->isInheritedValue())
+        if (value->isInheritValue())
             inherit = true;
         else if (stringFromCSSValue(*value, result))
             return result;
@@ -735,7 +735,7 @@ bool HTMLConverterCaches::floatPropertyValueForNode(Node& node, CSSPropertyID pr
     if (RefPtr<CSSValue> value = inlineStylePropertyForElement(element, propertyId)) {
         if (is<CSSPrimitiveValue>(*value) && floatValueFromPrimitiveValue(downcast<CSSPrimitiveValue>(*value), result))
             return true;
-        if (value->isInheritedValue())
+        if (value->isInheritValue())
             inherit = true;
     }
 
@@ -877,7 +877,7 @@ Color HTMLConverterCaches::colorPropertyValueForNode(Node& node, CSSPropertyID p
     if (RefPtr<CSSValue> value = inlineStylePropertyForElement(element, propertyId)) {
         if (is<CSSPrimitiveValue>(*value) && downcast<CSSPrimitiveValue>(*value).isRGBColor())
             return normalizedColor(downcast<CSSPrimitiveValue>(*value).color(), ignoreDefaultColor, element);
-        if (value->isInheritedValue())
+        if (value->isInheritValue())
             inherit = true;
     }
 
@@ -910,7 +910,7 @@ RetainPtr<PlatformColor> HTMLConverter::_colorForElement(Element& element, CSSPr
     Color result = _caches->colorPropertyValueForNode(element, propertyId);
     if (!result.isValid())
         return nil;
-    auto platformResult = platformColor(result);
+    auto platformResult = cocoaColor(result);
     if ([[PlatformColorClass clearColor] isEqual:platformResult.get()] || ([platformResult alphaComponent] == 0.0))
         return nil;
     return platformResult;
@@ -1013,7 +1013,7 @@ NSDictionary *HTMLConverter::computedAttributesForElement(Element& element)
     if (strokeColor)
         [attrs setObject:strokeColor.get() forKey:NSStrokeColorAttributeName];
 
-    String fontKerning = _caches->propertyValueForNode(element, CSSPropertyWebkitFontKerning);
+    String fontKerning = _caches->propertyValueForNode(element, CSSPropertyFontKerning);
     String letterSpacing = _caches->propertyValueForNode(element, CSSPropertyLetterSpacing);
     if (fontKerning.length() || letterSpacing.length()) {
         if (fontKerning == "none")
@@ -1273,7 +1273,7 @@ BOOL HTMLConverter::_addAttachmentForElement(Element& element, NSURL *url, BOOL 
         if (auto resource = dataSource->subresource(url)) {
             auto& mimeType = resource->mimeType();
             if (!usePlaceholder || mimeType != "text/html") {
-                fileWrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:resource->data().createNSData().get()]);
+                fileWrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:resource->data().makeContiguous()->createNSData().get()]);
                 [fileWrapper setPreferredFilename:suggestedFilenameWithMIMEType(url, mimeType)];
             } else
                 notFound = YES;
@@ -1886,7 +1886,6 @@ void HTMLConverter::_addMarkersToList(NSTextList *list, NSRange range)
     NSString *string = [_attrStr string];
     NSString *stringToInsert;
     NSDictionary *attrsToInsert = nil;
-    PlatformFont *font;
     NSParagraphStyle *paragraphStyle;
     NSTextTab *tab = nil;
     NSTextTab *tabToRemove;
@@ -1913,7 +1912,6 @@ void HTMLConverter::_addMarkersToList(NSTextList *list, NSRange range)
             for (NSUInteger idx = range.location; idx < NSMaxRange(range);) {
                 paragraphRange = [string paragraphRangeForRange:NSMakeRange(idx, 0)];
                 paragraphStyle = [_attrStr attribute:NSParagraphStyleAttributeName atIndex:idx effectiveRange:&styleRange];
-                font = [_attrStr attribute:NSFontAttributeName atIndex:idx effectiveRange:NULL];
                 if ([[paragraphStyle textLists] count] == listIndex + 1) {
                     stringToInsert = [NSString stringWithFormat:@"\t%@\t", [list markerForItemNumber:itemNum++]];
                     insertLength = [stringToInsert length];
@@ -2300,7 +2298,7 @@ static RetainPtr<NSFileWrapper> fileWrapperForURL(DocumentLoader* dataSource, NS
 
     if (dataSource) {
         if (RefPtr<ArchiveResource> resource = dataSource->subresource(URL)) {
-            auto wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:resource->data().createNSData().get()]);
+            auto wrapper = adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:resource->data().makeContiguous()->createNSData().get()]);
             NSString *filename = resource->response().suggestedFilename();
             if (!filename || ![filename length])
                 filename = suggestedFilenameWithMIMEType(resource->url(), resource->mimeType());
@@ -2322,8 +2320,8 @@ static RetainPtr<NSFileWrapper> fileWrapperForURL(DocumentLoader* dataSource, NS
 static RetainPtr<NSFileWrapper> fileWrapperForElement(HTMLImageElement& element)
 {
     if (CachedImage* cachedImage = element.cachedImage()) {
-        if (SharedBuffer* sharedBuffer = cachedImage->resourceBuffer())
-            return adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:sharedBuffer->createNSData().get()]);
+        if (FragmentedSharedBuffer* sharedBuffer = cachedImage->resourceBuffer())
+            return adoptNS([[NSFileWrapper alloc] initRegularFileWithContents:sharedBuffer->makeContiguous()->createNSData().get()]);
     }
 
     auto* renderer = element.renderer();
@@ -2380,9 +2378,9 @@ AttributedString editingAttributedString(const SimpleRange& range, IncludeImages
         if (!renderer)
             continue;
         auto& style = renderer->style();
-        if (style.textDecorationsInEffect() & TextDecoration::Underline)
+        if (style.textDecorationsInEffect() & TextDecorationLine::Underline)
             [attrs setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-        if (style.textDecorationsInEffect() & TextDecoration::LineThrough)
+        if (style.textDecorationsInEffect() & TextDecorationLine::LineThrough)
             [attrs setObject:[NSNumber numberWithInteger:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
         if (auto font = style.fontCascade().primaryFont().getCTFont())
             [attrs setObject:toNSFont(font) forKey:NSFontAttributeName];
@@ -2426,13 +2424,13 @@ AttributedString editingAttributedString(const SimpleRange& range, IncludeImages
 
         Color foregroundColor = style.visitedDependentColorWithColorFilter(CSSPropertyColor);
         if (foregroundColor.isVisible())
-            [attrs setObject:nsColor(foregroundColor).get() forKey:NSForegroundColorAttributeName];
+            [attrs setObject:cocoaColor(foregroundColor).get() forKey:NSForegroundColorAttributeName];
         else
             [attrs removeObjectForKey:NSForegroundColorAttributeName];
 
         Color backgroundColor = style.visitedDependentColorWithColorFilter(CSSPropertyBackgroundColor);
         if (backgroundColor.isVisible())
-            [attrs setObject:nsColor(backgroundColor).get() forKey:NSBackgroundColorAttributeName];
+            [attrs setObject:cocoaColor(backgroundColor).get() forKey:NSBackgroundColorAttributeName];
         else
             [attrs removeObjectForKey:NSBackgroundColorAttributeName];
 

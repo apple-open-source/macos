@@ -26,6 +26,7 @@
 #pragma once
 
 #include "WebGLExtension.h"
+#include <JavaScriptCore/TypedArrays.h>
 
 namespace WebCore {
 
@@ -36,7 +37,7 @@ private:
     template <class TypedArray, class DataType>
     class TypedList {
     public:
-        using ListTypeOptions = Variant<RefPtr<TypedArray>, Vector<DataType>>;
+        using ListTypeOptions = std::variant<RefPtr<TypedArray>, Vector<DataType>>;
 
         TypedList(ListTypeOptions&& variant)
             : m_variant(WTFMove(variant))

@@ -79,13 +79,34 @@ namespace WebCore {
     macro(CSSAnimation) \
     macro(CSSCounterStyleRule) \
     macro(CSSImageValue) \
+    macro(CSSKeywordValue) \
+    macro(CSSMathInvert) \
+    macro(CSSMathMax) \
+    macro(CSSMathMin) \
+    macro(CSSMathNegate) \
+    macro(CSSMathProduct) \
+    macro(CSSMathSum) \
+    macro(CSSMathValue) \
+    macro(CSSMatrixComponent) \
+    macro(CSSNumericArray) \
     macro(CSSNumericValue) \
     macro(CSSPaintSize) \
+    macro(CSSPerspective) \
+    macro(CSSRotate) \
+    macro(CSSScale) \
+    macro(CSSSkew) \
+    macro(CSSSkewX) \
+    macro(CSSSkewY) \
     macro(CSSStyleValue) \
+    macro(CSSTransformComponent) \
+    macro(CSSTransformValue) \
     macro(CSSTransition) \
+    macro(CSSTranslate) \
     macro(CSSUnitValue) \
     macro(CSSUnparsedValue) \
+    macro(CSSVariableReferenceValue) \
     macro(CustomElementRegistry) \
+    macro(CustomEffect) \
     macro(Database) \
     macro(DataTransferItem) \
     macro(DataTransferItemList) \
@@ -106,6 +127,42 @@ namespace WebCore {
     macro(FileSystemFileHandle) \
     macro(FileSystemHandle) \
     macro(FileSystemSyncAccessHandle) \
+    macro(GPU) \
+    macro(GPUAdapter) \
+    macro(GPUBindGroup) \
+    macro(GPUBindGroupLayout) \
+    macro(GPUBuffer) \
+    macro(GPUBufferUsage) \
+    macro(GPUCanvasContext) \
+    macro(GPUColorWrite) \
+    macro(GPUCommandBuffer) \
+    macro(GPUCommandEncoder) \
+    macro(GPUCompilationInfo) \
+    macro(GPUCompilationMessage) \
+    macro(GPUComputePassEncoder) \
+    macro(GPUComputePipeline) \
+    macro(GPUDevice) \
+    macro(GPUDeviceLostInfo) \
+    macro(GPUExternalTexture) \
+    macro(GPUMapMode) \
+    macro(GPUOutOfMemoryError) \
+    macro(GPUPipelineLayout) \
+    macro(GPUQuerySet) \
+    macro(GPUQueue) \
+    macro(GPURenderBundle) \
+    macro(GPURenderBundleEncoder) \
+    macro(GPURenderPassEncoder) \
+    macro(GPURenderPipeline) \
+    macro(GPUSampler) \
+    macro(GPUShaderModule) \
+    macro(GPUShaderStage) \
+    macro(GPUSupportedFeatures) \
+    macro(GPUSupportedLimits) \
+    macro(GPUTexture) \
+    macro(GPUTextureUsage) \
+    macro(GPUTextureView) \
+    macro(GPUUncapturedErrorEvent) \
+    macro(GPUValidationError) \
     macro(Gamepad) \
     macro(GamepadButton) \
     macro(GamepadEvent) \
@@ -139,6 +196,10 @@ namespace WebCore {
     macro(IntersectionObserver) \
     macro(IntersectionObserverEntry) \
     macro(KeyframeEffect) \
+    macro(Lock) \
+    macro(LockManager) \
+    macro(MathMLElement) \
+    macro(MathMLMathElement) \
     macro(MediaCapabilities) \
     macro(MediaCapabilitiesInfo) \
     macro(MediaDevices) \
@@ -157,9 +218,13 @@ namespace WebCore {
     macro(MediaStreamTrack) \
     macro(MerchantValidationEvent) \
     macro(MockRTCRtpTransform) \
+    macro(NavigationPreloadManager) \
     macro(NavigatorCredentials) \
     macro(NavigatorMediaDevices) \
+    macro(NavigatorPermissions) \
     macro(NavigatorUserMedia) \
+    macro(Notification) \
+    macro(NotificationEvent) \
     macro(OfflineAudioContext) \
     macro(OffscreenCanvas) \
     macro(OffscreenCanvasRenderingContext2D) \
@@ -173,10 +238,6 @@ namespace WebCore {
     macro(PaymentResponse) \
     macro(PerformanceNavigationTiming) \
     macro(PictureInPictureWindow) \
-    macro(SQLError) \
-    macro(SQLResultSet) \
-    macro(SQLResultSetRowList) \
-    macro(SQLTransaction) \
     macro(PaintWorkletGlobalScope) \
     macro(PerformanceEntry) \
     macro(PerformanceEntryList) \
@@ -187,8 +248,17 @@ namespace WebCore {
     macro(PerformancePaintTiming) \
     macro(PerformanceResourceTiming) \
     macro(PerformanceServerTiming) \
+    macro(PermissionDescriptor) \
+    macro(PermissionStatus) \
+    macro(Permissions) \
     macro(PointerEvent) \
     macro(PublicKeyCredential) \
+    macro(PushEvent) \
+    macro(PushManager) \
+    macro(PushMessageData) \
+    macro(PushSubscription) \
+    macro(PushSubscriptionChangeEvent) \
+    macro(PushSubscriptionOptions) \
     macro(ResizeObserver) \
     macro(ResizeObserverEntry) \
     macro(RTCCertificate) \
@@ -196,8 +266,11 @@ namespace WebCore {
     macro(RTCDTMFToneChangeEvent) \
     macro(RTCDataChannel) \
     macro(RTCDataChannelEvent) \
+    macro(RTCDtlsTransport) \
     macro(RTCEncodedAudioFrame) \
     macro(RTCEncodedVideoFrame) \
+    macro(RTCError) \
+    macro(RTCErrorEvent) \
     macro(RTCIceCandidate) \
     macro(RTCIceTransport) \
     macro(RTCPeerConnection) \
@@ -210,6 +283,7 @@ namespace WebCore {
     macro(RTCRtpSender) \
     macro(RTCRtpTransceiver) \
     macro(RTCRtpTransform) \
+    macro(RTCSctpTransport) \
     macro(RTCSessionDescription) \
     macro(RTCStatsReport) \
     macro(RTCTrackEvent) \
@@ -225,12 +299,18 @@ namespace WebCore {
     macro(Response) \
     macro(SFrameTransform) \
     macro(SFrameTransformErrorEvent) \
+    macro(SQLError) \
+    macro(SQLResultSet) \
+    macro(SQLResultSetRowList) \
+    macro(SQLTransaction) \
     macro(ScreenLuminance) \
     macro(ServiceWorker) \
     macro(ServiceWorkerContainer) \
     macro(ServiceWorkerGlobalScope) \
     macro(ServiceWorkerRegistration) \
     macro(ShadowRoot) \
+    macro(SharedWorker) \
+    macro(SharedWorkerGlobalScope) \
     macro(SpeechRecognition) \
     macro(SpeechRecognitionAlternative) \
     macro(SpeechRecognitionErrorEvent) \
@@ -275,10 +355,13 @@ namespace WebCore {
     macro(XMLHttpRequest) \
     macro(XRBoundedReferenceSpace) \
     macro(XRFrame) \
+    macro(XRHand) \
     macro(XRInputSource) \
     macro(XRInputSourceArray) \
     macro(XRInputSourceEvent) \
     macro(XRInputSourcesChangeEvent) \
+    macro(XRJointPose) \
+    macro(XRJointSpace) \
     macro(XRLayer) \
     macro(XRPose) \
     macro(XRReferenceSpace) \
@@ -326,6 +409,7 @@ namespace WebCore {
     macro(controller) \
     macro(createImageBitmap) \
     macro(createReadableStream) \
+    macro(createWritableStreamFromInternal) \
     macro(crossOriginIsolated) \
     macro(customElements) \
     macro(decode) \
@@ -344,6 +428,7 @@ namespace WebCore {
     macro(flushAlgorithm) \
     macro(focus) \
     macro(frames) \
+    macro(getInternalWritableStream) \
     macro(getTracks) \
     macro(getUserMedia) \
     macro(gpu) \
@@ -355,6 +440,8 @@ namespace WebCore {
     macro(inFlightWriteRequest) \
     macro(indexedDB) \
     macro(initializeWith) \
+    macro(internalStream) \
+    macro(internalWritable) \
     macro(isAbortSignal) \
     macro(isDisturbed) \
     macro(isLoading) \
@@ -368,7 +455,10 @@ namespace WebCore {
     macro(makeThisTypeError) \
     macro(matchingElementInFlatTree) \
     macro(mediaStreamTrackConstraints) \
-    macro(openDatabase) \
+    macro(onnotificationclick) \
+    macro(onnotificationclose) \
+    macro(onpush) \
+    macro(onpushsubscriptionchange) \
     macro(onrtctransform) \
     macro(ontouchcancel) \
     macro(ontouchend) \
@@ -383,6 +473,7 @@ namespace WebCore {
     macro(onvrdisplaydisconnect) \
     macro(onvrdisplayfocus) \
     macro(onvrdisplaypresentchange) \
+    macro(openDatabase) \
     macro(opener) \
     macro(operations) \
     macro(ownerReadableStream) \
@@ -466,7 +557,6 @@ namespace WebCore {
     macro(whenSignalAborted) \
     macro(window) \
     macro(writable) \
-    macro(writableStreamAPIEnabled) \
     macro(writeAlgorithm) \
     macro(writing) \
     macro(writer) \

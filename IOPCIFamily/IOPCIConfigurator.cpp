@@ -310,7 +310,7 @@ IOReturn CLASS::configOp(IOService * device, uintptr_t op, void * arg, void * ar
 				reg32 = entry->pausedCommand = configRead16(entry, kIOPCIConfigCommand);
 				reg32 &= ~(kIOPCICommandIOSpace
 					     | kIOPCICommandMemorySpace
-					     | kIOPCICommandBusMaster);
+					     | kIOPCICommandBusLead);
 				reg32  |= kIOPCICommandInterruptDisable;
 				configWrite16(entry, kIOPCIConfigCommand, reg32);
 
@@ -907,6 +907,11 @@ OSDictionary * CLASS::constructProperties(IOPCIConfigEntry * device)
 		else if (!(kPCIDeviceStateNoLink & device->deviceState))
 			propTable->setObject(kIOPCIOnlineKey, kOSBooleanTrue);
 	}
+
+	if (device->commandCompleted)
+        propTable->setObject(kIOPCISlotCommandCompleted, kOSBooleanTrue);
+	if (device->powerController)
+        propTable->setObject(kIOPCISlotPowerController, kOSBooleanTrue);
 
     return (propTable);
 }
@@ -1514,13 +1519,16 @@ void CLASS::bridgeScanBus(IOPCIConfigEntry * bridge, uint8_t busNum)
 		{
 			if (kPCIHotPlugTunnel == (kPCIHPTypeMask & bridge->supportsHotPlug))
 			{
-				// disable mmio, bus mastering, and I/O space before making changes to the memory ranges
+				// disable mmio, bus leading, and I/O space before making changes to the memory ranges
 				uint16_t commandRegister = configRead16(bridge, kIOPCIConfigurationOffsetCommand);
-				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusMaster));
+				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister & ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusLead));
 				configWrite32(bridge, kPCI2PCIMemoryRange,         0);
 				configWrite32(bridge, kPCI2PCIPrefetchMemoryRange, 0);
 				configWrite32(bridge, kPCI2PCIPrefetchUpperBase,   0);
 				configWrite32(bridge, kPCI2PCIPrefetchUpperLimit,  0);
+
+				// rdar://87701618: re-enable bus leading to ensure the bridge can generate MSI writes for hotplug interrupts
+				configWrite16(bridge, kIOPCIConfigurationOffsetCommand, commandRegister);
 			}
 			IOPCIConfigEntry * next;
 			for (child = bridge->child; child; child = next)
@@ -1652,6 +1660,14 @@ void CLASS::bridgeDeallocateChildRanges(IOPCIConfigEntry * bridge, IOPCIConfigEn
 void CLASS::deleteConfigEntry(IOPCIConfigEntry *entry)
 {
 		IOPCIDevice *pciDevice;
+
+		for (int rangeIndex = 0; rangeIndex < kIOPCIRangeCount; rangeIndex++)
+		{
+			if (entry->ranges[rangeIndex])
+			{
+				DLOG("Warning: leaking device " D()"'s range #%d\n", DEVICE_IDENT(entry), rangeIndex);
+			}
+		}
 
 		if ((pciDevice = OSDynamicCast(IOPCIDevice, entry->dtNub)))
 		{
@@ -1939,7 +1955,13 @@ void CLASS::bridgeProbeChild( IOPCIConfigEntry * bridge, IOPCIAddressSpace space
 			expressCaps = configRead16(child, child->expressCapBlock + 0x02);
 			linkCaps    = configRead32(child, child->expressCapBlock + 0x0c);
 			linkControl = configRead16(child, child->expressCapBlock + 0x10);
-			if (0x100 & expressCaps) slotCaps = configRead32(child, child->expressCapBlock + 0x14);
+
+			if (0x100 & expressCaps)
+			{
+				slotCaps = configRead32(child, child->expressCapBlock + 0x14);
+				child->commandCompleted = (kSlotCapNoCommandCompleted & slotCaps) == 0;
+				child->powerController = (kSlotCapPowerController & slotCaps) != 0;
+			}
 
 			if ((0x60 == (0xf0 & expressCaps))      // downstream port
 				 || (0x40 == (0xf0 & expressCaps))) // or root port
@@ -3639,7 +3661,7 @@ void CLASS::deviceApplyConfiguration(IOPCIConfigEntry * device, uint32_t typeMas
     }
 
 //    reg16 &= ~(kIOPCICommandIOSpace | kIOPCICommandMemorySpace |
-//               kIOPCICommandBusMaster | kIOPCICommandMemWrInvalidate);
+//               kIOPCICommandBusLead | kIOPCICommandMemWrInvalidate);
     restoreAccess(device, reg16);
 
     DLOGI("  Device Command = 0x%08x\n", (uint32_t) 
@@ -3657,7 +3679,7 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
     bool         accessDisabled;
 
     enum { 
-        kBridgeCommand = (kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusMaster) 
+        kBridgeCommand = (kIOPCICommandIOSpace | kIOPCICommandMemorySpace | kIOPCICommandBusLead) 
     };
 
     do
@@ -3870,7 +3892,7 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
     }
     while (false);
 
-    // Set IOSE, memory enable, Bus Master transaction forwarding
+    // Set IOSE, memory enable, Bus Lead transaction forwarding
 
     DLOGI("Enabling bridge " B() "\n", BRIDGE_IDENT(bridge));
 
@@ -3884,7 +3906,7 @@ void CLASS::bridgeApplyConfiguration(IOPCIConfigEntry * bridge, uint32_t typeMas
         commandReg |= (kIOPCICommandIOSpace 
                      | kIOPCICommandMemorySpace 
 //                     | kIOPCICommandSERR 
-                     | kIOPCICommandBusMaster);
+                     | kIOPCICommandBusLead);
 
         // Turn off ISA bit.
         bridgeControl = configRead16(bridge, kPCI2PCIBridgeControl);

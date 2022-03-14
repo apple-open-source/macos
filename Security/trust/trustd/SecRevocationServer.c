@@ -73,7 +73,17 @@ static void SecORVCFinish(SecORVCRef orvc) {
             orvc->ocspSingleResponse = NULL;
         }
     }
-    memset(orvc, 0, sizeof(struct OpaqueSecORVC));
+    orvc->builder = NULL;
+    orvc->rvc = NULL;
+    orvc->done = false;
+    orvc->responder = NULL;
+}
+
+static void SecORVCDestroy(CFTypeRef cf) {
+    SecORVCRef orvc = (SecORVCRef)cf;
+    if (orvc) {
+        SecORVCFinish(orvc);
+    }
 }
 
 /* Process a verified ocsp response for a given cert. Return true if the
@@ -327,12 +337,20 @@ errOut:
     if (ocspResponse) SecOCSPResponseFinalize(ocspResponse);
 }
 
-static SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX) {
+static CFStringRef SecORVCCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
+    SecORVCRef orvc = (SecORVCRef)cf;
+    CFStringRef currentUrl = CFURLGetString(orvc->responder);
+    CFStringRef desc = CFStringCreateWithFormat(NULL, formatOptions, CFSTR("orvc<%p> current url:%@"), orvc, currentUrl);
+    return desc;
+}
+
+CFGiblisFor(SecORVC);
+
+static CF_RETURNS_RETAINED SecORVCRef SecORVCCreate(SecRVCRef rvc, SecPathBuilderRef builder, CFIndex certIX) {
     SecORVCRef orvc = NULL;
-    orvc = malloc(sizeof(struct OpaqueSecORVC));
+    orvc = CFTypeAllocate(SecORVC, struct OpaqueSecORVC, kCFAllocatorDefault);
     secdebug("alloc", "orvc %p", orvc);
     if (orvc) {
-        memset(orvc, 0, sizeof(struct OpaqueSecORVC));
         orvc->builder = builder;
         orvc->rvc = rvc;
         orvc->certIX = certIX;
@@ -363,9 +381,11 @@ static void SecORVCProcessStapledResponses(SecORVCRef rvc) {
 void SecRVCDelete(SecRVCRef rvc) {
     secdebug("alloc", "delete rvc %p", rvc);
     if (rvc->orvc) {
-        SecORVCFinish(rvc->orvc);
-        free(rvc->orvc);
-        rvc->orvc = NULL;
+        /* clear out weak references since builder is being destroyed, but
+         * URLSessionContext may still hold a retain on the orvc */
+        rvc->orvc->builder = NULL;
+        rvc->orvc->rvc = NULL;
+        CFReleaseNull(rvc->orvc);
     }
     if (rvc->valid_info) {
         CFReleaseNull(rvc->valid_info);

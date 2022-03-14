@@ -49,7 +49,8 @@ struct CrossOriginEmbedderPolicy {
     CrossOriginEmbedderPolicyValue reportOnlyValue { CrossOriginEmbedderPolicyValue::UnsafeNone };
     String reportOnlyReportingEndpoint;
 
-    CrossOriginEmbedderPolicy isolatedCopy() const;
+    CrossOriginEmbedderPolicy isolatedCopy() const &;
+    CrossOriginEmbedderPolicy isolatedCopy() &&;
     template<class Encoder> void encode(Encoder&) const;
     template<class Decoder> static std::optional<CrossOriginEmbedderPolicy> decode(Decoder&);
 };
@@ -100,7 +101,5 @@ enum class COEPDisposition : bool { Reporting , Enforce };
 
 WEBCORE_EXPORT CrossOriginEmbedderPolicy obtainCrossOriginEmbedderPolicy(const ResourceResponse&, const ScriptExecutionContext*);
 WEBCORE_EXPORT void addCrossOriginEmbedderPolicyHeaders(ResourceResponse&, const CrossOriginEmbedderPolicy&);
-WEBCORE_EXPORT void sendCOEPPolicyInheritenceViolation(Frame&, const SecurityOriginData& embedderOrigin, const String& endpoint, COEPDisposition, const String& type, const URL& blockedURL);
-WEBCORE_EXPORT void sendCOEPCORPViolation(Frame&, const SecurityOriginData& embedderOrigin, const String& endpoint, COEPDisposition, FetchOptions::Destination, const URL& blockedURL);
 
 } // namespace WebCore

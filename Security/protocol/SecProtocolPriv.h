@@ -1424,8 +1424,8 @@ void
 sec_protocol_options_set_client_raw_public_key_certificates(sec_protocol_options_t options, CFArrayRef certificates);
 
 struct sec_protocol_options_content {
-    SSLProtocol min_version;
-    SSLProtocol max_version;
+    tls_protocol_version_t min_version;
+    tls_protocol_version_t max_version;
 
     char *server_name;
     char *experiment_identifier;
@@ -1525,8 +1525,8 @@ struct sec_protocol_metadata_content {
     void *session_exporter_context; // Opaque context for the session exporter function
     sec_protocol_metadata_session_exporter session_exporter_function;
 
-    SSLProtocol negotiated_protocol_version;
-    SSLCipherSuite negotiated_ciphersuite;
+    tls_protocol_version_t negotiated_protocol_version;
+    tls_ciphersuite_t negotiated_ciphersuite;
     const char * _Nullable negotiated_protocol;
     const char * _Nullable server_name;
     const char *experiment_identifier;

@@ -47,6 +47,7 @@
 #import <WebCore/WebLayer.h>
 #import <mach/mach_port.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
 #import <WebKitAdditions/CGDisplayListImageBufferAdditions.h>
@@ -102,6 +103,7 @@ void RemoteLayerBackingStore::clearBackingStore()
     m_frontBuffer.discard();
     m_backBuffer.discard();
     m_secondaryBackBuffer.discard();
+    m_contentsBufferHandle = std::nullopt;
 }
 
 void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
@@ -111,18 +113,25 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
     encoder << m_scale;
     encoder << m_isOpaque;
     encoder << m_includeDisplayList;
-
+    // FIXME: For simplicity this should be moved to the end of display() once the buffer handles can be created once
+    // and stored in m_bufferHandle. http://webkit.org/b/234169
     std::optional<ImageBufferBackendHandle> handle;
-    if (m_frontBuffer.imageBuffer) {
+    if (m_contentsBufferHandle) {
+        ASSERT(m_type == Type::IOSurface);
+        handle = m_contentsBufferHandle;
+    } else if (m_frontBuffer.imageBuffer) {
         switch (m_type) {
         case Type::IOSurface:
-            if (m_frontBuffer.imageBuffer->canMapBackingStore())
-                handle = static_cast<AcceleratedImageBufferShareableMappedBackend&>(*m_frontBuffer.imageBuffer->ensureBackendCreated()).createImageBufferBackendHandle();
-            else
-                handle = static_cast<AcceleratedImageBufferShareableBackend&>(*m_frontBuffer.imageBuffer->ensureBackendCreated()).createImageBufferBackendHandle();
+            if (auto* backend = m_frontBuffer.imageBuffer->ensureBackendCreated()) {
+                if (m_frontBuffer.imageBuffer->canMapBackingStore())
+                    handle = static_cast<AcceleratedImageBufferShareableMappedBackend&>(*backend).createImageBufferBackendHandle();
+                else
+                    handle = static_cast<AcceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
+            }
             break;
         case Type::Bitmap:
-            handle = static_cast<UnacceleratedImageBufferShareableBackend&>(*m_frontBuffer.imageBuffer->ensureBackendCreated()).createImageBufferBackendHandle();
+            if (auto* backend = m_frontBuffer.imageBuffer->ensureBackendCreated())
+                handle = static_cast<UnacceleratedImageBufferShareableBackend&>(*backend).createImageBufferBackendHandle();
             break;
         }
     }
@@ -131,8 +140,10 @@ void RemoteLayerBackingStore::encode(IPC::Encoder& encoder) const
 
 #if ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
     std::optional<ImageBufferBackendHandle> displayListHandle;
-    if (m_frontBuffer.displayListImageBuffer)
-        displayListHandle = static_cast<CGDisplayListImageBufferBackend&>(*m_frontBuffer.displayListImageBuffer->ensureBackendCreated()).createImageBufferBackendHandle();
+    if (m_frontBuffer.displayListImageBuffer) {
+        if (auto* backend = m_frontBuffer.displayListImageBuffer->ensureBackendCreated())
+            displayListHandle = static_cast<CGDisplayListImageBufferBackend&>(*backend).createImageBufferBackendHandle();
+    }
 
     encoder << displayListHandle;
 #endif
@@ -214,6 +225,7 @@ void RemoteLayerBackingStore::swapToValidFrontBuffer()
         }
     }
 
+    m_contentsBufferHandle = std::nullopt;
     std::swap(m_frontBuffer, m_backBuffer);
 
     if (m_frontBuffer.imageBuffer) {
@@ -251,6 +263,13 @@ bool RemoteLayerBackingStore::supportsPartialRepaint()
     return m_includeDisplayList == IncludeDisplayList::No;
 }
 
+void RemoteLayerBackingStore::setContents(WTF::MachSendRight&& contents)
+{
+    m_contentsBufferHandle = WTFMove(contents);
+    m_dirtyRegion = WebCore::Region();
+    m_paintingRects.clear();
+}
+
 bool RemoteLayerBackingStore::display()
 {
     ASSERT(!m_frontBufferFlushers.size());
@@ -260,6 +279,12 @@ bool RemoteLayerBackingStore::display()
     bool needToEncodeBackingStore = false;
     if (RemoteLayerTreeContext* context = m_layer->context())
         needToEncodeBackingStore = context->backingStoreWillBeDisplayed(*this);
+
+    if (m_layer->owner()->platformCALayerDelegatesDisplay(m_layer)) {
+        m_layer->owner()->platformCALayerLayerDisplay(m_layer);
+        m_layer->owner()->platformCALayerLayerDidDisplay(m_layer);
+        return true;
+    }
 
     // Make the previous front buffer non-volatile early, so that we can dirty the whole layer if it comes back empty.
     setBufferVolatility(BufferType::Front, false);
@@ -294,7 +319,7 @@ bool RemoteLayerBackingStore::display()
         }
         if (needsMissingFlipWorkaround.value()) {
             workaroundStateSaver.save();
-            displayListContext.scale(WebCore::FloatSize(m_scale, -m_scale));
+            displayListContext.scale(WebCore::FloatSize(1, -1));
             displayListContext.translate(0, -m_size.height());
         }
 
@@ -351,7 +376,7 @@ void RemoteLayerBackingStore::drawInContext(WebCore::GraphicsContext& context)
     WebCore::IntRect layerBounds(WebCore::IntPoint(), WebCore::expandedIntSize(m_size));
     if (!m_dirtyRegion.contains(layerBounds)) {
         ASSERT(m_backBuffer.imageBuffer);
-        context.drawImageBuffer(*m_backBuffer.imageBuffer, { {0, 0}, m_size }, { {0, 0}, m_size }, { WebCore::CompositeOperator::Copy });
+        context.drawImageBuffer(*m_backBuffer.imageBuffer, { 0, 0 }, { WebCore::CompositeOperator::Copy });
     }
 
     if (m_paintingRects.size() == 1)
@@ -423,7 +448,7 @@ void RemoteLayerBackingStore::enumerateRectsBeingDrawn(WebCore::GraphicsContext&
     }
 }
 
-void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerContentsType contentsType)
+void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerContentsType contentsType, bool replayCGDisplayListsIntoBackingStore)
 {
     ASSERT(m_bufferHandle);
     layer.contentsOpaque = m_isOpaque;
@@ -432,8 +457,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
     WTF::switchOn(*m_bufferHandle,
         [&] (ShareableBitmap::Handle& handle) {
             ASSERT(m_type == Type::Bitmap);
-            auto bitmap = ShareableBitmap::create(handle);
-            contents = bitmap->makeCGImageCopy();
+            contents = bridge_id_cast(ShareableBitmap::create(handle)->makeCGImageCopy());
         },
         [&] (MachSendRight& machSendRight) {
             ASSERT(m_type == Type::IOSurface);
@@ -444,7 +468,7 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
                 break;
             }
             case RemoteLayerBackingStore::LayerContentsType::CAMachPort:
-                contents = adoptCF(CAMachPortCreate(machSendRight.leakSendRight()));
+                contents = bridge_id_cast(adoptCF(CAMachPortCreate(machSendRight.leakSendRight())));
                 break;
             }
         }
@@ -460,12 +484,17 @@ void RemoteLayerBackingStore::applyBackingStoreToLayer(CALayer *layer, LayerCont
         ASSERT([layer isKindOfClass:[WKCompositingLayer class]]);
         if (![layer isKindOfClass:[WKCompositingLayer class]])
             return;
-        [layer setValue:@1 forKeyPath:WKCGDisplayListEnabledKey];
-        [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
-        auto data = WTF::get<IPC::SharedBufferCopy>(*m_displayListBufferHandle).buffer()->createCFData();
-        [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:data.get()];
+
+        if (!replayCGDisplayListsIntoBackingStore) {
+            [layer setValue:@1 forKeyPath:WKCGDisplayListEnabledKey];
+            [layer setValue:@1 forKeyPath:WKCGDisplayListBifurcationEnabledKey];
+        }
+        auto data = std::get<IPC::SharedBufferCopy>(*m_displayListBufferHandle).buffer()->createCFData();
+        [(WKCompositingLayer *)layer _setWKContents:contents.get() withDisplayList:data.get() replayForTesting:replayCGDisplayListsIntoBackingStore];
         return;
     }
+#else
+    UNUSED_PARAM(replayCGDisplayListsIntoBackingStore);
 #endif
 
     layer.contents = contents.get();

@@ -528,7 +528,7 @@ rbtrace_bt(uint64_t *__counted_by(maxframes)rets, int maxframes,
 		}
 
 		if (__probable(kstackb && kstackt)) {
-			uint64_t *cfp = __unsafe_forge_single((uint64_t *)frameptr);
+			uint64_t *cfp = __unsafe_forge_single(uint64_t *, frameptr);
 			int rbbtf;
 
 			for (rbbtf = btidx; rbbtf < maxframes; rbbtf++) {
@@ -537,7 +537,7 @@ rbtrace_bt(uint64_t *__counted_by(maxframes)rets, int maxframes,
 					continue;
 				}
 				rets[rbbtf] = *(cfp + 1);
-				cfp = __unsafe_forge_single((uint64_t *)(*cfp));
+				cfp = __unsafe_forge_single(uint64_t *, *cfp);
 			}
 		}
 	}

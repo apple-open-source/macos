@@ -83,19 +83,19 @@ static void nx_fini_slots(struct kern_nexus *, struct __kern_channel_ring *);
 static struct kern_nexus *nx_alloc(zalloc_flags_t);
 static void nx_free(struct kern_nexus *);
 
-static ZONE_DECLARE(nxctl_zone, SKMEM_ZONE_PREFIX ".nx.ctl",
+static ZONE_DEFINE(nxctl_zone, SKMEM_ZONE_PREFIX ".nx.ctl",
     sizeof(struct nxctl), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nxbind_zone, SKMEM_ZONE_PREFIX ".nx.bind",
+static ZONE_DEFINE(nxbind_zone, SKMEM_ZONE_PREFIX ".nx.bind",
     sizeof(struct nxbind), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nxprov_zone, SKMEM_ZONE_PREFIX ".nx.kern.prov",
+static ZONE_DEFINE(nxprov_zone, SKMEM_ZONE_PREFIX ".nx.kern.prov",
     sizeof(struct kern_nexus_provider), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nxprov_params_zone, SKMEM_ZONE_PREFIX ".nx.kern.prov.params",
+static ZONE_DEFINE(nxprov_params_zone, SKMEM_ZONE_PREFIX ".nx.kern.prov.params",
     sizeof(struct nxprov_params), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nx_zone, SKMEM_ZONE_PREFIX ".nx",
+static ZONE_DEFINE(nx_zone, SKMEM_ZONE_PREFIX ".nx",
     sizeof(struct kern_nexus), ZC_ZFREE_CLEARMEM);
 
 static int __nx_inited = 0;
@@ -1250,7 +1250,7 @@ nxprov_advise_connect(struct kern_nexus *nx, struct kern_channel *ch,
 	/* monitor channels aren't externally visible/usable, so ignore */
 	if ((ch->ch_info->cinfo_ch_mode & CHMODE_MONITOR) ||
 	    (ch->ch_flags & CHANF_EXT_SKIP) ||
-	    (nxprov->nxprov_ext.nxpi_pre_connect == NULL &&
+	    (nxprov->nxprov_ext.nxpi_pre_connect == NULL ||
 	    nxprov->nxprov_ext.nxpi_connected == NULL)) {
 		return 0;
 	}

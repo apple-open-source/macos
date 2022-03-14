@@ -27,20 +27,21 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/usr.bin/ipcs/ipcs.1,v 1.16 2003/05/21 21:07:28 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd June 18, 1994
+.Dd July 29, 2021
 .Dt "IPCS" 1
 .Os
 .Sh NAME
 .Nm ipcs
 .Nd report System V interprocess communication facilities status
 .Sh SYNOPSIS
-.Nm ipcs
+.Nm
 .Op Fl abcMmopQqSsTt
+.Op Fl u Ar user
 .Sh DESCRIPTION
 The
-.Nm ipcs
+.Nm
 utility provides information on System V interprocess communication
 (IPC) facilities on the system.
 .Pp
@@ -60,7 +61,8 @@ and
 options.)
 .It Fl b
 Show the maximum allowed sizes for active semaphores, message queues,
-and shared memory segments.  The
+and shared memory segments.
+The
 .Dq maximum allowed size
 is the maximum number of bytes in a message on a message queue,
 the size of a shared memory segment,
@@ -74,13 +76,15 @@ Display system information about shared memory.
 Display information about active shared memory segments.
 .It Fl o
 Show outstanding usage for active message queues,
-and shared memory segments.  The
+and shared memory segments.
+The
 .Dq outstanding usage
 is the number of messages in a message queue, or the number
 of processes attached to a shared memory segment.
 .It Fl p
 Show the process ID information for active semaphores, message queues,
-and shared memory segments.  The
+and shared memory segments.
+The
 .Dq process ID information
 is the last process to send a message to or receive a message from
 a message queue,
@@ -99,11 +103,17 @@ Display system information about shared memory, message queues
 and semaphores.
 .It Fl t
 Show access times for active semaphores, message queues,
-and shared memory segments.  The access times is the time
+and shared memory segments.
+The access times is the time
 of the last control operation on an IPC object,
 the last send or receive of a message,
 the last attach or detach of a shared memory segment,
 or the last operation on a semaphore.
+.It Fl u
+Display information about IPC mechanisms owned by
+.Pa user .
+User specification can be in the form of a numeric UID or
+a login name.
 .El
 .Pp
 If none of the
@@ -118,15 +128,15 @@ options are specified, information about all active IPC facilities is
 listed.
 .Sh RESTRICTIONS
 System data structures may change while
-.Nm ipcs
+.Nm
 is running; the output of
-.Nm ipcs
+.Nm
 is not guaranteed to be consistent.
 .Sh BUGS
 This manual page is woefully incomplete, because it does not
 at all attempt to explain the information printed by
-.Nm ipcs .
+.Nm .
 .Sh SEE ALSO
 .Xr ipcrm 1
 .Sh AUTHORS
-.An Thorsten Lockert Aq tholo@sigmasoft.com
+.An Thorsten Lockert Aq Mt tholo@sigmasoft.com

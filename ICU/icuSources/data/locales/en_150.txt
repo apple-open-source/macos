@@ -72,13 +72,9 @@ en_150{
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
-                y{"y G"}
-                yyyy{"y G"}
                 yyyyM{"MM/y GGGGG"}
                 yyyyMEd{"E d/M/y G"}
-                yyyyMMM{"MMM y G"}
                 yyyyMMMEd{"E, d MMM y G"}
-                yyyyMMMM{"MMMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyMd{"d/M/y G"}
             }
@@ -98,6 +94,16 @@ en_150{
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMMdd",
             }
             availableFormats{
                 MEd{"E d/M"}
@@ -138,6 +144,16 @@ en_150{
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMMdd",
             }
         }
     }

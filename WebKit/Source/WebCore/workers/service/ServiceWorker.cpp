@@ -40,6 +40,7 @@
 #include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerProvider.h"
 #include "ServiceWorkerThread.h"
+#include "StructuredSerializeOptions.h"
 #include "WorkerSWClientConnection.h"
 #include <JavaScriptCore/JSCJSValueInlines.h>
 #include <wtf/IsoMallocInlines.h>
@@ -56,15 +57,15 @@ Ref<ServiceWorker> ServiceWorker::getOrCreate(ScriptExecutionContext& context, S
 {
     if (auto existingServiceWorker = context.serviceWorker(data.identifier))
         return *existingServiceWorker;
-    return adoptRef(*new ServiceWorker(context, WTFMove(data)));
+    auto serviceWorker = adoptRef(*new ServiceWorker(context, WTFMove(data)));
+    serviceWorker->suspendIfNeeded();
+    return serviceWorker;
 }
 
 ServiceWorker::ServiceWorker(ScriptExecutionContext& context, ServiceWorkerData&& data)
     : ActiveDOMObject(&context)
     , m_data(WTFMove(data))
 {
-    suspendIfNeeded();
-
     context.registerServiceWorker(*this);
 
     relaxAdoptionRequirement();
@@ -99,7 +100,7 @@ SWClientConnection& ServiceWorker::swConnection()
     return ServiceWorkerProvider::singleton().serviceWorkerConnection();
 }
 
-ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, JSC::JSValue messageValue, PostMessageOptions&& options)
+ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, JSC::JSValue messageValue, StructuredSerializeOptions&& options)
 {
     if (m_isStopped)
         return Exception { InvalidStateError };
@@ -115,13 +116,12 @@ ExceptionOr<void> ServiceWorker::postMessage(JSC::JSGlobalObject& globalObject, 
         return portsOrException.releaseException();
 
     auto& context = *scriptExecutionContext();
+    // FIXME: Maybe we could use a ScriptExecutionContextIdentifier for service workers too.
     ServiceWorkerOrClientIdentifier sourceIdentifier;
     if (is<ServiceWorkerGlobalScope>(context))
         sourceIdentifier = downcast<ServiceWorkerGlobalScope>(context).thread().identifier();
-    else {
-        auto& connection = ServiceWorkerProvider::singleton().serviceWorkerConnection();
-        sourceIdentifier = ServiceWorkerClientIdentifier { connection.serverConnectionIdentifier(), downcast<Document>(context).identifier() };
-    }
+    else
+        sourceIdentifier = context.identifier();
 
     MessageWithMessagePorts message { messageData.releaseReturnValue(), portsOrException.releaseReturnValue() };
     swConnection().postMessageToServiceWorker(identifier(), WTFMove(message), sourceIdentifier);

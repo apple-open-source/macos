@@ -33,6 +33,7 @@
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassCAccountSettings.h"
 
 @interface OTPrepareOperation ()
 @property OTOperationDependencies* deps;
@@ -134,11 +135,22 @@
     }
 
     __block TPPBSecureElementIdentity* existingSecureElementIdentity = nil;
-
+    __block OTAccountSettings* settings = nil;
+    
     NSError* persistError = nil;
 
     BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
         existingSecureElementIdentity = [metadata parsedSecureElementIdentity];
+        if (metadata.hasSettings) {
+            settings = [[OTAccountSettings alloc]init];
+            
+            if ([metadata.settings hasW]) {
+                OTTag1* w = [[OTTag1 alloc]init];
+                w.enabled = metadata.settings.w ? YES : NO;
+                settings.tag1 = w;
+            }
+            
+        }
         metadata.attemptedJoin = OTAccountMetadataClassC_AttemptedAJoinState_ATTEMPTED;
 
         return metadata;
@@ -165,6 +177,7 @@
                                            policySecrets:nil
                                syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_FOLLOWING
                                    secureElementIdentity:existingSecureElementIdentity
+                                                 setting:settings
                              signingPrivKeyPersistentRef:signingKeyPersistRef
                                  encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                    reply:^(NSString * _Nullable peerID,
@@ -194,7 +207,6 @@
 
                 BOOL persisted = [self.deps.stateHolder persistAccountChanges:^OTAccountMetadataClassC * _Nullable(OTAccountMetadataClassC * _Nonnull metadata) {
                     metadata.peerID = peerID;
-
                     [metadata setTPSyncingPolicy:syncingPolicy];
                     return metadata;
                 } error:&localError];

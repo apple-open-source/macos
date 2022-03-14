@@ -24,6 +24,7 @@
 #if __OBJC2__
 
 #import "SFAnalyticsSQLiteStore.h"
+#import "SQLite/SFSQLiteStatement.h"
 #import "NSDate+SFAnalytics.h"
 #import "Analytics/SFAnalyticsDefines.h"
 #import "utilities/debugging.h"
@@ -32,6 +33,52 @@ NSString* const SFAnalyticsColumnEventType = @"event_type";
 NSString* const SFAnalyticsColumnDate = @"timestamp";
 NSString* const SFAnalyticsColumnData = @"data";
 NSString* const SFAnalyticsUploadDate = @"upload_date";
+
+NS_ASSUME_NONNULL_BEGIN
+
+static NSDictionary * _Nullable deserializedRecordFromRow(id<SFSQLiteRow> row) {
+    NSUInteger index = [row indexForColumnName:SFAnalyticsColumnData];
+    if (index == NSNotFound) {
+        return nil;
+    }
+    NSError *error;
+    NSDictionary *deserializedRecord = [NSPropertyListSerialization propertyListWithData:[row blobAtIndex:index] options:NSPropertyListMutableContainers format:nil error:&error];
+    if (!deserializedRecord) {
+        secerror("SFAnalytics: failed to deserialize record: %{public}@", error);
+    }
+    return deserializedRecord;
+}
+
+/// A data class that holds a deserialized record and its timestamp, used to
+/// sort an array of events by date.
+@interface SFAnalyticsEvent : NSObject
+
++ (instancetype)new NS_UNAVAILABLE;
+- (instancetype)init NS_UNAVAILABLE;
+- (nullable instancetype)initFromRow:(id<SFSQLiteRow>)row NS_DESIGNATED_INITIALIZER;
+
+@property (readonly, nonatomic) NSDictionary *record;
+@property (readonly, nonatomic) NSNumber *timestamp;
+
+@end
+
+@implementation SFAnalyticsEvent
+
+- (nullable instancetype)initFromRow:(id<SFSQLiteRow>)row {
+    if ((self = [super init])) {
+        _record = deserializedRecordFromRow(row);
+        if (!_record) {
+            return nil;
+        }
+        NSUInteger dateIndex = [row indexForColumnName:SFAnalyticsColumnDate];
+        _timestamp = @([row doubleAtIndex:dateIndex]);
+    }
+    return self;
+}
+
+@end
+
+NS_ASSUME_NONNULL_END
 
 @implementation SFAnalyticsSQLiteStore
 
@@ -164,25 +211,14 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
     return successCountsDict;
 }
 
-- (NSArray*)deserializedRecords:(NSArray*)recordBlobs
-{
-    if (![self tryToOpenDatabase]) {
-        return [NSArray new];
-    }
-    NSMutableArray* records = [NSMutableArray new];
-    for (NSDictionary* row in recordBlobs) {
-        NSMutableDictionary* deserializedRecord = [NSPropertyListSerialization propertyListWithData:row[SFAnalyticsColumnData] options:NSPropertyListMutableContainers format:nil error:nil];
-        [records addObject:deserializedRecord];
-    }
-    return records;
-}
-
 - (NSArray*)hardFailures
 {
     if (![self tryToOpenDatabase]) {
         return [NSArray new];
     }
-    return [self deserializedRecords:[self select:@[SFAnalyticsColumnData] from:SFAnalyticsTableHardFailures]];
+    return [self select:@[SFAnalyticsColumnData] from:SFAnalyticsTableHardFailures mapEachRow:^id(id<SFSQLiteRow> row) {
+        return deserializedRecordFromRow(row);
+    }];
 }
 
 - (NSArray*)softFailures
@@ -190,7 +226,9 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
     if (![self tryToOpenDatabase]) {
         return [NSArray new];
     }
-    return [self deserializedRecords:[self select:@[SFAnalyticsColumnData] from:SFAnalyticsTableSoftFailures]];
+    return [self select:@[SFAnalyticsColumnData] from:SFAnalyticsTableSoftFailures mapEachRow:^id(id<SFSQLiteRow> row) {
+        return deserializedRecordFromRow(row);
+    }];
 }
 
 - (NSArray*)allEvents
@@ -199,30 +237,31 @@ NSString* const SFAnalyticsUploadDate = @"upload_date";
         return [NSArray new];
     }
 
+    __auto_type rowToEvent = ^(id<SFSQLiteRow> row) {
+        return [[SFAnalyticsEvent alloc] initFromRow:row];
+    };
+
     [self begin];
 
-    NSMutableArray<NSDictionary *> *all = [NSMutableArray new];
+    NSMutableArray<SFAnalyticsEvent *> *all = [NSMutableArray new];
 
-    NSArray<NSDictionary *> *hard = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableHardFailures];
+    NSArray<SFAnalyticsEvent *> *hard = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableHardFailures mapEachRow:rowToEvent];
     [all addObjectsFromArray:hard];
     hard = nil;
 
-    NSArray<NSDictionary *> *soft = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableSoftFailures];
+    NSArray<SFAnalyticsEvent *> *soft = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableSoftFailures mapEachRow:rowToEvent];
     [all addObjectsFromArray:soft];
     soft = nil;
 
-    NSArray<NSDictionary *> *notes = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableNotes];
+    NSArray<SFAnalyticsEvent *> *notes = [self select:@[SFAnalyticsColumnDate, SFAnalyticsColumnData] from:SFAnalyticsTableNotes mapEachRow:rowToEvent];
     [all addObjectsFromArray:notes];
     notes = nil;
 
     [self end];
 
-    [all sortUsingComparator:^NSComparisonResult(NSDictionary  *_Nonnull obj1, NSDictionary *_Nonnull obj2) {
-        NSDate *date1 = obj1[SFAnalyticsColumnDate];
-        NSDate *date2 = obj2[SFAnalyticsColumnDate];
-        return [date1 compare:date2];
-    }];
-    return [self deserializedRecords:all];
+    [all sortUsingDescriptors:@[[NSSortDescriptor sortDescriptorWithKey:@"timestamp" ascending:YES]]];
+
+    return [all valueForKey:@"record"];
 }
 
 - (NSArray*)samples

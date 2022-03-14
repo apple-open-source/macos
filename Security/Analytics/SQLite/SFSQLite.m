@@ -699,6 +699,19 @@ done:
     return [self select:columns from:tableName where:nil bindings:nil];
 }
 
+- (NSArray *)select:(NSArray *)columns from:(NSString *)tableName mapEachRow:(id (^)(id<SFSQLiteRow> row))block {
+    NSMutableArray *results = [[NSMutableArray alloc] init];
+
+    [self select:columns from:tableName where:nil bindings:nil orderBy:nil limit:nil forEachRow:^(id<SFSQLiteRow> row, BOOL *stop) {
+        id result = block(row);
+        if (result) {
+            [results addObject:result];
+        }
+    }];
+
+    return results;
+}
+
 - (NSArray *)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings {
     NSMutableArray *results = [[NSMutableArray alloc] init];
     
@@ -718,6 +731,15 @@ done:
 }
 
 - (void)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings orderBy:(NSArray *)orderBy limit:(NSNumber *)limit block:(void (^)(NSDictionary *resultDictionary, BOOL *stop))block {
+    [self select:columns from:tableName where:whereSQL bindings:bindings orderBy:orderBy limit:limit forEachRow:^(id<SFSQLiteRow> row, BOOL *stop) {
+        NSDictionary *stepResult = [row allObjectsByColumnName];
+        if (block) {
+            block(stepResult, stop);
+        }
+    }];
+}
+
+- (void)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings orderBy:(NSArray *)orderBy limit:(NSNumber *)limit forEachRow:(void (^)(id<SFSQLiteRow> row, BOOL *stop))block {
     @autoreleasepool {
         NSMutableString *SQL = [[NSMutableString alloc] init];
         NSString *columnsString = @"*";
@@ -742,10 +764,9 @@ done:
                 if (![statement step]) {
                     break;
                 }
-                NSDictionary *stepResult = [statement allObjectsByColumnName];
                 if (block) {
                     BOOL stop = NO;
-                    block(stepResult, &stop);
+                    block(statement, &stop);
                     if (stop) {
                         break;
                     }

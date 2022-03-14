@@ -91,7 +91,9 @@ static void SecPathBuilderExtendPaths(void *context, CFArrayRef parents);
 /********************************************************
  *************** SecPathBuilder object ******************
  ********************************************************/
-struct SecPathBuilder {
+struct _SecPathBuilder {
+    CFRuntimeBase _base;
+
     dispatch_queue_t        queue;
     uint64_t                startTime;
     CFDataRef               clientAuditToken;
@@ -295,21 +297,6 @@ static void SecPathBuilderInit(SecPathBuilderRef builder, dispatch_queue_t build
     builder->context = context;
 }
 
-SecPathBuilderRef SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
-    CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
-    bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponses,
-    CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
-    CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
-    SecPathBuilderCompleted completed, const void *context) {
-    SecPathBuilderRef builder = malloc(sizeof(*builder));
-    memset(builder, 0, sizeof(*builder));
-    SecPathBuilderInit(builder, builderQueue, clientAuditToken, certificates,
-        anchors, anchorsOnly, keychainsAllowed, policies, ocspResponses,
-        signedCertificateTimestamps, trustedLogs, verifyTime,
-        accessGroups, exceptions, completed, context);
-    return builder;
-}
-
 /* Don't use this if you're going to modify the PVC array in the operation. */
 static void SecPathBuilderForEachPVC(SecPathBuilderRef builder,void (^operation)(SecPVCRef pvc, bool *stop)) {
     if (!builder->pvcs) { return; }
@@ -322,7 +309,8 @@ static void SecPathBuilderForEachPVC(SecPathBuilderRef builder,void (^operation)
     }
 }
 
-void SecPathBuilderDestroy(SecPathBuilderRef builder) {
+static void SecPathBuilderDestroy(CFTypeRef cf) {
+    SecPathBuilderRef builder = (SecPathBuilderRef)cf;
     secdebug("alloc", "destroy builder %p", builder);
     dispatch_release_null(builder->queue);
     if (builder->anchorSource) {
@@ -370,6 +358,33 @@ void SecPathBuilderDestroy(SecPathBuilderRef builder) {
         free(builder->pvcs);
         builder->pvcs = NULL;
     }
+}
+
+static CFStringRef SecPathBuilderCopyFormatDescription(CFTypeRef cf, CFDictionaryRef formatOptions) {
+    SecPathBuilderRef builder = (SecPathBuilderRef)cf;
+    CFStringRef desc = CFStringCreateWithFormat(NULL, formatOptions, CFSTR("builder<%p> current path: %@"), builder, builder->path);
+    return desc;
+}
+
+CFGiblisFor(SecPathBuilder);
+
+CF_RETURNS_RETAINED SecPathBuilderRef SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
+    CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
+    bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponses,
+    CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
+    CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
+    SecPathBuilderCompleted completed, const void *context) {
+
+
+    SecPathBuilderRef builder = NULL;
+    builder = CFTypeAllocate(SecPathBuilder, struct _SecPathBuilder, kCFAllocatorDefault);
+    if (builder) {
+        SecPathBuilderInit(builder, builderQueue, clientAuditToken, certificates,
+                           anchors, anchorsOnly, keychainsAllowed, policies, ocspResponses,
+                           signedCertificateTimestamps, trustedLogs, verifyTime,
+                           accessGroups, exceptions, completed, context);
+    }
+    return builder;
 }
 
 void SecPathBuilderSetPath(SecPathBuilderRef builder, SecCertificatePathVCRef path) {
@@ -1404,8 +1419,7 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
         SecPathBuilderCompleted completed = builder->completed;
 
         secdebug("async", "free builder");
-        SecPathBuilderDestroy(builder);
-        free(builder);
+        CFReleaseNull(builder);
 
         secdebug("async", "returning to caller");
         completed(context, resultPath, details, info, result);
@@ -1413,8 +1427,7 @@ bool SecPathBuilderStep(SecPathBuilderRef builder) {
         CFReleaseNull(info);
         CFReleaseNull(details);
     } else {
-        SecPathBuilderDestroy(builder);
-        free(builder);
+        CFReleaseNull(builder);
     }
 
     return false;

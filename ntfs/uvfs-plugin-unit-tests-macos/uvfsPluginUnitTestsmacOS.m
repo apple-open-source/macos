@@ -766,13 +766,14 @@ void livefiles_plugin_init(UVFSFSOps **ops);
 
             i = 0;
             while(i < sizeof(buf)) {
-                LIDirEntryAttr_t *const cur_entry =
-                    (LIDirEntryAttr_t*) &buf[i];
+                LIDirEntryAttr_t *const cur_entry = (LIDirEntryAttr_t*) &buf[i];
+                LIFileAttributes_t *cur_entry_attrs = &cur_entry->dea_attrs;
                 lastnextcookie = cur_entry->dea_nextcookie;
-                fprintf(stderr, "i=%zu (->%zu) name=\"%.*s\" "
-                    "dea_nextcookie=%" PRIu64 " "
-                    "dea_nextrec=%" PRIu16 " "
-                    "dea_nameoff=%" PRIu16 "\n",
+
+                fprintf(stderr, "i=%05zu (->%05zu) name=\"%.*s\" "
+                    "dea_nextcookie=%03" PRIu64 " "
+                    "dea_nextrec=%04" PRIu16 " "
+                    "dea_nameoff=%04" PRIu16 "\n",
                     i,
                     i + cur_entry->dea_nextrec,
                     cur_entry->dea_namelen,
@@ -780,21 +781,34 @@ void livefiles_plugin_init(UVFSFSOps **ops);
                     cur_entry->dea_nextcookie,
                     cur_entry->dea_nextrec,
                     cur_entry->dea_nameoff);
+
+                fprintf(stderr, "i=%05zu (->%05zu) fa_validmask=0x%08" PRIx64 " "
+                    "fa_type=%02" PRIu32 " "
+                    "fa_uid=%05" PRIu32 " "
+                    "fa_gid=%05" PRIu32 "\n",
+                    i,
+                    i + cur_entry->dea_nextrec,
+                    cur_entry_attrs->fa_validmask,
+                    cur_entry_attrs->fa_type,
+                    cur_entry_attrs->fa_uid,
+                    cur_entry_attrs->fa_gid
+                    );
+
+                XCTAssert(cur_entry_attrs->fa_validmask == 0x7fff);
+                XCTAssert(cur_entry_attrs->fa_uid == 99);
+                XCTAssert(cur_entry_attrs->fa_gid == 99);
+
                 if (!cur_entry->dea_nextrec) {
                     break;
                 }
 
-                XCTAssert(cur_entry->dea_nextrec ==
-                    LI_DIRENTRYATTR_RECLEN(cur_entry,
-                    cur_entry->dea_namelen));
+                XCTAssert(cur_entry->dea_nextrec == LI_DIRENTRYATTR_RECLEN(cur_entry, cur_entry->dea_namelen));
 
                 i += cur_entry->dea_nextrec;
             }
         } while (lastnextcookie != LI_DIRCOOKIE_EOF);
 
-        XCTAssert(_fsops->fsops_readdirattr(rootNode, buf, sizeof(buf),
-            lastnextcookie, &read_bytes, &verifier) ==
-            LI_READDIR_EOF_REACHED);
+        XCTAssert(_fsops->fsops_readdirattr(rootNode, buf, sizeof(buf), lastnextcookie, &read_bytes, &verifier) == LI_READDIR_EOF_REACHED);
     }
 
     XCTAssert([self unmountTestVolume:rootNode] == 0);

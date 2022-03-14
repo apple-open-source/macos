@@ -69,7 +69,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestReadOnlyMapLikePrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestReadOnlyMapLikePrototype* ptr = new (NotNull, JSC::allocateCell<JSTestReadOnlyMapLikePrototype>(vm.heap)) JSTestReadOnlyMapLikePrototype(vm, globalObject, structure);
+        JSTestReadOnlyMapLikePrototype* ptr = new (NotNull, JSC::allocateCell<JSTestReadOnlyMapLikePrototype>(vm)) JSTestReadOnlyMapLikePrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -79,7 +79,7 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestReadOnlyMapLikePrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
@@ -108,9 +108,11 @@ template<> JSValue JSTestReadOnlyMapLikeDOMConstructor::prototypeForStructure(JS
 
 template<> void JSTestReadOnlyMapLikeDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    putDirect(vm, vm.propertyNames->prototype, JSTestReadOnlyMapLike::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestReadOnlyMapLike"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    JSString* nameString = jsNontrivialString(vm, "TestReadOnlyMapLike"_s);
+    m_originalName.set(vm, this, nameString);
+    putDirect(vm, vm.propertyNames->name, nameString, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->prototype, JSTestReadOnlyMapLike::prototype(vm, globalObject), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::DontDelete);
 }
 
 /* Hash table for prototype */
@@ -303,9 +305,9 @@ JSC::IsoSubspace* JSTestReadOnlyMapLike::subspaceForImpl(JSC::VM& vm)
         return space;
     static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestReadOnlyMapLike> || !JSTestReadOnlyMapLike::needsDestruction);
     if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestReadOnlyMapLike>)
-        spaces.m_subspaceForTestReadOnlyMapLike = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestReadOnlyMapLike);
+        spaces.m_subspaceForTestReadOnlyMapLike = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestReadOnlyMapLike);
     else
-        spaces.m_subspaceForTestReadOnlyMapLike = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestReadOnlyMapLike);
+        spaces.m_subspaceForTestReadOnlyMapLike = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestReadOnlyMapLike);
     auto* space = spaces.m_subspaceForTestReadOnlyMapLike.get();
 IGNORE_WARNINGS_BEGIN("unreachable-code")
 IGNORE_WARNINGS_BEGIN("tautological-compare")

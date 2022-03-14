@@ -62,6 +62,7 @@ public:
         virtual bool shouldConfigureJSCForTesting() const { return false; }
         virtual bool isJITEnabled() const { return true; }
         virtual bool shouldEnableSharedArrayBuffer() const { return false; }
+        virtual bool shouldEnableCaptivePortalMode() const { return false; }
 #if PLATFORM(COCOA)
         virtual RefPtr<XPCEventHandler> xpcEventHandler() const { return nullptr; }
 #endif
@@ -69,9 +70,6 @@ public:
     
     enum class ProcessType {
         Web,
-#if ENABLE(NETSCAPE_PLUGIN_API)
-        Plugin,
-#endif
         Network,
 #if ENABLE(GPU_PROCESS)
         GPU,

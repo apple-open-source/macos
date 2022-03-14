@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -1307,10 +1307,12 @@ struct ifnet {
 
 #if INET
 	decl_lck_rw_data(, if_inetdata_lock);
-	void                    *if_inetdata;
+	struct in_ifextra       *if_inetdata;
 #endif /* INET */
+	decl_lck_mtx_data(, if_inet6_ioctl_lock);
+	boolean_t   if_inet6_ioctl_busy;
 	decl_lck_rw_data(, if_inet6data_lock);
-	void                    *if_inet6data;
+	struct in6_ifextra      *if_inet6data;
 	decl_lck_rw_data(, if_link_status_lock);
 	struct if_link_status   *if_link_status;
 	struct if_interface_state       if_interface_state;
@@ -1398,8 +1400,6 @@ EVENTHANDLER_DECLARE(ifnet_event, ifnet_event_fn);
 struct if_clone {
 	LIST_ENTRY(if_clone) ifc_list;  /* on list of cloners */
 	decl_lck_mtx_data(, ifc_mutex); /* To serialize clone create/delete */
-	const char      *ifc_name;      /* name of device, e.g. `vlan' */
-	size_t          ifc_namelen;    /* length of name */
 	u_int32_t       ifc_minifs;     /* minimum number of interfaces */
 	u_int32_t       ifc_maxunit;    /* maximum unit number */
 	unsigned char   *ifc_units;     /* bitmap to handle units */
@@ -1409,6 +1409,8 @@ struct if_clone {
 	struct zone     *ifc_zone;      /* if_clone allocation zone */
 	int             (*ifc_create)(struct if_clone *, u_int32_t, void *);
 	int             (*ifc_destroy)(struct ifnet *);
+	uint8_t         ifc_namelen;    /* length of name */
+	char            ifc_name[IFNAMSIZ + 1]; /* name of device, e.g. `vlan' */
 };
 
 #define IF_CLONE_INITIALIZER(name, create, destroy, minifs, maxunit, zone_max_elem, softc_size) {       \
@@ -1426,8 +1428,6 @@ struct if_clone {
 	.ifc_create = create,                                                                           \
 	.ifc_destroy = destroy                                                                          \
 }
-
-#define M_CLONE         M_IFADDR
 
 /*
  * Macros to manipulate ifqueue.  Users of these macros are responsible
@@ -1856,7 +1856,9 @@ __private_extern__ void ifnet_decr_iorefcnt(struct ifnet *);
 __private_extern__ boolean_t ifnet_datamov_begin(struct ifnet *);
 __private_extern__ void ifnet_datamov_end(struct ifnet *);
 __private_extern__ void ifnet_datamov_suspend(struct ifnet *);
+__private_extern__ boolean_t ifnet_datamov_suspend_if_needed(struct ifnet *);
 __private_extern__ void ifnet_datamov_drain(struct ifnet *);
+__private_extern__ void ifnet_datamov_suspend_and_drain(struct ifnet *);
 __private_extern__ void ifnet_datamov_resume(struct ifnet *);
 __private_extern__ void ifnet_set_start_cycle(struct ifnet *,
     struct timespec *);

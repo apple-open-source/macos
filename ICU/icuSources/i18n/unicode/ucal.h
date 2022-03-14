@@ -1289,7 +1289,7 @@ enum UCalendarLimitType {
   UCAL_MAXIMUM,
   /** Greatest minimum value */
   UCAL_GREATEST_MINIMUM,
-  /** Leaest maximum value */
+  /** Least maximum value */
   UCAL_LEAST_MAXIMUM,
   /** Actual minimum value */
   UCAL_ACTUAL_MINIMUM,
@@ -1625,11 +1625,6 @@ ucal_getTimeZoneIDForWindowsID(const UChar* winid, int32_t len, const char* regi
  * @draft ICU 69
  */
 enum UTimeZoneLocalOption {
-    /**
-     * Dummy value to prevent empty enum if U_HIDE_DRAFT_API
-     * @internal
-     */
-    UCAL_TZ_LOCAL_NONE = 0,
 #ifndef U_HIDE_DRAFT_API
     /**
      * An input time is always interpreted as local time before
@@ -1679,6 +1674,13 @@ enum UTimeZoneLocalOption {
      * @draft ICU 69
      */
     UCAL_TZ_LOCAL_DAYLIGHT_LATTER = UCAL_TZ_LOCAL_LATTER | 0x03,
+#else /* U_HIDE_DRAFT_API */
+    /**
+     * Dummy value to prevent empty enum if U_HIDE_DRAFT_API.
+     * This will go away when draft conditionals are removed.
+     * @internal
+     */
+    UCAL_TZ_LOCAL_NONE = 0,
 #endif /* U_HIDE_DRAFT_API */
 };
 typedef enum UTimeZoneLocalOption UTimeZoneLocalOption; /**< @draft ICU 69 */

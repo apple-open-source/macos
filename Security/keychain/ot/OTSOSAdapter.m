@@ -105,10 +105,8 @@
         return nil;
     }
 
-    SOSPeerInfoRef egoPeerInfo = SOSCCCopyMyPeerInfo(&cferror);
-    NSString* egoPeerID = egoPeerInfo ? (NSString*)CFBridgingRelease(CFRetainSafe(SOSPeerInfoGetPeerID(egoPeerInfo))) : nil;
-    CFReleaseNull(egoPeerInfo);
-    
+    NSString* egoPeerID = (NSString*)CFBridgingRelease(SOSCCCopyMyPID_Server(&cferror));
+
     if(!egoPeerID || cferror) {
         localerror = CFBridgingRelease(cferror);
         if(!localerror) {

@@ -64,7 +64,8 @@ struct SecurityOriginData {
     String host;
     std::optional<uint16_t> port;
 
-    WEBCORE_EXPORT SecurityOriginData isolatedCopy() const;
+    WEBCORE_EXPORT SecurityOriginData isolatedCopy() const &;
+    WEBCORE_EXPORT SecurityOriginData isolatedCopy() &&;
 
     // Serialize the security origin to a string that could be used as part of
     // file names. This format should be used in storage APIs only.
@@ -127,7 +128,7 @@ std::optional<SecurityOriginData> SecurityOriginData::decode(Decoder& decoder)
     return data;
 }
 
-struct SecurityOriginDataHashTraits : WTF::SimpleClassHashTraits<SecurityOriginData> {
+struct SecurityOriginDataHashTraits : SimpleClassHashTraits<SecurityOriginData> {
     static const bool hasIsEmptyValueFunction = true;
     static const bool emptyValueIsZero = false;
     static bool isEmptyValue(const SecurityOriginData& data) { return data.isEmpty(); }

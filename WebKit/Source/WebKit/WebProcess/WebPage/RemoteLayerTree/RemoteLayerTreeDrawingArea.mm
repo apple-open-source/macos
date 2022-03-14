@@ -58,7 +58,7 @@ namespace WebKit {
 using namespace WebCore;
 
 RemoteLayerTreeDrawingArea::RemoteLayerTreeDrawingArea(WebPage& webPage, const WebPageCreationParameters& parameters)
-    : DrawingArea(DrawingAreaTypeRemoteLayerTree, parameters.drawingAreaIdentifier, webPage)
+    : DrawingArea(DrawingAreaType::RemoteLayerTree, parameters.drawingAreaIdentifier, webPage)
     , m_remoteLayerTreeContext(makeUnique<RemoteLayerTreeContext>(webPage))
     , m_rootLayer(GraphicsLayer::create(graphicsLayerFactory(), *this))
     , m_updateRenderingTimer(*this, &RemoteLayerTreeDrawingArea::updateRendering)
@@ -288,14 +288,14 @@ void RemoteLayerTreeDrawingArea::addCommitHandlers()
     if (m_webPage.firstFlushAfterCommit())
         return;
 
-    [CATransaction addCommitHandler:[retainedPage = makeRefPtr(&m_webPage)] {
+    [CATransaction addCommitHandler:[retainedPage = Ref { m_webPage }] {
         if (Page* corePage = retainedPage->corePage()) {
             if (Frame* coreFrame = retainedPage->mainFrame())
                 corePage->inspectorController().willComposite(*coreFrame);
         }
     } forPhase:kCATransactionPhasePreLayout];
     
-    [CATransaction addCommitHandler:[retainedPage = makeRefPtr(&m_webPage)] {
+    [CATransaction addCommitHandler:[retainedPage = Ref { m_webPage }] {
         if (Page* corePage = retainedPage->corePage()) {
             if (Frame* coreFrame = retainedPage->mainFrame())
                 corePage->inspectorController().didComposite(*coreFrame);

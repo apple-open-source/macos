@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,12 +68,15 @@ PAS_API void pas_status_reporter_dump_heap(pas_stream* stream, pas_heap* heap);
 PAS_API void pas_status_reporter_dump_all_heaps(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_all_shared_page_directories(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_all_heaps_non_utility_summaries(pas_stream* stream);
+PAS_API void pas_status_reporter_dump_large_sharing_pool(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_utility_heap(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_total_fragmentation(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_tier_up_rates(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_baseline_allocators(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_thread_local_caches(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_configuration(pas_stream* stream);
+PAS_API void pas_status_reporter_dump_physical_page_sharing_pool(pas_stream* stream);
+PAS_API void pas_status_reporter_dump_expendable_memories(pas_stream* stream);
 PAS_API void pas_status_reporter_dump_everything(pas_stream* stream);
 
 PAS_API void pas_status_reporter_start_if_necessary(void);

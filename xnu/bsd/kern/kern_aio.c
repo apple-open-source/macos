@@ -294,7 +294,7 @@ static LCK_GRP_DECLARE(aio_proc_lock_grp, "aio_proc");
 static LCK_GRP_DECLARE(aio_queue_lock_grp, "aio_queue");
 static LCK_MTX_DECLARE(aio_proc_mtx, &aio_proc_lock_grp);
 
-static ZONE_DECLARE(aio_workq_zonep, "aiowq", sizeof(aio_workq_entry),
+static ZONE_DEFINE_TYPE(aio_workq_zonep, "aiowq", aio_workq_entry,
     ZC_ZFREE_CLEARMEM);
 
 /* Hash */
@@ -309,7 +309,7 @@ aio_workq_init(aio_workq_t wq)
 {
 	TAILQ_INIT(&wq->aioq_entries);
 	lck_spin_init(&wq->aioq_lock, &aio_queue_lock_grp, LCK_ATTR_NULL);
-	waitq_init(&wq->aioq_waitq, SYNC_POLICY_FIFO);
+	waitq_init(&wq->aioq_waitq, WQT_QUEUE, SYNC_POLICY_FIFO);
 }
 
 

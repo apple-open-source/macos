@@ -116,6 +116,7 @@ sc{
         kam{"kamba"}
         kde{"makonde"}
         kea{"cabubirdianu"}
+        kgp{"kaingang"}
         khq{"koyra chiini"}
         ki{"kikuyu"}
         kk{"kazaku"}
@@ -137,6 +138,7 @@ sc{
         lag{"langi"}
         lb{"lussemburghesu"}
         lg{"ganda"}
+        lij{"lìgure"}
         lkt{"lakota"}
         ln{"lingala"}
         lo{"laotianu"}
@@ -177,6 +179,7 @@ sc{
         nmg{"kwasio"}
         nn{"norvegesu nynorsk"}
         nnh{"ngiemboon"}
+        no{"norvegesu"}
         nus{"nuer"}
         nv{"navajo"}
         ny{"nyanja"}
@@ -193,6 +196,7 @@ sc{
         pt_BR{"portoghesu brasilianu"}
         pt_PT{"portoghesu europeu"}
         qu{"quechua"}
+        rhg{"rohingya"}
         rm{"romànciu"}
         rn{"rundi"}
         ro{"rumenu"}
@@ -207,7 +211,7 @@ sc{
         saq{"samburu"}
         sat{"santali"}
         sbp{"sangu"}
-        sc{"Sardu"}
+        sc{"sardu"}
         sd{"sindhi"}
         se{"sami setentrionale"}
         seh{"sena"}
@@ -307,6 +311,7 @@ sc{
         Cher{"cherokee"}
         Chrs{"coràsmiu"}
         Copt{"coptu"}
+        Cpmn{"tzipro-minòicu"}
         Cprt{"tzipriotu"}
         Cyrl{"tzirìllicu"}
         Deva{"devanagari"}
@@ -392,6 +397,7 @@ sc{
         Orya{"odia"}
         Osge{"osage"}
         Osma{"osmanya"}
+        Ougr{"uiguru antigu"}
         Palm{"palmirenu"}
         Pauc{"pau cin hau"}
         Perm{"pèrmicu antigu"}
@@ -435,8 +441,11 @@ sc{
         Thai{"tailandesu"}
         Tibt{"tibetanu"}
         Tirh{"tirhuta"}
+        Tnsa{"tangsa"}
+        Toto{"toto"}
         Ugar{"ugarìticu"}
         Vaii{"vai"}
+        Vith{"vithkuqi"}
         Wara{"varang kshiti"}
         Wcho{"wancho"}
         Xpeo{"persianu antigu"}

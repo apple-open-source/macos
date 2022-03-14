@@ -255,20 +255,19 @@ public:
         FixedElementsLayoutRelativeToFrame          = 1LLU << 31,
         VisualViewportIsSmallerThanLayoutViewport   = 1LLU << 32,
         AsyncFrameOrOverflowScrollingEnabled        = 1LLU << 33,
-        MomentumScrollingAnimatorEnabled            = 1LLU << 34,
-        WheelEventGesturesBecomeNonBlocking         = 1LLU << 35,
-        ScrollingPerformanceTestingEnabled          = 1LLU << 36,
-        LayoutViewport                              = 1LLU << 37,
-        MinLayoutViewportOrigin                     = 1LLU << 38,
-        MaxLayoutViewportOrigin                     = 1LLU << 39,
-        OverrideVisualViewportSize                  = 1LLU << 40,
+        WheelEventGesturesBecomeNonBlocking         = 1LLU << 34,
+        ScrollingPerformanceTestingEnabled          = 1LLU << 35,
+        LayoutViewport                              = 1LLU << 36,
+        MinLayoutViewportOrigin                     = 1LLU << 37,
+        MaxLayoutViewportOrigin                     = 1LLU << 38,
+        OverrideVisualViewportSize                  = 1LLU << 39,
         // ScrollingStatePositionedNode
-        RelatedOverflowScrollingNodes               = 1LLU << 41,
-        LayoutConstraintData                        = 1LLU << 42,
+        RelatedOverflowScrollingNodes               = 1LLU << 40,
+        LayoutConstraintData                        = 1LLU << 41,
         // ScrollingStateFixedNode, ScrollingStateStickyNode
-        ViewportConstraints                         = 1LLU << 43,
+        ViewportConstraints                         = 1LLU << 42,
         // ScrollingStateOverflowScrollProxyNode
-        OverflowScrollingNode                       = 1LLU << 44,
+        OverflowScrollingNode                       = 1LLU << 43,
     };
     
     bool hasChangedProperties() const { return !m_changedProperties.isEmpty(); }
@@ -307,7 +306,7 @@ public:
 
     size_t indexOfChild(ScrollingStateNode&) const;
 
-    String scrollingStateTreeAsText(ScrollingStateTreeAsTextBehavior = ScrollingStateTreeAsTextBehaviorNormal) const;
+    String scrollingStateTreeAsText(OptionSet<ScrollingStateTreeAsTextBehavior> = { }) const;
 
 protected:
     ScrollingStateNode(const ScrollingStateNode&, ScrollingStateTree&);
@@ -316,11 +315,11 @@ protected:
     void setPropertyChangedInternal(Property property) { m_changedProperties.add(property); }
     void setPropertiesChangedInternal(OptionSet<Property> properties) { m_changedProperties.add(properties); }
 
-    virtual void dumpProperties(WTF::TextStream&, ScrollingStateTreeAsTextBehavior) const;
+    virtual void dumpProperties(WTF::TextStream&, OptionSet<ScrollingStateTreeAsTextBehavior>) const;
     virtual OptionSet<Property> applicableProperties() const;
 
 private:
-    void dump(WTF::TextStream&, ScrollingStateTreeAsTextBehavior) const;
+    void dump(WTF::TextStream&, OptionSet<ScrollingStateTreeAsTextBehavior>) const;
 
     const ScrollingNodeType m_nodeType;
     const ScrollingNodeID m_nodeID;

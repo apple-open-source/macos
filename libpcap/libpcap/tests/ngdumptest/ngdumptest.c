@@ -72,6 +72,8 @@ size_t packet_length = 0;
 unsigned long num_data_blocks = 1;
 int copy_data_buffer = 0;
 int verbose = 0;
+uint32_t flow_id = 0;
+uint16_t trace_tag = 0;
 
 /* Flags used to override the default value of the section header block */
 #define SHBF_MAGIC  0x01
@@ -110,6 +112,8 @@ help(const char *str)
 	printf(" %-36s # %s\n", "-v", "increase verbosity");
 	printf(" %-36s # %s\n", "-w name", "packet capture file name");
 	printf(" %-36s # %s\n", "-x [buffer_length]", "externalize in buffer of given length");
+	printf(" %-36s # %s\n", "-F flow_id", "flow id");
+	printf(" %-36s # %s\n", "-T trace_tag", "trace_tag");
 }
 
 void
@@ -326,7 +330,13 @@ make_data_block(const void *data, size_t len)
 				pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLAGS , &pktflags, 4);
 
 				pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_PMD_FLAGS, &pmdflags, 4);
-				
+
+				if (flow_id != 0) {
+					pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_FLOW_ID, &flow_id, 4);
+				}
+				if (trace_tag != 0) {
+					pcap_ng_block_add_option_with_value(block, PCAPNG_EPB_TRACE_TAG, &trace_tag, 2);
+				}
 				write_block(block);
 
 				pcap_ng_free_block(block);
@@ -476,7 +486,7 @@ main(int argc, char * const argv[])
 	 * Loop through argument to build PCAP-NG block
 	 * Optionally write to file
 	 */
-	while ((ch = getopt(argc, argv, "4:6:Cc:D:d:fk:hi:n:p:S:s:t:w:xv")) != -1) {
+	while ((ch = getopt(argc, argv, "4:6:Cc:D:d:F:fk:hi:n:p:S:s:T:t:w:xv")) != -1) {
 		switch (ch) {
 			case 'C':
 				copy_data_buffer = 1;
@@ -504,7 +514,11 @@ main(int argc, char * const argv[])
 				packet_data = (unsigned char *)optarg;
 				make_data_block(packet_data, packet_length);
 				break;
-				
+
+			case 'F':
+				flow_id = (uint32_t)strtoul(optarg, NULL, 0);
+				break;
+
 			case 'f':
 				first_comment = 1;
 				break;
@@ -750,6 +764,10 @@ main(int argc, char * const argv[])
 				make_decryption_secrets_block(secrets_type, secrets_length, secrets_data);
 				break;
 			}
+			case 'T':
+				trace_tag = (uint32_t)strtoul(optarg, NULL, 0);
+				break;
+
 			case 't':
 				if (*optarg == 's')
 					type_of_packet = SIMPLE_PACKET;

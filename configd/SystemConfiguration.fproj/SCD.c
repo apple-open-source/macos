@@ -119,6 +119,39 @@ extern CFStringRef _CFStringCreateWithFormatAndArgumentsAux(CFAllocatorRef alloc
 #endif	/* ENABLE_SC_FORMATTING */
 
 
+static CFComparisonResult
+compare_CFDate(const void *val1, const void *val2, void *context)
+{
+#pragma unused(context)
+	CFDateRef		str1	= (CFDateRef)val1;
+	CFDateRef		str2	= (CFDateRef)val2;
+
+	return CFDateCompare(str1, str2, 0);
+}
+
+
+static CFComparisonResult
+compare_CFNumber(const void *val1, const void *val2, void *context)
+{
+#pragma unused(context)
+	CFNumberRef		str1	= (CFNumberRef)val1;
+	CFNumberRef		str2	= (CFNumberRef)val2;
+
+	return CFNumberCompare(str1, str2, 0);
+}
+
+
+static CFComparisonResult
+compare_CFString(const void *val1, const void *val2, void *context)
+{
+#pragma unused(context)
+	CFStringRef		str1	= (CFStringRef)val1;
+	CFStringRef		str2	= (CFStringRef)val2;
+
+	return CFStringCompare(str1, str2, 0);
+}
+
+
 CFStringRef
 _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 {
@@ -300,13 +333,13 @@ _SCCopyDescription(CFTypeRef cf, CFDictionaryRef formatOptions)
 			}
 
 			if (isA_CFString(keys[0])) {
-				compFunc = (CFComparatorFunction)CFStringCompare;
+				compFunc = compare_CFString;
 			}
 			else if (isA_CFNumber(keys[0])) {
-				compFunc = (CFComparatorFunction)CFNumberCompare;
+				compFunc = compare_CFNumber;
 			}
 			else if (isA_CFDate(keys[0])) {
-				compFunc = (CFComparatorFunction)CFDateCompare;
+				compFunc = compare_CFDate;
 			}
 
 			if (compFunc != NULL) {

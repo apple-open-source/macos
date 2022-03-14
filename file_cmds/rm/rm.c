@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,21 +29,19 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__used static const char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1990, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)rm.c	8.5 (Berkeley) 4/18/94";
-#else
-__used static const char rcsid[] =
-  "$FreeBSD: src/bin/rm/rm.c,v 1.33 2001/06/13 15:01:25 ru Exp $";
-#endif
 #endif /* not lint */
+#endif
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/stat.h>
 #include <sys/param.h>
@@ -55,17 +51,17 @@ __used static const char rcsid[] =
 #include <errno.h>
 #include <fcntl.h>
 #include <fts.h>
+#include <grp.h>
+#include <locale.h>
+#include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
 #include <unistd.h>
-#include <locale.h>
 
 #ifdef __APPLE__
 #include <removefile.h>
-#include <pwd.h>
-#include <grp.h>
 #include "get_compat.h"
 
 #ifndef AT_REMOVEDIR_DATALESS
@@ -75,56 +71,65 @@ __used static const char rcsid[] =
 #define COMPAT_MODE(func, mode) 1
 #endif
 
-int dflag, eval, fflag, iflag, Pflag, vflag, Wflag, stdin_ok;
-uid_t uid;
+static int dflag, eval, fflag, iflag, Pflag, vflag, Wflag, stdin_ok;
+static int rflag, Iflag, xflag;
+static uid_t uid;
+static volatile sig_atomic_t info;
 
-int	check __P((char *, char *, struct stat *));
-int checkdir __P((char *));
-int		yes_or_no __P((void));
-void	checkdot __P((char **));
-void	rm_file __P((char **));
-void	rm_overwrite __P((char *, struct stat *));
-void	rm_tree __P((char **));
-void	usage __P((void));
+static int	check(const char *, const char *, struct stat *);
+static int	checkdir(const char *);
+static int	yes_or_no(void);
+static int	check2(char **);
+static void	checkdot(char **);
+static void	checkslash(char **);
+static void	rm_file(char **);
+static void	rm_tree(char **);
+static void siginfo(int __unused);
+static void	usage(void);
 
 /*
  * rm --
  *	This rm is different from historic rm's, but is expected to match
- *	POSIX 1003.2 behavior.  The most visible difference is that -f
+ *	POSIX 1003.2 behavior.	The most visible difference is that -f
  *	has two specific effects now, ignore non-existent files and force
- * 	file removal.
+ *	file removal.
  */
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	int ch, rflag;
+	int ch;
 	char *p;
 
+#ifdef __APPLE__
 	if (argc < 1)
 		usage();
+#endif
+
+	(void)setlocale(LC_ALL, "");
 
 	/*
 	 * Test for the special case where the utility is called as
 	 * "unlink", for which the functionality provided is greatly
 	 * simplified.
 	 */
-	if ((p = rindex(argv[0], '/')) == NULL)
+	if ((p = strrchr(argv[0], '/')) == NULL)
 		p = argv[0];
 	else
 		++p;
+	/* Note that rm_file() uses uid. */
 	uid = geteuid();
 	if (strcmp(p, "unlink") == 0) {
-		if (argc == 2) {
+		if (argc == 2)
 			rm_file(&argv[1]);
-			exit(eval);
-		} else 
+		else if (argc == 3 && strcmp(argv[1], "--") == 0)
+			rm_file(&argv[2]);
+		else
 			usage();
+		exit(eval);
 	}
 
-	Pflag = rflag = 0;
-	while ((ch = getopt(argc, argv, "dfiPRrvW")) != -1)
+	Pflag = rflag = xflag = 0;
+	while ((ch = getopt(argc, argv, "dfiIPRrvWx")) != -1)
 		switch(ch) {
 		case 'd':
 			dflag = 1;
@@ -137,8 +142,15 @@ main(argc, argv)
 			fflag = 0;
 			iflag = 1;
 			break;
+		case 'I':
+			Iflag = 1;
+			break;
 		case 'P':
+#ifdef __APPLE__
 			Pflag = 1;
+#else
+			/* Compatibility no-op. */
+#endif
 			break;
 		case 'R':
 		case 'r':			/* Compatibility. */
@@ -150,6 +162,9 @@ main(argc, argv)
 		case 'W':
 			Wflag = 1;
 			break;
+		case 'x':
+			xflag = 1;
+			break;
 		default:
 			usage();
 		}
@@ -158,15 +173,21 @@ main(argc, argv)
 
 	if (argc < 1) {
 		if (fflag)
-			return 0;
+			return (0);
 		usage();
 	}
 
 	checkdot(argv);
+	checkslash(argv);
 
+	(void)signal(SIGINFO, siginfo);
 	if (*argv) {
 		stdin_ok = isatty(STDIN_FILENO);
 
+		if (Iflag) {
+			if (check2(argv) == 0)
+				exit (1);
+		}
 		if (rflag)
 			rm_tree(argv);
 		else
@@ -176,9 +197,8 @@ main(argc, argv)
 	exit (eval);
 }
 
-void
-rm_tree(argv)
-	char **argv;
+static void
+rm_tree(char **argv)
 {
 	errno_t dir_errno = -1;
 	FTS *fts;
@@ -204,12 +224,14 @@ rm_tree(argv)
 		flags |= FTS_NOSTAT;
 	if (Wflag)
 		flags |= FTS_WHITEOUT;
+	if (xflag)
+		flags |= FTS_XDEV;
 	if (!(fts = fts_open(argv, flags, NULL))) {
 		if (fflag && errno == ENOENT)
 			return;
-		err(1, NULL);
+		err(1, "fts_open");
 	}
-	while ((p = fts_read(fts)) != NULL) {
+	while ((void)(errno = 0), (p = fts_read(fts)) != NULL) {
 		switch (p->fts_info) {
 		case FTS_DNR:
 			if (!fflag || p->fts_errno != ENOENT) {
@@ -222,8 +244,8 @@ rm_tree(argv)
 			errx(1, "%s: %s", p->fts_path, strerror(p->fts_errno));
 		case FTS_NS:
 			/*
-			 * FTS_NS: assume that if can't stat the file, it
-			 * can't be unlinked.
+			 * Assume that since fts_read() couldn't stat the
+			 * file, it can't be unlinked.
 			 */
 			if (!needstat)
 				break;
@@ -248,7 +270,7 @@ rm_tree(argv)
 			else if (!uid &&
 				 (p->fts_statp->st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
 				 !(p->fts_statp->st_flags & (SF_APPEND|SF_IMMUTABLE)) &&
-				 chflags(p->fts_accpath,
+				 lchflags(p->fts_accpath,
 					 p->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE)) < 0)
 				goto err;
 			continue;
@@ -275,7 +297,7 @@ rm_tree(argv)
 		if (!uid &&
 		    (p->fts_statp->st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
 		    !(p->fts_statp->st_flags & (SF_APPEND|SF_IMMUTABLE)))
-			rval = chflags(p->fts_accpath,
+			rval = lchflags(p->fts_accpath,
 				       p->fts_statp->st_flags &= ~(UF_APPEND|UF_IMMUTABLE));
 		if (rval == 0) {
 			/*
@@ -303,6 +325,11 @@ rm_tree(argv)
 					if (rval == 0 && vflag)
 						(void)printf("%s\n",
 						    p->fts_path);
+					if (rval == 0 && info) {
+						info = 0;
+						(void)printf("%s\n",
+						    p->fts_path);
+					}
 					continue;
 				}
 
@@ -329,10 +356,26 @@ rm_tree(argv)
 					if (vflag)
 						(void)printf("%s\n",
 						    p->fts_path);
+					if (info) {
+						info = 0;
+						(void)printf("%s\n",
+						    p->fts_path);
+					}
 					continue;
 				}
 				break;
 
+			case FTS_NS:
+				/*
+				 * Assume that since fts_read() couldn't stat
+				 * the file, it can't be unlinked.
+				 */
+				if (fflag)
+					continue;
+				/* FALLTHROUGH */
+
+			case FTS_F:
+			case FTS_NSOK:
 			default:
 #ifdef __APPLE__
 				if (Pflag) {
@@ -341,14 +384,17 @@ rm_tree(argv)
 				} else
 					rval = unlink(p->fts_accpath);
 #else  /* !__APPLE_ */
-				if (Pflag)
-					rm_overwrite(p->fts_accpath, NULL);
 				rval = unlink(p->fts_accpath);
 #endif	/* __APPLE__ */
 				if (rval == 0 || (fflag && errno == ENOENT)) {
 					if (rval == 0 && vflag)
 						(void)printf("%s\n",
 						    p->fts_path);
+					if (rval == 0 && info) {
+						info = 0;
+						(void)printf("%s\n",
+						    p->fts_path);
+					}
 					continue;
 				}
 				if (rval == -1) {
@@ -361,14 +407,13 @@ err:
 		warn("%s", p->fts_path);
 		eval = 1;
 	}
-	if (errno)
+	if (!fflag && errno)
 		err(1, "fts_read");
 	fts_close(fts);
 }
 
-void
-rm_file(argv)
-	char **argv;
+static void
+rm_file(char **argv)
 {
 	struct stat sb;
 	int rval;
@@ -404,10 +449,10 @@ rm_file(argv)
 		if (!fflag && !S_ISWHT(sb.st_mode) && !check(f, f, &sb))
 			continue;
 		rval = 0;
-		if (!uid &&
+		if (!uid && !S_ISWHT(sb.st_mode) &&
 		    (sb.st_flags & (UF_APPEND|UF_IMMUTABLE)) &&
 		    !(sb.st_flags & (SF_APPEND|SF_IMMUTABLE)))
-			rval = chflags(f, sb.st_flags & ~(UF_APPEND|UF_IMMUTABLE));
+			rval = lchflags(f, sb.st_flags & ~(UF_APPEND|UF_IMMUTABLE));
 		if (rval == 0) {
 			if (S_ISWHT(sb.st_mode))
 				rval = undelete(f);
@@ -421,8 +466,6 @@ rm_file(argv)
 				} else
 					rval = unlink(f);
 #else  /* !__APPLE__ */
-				if (Pflag)
-					rm_overwrite(f, &sb);
 				rval = unlink(f);
 #endif	/* __APPLE__ */
 			}
@@ -433,82 +476,20 @@ rm_file(argv)
 		}
 		if (vflag && rval == 0)
 			(void)printf("%s\n", f);
+		if (info && rval == 0) {
+			info = 0;
+			(void)printf("%s\n", f);
+		}
 	}
 }
 
-/*
- * rm_overwrite --
- *	Overwrite the file 3 times with varying bit patterns.
- *
- * XXX
- * This is a cheap way to *really* delete files.  Note that only regular
- * files are deleted, directories (and therefore names) will remain.
- * Also, this assumes a fixed-block file system (like FFS, or a V7 or a
- * System V file system).  In a logging file system, you'll have to have
- * kernel support.
- */
-void
-rm_overwrite(file, sbp)
-	char *file;
-	struct stat *sbp;
-{
-	struct stat sb;
-	struct statfs fsb;
-	off_t len;
-	int bsize, fd, wlen;
-	char *buf = NULL;
-
-	if (sbp == NULL) {
-		if (lstat(file, &sb))
-			goto err;
-		sbp = &sb;
-	}
-	if (!S_ISREG(sbp->st_mode))
-		return;
-	if ((fd = open(file, O_WRONLY, 0)) == -1)
-		goto err;
-	if (fstatfs(fd, &fsb) == -1)
-		goto err;
-	bsize = MAX(fsb.f_iosize, 1024);
-	if ((buf = malloc(bsize)) == NULL)
-		err(1, "malloc");
-
-#define	PASS(byte) {							\
-	memset(buf, byte, bsize);					\
-	for (len = sbp->st_size; len > 0; len -= wlen) {		\
-		wlen = len < bsize ? (int)len : bsize;			\
-		if (write(fd, buf, wlen) != wlen)			\
-			goto err;					\
-	}								\
-}
-	PASS(0xff);
-	if (fsync(fd) || lseek(fd, (off_t)0, SEEK_SET))
-		goto err;
-	PASS(0x00);
-	if (fsync(fd) || lseek(fd, (off_t)0, SEEK_SET))
-		goto err;
-	PASS(0xff);
-	if (!fsync(fd) && !close(fd)) {
-		free(buf);
-		return;
-	}
-
-err:	eval = 1;
-	if (buf)
-		free(buf);
-	warn("%s", file);
-}
-
-int 
-yes_or_no()
+static int
+yes_or_no(void)
 {
 	int ch, first;
 	char resp[] = {'\0', '\0'};
 
 	(void)fflush(stderr);
-
-	/* Load user specified locale */
-	setlocale(LC_MESSAGES, "");
 
 	first = ch = getchar();
 	while (ch != '\n' && ch != EOF)
@@ -520,9 +501,8 @@ yes_or_no()
 	return (rpmatch(resp) == 1);
 }
 
-int
-checkdir(path)
-	char *path;
+static int
+checkdir(const char *path)
 {
 	if(!iflag)
 		return 1;	//if not interactive, process directory's contents
@@ -530,10 +510,8 @@ checkdir(path)
 	return yes_or_no();
 }
 
-int
-check(path, name, sp)
-	char *path, *name;
-	struct stat *sp;
+static int
+check(const char *path, const char *name, struct stat *sp)
 {
 	char modep[15], *flagsp;
 
@@ -554,23 +532,92 @@ check(path, name, sp)
 			return (1);
 		strmode(sp->st_mode, modep);
 		if ((flagsp = fflagstostr(sp->st_flags)) == NULL)
-			err(1, NULL);
+			err(1, "fflagstostr");
 		(void)fprintf(stderr, "override %s%s%s/%s %s%sfor %s? ",
-		    modep + 1, modep[9] == ' ' ? "" : " ",
+		    modep + 1, modep[10] == ' ' ? "" : " ",
 		    user_from_uid(sp->st_uid, 0),
 		    group_from_gid(sp->st_gid, 0),
-		    *flagsp ? flagsp : "", *flagsp ? " " : "", 
+		    *flagsp ? flagsp : "", *flagsp ? " " : "",
 		    path);
 		free(flagsp);
 	}
 	return yes_or_no();
 }
 
+#define ISSLASH(a)	((a)[0] == '/' && (a)[1] == '\0')
+static void
+checkslash(char **argv)
+{
+	char **t, **u;
+	int complained;
+
+	complained = 0;
+	for (t = argv; *t;) {
+		if (ISSLASH(*t)) {
+			if (!complained++)
+				warnx("\"/\" may not be removed");
+			eval = 1;
+			for (u = t; u[0] != NULL; ++u)
+				u[0] = u[1];
+		} else {
+			++t;
+		}
+	}
+}
+
+static int
+check2(char **argv)
+{
+	struct stat st;
+	int first;
+	int ch;
+	int fcount = 0;
+	int dcount = 0;
+	int i;
+	const char *dname = NULL;
+
+	for (i = 0; argv[i]; ++i) {
+		if (lstat(argv[i], &st) == 0) {
+			if (S_ISDIR(st.st_mode)) {
+				++dcount;
+				dname = argv[i];    /* only used if 1 dir */
+			} else {
+				++fcount;
+			}
+		}
+	}
+	first = 0;
+	while (first != 'n' && first != 'N' && first != 'y' && first != 'Y') {
+		if (dcount && rflag) {
+			fprintf(stderr, "recursively remove");
+			if (dcount == 1)
+				fprintf(stderr, " %s", dname);
+			else
+				fprintf(stderr, " %d dirs", dcount);
+			if (fcount == 1)
+				fprintf(stderr, " and 1 file");
+			else if (fcount > 1)
+				fprintf(stderr, " and %d files", fcount);
+		} else if (dcount + fcount > 3) {
+			fprintf(stderr, "remove %d files", dcount + fcount);
+		} else {
+			return(1);
+		}
+		fprintf(stderr, "? ");
+		fflush(stderr);
+
+		first = ch = getchar();
+		while (ch != '\n' && ch != EOF)
+			ch = getchar();
+		if (ch == EOF)
+			break;
+	}
+	return (first == 'y' || first == 'Y');
+}
 
 #define ISDOT(a)	((a)[0] == '.' && (!(a)[1] || ((a)[1] == '.' && !(a)[2])))
-void
-checkdot(argv)
-	char **argv;
+static void
+checkdot(char **argv)
 {
 	char *p, **save, **t;
 	int complained;
@@ -611,12 +658,19 @@ checkdot(argv)
 	}
 }
 
-void
-usage()
+static void
+usage(void)
 {
 
 	(void)fprintf(stderr, "%s\n%s\n",
-	    "usage: rm [-f | -i] [-dPRrvW] file ...",
-	    "       unlink file");
+	    "usage: rm [-f | -i] [-dIPRrvWx] file ...",
+	    "       unlink [--] file");
 	exit(EX_USAGE);
+}
+
+static void
+siginfo(int sig __unused)
+{
+
+	info = 1;
 }

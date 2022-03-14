@@ -1062,6 +1062,11 @@ sflt_setsockopt(struct socket *so, struct sockopt *sopt)
 		return 0;
 	}
 
+	/* Socket-options are checked at the MPTCP-layer */
+	if (so->so_flags & SOF_MP_SUBFLOW) {
+		return 0;
+	}
+
 	struct socket_filter_entry *entry;
 	int unlocked = 0;
 	int error = 0;
@@ -1109,6 +1114,11 @@ __private_extern__ int
 sflt_getsockopt(struct socket *so, struct sockopt *sopt)
 {
 	if (so->so_filt == NULL || sflt_permission_check(sotoinpcb(so))) {
+		return 0;
+	}
+
+	/* Socket-options are checked at the MPTCP-layer */
+	if (so->so_flags & SOF_MP_SUBFLOW) {
 		return 0;
 	}
 
@@ -1163,6 +1173,11 @@ sflt_data_out(struct socket *so, const struct sockaddr *to, mbuf_t *data,
 		return 0;
 	}
 
+	/* Socket-options are checked at the MPTCP-layer */
+	if (so->so_flags & SOF_MP_SUBFLOW) {
+		return 0;
+	}
+
 	struct socket_filter_entry *entry;
 	int unlocked = 0;
 	int setsendthread = 0;
@@ -1171,10 +1186,6 @@ sflt_data_out(struct socket *so, const struct sockaddr *to, mbuf_t *data,
 	lck_rw_lock_shared(&sock_filter_lock);
 	for (entry = so->so_filt; entry && error == 0;
 	    entry = entry->sfe_next_onsocket) {
-		/* skip if this is a subflow socket */
-		if (so->so_flags & SOF_MP_SUBFLOW) {
-			continue;
-		}
 		if ((entry->sfe_flags & SFEF_ATTACHED) &&
 		    entry->sfe_filter->sf_filter.sf_data_out) {
 			/*
@@ -1227,6 +1238,11 @@ sflt_data_in(struct socket *so, const struct sockaddr *from, mbuf_t *data,
 		return 0;
 	}
 
+	/* Socket-options are checked at the MPTCP-layer */
+	if (so->so_flags & SOF_MP_SUBFLOW) {
+		return 0;
+	}
+
 	struct socket_filter_entry *entry;
 	int error = 0;
 	int unlocked = 0;
@@ -1235,10 +1251,6 @@ sflt_data_in(struct socket *so, const struct sockaddr *from, mbuf_t *data,
 
 	for (entry = so->so_filt; entry && (error == 0);
 	    entry = entry->sfe_next_onsocket) {
-		/* skip if this is a subflow socket */
-		if (so->so_flags & SOF_MP_SUBFLOW) {
-			continue;
-		}
 		if ((entry->sfe_flags & SFEF_ATTACHED) &&
 		    entry->sfe_filter->sf_filter.sf_data_in) {
 			/*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2013, 2015-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2013, 2015-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -209,7 +209,7 @@ mirror_setup()
 
 __private_extern__
 void
-prime_SimulatorSupport()
+prime_SimulatorSupport(void)
 {
 	CFDictionaryRef	content_host;
 	CFIndex		n;

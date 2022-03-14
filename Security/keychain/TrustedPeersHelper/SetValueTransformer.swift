@@ -1,8 +1,11 @@
 import CoreData
 import Foundation
 
+private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "SetValueTransformer")
+
 @objc(SetValueTransformer)
 class SetValueTransformer: ValueTransformer {
+
     override class func transformedValueClass() -> AnyClass {
         return NSData.self
     }
@@ -18,7 +21,7 @@ class SetValueTransformer: ValueTransformer {
             }
             return try NSKeyedArchiver.archivedData(withRootObject: value, requiringSecureCoding: true)
         } catch {
-            os_log("Failed to serialize a Set: %@", log: tplogDebug, type: .default, error as CVarArg)
+            logger.debug("Failed to serialize a Set: \(String(describing: error), privacy: .public)")
             return nil
         }
     }
@@ -35,7 +38,7 @@ class SetValueTransformer: ValueTransformer {
             let unarchiver = try NSKeyedUnarchiver(forReadingFrom: data)
             return unarchiver.decodeObject(of: [NSSet.self, NSString.self], forKey: NSKeyedArchiveRootObjectKey)
         } catch {
-            os_log("Failed to deserialize a purported Set: %@", log: tplogDebug, type: .default, error as CVarArg)
+            logger.debug("Failed to deserialize a purported Set: \(String(describing: error), privacy: .public)")
             return nil
         }
     }

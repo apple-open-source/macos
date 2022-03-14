@@ -88,14 +88,56 @@ my{
             }
         }
         compound{
+            1024p1{"ကီဘီ{0}"}
+            1024p2{"မက်ဘီ{0}"}
+            1024p3{"ဂီဘီ{0}"}
+            1024p4{"တယ်ဘီ{0}"}
+            1024p5{"ပယ်ဘီ{0}"}
+            1024p6{"အိတ်ဇ်ဘီ{0}"}
+            1024p7{"ဇက်ဘီ{0}"}
+            1024p8{"ယိုဘီ{0}"}
+            10p-1{"ဒက်စီ{0}"}
+            10p-12{"ပီကို{0}"}
+            10p-15{"ဖမ်တို{0}"}
+            10p-18{"အက်တို{0}"}
+            10p-2{"စင်တီ{0}"}
+            10p-21{"ဇက်ပ်တို{0}"}
+            10p-24{"ယောက်တို{0}"}
+            10p-3{"မီလီ{0}"}
+            10p-6{"မိုက်ခရို{0}"}
+            10p-9{"နာနို{0}"}
+            10p1{"ဒက်ကာ{0}"}
+            10p12{"တယ်ရာ{0}"}
+            10p15{"ပက်တာ{0}"}
+            10p18{"အိတ်စ်ဆာ{0}"}
+            10p2{"ဟက်တို{0}"}
+            10p21{"ဇက်တာ{0}"}
+            10p24{"ယိုဒါ{0}"}
+            10p3{"ကီလို{0}"}
+            10p6{"မီဂါ{0}"}
+            10p9{"ဂီဂါ{0}"}
             per{"တစ်{1} လျှင် {0}"}
+            power2{
+                other{
+                    _{
+                        _{"စတုရန်း{0}"}
+                    }
+                }
+            }
+            power3{
+                other{
+                    _{
+                        _{"ကုဗ{0}"}
+                    }
+                }
+            }
         }
         concentr{
             karat{
                 dnam{"ကာရက်"}
                 other{"{0} ကာရက်"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"တစ်ဒက်စီလီတာရှိ မီလီဂရမ်"}
                 other{"တစ်ဒက်စီလီတာရှိ {0} မီလီဂရမ်"}
             }
@@ -813,6 +855,17 @@ my{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
+            10p-1{"d{0}"}
+            10p21{"Z{0}"}
+            10p24{"Y{0}"}
             per{"{0}/{1}"}
         }
         concentr{
@@ -825,6 +878,9 @@ my{
             liter-per-100-kilometer{
                 dnam{"L/100km"}
                 other{"{0} L/100km"}
+            }
+            mile-per-gallon-imperial{
+                other{"{0}m/gUK"}
             }
         }
         coordinate{
@@ -868,13 +924,24 @@ my{
                 other{"{0} နှစ်"}
             }
         }
+        energy{
+            therm-us{
+                other{"{0}US therms"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                other{"{0}kWh/100km"}
+            }
+        }
         length{
             centimeter{
                 dnam{"cm"}
                 other{"{0} cm"}
             }
-            foot{
-                other{"{0} '"}
+            earth-radius{
+                dnam{"R⊕"}
+                other{"{0}R⊕"}
             }
             inch{
                 other{"{0} ″"}
@@ -970,6 +1037,9 @@ my{
             cubic-mile{
                 other{"{0} mi³"}
             }
+            fluid-ounce-imperial{
+                other{"{0}fl oz Im"}
+            }
             liter{
                 dnam{"လီတာ"}
                 other{"{0}L"}
@@ -1057,6 +1127,17 @@ my{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
+            10p-1{"d{0}"}
+            10p21{"Z{0}"}
+            10p24{"Y{0}"}
             per{"{0}/{1}"}
         }
         concentr{
@@ -1064,7 +1145,7 @@ my{
                 dnam{"ကာရက်"}
                 other{"{0} kt"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dL"}
                 other{"{0} mg/dL"}
             }
@@ -1207,8 +1288,7 @@ my{
             }
             second{
                 dnam{"စက္ကန့်"}
-                other{"{0} စက္ကန့်"}
-                per{"{0}/ စက္ကန့်"}
+                other{"{0} sec"}
             }
             week{
                 dnam{"ပတ်"}
@@ -1362,7 +1442,7 @@ my{
             }
             micrometer{
                 dnam{"မိုက်ခရိုမီတာ"}
-                other{"{0} µm"}
+                other{"{0} μm"}
             }
             mile{
                 dnam{"မိုင်"}
@@ -1406,10 +1486,6 @@ my{
             }
         }
         light{
-            candela{
-                dnam{"ကန်ဒဲလာ"}
-                other{"{0} ကန်ဒဲလာ"}
-            }
             lumen{
                 dnam{"လူမန်"}
                 other{"{0} လူမန်"}
@@ -1454,8 +1530,8 @@ my{
                 other{"{0} t"}
             }
             microgram{
-                dnam{"µg"}
-                other{"{0} µg"}
+                dnam{"μg"}
+                other{"{0} μg"}
             }
             milligram{
                 dnam{"မီလီဂရမ်"}

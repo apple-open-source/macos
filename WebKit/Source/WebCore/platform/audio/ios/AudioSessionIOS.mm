@@ -28,6 +28,7 @@
 
 #if USE(AUDIO_SESSION) && PLATFORM(IOS_FAMILY)
 
+#import "AVAudioSessionCaptureDeviceManager.h"
 #import "Logging.h"
 #import <AVFoundation/AVAudioSession.h>
 #import <objc/runtime.h>
@@ -115,7 +116,7 @@ static void setEligibleForSmartRouting(bool eligible)
     if (!AudioSession::shouldManageAudioSessionCategory())
         return;
 
-    auto *session = [PAL::getAVAudioSessionClass() sharedInstance];
+    AVAudioSession *session = [PAL::getAVAudioSessionClass() sharedInstance];
     if (![session respondsToSelector:@selector(setEligibleForBTSmartRoutingConsideration:error:)]
         || ![session respondsToSelector:@selector(eligibleForBTSmartRoutingConsideration)])
         return;
@@ -167,6 +168,27 @@ void AudioSessionIOS::setHostProcessAttribution(audit_token_t auditToken)
 #endif
 };
 
+void AudioSessionIOS::setPresentingProcesses(Vector<audit_token_t>&& auditTokens)
+{
+#if HAVE(AUDIOSESSION_PROCESSASSERTION)
+    AVAudioSession *session = [PAL::getAVAudioSessionClass() sharedInstance];
+    if (![session respondsToSelector:@selector(setAuditTokensForProcessAssertion:error:)])
+        return;
+
+    auto nsAuditTokens = adoptNS([[NSMutableArray alloc] init]);
+    for (auto& token : auditTokens) {
+        auto nsToken = adoptNS([[NSData alloc] initWithBytes:token.val length:sizeof(token.val)]);
+        [nsAuditTokens addObject:nsToken.get()];
+    }
+
+    NSError *error = nil;
+    [session setAuditTokensForProcessAssertion:nsAuditTokens.get() error:&error];
+    if (error)
+        RELEASE_LOG_ERROR(Media, "Failed to set audit tokens for process assertion with error: %@", error.localizedDescription);
+#else
+    UNUSED_PARAM(auditTokens);
+#endif
+}
 
 void AudioSessionIOS::setCategory(CategoryType newCategory, RouteSharingPolicy policy)
 {
@@ -212,10 +234,38 @@ void AudioSessionIOS::setCategory(CategoryType newCategory, RouteSharingPolicy p
         break;
     }
 
-    NSError *error = nil;
-    [[PAL::getAVAudioSessionClass() sharedInstance] setCategory:categoryString mode:categoryMode routeSharingPolicy:static_cast<AVAudioSessionRouteSharingPolicy>(policy) options:options error:&error];
+    bool needDeviceUpdate = false;
+#if ENABLE(MEDIA_STREAM)
+    auto preferredDeviceUID = AVAudioSessionCaptureDeviceManager::singleton().preferredAudioSessionDeviceUID();
+    if ((newCategory == CategoryType::PlayAndRecord || newCategory == CategoryType::RecordAudio) && !preferredDeviceUID.isEmpty()) {
+        if (m_lastSetPreferredAudioDeviceUID != preferredDeviceUID)
+            needDeviceUpdate = true;
+    } else
+        m_lastSetPreferredAudioDeviceUID = emptyString();
+#endif
+
+    auto *session = [PAL::getAVAudioSessionClass() sharedInstance];
+    auto *currentCategory = [session category];
+    auto currentOptions = [session categoryOptions];
+    auto currentPolicy = [session routeSharingPolicy];
+    auto needSessionUpdate = ![currentCategory isEqualToString:categoryString] || currentOptions != options || currentPolicy != static_cast<AVAudioSessionRouteSharingPolicy>(policy);
+
+    if (!needSessionUpdate && !needDeviceUpdate)
+        return;
+
+    if (needSessionUpdate) {
+        NSError *error = nil;
+        [session setCategory:categoryString mode:categoryMode routeSharingPolicy:static_cast<AVAudioSessionRouteSharingPolicy>(policy) options:options error:&error];
 #if !PLATFORM(IOS_FAMILY_SIMULATOR) && !PLATFORM(MACCATALYST)
-    ASSERT(!error);
+        ASSERT(!error);
+#endif
+    }
+
+#if ENABLE(MEDIA_STREAM)
+    if (needDeviceUpdate) {
+        AVAudioSessionCaptureDeviceManager::singleton().configurePreferredAudioCaptureDevice();
+        m_lastSetPreferredAudioDeviceUID = AVAudioSessionCaptureDeviceManager::singleton().preferredAudioSessionDeviceUID();
+    }
 #endif
     for (auto& observer : audioSessionCategoryChangedObservers())
         observer(*this, category());

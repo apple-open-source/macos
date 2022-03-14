@@ -54,14 +54,14 @@ bool NetworkProcessProxy::XPCEventHandler::handleXPCEvent(xpc_object_t event) co
     if (messageName == LaunchServicesDatabaseXPCConstants::xpcLaunchServicesDatabaseXPCEndpointMessageName) {
         m_networkProcess->m_endpointMessage = event;
         for (auto& dataStore : copyToVectorOf<Ref<WebsiteDataStore>>(m_networkProcess->m_websiteDataStores))
-            dataStore->sendNetworkProcessXPCEndpointToAllWebProcesses();
+            dataStore->sendNetworkProcessXPCEndpointToAllProcesses();
     }
 
     return true;
 }
 
 NetworkProcessProxy::XPCEventHandler::XPCEventHandler(const NetworkProcessProxy& networkProcess)
-    : m_networkProcess(makeWeakPtr(networkProcess))
+    : m_networkProcess(networkProcess)
 {
 }
 

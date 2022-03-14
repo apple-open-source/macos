@@ -4,10 +4,13 @@ Running the generate-darwin-source-and-headers.py script in the parent directory
 in darwin_ios/include and darwin_osx/include.  Replace the headers in darwin/include with newer copies of those
 headers.
 
-fficonfig*.h don't get installed, so just copy the _arch.h versions in place.
+fficonfig*.h don't get installed, so just copy the _arch.h versions in place.  You'll need to hand edit fficonfig.h's
+handling of arm64 and arm64e.
 
 ffitarget*.h are customized per architecture, so just copy the _arch.h versions in place.  Note that i386 and
-x86_64 are the same, so just squash them.
+x86_64 are the same, so just squash them.  Also notice that the arm64e version is not needed, so remove it and
+edit ffitarget.h.  You will also need to edit ffitarget_*.h to disable FFI_GO_CLOSURES and re-add
+FFI_LEGACY_CLOSURE_API.
 
 The only difference between the ffi_*.h are in the architecture definition macros, so it's easiest to just
 hand craft those as necessary.  It's actually probably easier to compare the differences in ffi.h.in between

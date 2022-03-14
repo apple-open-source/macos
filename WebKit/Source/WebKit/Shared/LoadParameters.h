@@ -43,6 +43,10 @@ class Decoder;
 class Encoder;
 }
 
+namespace WebCore {
+typedef int SandboxFlags;
+}
+
 namespace WebKit {
 
 struct LoadParameters {
@@ -74,12 +78,14 @@ struct LoadParameters {
     WebCore::LockBackForwardList lockBackForwardList { WebCore::LockBackForwardList::No };
     WebCore::SubstituteData::SessionHistoryVisibility sessionHistoryVisibility { WebCore::SubstituteData::SessionHistoryVisibility::Visible };
     String clientRedirectSourceForHistory;
+    WebCore::SandboxFlags effectiveSandboxFlags { 0 };
     std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain;
     std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume;
+    bool isServiceWorkerLoad { false };
 
 #if PLATFORM(COCOA)
     RetainPtr<NSDictionary> dataDetectionContext;
-    SandboxExtension::HandleArray networkExtensionSandboxExtensionHandles;
+    Vector<SandboxExtension::Handle> networkExtensionSandboxExtensionHandles;
 #endif
 #if PLATFORM(IOS)
     std::optional<SandboxExtension::Handle> contentFilterExtensionHandle;

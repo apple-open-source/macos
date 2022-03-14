@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004,2011-2012,2014-2015 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2004,2011-2012,2014-2015,2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -373,7 +373,11 @@ static OCSPResponse *tpOcspFlushAndReFetch(
 	const CSSM_DATA *derCertID = certID.encode();
 	CSSM_RETURN crtn;
 
+#if OCSPD_ENABLED
 	crtn = ocspdCacheFlush(*derCertID);
+#else
+	crtn = CSSMERR_TP_INTERNAL_ERROR; /* no ocspd */
+#endif
 	if(crtn) {
 		#ifndef	NDEBUG
 		cssmPerror("ocspdCacheFlush", crtn);
@@ -382,7 +386,7 @@ static OCSPResponse *tpOcspFlushAndReFetch(
 	}
 
 	/* Cook up an OCSPDRequests, one request, just for this */
-	/* send it to ocsdp */
+	/* send it to ocspd */
 	/* munge reply into an OCSPRsponse and return it */
 	tpOcspDebug("pOcspFlushAndReFetch: Code on demand");
 	return NULL;
@@ -594,7 +598,11 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 		ourRtn = CSSMERR_TP_INTERNAL_ERROR;
 		goto errOut;
 	}
+#if OCSPD_ENABLED
 	crtn = ocspdFetch(vfyCtx.alloc, derOcspdRequests, derOcspdReplies);
+#else
+	crtn = CSSMERR_TP_INTERNAL_ERROR; /* no ocspd */
+#endif
 	if(crtn) {
 		tpErrorLog("tpVerifyCertGroupWithOCSP: error during ocspd RPC\n");
 		#ifndef	NDEBUG

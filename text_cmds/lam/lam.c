@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,10 +29,11 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__COPYRIGHT(
 "@(#) Copyright (c) 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
+	The Regents of the University of California.  All rights reserved.\n");
 #endif /* not lint */
 
 #ifndef lint
@@ -42,25 +41,31 @@ static const char copyright[] =
 static char sccsid[] = "@(#)lam.c	8.1 (Berkeley) 6/6/93";
 #endif
 #endif /* not lint */
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/lam/lam.c,v 1.14 2005/08/05 01:04:36 jmallett Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  *	lam - laminate files
  *	Author:  John Kunze, UCB
  */
 
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+
+#include <capsicum_helpers.h>
+#endif
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sysexits.h>
+#include <unistd.h>
 
 #define	MAXOFILES	20
 #define	BIGBUFSIZ	5 * BUFSIZ
 
-struct	openfile {		/* open file structure */
+static struct openfile {	/* open file structure */
 	FILE	*fp;		/* file pointer */
 	short	eof;		/* eof flag */
 	short	pad;		/* pad flag for missing columns */
@@ -69,10 +74,10 @@ struct	openfile {		/* open file structure */
 	const char *format;	/* printf(3) style string spec. */
 }	input[MAXOFILES];
 
-int	morefiles;		/* set by getargs(), changed by gatherline() */
-int	nofinalnl;		/* normally append \n to each output line */
-char	line[BIGBUFSIZ];
-char	*linep;
+static int	morefiles;	/* set by getargs(), changed by gatherline() */
+static int	nofinalnl;	/* normally append \n to each output line */
+static char	line[BIGBUFSIZ];
+static char	*linep;
 
 static char    *gatherline(struct openfile *);
 static void	getargs(char *[]);
@@ -86,9 +91,24 @@ main(int argc, char *argv[])
 
 	if (argc == 1)
 		usage();
+#ifndef __APPLE__
+	if (caph_limit_stdio() == -1)
+		err(1, "unable to limit stdio");
+#endif
 	getargs(argv);
 	if (!morefiles)
 		usage();
+
+#ifndef __APPLE__
+	/*
+	 * Cache NLS data, for strerror, for err(3), before entering capability
+	 * mode.
+	 */
+	caph_cache_catpages();
+	if (caph_enter() < 0)
+		err(1, "unable to enter capability mode");
+#endif
+
 	for (;;) {
 		linep = line;
 		for (ip = input; ip->fp != NULL; ip++)
@@ -110,7 +130,11 @@ getargs(char *av[])
 	static char fmtbuf[BUFSIZ];
 	char *fmtp = fmtbuf;
 	int P, S, F, T;
+#ifndef __APPLE__
+	cap_rights_t rights_ro;
 
+	cap_rights_init(&rights_ro, CAP_READ, CAP_FSTAT);
+#endif
 	P = S = F = T = 0;		/* capitalized options */
 	while ((p = *++av) != NULL) {
 		if (*p != '-' || !p[1]) {
@@ -121,6 +145,10 @@ getargs(char *av[])
 			else if ((ip->fp = fopen(p, "r")) == NULL) {
 				err(1, "%s", p);
 			}
+#ifndef __APPLE__
+			if (caph_rights_limit(fileno(ip->fp), &rights_ro) < 0)
+				err(1, "unable to limit rights on: %s", p);
+#endif
 			ip->pad = P;
 			if (!ip->sepstring)
 				ip->sepstring = (S ? (ip-1)->sepstring : "");
@@ -225,7 +253,7 @@ gatherline(struct openfile *ip)
 }
 
 static void
-usage()
+usage(void)
 {
 	fprintf(stderr, "%s\n%s\n",
 "usage: lam [ -f min.max ] [ -s sepstring ] [ -t c ] file ...",

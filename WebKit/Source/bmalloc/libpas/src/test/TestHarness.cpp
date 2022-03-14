@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2018-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,9 @@
 #include "TestHarness.h"
 
 #include "Verifier.h"
+#include <atomic>
+#include "bmalloc_heap_config.h"
+#include "hotbit_heap_config.h"
 #include "iso_heap_config.h"
 #include "iso_test_heap_config.h"
 #include "jit_heap.h"
@@ -85,10 +88,10 @@ struct TestScopeImpl {
 };
 
 #define FOR_EACH_RUNTIME_CONFIG(name, callback) ({ \
-        (callback)(name ## _intrinsic_primitive_runtime_config.base); \
+        (callback)(name ## _intrinsic_runtime_config.base); \
         (callback)(name ## _primitive_runtime_config.base); \
         (callback)(name ## _typed_runtime_config.base); \
-        (callback)(name ## _objc_runtime_config.base); \
+        (callback)(name ## _flex_runtime_config.base); \
     })
 
 RuntimeConfigTestScope::RuntimeConfigTestScope(
@@ -102,6 +105,8 @@ RuntimeConfigTestScope::RuntimeConfigTestScope(
             FOR_EACH_RUNTIME_CONFIG(iso_test, setUp);
             FOR_EACH_RUNTIME_CONFIG(minalign32, setUp);
             FOR_EACH_RUNTIME_CONFIG(pagesize64k, setUp);
+            FOR_EACH_RUNTIME_CONFIG(bmalloc, setUp);
+            FOR_EACH_RUNTIME_CONFIG(hotbit, setUp);
             setUp(pas_utility_heap_runtime_config);
             setUp(jit_heap_runtime_config);
         })
@@ -240,6 +245,24 @@ BootJITHeap::BootJITHeap()
 {
 }
 
+EnablePageBalancing::EnablePageBalancing()
+    : TestScope(
+        "enable-page-balancing",
+        [] () {
+            pas_physical_page_sharing_pool_balancing_enabled = true;
+        })
+{
+}
+
+DisablePageBalancing::DisablePageBalancing()
+    : TestScope(
+        "disable-page-balancing",
+        [] () {
+            pas_physical_page_sharing_pool_balancing_enabled = false;
+        })
+{
+}
+
 namespace {
 
 template<typename Func>
@@ -317,11 +340,14 @@ int resultPipe[2];
 } // anonymous namespace
 
 void addBitfieldVectorTests();
+void addBitfitTests();
 void addBitvectorTests();
 void addCartesianTreeTests();
 void addCoalignTests();
+void addExpendableMemoryTests();
 void addExtendedGCDTests();
 void addHashtableTests();
+void addHeapRefAllocatorIndexTests();
 void addIsoDynamicPrimitiveHeapTests();
 void addIsoHeapChaosTests();
 void addIsoHeapPageSharingTests();
@@ -331,10 +357,11 @@ void addJITHeapTests();
 void addLargeFreeHeapTests();
 void addLargeSharingPoolTests();
 void addLockFreeReadPtrPtrHashtableTests();
+void addLotsOfHeapsAndThreadsTests();
 void addMinHeapTests();
+void addPGMTests();
 void addRaceTests();
 void addRedBlackTreeTests();
-void addSkipListTests();
 void addTSDTests();
 void addThingyAndUtilityHeapAllocationTests();
 void addUtilsTests();
@@ -672,13 +699,20 @@ int main(int argc, char** argv)
 #if SEGHEAP
     pas_segregated_page_config_do_validate = true;
 #endif
-    
+
+    // Run the Thingy tests first because they catch the most bugs.
+    ADD_SUITE(ThingyAndUtilityHeapAllocation);
+
+    // Run the rest of the tests in alphabetical order.
     ADD_SUITE(BitfieldVector);
+    ADD_SUITE(Bitfit);
     ADD_SUITE(Bitvector);
     ADD_SUITE(CartesianTree);
     ADD_SUITE(Coalign);
+    ADD_SUITE(ExpendableMemory);
     ADD_SUITE(ExtendedGCD);
     ADD_SUITE(Hashtable);
+    ADD_SUITE(HeapRefAllocatorIndex);
     ADD_SUITE(IsoDynamicPrimitiveHeap);
     ADD_SUITE(IsoHeapChaos);
     ADD_SUITE(IsoHeapPageSharing);
@@ -688,12 +722,12 @@ int main(int argc, char** argv)
     ADD_SUITE(LargeFreeHeap);
     ADD_SUITE(LargeSharingPool);
     ADD_SUITE(LockFreeReadPtrPtrHashtable);
+    ADD_SUITE(LotsOfHeapsAndThreads);
     ADD_SUITE(MinHeap);
+    ADD_SUITE(PGM);
     ADD_SUITE(Race);
     ADD_SUITE(RedBlackTree);
-    ADD_SUITE(SkipList);
     ADD_SUITE(TSD);
-    ADD_SUITE(ThingyAndUtilityHeapAllocation);
     ADD_SUITE(Utils);
     
     string filter;

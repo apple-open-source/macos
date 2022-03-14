@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -423,10 +423,14 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	p1a(ip6s_reassembled, "\t\t\t%llu reassembled ok\n");
 	p1a(ip6s_atmfrag_rcvd, "\t\t\t%llu atomic fragments received\n");
 	p(ip6s_delivered, "\t\t%llu packet%s for this host\n");
+	p(ip6s_rcv_if_weak_match,
+	    "\t\t%llu input packet%s that passed the weak ES interface address match\n");
+	p(ip6s_rcv_if_no_match,
+	    "\t\t%llu input packet%s with no interface address match\n");
 	p(ip6s_forward, "\t\t%llu packet%s forwarded\n");
 	p(ip6s_cantforward, "\t\t%llu packet%s not forwardable\n");
 	p(ip6s_redirectsent, "\t\t%llu redirect%s sent\n");
-	p(ip6s_notmember, "\t\t%llu multicast packet%s which we don't join\n");
+	p(ip6s_notmember, "\t\t%llu multicast packet%s which we didn't join\n");
 	p(ip6s_exthdrtoolong,
 	    "\t\t%llu packet%s whose headers are not continuous\n");
 	p(ip6s_nogif, "\t\t%llu tunneling packet%s that can't find gif\n");
@@ -487,10 +491,6 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 	    "\t\t%llu output packet%s dropped due to CLAT46 failures\n");
 	p(ip6s_clat464_out_success,
 	    "\t\t%llu output packet%s successfully translated from IPv4 to IPv6\n");
-	p(ip6s_rcv_if_weak_match,
-	  "\t\t%llu input packet%s that passed the weak ES interface address match\n");
-	p(ip6s_rcv_if_no_match,
-	  "\t\t%llu input packet%s with no interface address match\n");
 
 	for (first = 1, i = 0; i < 256; i++)
 		if (IP6DIFF(ip6s_nxthist[i]) != 0) {

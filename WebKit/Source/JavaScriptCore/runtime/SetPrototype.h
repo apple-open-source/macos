@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,14 +37,14 @@ public:
     static IsoSubspace* subspaceFor(VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(SetPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     static constexpr unsigned StructureFlags = Base::StructureFlags | HasStaticPropertyTable;
 
     static SetPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
-        SetPrototype* prototype = new (NotNull, allocateCell<SetPrototype>(vm.heap)) SetPrototype(vm, structure);
+        SetPrototype* prototype = new (NotNull, allocateCell<SetPrototype>(vm)) SetPrototype(vm, structure);
         prototype->finishCreation(vm, globalObject);
         return prototype;
     }

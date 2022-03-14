@@ -87,6 +87,8 @@ public:
     Color caretColor;
     Color visitedLinkCaretColor;
 
+    Color accentColor;
+
     std::unique_ptr<ShadowData> textShadow; // Our text shadow information for shadowed text drawing.
     
     RefPtr<CursorList> cursorData;
@@ -109,13 +111,14 @@ public:
     unsigned textSecurity : 2; // TextSecurity
     unsigned userModify : 2; // UserModify (editing)
     unsigned wordBreak : 2; // WordBreak
-    unsigned overflowWrap : 1; // OverflowWrap
+    unsigned overflowWrap : 2; // OverflowWrap
     unsigned nbspMode : 1; // NBSPMode
     unsigned lineBreak : 3; // LineBreak
     unsigned userSelect : 2; // UserSelect
     unsigned colorSpace : 1; // ColorSpace
     unsigned speakAs : 4; // ESpeakAs
     unsigned hyphens : 2; // Hyphens
+    unsigned textCombine : 1; // text-combine-upright
     unsigned textEmphasisFill : 1; // TextEmphasisFill
     unsigned textEmphasisMark : 3; // TextEmphasisMark
     unsigned textEmphasisPosition : 4; // TextEmphasisPosition
@@ -139,7 +142,7 @@ public:
     unsigned textAlignLast : 3; // TextAlignLast
     unsigned textJustify : 2; // TextJustify
 #endif
-    unsigned textDecorationSkip : 5; // TextDecorationSkip
+    unsigned textDecorationSkipInk : 2; // TextDecorationSkipInk
     unsigned textUnderlinePosition : 2; // TextUnderlinePosition
     unsigned rubyPosition : 2; // RubyPosition
     unsigned textZoom: 1; // TextZoom
@@ -160,6 +163,10 @@ public:
 
     unsigned hasAutoCaretColor : 1;
     unsigned hasVisitedLinkAutoCaretColor : 1;
+
+    unsigned hasAutoAccentColor : 1;
+
+    unsigned effectiveInert : 1;
 
     unsigned isInSubtreeWithBlendMode : 1;
 

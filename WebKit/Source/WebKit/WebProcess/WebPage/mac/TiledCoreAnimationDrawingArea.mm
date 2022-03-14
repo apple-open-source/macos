@@ -75,7 +75,7 @@ namespace WebKit {
 using namespace WebCore;
 
 TiledCoreAnimationDrawingArea::TiledCoreAnimationDrawingArea(WebPage& webPage, const WebPageCreationParameters& parameters)
-    : DrawingArea(DrawingAreaTypeTiledCoreAnimation, parameters.drawingAreaIdentifier, webPage)
+    : DrawingArea(DrawingAreaType::TiledCoreAnimation, parameters.drawingAreaIdentifier, webPage)
     , m_isPaintingSuspended(!(parameters.activityState & ActivityState::IsVisible))
 {
     m_webPage.corePage()->settings().setForceCompositingMode(true);
@@ -118,7 +118,7 @@ void TiledCoreAnimationDrawingArea::sendDidFirstLayerFlushIfNeeded()
     m_needsSendDidFirstLayerFlush = false;
 
     // Let the first commit complete before sending.
-    [CATransaction addCommitHandler:[this, weakThis = makeWeakPtr(*this)] {
+    [CATransaction addCommitHandler:[this, weakThis = WeakPtr { *this }] {
         if (!weakThis || !m_layerHostingContext)
             return;
         LayerTreeContext layerTreeContext;
@@ -184,7 +184,7 @@ void TiledCoreAnimationDrawingArea::forceRepaintAsync(WebPage& page, CompletionH
         return completionHandler();
     }
 
-    dispatchAfterEnsuringUpdatedScrollPosition([this, weakThis = makeWeakPtr(*this), completionHandler = WTFMove(completionHandler)] () mutable {
+    dispatchAfterEnsuringUpdatedScrollPosition([this, weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] () mutable {
         if (!weakThis)
             return completionHandler();
         m_webPage.drawingArea()->forceRepaint();
@@ -373,28 +373,20 @@ void TiledCoreAnimationDrawingArea::dispatchAfterEnsuringUpdatedScrollPosition(W
         return;
     }
 
-    m_webPage.ref();
     m_webPage.corePage()->scrollingCoordinator()->commitTreeStateIfNeeded();
 
     if (!m_layerTreeStateIsFrozen)
         invalidateRenderingUpdateRunLoopObserver();
 
-    // It is possible for the drawing area to be destroyed before the bound block
-    // is invoked, so grab a reference to the web page here so we can access the drawing area through it.
-    // (The web page is already kept alive by dispatchAfterEnsuringUpdatedScrollPosition).
-    WebPage* webPage = &m_webPage;
-
-    ScrollingThread::dispatchBarrier([this, webPage, function = WTFMove(function)] {
-        DrawingArea* drawingArea = webPage->drawingArea();
-        if (!drawingArea)
+    ScrollingThread::dispatchBarrier([this, retainedPage = Ref { m_webPage }, function = WTFMove(function)] {
+        // It is possible for the drawing area to be destroyed before the bound block is invoked.
+        if (!retainedPage->drawingArea())
             return;
 
         function();
 
         if (!m_layerTreeStateIsFrozen)
             scheduleRenderingUpdateRunLoopObserver();
-
-        webPage->deref();
     });
 #else
     function();
@@ -421,11 +413,11 @@ void TiledCoreAnimationDrawingArea::addCommitHandlers()
     if (m_webPage.firstFlushAfterCommit())
         return;
 
-    [CATransaction addCommitHandler:[retainedPage = makeRefPtr(&m_webPage)] {
+    [CATransaction addCommitHandler:[retainedPage = Ref { m_webPage }] {
         retainedPage->willStartPlatformRenderingUpdate();
     } forPhase:kCATransactionPhasePreLayout];
 
-    [CATransaction addCommitHandler:[retainedPage = makeRefPtr(&m_webPage)] {
+    [CATransaction addCommitHandler:[retainedPage = Ref { m_webPage }] {
         if (auto drawingArea = static_cast<TiledCoreAnimationDrawingArea*>(retainedPage->drawingArea()))
             drawingArea->sendPendingNewlyReachedPaintingMilestones();
 
@@ -516,11 +508,11 @@ void TiledCoreAnimationDrawingArea::handleActivityStateChangeCallbacksIfNeeded()
         return;
     }
 
-    [CATransaction addCommitHandler:[weakThis = makeWeakPtr(*this)] {
+    [CATransaction addCommitHandler:[weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
 
-        auto protectedPage = makeRef(weakThis->m_webPage);
+        Ref protectedPage = weakThis->m_webPage;
         auto* drawingArea = static_cast<TiledCoreAnimationDrawingArea*>(protectedPage->drawingArea());
         ASSERT(weakThis.get() == drawingArea);
         if (drawingArea != weakThis.get())

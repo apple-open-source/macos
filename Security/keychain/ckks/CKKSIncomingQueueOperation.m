@@ -860,8 +860,9 @@
         if(moddate) {
             // Log the number of ms it took to propagate this change
             uint64_t delayInMS = [[NSDate date] timeIntervalSinceDate:moddate] * 1000;
-            [SecCoreAnalytics sendEvent:@"com.apple.self.deps.item.propagation" event:@{
-                @"time" : @(delayInMS)
+            [SecCoreAnalytics sendEvent:@"com.apple.ckks.item.propagation" event:@{
+                @"time" : @(delayInMS),
+                @"view" : viewState.zoneID.zoneName,
             }];
         }
 

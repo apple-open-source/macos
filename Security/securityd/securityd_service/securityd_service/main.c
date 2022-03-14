@@ -287,6 +287,26 @@ done:
     return exists;
 }
 
+static ssize_t
+writen(int ref, const void *data, size_t len)
+{
+    size_t left = len;
+    ssize_t n;
+    const void *p = data;
+
+    while (left > 0) {
+        if ((n = write(ref, p, left)) == -1) {
+            if (errno != EINTR) {
+                return -1;
+            }
+            n = 0;
+        }
+        left -= n;
+        p += n;
+    }
+    return len;
+}
+
 static bool
 _kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * data, size_t length, uint64_t * kcv)
 {
@@ -303,7 +323,7 @@ _kb_save_bag_to_disk(service_user_record_t * ur, const char * bag_file, void * d
 
     fd = open(tmp_bag, O_CREAT | O_TRUNC | O_WRONLY | O_NOFOLLOW, 0600);
     require_action(fd != -1, done, os_log(OS_LOG_DEFAULT, "could not create file: %{public}s %{darwin.errno}d", tmp_bag, errno));
-    require_action(write(fd, data, length) == length, done, os_log(OS_LOG_DEFAULT, "failed to write keybag to disk %s %{darwin.errno}d", tmp_bag, errno));
+    require_action(writen(fd, data, length) != -1, done, os_log(OS_LOG_DEFAULT, "failed to write keybag to disk %s %{darwin.errno}d", tmp_bag, errno));
 
     /* try atomic swap (will fail if destination doesn't exist); if that fails, try regular rename */
     if (renamex_np(tmp_bag, bag_file, RENAME_SWAP) != 0) {

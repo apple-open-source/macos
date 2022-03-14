@@ -3334,7 +3334,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = container.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3386,7 +3386,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
 
         do {
             let state = containerA.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == aPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == aPeerID }, "should have a bottle for peer")
             let secret = containerA.loadSecretSync(test: self, label: aPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3408,7 +3408,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3482,7 +3482,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             containerC.prepareSync(test: self, epoch: 1, machineID: "ccc", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerC.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == cPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == cPeerID }, "should have a bottle for peer")
             let secret = containerC.loadSecretSync(test: self, label: cPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3584,7 +3584,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
             containerB.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = containerB.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == bPeerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == bPeerID }, "should have a bottle for peer")
             let secret = containerB.loadSecretSync(test: self, label: bPeerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3638,7 +3638,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = container.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3679,7 +3679,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let (peerID, permanentInfo, permanentInfoSig, _, _, _, error) = container.prepareSync(test: self, epoch: 1, machineID: "aaa", bottleSalt: "123456789", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == peerID }, "should have a bottle for peer")
             let secret = container.loadSecretSync(test: self, label: peerID!)
             XCTAssertNotNil(secret, "secret should not be nil")
             XCTAssertNil(error, "error should be nil")
@@ -3731,7 +3731,7 @@ class TrustedPeersHelperUnitTests: XCTestCase {
         let (peerID2, permanentInfo2, permanentInfoSig2, _, _, _, error2) = container.prepareSync(test: self, epoch: 1, machineID: "bbb", bottleSalt: "987654321", bottleID: UUID().uuidString, modelID: "iPhone1,1")
         do {
             let state = container.getStateSync(test: self)
-            XCTAssertFalse( state.bottles.filter { $0.peerID == peerID2 } .isEmpty, "should have a bottle for peer")
+            XCTAssertTrue( state.bottles.contains { $0.peerID == peerID2 }, "should have a bottle for peer")
             let secret2 = container.loadSecretSync(test: self, label: peerID2!)
             XCTAssertNotNil(secret2, "secret should not be nil")
             XCTAssertNil(error2, "error should be nil")

@@ -523,7 +523,9 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
     const char *uname = NULL;
     int uid = -1;
     
-    if (uid == -1) {
+    if (auth_items_exist(engine->context, "sheet-uid")) {
+        uid = auth_items_get_uint(engine->context, "sheet-uid");
+    } else if (uid == -1) {
         if (apUsed) {
             uname = auth_items_get_string(engine->context, AGENT_CONTEXT_AP_USER_NAME);
         } else {
@@ -538,6 +540,7 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
             uname = pw->pw_name;
         }
     }
+    
     if (engine->la_context) {
         if (!uname) {
             os_log_error(AUTHD_LOG, "No user specified, unable to continue");
@@ -546,11 +549,12 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
         }
         
         unameCf = CFStringCreateWithCString(kCFAllocatorDefault, uname, kCFStringEncodingUTF8);
-        if(!unameCf)    {
+        if(!unameCf) {
             os_log_error(AUTHD_LOG, "Unable to create a username, unable to continue");
             result = kAuthorizationResultDeny;
             goto done;
         }
+        os_log_debug(AUTHD_LOG, "Sheet authorization for %{public}@", unameCf);
     }
     
 	for (CFIndex i = 0; i < count; i++) {
@@ -589,11 +593,11 @@ _evaluate_mechanisms(engine_t engine, CFArrayRef mechanisms)
 						shoud_run_agent = false;
 						if (!laResult || TKGetSmartcardSettingForUser(kTKEnforceSmartcard, unameCf) != 0) {
 							result = kAuthorizationResultDeny;
-                            os_log_error(AUTHD_LOG, "engine %lld: denying sheet auth", engine->engine_index);
+                            os_log_error(AUTHD_LOG, "engine %lld: denying sheet auth (%d)", engine->engine_index, laResult == nil);
 						}
 					} else {
 						// should_run_agent has to be set to true because we want authorizationhost to verify the credentials
-						os_log_debug(AUTHD_LOG, "engine %lld: running sheet privileged authenticate", engine->engine_index);
+						os_log_debug(AUTHD_LOG, "engine %lld: running authorizationhost with privileged authenticate", engine->engine_index);
 					}
 				}
 			}

@@ -7,6 +7,9 @@ JSDedicatedWorkerGlobalScope.h: DedicatedWorkerGlobalScopeConstructors.idl
 DOMDedicatedWorkerGlobalScope.h: DedicatedWorkerGlobalScopeConstructors.idl
 WebDOMDedicatedWorkerGlobalScope.h: DedicatedWorkerGlobalScopeConstructors.idl
 DedicatedWorkerGlobalScopeConstructors.idl:
+JSExposedStar.h: 
+DOMExposedStar.h: 
+WebDOMExposedStar.h: 
 JSExposedToWorkerAndWindow.h: 
 DOMExposedToWorkerAndWindow.h: 
 WebDOMExposedToWorkerAndWindow.h: 
@@ -18,6 +21,10 @@ JSServiceWorkerGlobalScope.h: ServiceWorkerGlobalScopeConstructors.idl
 DOMServiceWorkerGlobalScope.h: ServiceWorkerGlobalScopeConstructors.idl
 WebDOMServiceWorkerGlobalScope.h: ServiceWorkerGlobalScopeConstructors.idl
 ServiceWorkerGlobalScopeConstructors.idl:
+JSSharedWorkerGlobalScope.h: SharedWorkerGlobalScopeConstructors.idl
+DOMSharedWorkerGlobalScope.h: SharedWorkerGlobalScopeConstructors.idl
+WebDOMSharedWorkerGlobalScope.h: SharedWorkerGlobalScopeConstructors.idl
+SharedWorkerGlobalScopeConstructors.idl:
 JSTestCEReactions.h: 
 DOMTestCEReactions.h: 
 WebDOMTestCEReactions.h: 

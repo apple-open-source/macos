@@ -37,10 +37,7 @@
 /* forward declarations */
 OSStatus SecAddSharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFStringRef password, CFErrorRef *error);
 OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
-OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
 CFStringRef SecCopyFQDNFromEntitlementString(CFStringRef entitlement);
-#endif
 
 #if SHAREDWEBCREDENTIALS
 
@@ -169,72 +166,6 @@ void SecAddSharedWebCredential(CFStringRef fqdn,
 #endif
 }
 
-#if SHAREDWEBCREDENTIALS
-
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
-
-OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
-    CFStringRef account,
-    CFArrayRef *credentials,
-    CFErrorRef *error)
-{
-    OSStatus status = errSecUnimplemented;
-    if (error) {
-        SecError(status, error, CFSTR("SecCopySharedWebCredentialSync not supported on this platform"));
-    }
-    return status;
-}
-
-#else
-
-OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn,
-    CFStringRef account,
-    CFArrayRef *credentials,
-    CFErrorRef *error)
-{
-    OSStatus status;
-    __block CFErrorRef* outError = error;
-    __block CFMutableDictionaryRef args = CFDictionaryCreateMutable(kCFAllocatorDefault,
-        0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (fqdn) {
-        CFDictionaryAddValue(args, kSecAttrServer, fqdn);
-    }
-    if (account) {
-        CFDictionaryAddValue(args, kSecAttrAccount, account);
-    }
-    status = SecOSStatusWith(^bool (CFErrorRef *error) {
-        CFTypeRef raw_result = NULL;
-        bool xpc_result = false;
-        bool internal_spi = false; // TODO: support this for SecurityDevTests
-        if(internal_spi && gSecurityd && gSecurityd->sec_copy_shared_web_credential) {
-            xpc_result = gSecurityd->sec_copy_shared_web_credential(args, NULL, NULL, NULL, SecAccessGroupsGetCurrent(), &raw_result, error);
-        } else {
-            xpc_result = cftype_client_to_bool_cftype_error_request(sec_copy_shared_web_credential_id, args, SecSecurityClientGet(), &raw_result, error);
-        }
-        CFReleaseSafe(args);
-        if (!xpc_result) {
-            if (NULL == *error) {
-                SecError(errSecInternal, error, CFSTR("Internal error (XPC failure)"));
-            }
-        }
-        if (outError) {
-            *outError = (error) ? *error : NULL;
-            CFRetainSafe(*outError);
-        } else {
-            CFReleaseNull(*error);
-        }
-        if (!raw_result) {
-            raw_result = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-        }
-        *credentials = raw_result;
-        return xpc_result;
-    });
-
-    return status;
-}
-#endif /* !TARGET_OS_OSX || !TARGET_OS_MACCATALYST */
-#endif /* SHAREDWEBCREDENTIALS */
-
 void SecRequestSharedWebCredential(CFStringRef fqdn,
     CFStringRef account,
     void (^completionHandler)(CFArrayRef credentials, CFErrorRef error))
@@ -251,12 +182,11 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
     if (fqdn && (CFGetTypeID(fqdn) != CFStringGetTypeID() || !CFStringGetLength(fqdn))) {
         errStr = CFSTR("fqdn was empty or not a CFString");
     }
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
     /* a NULL 'fqdn' is documented to implicitly specify the domain(s) in
-       the 'com.apple.developer.associated-domains' entitlement. On iOS,
-       this is handled in SecItemServer within securityd, but since macOS
-       and Catalyst use Authentication Services instead, we need to obtain
-       an associated domain here before we can proceed. */
+       the 'com.apple.developer.associated-domains' entitlement. Authentication
+       Services doesn't pass the associated domain back to us, so we need to
+       extract it ourselves, and then include it in the credentials dictionary
+       that we pass to the completion handler. */
     if (!fqdn) {
         CFArrayRef domains = NULL;
         SecTaskRef task = SecTaskCreateFromSelf(NULL);
@@ -276,7 +206,6 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
     if (!errStr && !serverStr) {
         errStr = CFSTR("fqdn was NULL, and no associated domains found");
     }
-#endif
     if (!errStr && serverStr && (CFGetTypeID(serverStr) != CFStringGetTypeID() || !CFStringGetLength(serverStr))) {
         errStr = CFSTR("fqdn was empty or not a CFString");
     }
@@ -298,11 +227,7 @@ void SecRequestSharedWebCredential(CFStringRef fqdn,
     }
 
     dispatch_async(dst_queue, ^{
-#if TARGET_OS_OSX || TARGET_OS_MACCATALYST
-		OSStatus status = SecCopySharedWebCredentialSyncUsingAuthSvcs(serverStr, accountStr, &result, &error);
-#else
 		OSStatus status = SecCopySharedWebCredentialSync(serverStr, accountStr, &result, &error);
-#endif
 		CFReleaseSafe(serverStr);
 		CFReleaseSafe(accountStr);
 

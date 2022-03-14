@@ -2,7 +2,7 @@
 /*
  * Copyright is disclaimed as to the contents of this file.
  *
- * $FreeBSD: src/usr.bin/getconf/progenv.gperf,v 1.2 2003/08/22 17:32:07 markm Exp $
+ * $FreeBSD$
  */
 
 #include <sys/types.h>
@@ -30,14 +30,17 @@ static const struct map *in_word_set(const char *str);
  * be updated.  (We cheat here and define the supported environments
  * statically.)
  */
-#if defined(__alpha__) || defined(__sparc64__)
+#ifdef	__LP64__
 #define	have_LP64_OFF64		NULL
-#elif defined(__APPLE__)
-#define	have_LP64_OFF64		NULL
-#define	have_LPBIG_OFFBIG	NULL
 #endif
+#if defined(__APPLE__)
+#ifndef have_LP64_OFF64
+#define	have_LP64_OFF64		NULL
+#endif /* have_LP64_OFF64 */
+#define	have_LPBIG_OFFBIG	NULL
+#endif /* __APPLE__ */
 
-#if defined(__i386__) || defined(__powerpc__) || defined(__x86_64__)
+#ifdef	__ILP32__
 #define	have_ILP32_OFFBIG	NULL
 #endif
 

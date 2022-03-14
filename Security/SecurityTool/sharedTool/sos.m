@@ -179,6 +179,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         bool circleHash = false;
         bool triggerRingUpdate = false;
         bool iCloudIdentityStatus = false;
+        bool accountStatus = false;
         bool removeV0Peers = false;
         bool sosQueryEnabled = false;
 
@@ -197,12 +198,13 @@ command_sos_control(__unused int argc, __unused char * const * argv)
             {"ghostbustInfo",   optional_argument, NULL, 'G'},
             {"ghostbustTriggered",   optional_argument, NULL, 'T'},
             {"icloudIdentityStatus",   optional_argument, NULL, 'i'},
+            {"logAccountStatus",   optional_argument, NULL, 'l'},
             {"removeV0Peers",   optional_argument, NULL, 'V'},
             {"querySOSMode",   no_argument, NULL, 'Q'},
             {0, 0, 0, 0}
         };
 
-        while ((ch = getopt_long(argc, argv, "as:AB:GHIMQRSTiV", long_options, &option_index)) != -1) {
+        while ((ch = getopt_long(argc, argv, "as:AB:GHIMQRSTilV", long_options, &option_index)) != -1) {
             switch  (ch) {
                 case 'a': {
                     assertStashAccountKey = true;
@@ -264,6 +266,9 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                     break;
                 case 'i':
                     iCloudIdentityStatus = true;
+                    break;
+                case 'l':
+                    accountStatus = true;
                     break;
                 case 'V':
                     removeV0Peers = true;
@@ -371,6 +376,38 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                     printf("iCloudIdentityStatus:\n%s\n", [[[NSString alloc] initWithData:json encoding:NSUTF8StringEncoding] UTF8String]);
                 } else {
                     printf("%s", [[NSString stringWithFormat:@"failed to get iCloudIdentityStatus: %@\n", error] UTF8String]);
+                }
+            }];
+
+        } else if (accountStatus) {
+            [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
+                printControlFailureMessage(error);
+            }] accountStatus:^(NSData *json, NSError *error) {
+                if (json) {
+                    NSDictionary *dict = (NSDictionary *) [NSJSONSerialization   JSONObjectWithData:json options: kNilOptions error: nil];
+                    printf("Account Status\n");
+                    printf("%s", [[NSString stringWithFormat:@"%@\n", dict[@"AccountHeader"]] UTF8String]);
+                    printf("%s", [[NSString stringWithFormat:@"%@\n", dict[@"CircleHeader"]] UTF8String]);
+                    printf("Peers: \n");
+                    for (NSString * peerString in (NSArray *) dict[@"CirclePeers"]) {
+                        printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+                    }
+                    for (NSString * peerString in (NSArray *) dict[@"CircleRetiredPeers"]) {
+                        printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+                    }
+                    for (NSString * peerString in (NSArray *) dict[@"iCloudIdentityPeers"]) {
+                        printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+                    }
+                    printf("Applicants:\n");
+                    for (NSString * peerString in (NSArray *) dict[@"CircleApplicants"]) {
+                        printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+                    }
+                    printf("Rejected Applicants:\n");
+                    for (NSString * peerString in (NSArray *) dict[@"CircleRejections"]) {
+                        printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+                    }
+                } else {
+                    printf("%s", [[NSString stringWithFormat:@"failed to get account status: %@\n", error] UTF8String]);
                 }
             }];
 

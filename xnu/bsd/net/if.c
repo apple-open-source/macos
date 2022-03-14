@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -491,7 +491,8 @@ if_next_index(void)
 
 		/* release the old data */
 		if (old_ifnet_addrs != NULL) {
-			kfree_type(caddr_t, old_ifnet_size, old_ifnet_addrs);
+			void *old_ifnet_addrs_p = (void *)old_ifnet_addrs;
+			kfree_type(caddr_t, old_ifnet_size, old_ifnet_addrs_p);
 		}
 	}
 	return new_index;
@@ -651,15 +652,11 @@ if_clone_lookup(const char *name, u_int32_t *unitp)
 	const char *cp;
 	u_int32_t i;
 
-	for (ifc = LIST_FIRST(&if_cloners); ifc != NULL;) {
-		for (cp = name, i = 0; i < ifc->ifc_namelen; i++, cp++) {
-			if (ifc->ifc_name[i] != *cp) {
-				goto next_ifc;
-			}
+	LIST_FOREACH(ifc, &if_cloners, ifc_list) {
+		if (strncmp(name, ifc->ifc_name, ifc->ifc_namelen) == 0) {
+			cp = name + ifc->ifc_namelen;
+			goto found_name;
 		}
-		goto found_name;
-next_ifc:
-		ifc = LIST_NEXT(ifc, ifc_list);
 	}
 
 	/* No match. */
@@ -732,7 +729,7 @@ if_clone_attach(struct if_clone *ifc)
 
 	if (ifc->ifc_softc_size != 0) {
 		ifc->ifc_zone = zone_create(ifc->ifc_name, ifc->ifc_softc_size,
-		    ZC_DESTRUCTIBLE);
+		    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM);
 	}
 
 	LIST_INSERT_HEAD(&if_cloners, ifc, ifc_list);
@@ -2405,7 +2402,7 @@ if_set_qosmarking_mode(struct ifnet *ifp, u_int32_t mode)
 	}
 	if (error == 0 && old_mode != ifp->if_qosmarking_mode) {
 		dlil_post_msg(ifp, KEV_DL_SUBCLASS, KEV_DL_QOS_MODE_CHANGED,
-		    NULL, 0);
+		    NULL, 0, FALSE);
 	}
 	return error;
 }
@@ -5637,10 +5634,18 @@ ifa_remref(struct ifaddr *ifa, int locked)
 		 * family allocator.  Otherwise, leave it alone.
 		 */
 		if (ifa->ifa_debug & IFD_ALLOC) {
+#if PLATFORM_MacOSX
 			if (ifa->ifa_free == NULL) {
 				IFA_UNLOCK(ifa);
-				FREE(ifa, M_IFADDR);
-			} else {
+				/*
+				 * support for 3rd party kexts,
+				 * old ABI was that this had to be allocated
+				 * with MALLOC(M_IFADDR).
+				 */
+				kheap_free_addr(KHEAP_KEXT, ifa);
+			} else
+#endif /* PLATFORM_MacOSX */
+			{
 				/* Become a regular mutex */
 				IFA_CONVERT_LOCK(ifa);
 				/* callee will unlock */
@@ -5993,20 +5998,26 @@ struct intf_event {
 	uint32_t intf_event_code;
 };
 
-static void
-intf_event_callback(void *arg)
-{
-	struct intf_event *p_intf_ev = (struct intf_event *)arg;
-
-	/* Call this before we walk the tree */
-	EVENTHANDLER_INVOKE(&ifnet_evhdlr_ctxt, ifnet_event, p_intf_ev->ifp,
-	    (struct sockaddr *)&(p_intf_ev->addr), p_intf_ev->intf_event_code);
-}
-
 struct intf_event_nwk_wq_entry {
 	struct nwk_wq_entry nwk_wqe;
 	struct intf_event intf_ev_arg;
 };
+
+static void
+intf_event_callback(struct nwk_wq_entry *nwk_item)
+{
+	struct intf_event_nwk_wq_entry *p_ev;
+
+	p_ev = __container_of(nwk_item, struct intf_event_nwk_wq_entry, nwk_wqe);
+
+	/* Call this before we walk the tree */
+	EVENTHANDLER_INVOKE(&ifnet_evhdlr_ctxt, ifnet_event,
+	    p_ev->intf_ev_arg.ifp,
+	    (struct sockaddr *)&(p_ev->intf_ev_arg.addr),
+	    p_ev->intf_ev_arg.intf_event_code);
+
+	kfree_type(struct intf_event_nwk_wq_entry, p_ev);
+}
 
 void
 intf_event_enqueue_nwk_wq_entry(struct ifnet *ifp, struct sockaddr *addrp,
@@ -6015,9 +6026,8 @@ intf_event_enqueue_nwk_wq_entry(struct ifnet *ifp, struct sockaddr *addrp,
 #pragma unused(addrp)
 	struct intf_event_nwk_wq_entry *p_intf_ev = NULL;
 
-	MALLOC(p_intf_ev, struct intf_event_nwk_wq_entry *,
-	    sizeof(struct intf_event_nwk_wq_entry),
-	    M_NWKWQ, M_WAITOK | M_ZERO);
+	p_intf_ev = kalloc_type(struct intf_event_nwk_wq_entry,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	p_intf_ev->intf_ev_arg.ifp = ifp;
 	/*
@@ -6026,9 +6036,7 @@ intf_event_enqueue_nwk_wq_entry(struct ifnet *ifp, struct sockaddr *addrp,
 	 */
 	p_intf_ev->intf_ev_arg.intf_event_code = intf_event_code;
 	p_intf_ev->nwk_wqe.func = intf_event_callback;
-	p_intf_ev->nwk_wqe.is_arg_managed = TRUE;
-	p_intf_ev->nwk_wqe.arg = &p_intf_ev->intf_ev_arg;
-	nwk_wq_enqueue((struct nwk_wq_entry*)p_intf_ev);
+	nwk_wq_enqueue(&p_intf_ev->nwk_wqe);
 }
 
 int

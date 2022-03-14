@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple, Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,12 +37,12 @@ public:
     static IsoSubspace* subspaceFor(VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(SetIteratorPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     static SetIteratorPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
-        SetIteratorPrototype* prototype = new (NotNull, allocateCell<SetIteratorPrototype>(vm.heap)) SetIteratorPrototype(vm, structure);
+        SetIteratorPrototype* prototype = new (NotNull, allocateCell<SetIteratorPrototype>(vm)) SetIteratorPrototype(vm, structure);
         prototype->finishCreation(vm, globalObject);
         return prototype;
     }

@@ -46,6 +46,8 @@
  1.28 FD_CLOEXEC
  1.29 Upgrade to websockets
  1.30 config file parsing
+ 1.31 erase secrets from heap/stack after use
+ 1.32 add asynch getaddrinfo support
 
  2. libcurl - multi interface
  2.1 More non-blocking
@@ -58,6 +60,7 @@
  2.8 dynamically decide to use socketpair
 
  3. Documentation
+ 3.1 Improve documentation about fork safety
  3.2 Provide cmake config-file
 
  4. FTP
@@ -109,7 +112,6 @@
  13. SSL
  13.1 TLS-PSK with OpenSSL
  13.2 Provide mutex locking API
- 13.3 Support in-memory certs/ca certs/keys
  13.4 Cache/share OpenSSL contexts
  13.5 Export session ids
  13.6 Provide callback for cert verification
@@ -183,6 +185,9 @@
  20.7 Support LD_PRELOAD on macOS
  20.8 Run web-platform-tests url tests
  20.9 Bring back libssh tests on Travis
+
+ 21. MQTT
+ 21.1 Support rate-limiting
 
 ==============================================================================
 
@@ -431,6 +436,24 @@
 
  See https://github.com/curl/curl/issues/3698
 
+1.31 erase secrets from heap/stack after use
+
+ Introducing a concept and system to erase secrets from memory after use, it
+ could help mitigate and lessen the impact of (future) security problems etc.
+ However: most secrets are passed to libcurl as clear text from the
+ application and then clearing them within the library adds nothing...
+
+ https://github.com/curl/curl/issues/7268
+
+1.32 add asynch getaddrinfo support
+
+ Use getaddrinfo_a() to provide an asynch name resolver backend to libcurl
+ that doesn't use threads and doesn't depend on c-ares. The getaddrinfo_a
+ function is (probably?) glibc specific but that's a widely used libc among
+ our users.
+
+ https://github.com/curl/curl/pull/6746
+
 2. libcurl - multi interface
 
 2.1 More non-blocking
@@ -510,6 +533,10 @@
  See https://github.com/curl/curl/issues/4829
 
 3. Documentation
+
+3.1 Improve documentation about fork safety
+
+ See https://github.com/curl/curl/issues/6968
 
 3.2 Provide cmake config-file
 
@@ -736,14 +763,6 @@
  Provide a libcurl API for setting mutex callbacks in the underlying SSL
  library, so that the same application code can use mutex-locking
  independently of OpenSSL or GnutTLS being used.
-
-13.3 Support in-memory certs/ca certs/keys
-
- You can specify the private and public keys for SSH/SSL as file paths. Some
- programs want to avoid using files and instead just pass them as in-memory
- data blobs. There's probably a challenge to make this work across the
- plethora of different TLS and SSH backends that curl supports.
- https://github.com/curl/curl/issues/2310
 
 13.4 Cache/share OpenSSL contexts
 
@@ -1276,3 +1295,11 @@
  In https://github.com/curl/curl/pull/7012 we remove the libssh builds and
  tests from Travis CI due to them not working. This should be remedied and
  libssh builds be brought back.
+
+
+21. MQTT
+
+21.1 Support rate-limiting
+
+ The rate-limiting logic is done in the PERFORMING state in multi.c but MQTT
+ is not (yet) implemented to use that!

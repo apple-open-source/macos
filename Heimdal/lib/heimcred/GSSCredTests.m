@@ -143,6 +143,27 @@
     CFRELEASE_NULL(uuid);
 }
 
+//add credential and fetch it after failing to write to disk
+- (void)testCreatingAndFetchingCredentialKeyError {
+    HeimCredGlobalCTX.isMultiUser = NO;
+    HeimCredGlobalCTX.useUidMatching = NO;
+    HeimCredGlobalCTX.encryptData = encryptDataNULLMock;  // this returns nil for the encrypted data
+    [GSSCredTestUtil freePeer:self.peer];
+    self.peer = [GSSCredTestUtil createPeer:@"com.apple.fake" identifier:0];
+
+    CFUUIDRef uuid = NULL;
+    BOOL worked = [GSSCredTestUtil createCredentialAndCache:self.peer name:@"test@EXAMPLE.COM" returningCacheUuid:&uuid];
+
+    XCTAssertTrue(worked, "Credential should be created successfully");
+
+    CFDictionaryRef attributes;
+    worked = [GSSCredTestUtil fetchCredential:self.peer uuid:uuid returningDictionary:&attributes];
+    XCTAssertTrue(worked, "Credential should be fetched successfully using it's uuid");
+
+    CFRELEASE_NULL(attributes);
+    CFRELEASE_NULL(uuid);
+}
+
 //add credential and fetch it
 - (void)testCreatingCredentialWithRemovingDuplicates {
     HeimCredGlobalCTX.isMultiUser = NO;

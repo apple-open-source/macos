@@ -754,6 +754,9 @@ hfs_truncate(struct vnode *vp, off_t length, int flags, int truncateflags)
     return error;
 }
 
+#define SIZE_8M (8LL * 1024LL * 1024LL)
+#define SIZE_128G (128LL * 1024LL * 1024LL * 1024LL)
+
 /*
  * Preallocate file storage space.
  */
@@ -829,12 +832,11 @@ hfs_vnop_preallocate(struct vnode * vp, LIFilePreallocateArgs_t* psPreAllocReq, 
                 lockflags |= SFL_EXTENTS;
             lockflags = hfs_systemfile_lock(hfsmp, lockflags, HFS_EXCLUSIVE_LOCK);
 
-            if (moreBytesRequested >= HFS_BIGFILE_SIZE) {
-                bytesRequested = HFS_BIGFILE_SIZE;
+            if (hfsmp->jnl_size < SIZE_8M) {
+                bytesRequested = min(moreBytesRequested, (hfsmp->jnl_size * hfsmp->hfs_logical_block_size * 8)/2);
             } else {
-                bytesRequested = moreBytesRequested;
+                bytesRequested = min(SIZE_128G, moreBytesRequested);
             }
-
             retval = MacToVFSError(ExtendFileC(vcb,
                         (FCB*)fp,
                         bytesRequested,

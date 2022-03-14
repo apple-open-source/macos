@@ -25,15 +25,13 @@
 
 #if !UCONFIG_NO_FORMATTING
 
-#include "unicode/ubidi.h" // for TestHebrewCurrencyBidiOrdering()
+#include "unicode/ubidi.h" // for TestCurrencyBidiOrdering()
 #include "unicode/uloc.h"
 #include "unicode/umisc.h"
 #include "unicode/unum.h"
 #include "unicode/unumsys.h"
 #include "unicode/ustring.h"
 #include "unicode/udisplaycontext.h"
-#include "unicode/uchar.h"
-#include "unicode/ures.h" // TAKE ME OUT!!!
 
 #include "cintltst.h"
 #include "cnumtst.h"
@@ -1198,132 +1196,6 @@ static void TestParseCurrency()
     }
 }
 
-enum { kUBufMax = 64, kBBufMax = 128  };
-static void TestMinIntMinFracZero(void) {
-    UChar ubuf[kUBufMax];
-    char  bbuf[kBBufMax];
-    int minInt, minFrac, maxFrac, ulen;
-
-    UErrorCode status = U_ZERO_ERROR;
-    UNumberFormat* unum = unum_open(UNUM_DECIMAL, NULL, 0, "en_US", NULL, &status);
-    if ( U_FAILURE(status) ) {
-        log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
-    } else {
-        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
-        unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
-        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
-        minFrac = unum_getAttribute(unum, UNUM_MIN_FRACTION_DIGITS);
-        if (minInt != 0 || minFrac != 0) {
-            log_err("after setting minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
-        }
-
-        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
-        if ( U_FAILURE(status) ) {
-            log_err("unum_toPattern fails with %s\n", u_errorName(status));
-        } else if (ulen < 3 || u_strstr(ubuf, u"#.#")==NULL) {
-            u_austrncpy(bbuf, ubuf, kUBufMax);
-            log_info("after setting minInt=minFrac=0, expect pattern to contain \"#.#\", but get (%d): \"%s\"\n", ulen, bbuf);
-        }
-
-        status = U_ZERO_ERROR;
-        ulen = unum_formatDouble(unum, 10.0, ubuf, kUBufMax, NULL, &status);
-        if ( U_FAILURE(status) ) {
-            log_err("unum_formatDouble 10.0 ulen %d fails with %s\n", ulen, u_errorName(status));
-        } else if (u_strcmp(ubuf, u"10") != 0) {
-            u_austrncpy(bbuf, ubuf, kUBufMax);
-            log_err("unum_formatDouble 10.0 expected \"10\", got \"%s\"\n", bbuf);
-        }
-
-        status = U_ZERO_ERROR;
-        ulen = unum_formatDouble(unum, 0.9, ubuf, kUBufMax, NULL, &status);
-        if ( U_FAILURE(status) ) {
-            log_err("unum_formatDouble 0.9 ulen %d fails with %s\n", ulen, u_errorName(status));
-        } else if (u_strcmp(ubuf, u".9") != 0) {
-            u_austrncpy(bbuf, ubuf, kUBufMax);
-            log_err("unum_formatDouble 0.9 expected \".9\", got \"%s\"\n", bbuf);
-        }
-
-        status = U_ZERO_ERROR;
-        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
-        if ( U_FAILURE(status) ) {
-            log_err("unum_formatDouble 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
-        } else if (u_strcmp(ubuf, u"0") != 0) {
-            u_austrncpy(bbuf, ubuf, kUBufMax);
-            log_err("unum_formatDouble 0.0 expected \"0\", got \"%s\"\n", bbuf);
-        }
-
-        unum_close(unum);
-        status = U_ZERO_ERROR;
-        unum = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
-        if ( U_FAILURE(status) ) {
-            log_data_err("unum_open UNUM_CURRENCY for en_US fails with %s\n", u_errorName(status));
-        } else {
-            unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
-            unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
-            minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
-            minFrac = unum_getAttribute(unum, UNUM_MIN_FRACTION_DIGITS);
-            if (minInt != 0 || minFrac != 0) {
-                log_err("after setting CURRENCY minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, 10.0, ubuf, kUBufMax, NULL, &status);
-            if ( U_FAILURE(status) ) {
-                log_err("unum_formatDouble (CURRRENCY) 10.0 ulen %d fails with %s\n", ulen, u_errorName(status));
-            } else if (u_strcmp(ubuf, u"$10") != 0) {
-                u_austrncpy(bbuf, ubuf, kUBufMax);
-                log_err("unum_formatDouble (CURRRENCY) 10.0 expected \"$10\", got \"%s\"\n", bbuf);
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, 0.9, ubuf, kUBufMax, NULL, &status);
-            if ( U_FAILURE(status) ) {
-                log_err("unum_formatDouble (CURRRENCY) 0.9 ulen %d fails with %s\n", ulen, u_errorName(status));
-            } else if (u_strcmp(ubuf, u"$.9") != 0) {
-                u_austrncpy(bbuf, ubuf, kUBufMax);
-                log_err("unum_formatDouble (CURRRENCY) 0.9 expected \"$.9\", got \"%s\"\n", bbuf);
-            }
-
-            status = U_ZERO_ERROR;
-            ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
-            if ( U_FAILURE(status) ) {
-                log_err("unum_formatDouble (CURRRENCY) 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
-            } else if (u_strcmp(ubuf, u"$0") != 0) {
-                u_austrncpy(bbuf, ubuf, kUBufMax);
-                log_err("unum_formatDouble (CURRRENCY) 0.0 expected \"$0\", got \"%s\"\n", bbuf);
-            }
-
-            unum_close(unum);
-        }
-    }
-
-   // addition for rdar://57291456
-    status = U_ZERO_ERROR;
-    unum = unum_open(UNUM_PATTERN_DECIMAL, NULL, 0, "en_IE", NULL, &status);
-    if ( U_FAILURE(status) ) {
-        log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
-    } else {
-        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
-        unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 1);
-        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
-        maxFrac = unum_getAttribute(unum, UNUM_MAX_FRACTION_DIGITS);
-        if (minInt != 0 || maxFrac != 1) {
-            log_err("after setting minInt=0, maxFrac=1, get minInt %d, maxFrac %d\n", minInt, maxFrac);
-        }
-
-        status = U_ZERO_ERROR;
-        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
-        if ( U_FAILURE(status) ) {
-            log_err("unum_formatDouble (maxFrac 1) 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
-        } else if (u_strcmp(ubuf, u".0") != 0) {
-            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
-            log_err("unum_formatDouble (maxFrac 1) 0.0 expected \".0\", got \"%s\"\n", bbuf);
-        }
-
-        unum_close(unum);
-    }
-}
-
 typedef struct {
     const char *  testname;
     const char *  locale;
@@ -1335,41 +1207,6 @@ typedef struct {
     UErrorCode    status;
 } NumParseTestItem;
 
-static const UChar ustr_zh50d[] = {0x4E94, 0x3007, 0}; /* decimal 50 */
-static const UChar ustr_zh05a[] = {0x96F6, 0x4E94, 0}; /* decimal-alt 05 */
-static const UChar ustr_zh05d[] = {0x3007, 0x4E94, 0}; /* decimal 05 */
-
-static const NumParseTestItem altnumParseTests[] = {
-    /* name     loc   lenent src       start val  end status */
-    { "zh@hd,50dL","zh@numbers=hanidec", TRUE,  ustr_zh50d,  0,  50,  2, U_USING_DEFAULT_WARNING },
-    { "zh@hd,05aL","zh@numbers=hanidec", TRUE,  ustr_zh05a,  0,   5,  2, U_USING_DEFAULT_WARNING },
-    { "zh@hd,05dL","zh@numbers=hanidec", TRUE,  ustr_zh05d,  0,   5,  2, U_USING_DEFAULT_WARNING },
-    { NULL,     NULL, FALSE, NULL,        0,   0,  0, 0 } /* terminator */
-};
-
-static void TestParseAltNum(void)
-{
-    const NumParseTestItem * testPtr;
-    for (testPtr = altnumParseTests; testPtr->testname != NULL; ++testPtr) {
-        UErrorCode status = U_ZERO_ERROR;
-        int32_t	value, position = testPtr->startPos;
-        UNumberFormat *nf = unum_open(UNUM_DECIMAL, NULL, 0, testPtr->locale, NULL, &status);
-        if (U_FAILURE(status)) {
-            log_err_status(status, "unum_open fails for UNUM_DECIMAL with locale %s, status %s\n", testPtr->locale, myErrorName(status));
-            continue;
-        }
-        unum_setAttribute(nf, UNUM_LENIENT_PARSE, testPtr->lenient);
-        value = unum_parse(nf, testPtr->source, -1, &position, &status);
-        if ( value != testPtr->value || position != testPtr->endPos || status != testPtr->status ) {
-            log_err("unum_parse DECIMAL, locale %s, testname %s, startPos %d: for value / endPos / status, expected %d / %d / %s, got %d / %d / %s\n",
-                    testPtr->locale, testPtr->testname, testPtr->startPos,
-                    testPtr->value, testPtr->endPos, myErrorName(testPtr->status),
-                    value, position, myErrorName(status) );
-        }
-        unum_close(nf);
-    }
-}
-
 static const UChar ustr_en0[]   = {0x7A, 0x65, 0x72, 0x6F, 0}; /* zero */
 static const UChar ustr_123[]   = {0x31, 0x32, 0x33, 0};       /* 123 */
 static const UChar ustr_en123[] = {0x6f, 0x6e, 0x65, 0x20, 0x68, 0x75, 0x6e, 0x64, 0x72, 0x65, 0x64,
@@ -1379,9 +1216,9 @@ static const UChar ustr_fr123[] = {0x63, 0x65, 0x6e, 0x74, 0x20, 0x76, 0x69, 0x6
                                    0x74, 0x72, 0x6f, 0x69, 0x73, 0};       /* cent vingt-trois */
 static const UChar ustr_ja123[] = {0x767e, 0x4e8c, 0x5341, 0x4e09, 0};     /* kanji 100(+)2(*)10(+)3 */
 static const UChar ustr_zh50s[] = {0x4E94, 0x5341, 0}; /* spellout 50 */
-//static const UChar ustr_zh50d[] = [reuse from above] /* decimal 50 */
-//static const UChar ustr_zh05a[] = [reuse from above] /* decimal-alt 05 */
-//static const UChar ustr_zh05d[] = [reuse from above] /* decimal 05 */
+static const UChar ustr_zh50d[] = {0x4E94, 0x3007, 0}; /* decimal 50 */
+static const UChar ustr_zh05a[] = {0x96F6, 0x4E94, 0}; /* decimal-alt 05 */
+static const UChar ustr_zh05d[] = {0x3007, 0x4E94, 0}; /* decimal 05 */
 
 #define		NUMERIC_STRINGS_NOT_PARSEABLE	1	//	ticket/8224
 
@@ -2774,6 +2611,7 @@ static void TestUNumberingSystem(void) {
 }
 
 /* plain-C version of test in numfmtst.cpp */
+enum { kUBufMax = 64, kBBufMax = 128 };
 static void TestCurrencyIsoPluralFormat(void) {
     static const char* DATA[][8] = {
         // the data are:
@@ -2996,7 +2834,7 @@ static void TestCurrencyUsage(void) {
         }
 
         if(unum_getAttribute(unumFmt, UNUM_CURRENCY_USAGE) != UCURR_USAGE_CASH) {
-            log_err("FAIL: currency usage attribute is not UNUM_CURRENCY_CASH\n");
+            log_err("FAIL: currency usage attribute is not UNUM_CASH_CURRENCY\n");
         }
 
         for (j=0; j<UPRV_LENGTHOF(DATA); ++j) {
@@ -3777,6 +3615,181 @@ static void TestSciNotationMaxFracCap(void) {
             }
         }
         unum_close(unum);
+    }
+}
+
+static void TestMinIntMinFracZero(void) {
+    UChar ubuf[kUBufMax];
+    char  bbuf[kBBufMax];
+    int minInt, minFrac, maxFrac, ulen;
+
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* unum = unum_open(UNUM_DECIMAL, NULL, 0, "en_US", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
+    } else {
+        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
+        unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
+        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
+        minFrac = unum_getAttribute(unum, UNUM_MIN_FRACTION_DIGITS);
+        if (minInt != 0 || minFrac != 0) {
+            log_err("after setting minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
+        }
+
+        ulen = unum_toPattern(unum, FALSE, ubuf, kUBufMax, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_toPattern fails with %s\n", u_errorName(status));
+        } else if (ulen < 3 || u_strstr(ubuf, u"#.#")==NULL) {
+            u_austrncpy(bbuf, ubuf, kUBufMax);
+            log_info("after setting minInt=minFrac=0, expect pattern to contain \"#.#\", but get (%d): \"%s\"\n", ulen, bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 10.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble 10.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"10") != 0) {
+            u_austrncpy(bbuf, ubuf, kUBufMax);
+            log_err("unum_formatDouble 10.0 expected \"10\", got \"%s\"\n", bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.9, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble 0.9 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u".9") != 0) {
+            u_austrncpy(bbuf, ubuf, kUBufMax);
+            log_err("unum_formatDouble 0.9 expected \".9\", got \"%s\"\n", bbuf);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u"0") != 0) {
+            u_austrncpy(bbuf, ubuf, kUBufMax);
+            log_err("unum_formatDouble 0.0 expected \"0\", got \"%s\"\n", bbuf);
+        }
+
+        unum_close(unum);
+        status = U_ZERO_ERROR;
+        unum = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_data_err("unum_open UNUM_CURRENCY for en_US fails with %s\n", u_errorName(status));
+        } else {
+            unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
+            unum_setAttribute(unum, UNUM_MIN_FRACTION_DIGITS, 0);
+            minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
+            minFrac = unum_getAttribute(unum, UNUM_MIN_FRACTION_DIGITS);
+            if (minInt != 0 || minFrac != 0) {
+                log_err("after setting CURRENCY minInt=minFrac=0, get minInt %d, minFrac %d\n", minInt, minFrac);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, 10.0, ubuf, kUBufMax, NULL, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("unum_formatDouble (CURRENCY) 10.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+            } else if (u_strcmp(ubuf, u"$10") != 0) {
+                u_austrncpy(bbuf, ubuf, kUBufMax);
+                log_err("unum_formatDouble (CURRENCY) 10.0 expected \"$10\", got \"%s\"\n", bbuf);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, 0.9, ubuf, kUBufMax, NULL, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("unum_formatDouble (CURRENCY) 0.9 ulen %d fails with %s\n", ulen, u_errorName(status));
+            } else if (u_strcmp(ubuf, u"$.9") != 0) {
+                u_austrncpy(bbuf, ubuf, kUBufMax);
+                log_err("unum_formatDouble (CURRENCY) 0.9 expected \"$.9\", got \"%s\"\n", bbuf);
+            }
+
+            status = U_ZERO_ERROR;
+            ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
+            if ( U_FAILURE(status) ) {
+                log_err("unum_formatDouble (CURRENCY) 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+            } else if (u_strcmp(ubuf, u"$0") != 0) {
+                u_austrncpy(bbuf, ubuf, kUBufMax);
+                log_err("unum_formatDouble (CURRENCY) 0.0 expected \"$0\", got \"%s\"\n", bbuf);
+            }
+
+            unum_close(unum);
+        }
+    }
+
+   // addition for rdar://57291456
+    status = U_ZERO_ERROR;
+    unum = unum_open(UNUM_PATTERN_DECIMAL, NULL, 0, "en_IE", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_DECIMAL for en_US fails with %s\n", u_errorName(status));
+    } else {
+        unum_setAttribute(unum, UNUM_MIN_INTEGER_DIGITS, 0);
+        unum_setAttribute(unum, UNUM_MAX_FRACTION_DIGITS, 1);
+        minInt = unum_getAttribute(unum, UNUM_MIN_INTEGER_DIGITS);
+        maxFrac = unum_getAttribute(unum, UNUM_MAX_FRACTION_DIGITS);
+        if (minInt != 0 || maxFrac != 1) {
+            log_err("after setting minInt=0, maxFrac=1, get minInt %d, maxFrac %d\n", minInt, maxFrac);
+        }
+
+        status = U_ZERO_ERROR;
+        ulen = unum_formatDouble(unum, 0.0, ubuf, kUBufMax, NULL, &status);
+        if ( U_FAILURE(status) ) {
+            log_err("unum_formatDouble (maxFrac 1) 0.0 ulen %d fails with %s\n", ulen, u_errorName(status));
+        } else if (u_strcmp(ubuf, u".0") != 0) {
+            u_strToUTF8(bbuf, kBBufMax, NULL, ubuf, ulen, &status);
+            log_err("unum_formatDouble (maxFrac 1) 0.0 expected \".0\", got \"%s\"\n", bbuf);
+        }
+
+        unum_close(unum);
+    }
+}
+
+static void Test21479_ExactCurrency(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormat* nf = unum_open(UNUM_CURRENCY, NULL, 0, "en_US", NULL, &status);
+    if ( U_FAILURE(status) ) {
+        log_data_err("unum_open UNUM_CURRENCY for en_US fails with %s\n", u_errorName(status));
+        goto cleanup;
+    }
+    unum_setTextAttribute(nf, UNUM_CURRENCY_CODE, u"EUR", -1, &status);
+    UChar result[40];
+    unum_formatDecimal(nf, "987654321000000000000001", -1, result, 40, NULL, &status);
+    if (!assertSuccess("Formatting currency decimal", &status)) {
+        goto cleanup;
+    }
+    assertUEquals("", u"€987,654,321,000,000,000,000,001.00", result);
+
+    cleanup:
+    unum_close(nf);
+}
+
+static const NumParseTestItem altnumParseTests[] = {
+    /* name     loc   lenent src       start val  end status */
+    { "zh@hd,50dL","zh@numbers=hanidec", TRUE,  ustr_zh50d,  0,  50,  2, U_USING_DEFAULT_WARNING },
+    { "zh@hd,05aL","zh@numbers=hanidec", TRUE,  ustr_zh05a,  0,   5,  2, U_USING_DEFAULT_WARNING },
+    { "zh@hd,05dL","zh@numbers=hanidec", TRUE,  ustr_zh05d,  0,   5,  2, U_USING_DEFAULT_WARNING },
+    { NULL,     NULL, FALSE, NULL,        0,   0,  0, 0 } /* terminator */
+};
+
+static void TestParseAltNum(void)
+{
+    const NumParseTestItem * testPtr;
+    for (testPtr = altnumParseTests; testPtr->testname != NULL; ++testPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+        int32_t	value, position = testPtr->startPos;
+        UNumberFormat *nf = unum_open(UNUM_DECIMAL, NULL, 0, testPtr->locale, NULL, &status);
+        if (U_FAILURE(status)) {
+            log_err_status(status, "unum_open fails for UNUM_DECIMAL with locale %s, status %s\n", testPtr->locale, myErrorName(status));
+            continue;
+        }
+        unum_setAttribute(nf, UNUM_LENIENT_PARSE, testPtr->lenient);
+        value = unum_parse(nf, testPtr->source, -1, &position, &status);
+        if ( value != testPtr->value || position != testPtr->endPos || status != testPtr->status ) {
+            log_err("unum_parse DECIMAL, locale %s, testname %s, startPos %d: for value / endPos / status, expected %d / %d / %s, got %d / %d / %s\n",
+                    testPtr->locale, testPtr->testname, testPtr->startPos,
+                    testPtr->value, testPtr->endPos, myErrorName(testPtr->status),
+                    value, position, myErrorName(status) );
+        }
+        unum_close(nf);
     }
 }
 
@@ -4736,7 +4749,9 @@ static void TestCountryFallback(void) {
                     case UNUM_INTL_CURRENCY_SYMBOL:
                     case UNUM_MONETARY_SEPARATOR_SYMBOL:
                     case UNUM_MONETARY_GROUPING_SEPARATOR_SYMBOL:
-                        // we don't do anything special with currency here
+                    case UNUM_APPROXIMATELY_SIGN_SYMBOL:
+                        // we don't do anything special with currency here, and the approximately-equal
+                        // symbol is internal (and I'm not sure what it's doing)
                         continue;
                     case UNUM_PLUS_SIGN_SYMBOL:
                     case UNUM_MINUS_SIGN_SYMBOL:
@@ -4777,7 +4792,7 @@ static void TestCountryFallback(void) {
 }
 
 static void _checkForRTLRun(UBiDi* bidi, UChar* text, UErrorCode* err) {
-    // Helper function used by TestHebrewCurrencyBidiOrdering() below.
+    // Helper function used by TestCurrencyBidiOrdering() below.
     //
     // We want to make sure that the currency symbol in a formatted currency value in the Hebrew locale
     // always appears to the left of the value itself-- the original bug had the currency symbol

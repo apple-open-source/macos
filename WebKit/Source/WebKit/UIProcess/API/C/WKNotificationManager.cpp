@@ -27,6 +27,7 @@
 #include "WKNotificationManager.h"
 
 #include "APIArray.h"
+#include "APIData.h"
 #include "WKAPICast.h"
 #include "WebNotification.h"
 #include "WebNotificationManagerProxy.h"
@@ -54,6 +55,15 @@ void WKNotificationManagerProviderDidClickNotification(WKNotificationManagerRef 
     toImpl(managerRef)->providerDidClickNotification(notificationID);
 }
 
+void WKNotificationManagerProviderDidClickNotification_b(WKNotificationManagerRef managerRef, WKDataRef identifier)
+{
+    auto span = toImpl(identifier)->dataReference();
+    if (span.size() != 16)
+        return;
+
+    toImpl(managerRef)->providerDidClickNotification(UUID { Span<const uint8_t, 16> { span.data(), 16 } });
+}
+
 void WKNotificationManagerProviderDidCloseNotifications(WKNotificationManagerRef managerRef, WKArrayRef notificationIDs)
 {
     toImpl(managerRef)->providerDidCloseNotifications(toImpl(notificationIDs));
@@ -67,9 +77,4 @@ void WKNotificationManagerProviderDidUpdateNotificationPolicy(WKNotificationMana
 void WKNotificationManagerProviderDidRemoveNotificationPolicies(WKNotificationManagerRef managerRef, WKArrayRef origins)
 {
     toImpl(managerRef)->providerDidRemoveNotificationPolicies(toImpl(origins));
-}
-
-uint64_t WKNotificationManagerGetLocalIDForTesting(WKNotificationManagerRef manager, WKNotificationRef notification)
-{
-    return toImpl(manager)->notificationLocalIDForTesting(toImpl(notification));
 }

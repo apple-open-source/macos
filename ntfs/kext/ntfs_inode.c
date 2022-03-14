@@ -2248,7 +2248,7 @@ no_data_attr_special_case:
 		 * access to the inode at this time.
 		 */
 		ai_runlist.rl = NULL;
-		ai_runlist.alloc = ai_runlist.elements = 0;
+		ai_runlist.alloc_count = ai_runlist.elements = 0;
 		err = ntfs_mapping_pairs_decompress(vol, a, &ai_runlist);
 		if (err) {
 			ntfs_error(vol->mp, "Mapping pairs decompression "
@@ -2261,11 +2261,11 @@ no_data_attr_special_case:
 		if (err) {
 			ntfs_error(vol->mp, "Failed to load AfpInfo (error "
 					"%d).", err);
-			IOFreeData(ai_runlist.rl, ai_runlist.alloc);
+			IODeleteData(ai_runlist.rl, ntfs_rl_element, ai_runlist.alloc_count);
 			goto err;
 		}
 		/* We do not need the runlist any more so free it. */
-		IOFreeData(ai_runlist.rl, ai_runlist.alloc);
+		IODeleteData(ai_runlist.rl, ntfs_rl_element, ai_runlist.alloc_count);
 		/* Finally cache the AFP_AfpInfo data in the base inode. */
 		ntfs_inode_afpinfo_cache(ni, &ai, ai_size);
 	}
@@ -2757,7 +2757,7 @@ done:
 		int new_size;
 
 		new_size = base_ni->attr_nis_alloc + 4 * sizeof(ntfs_inode *);
-		tmp = IOMallocZero(new_size);
+		tmp = IONewZero(ntfs_inode*, new_size / sizeof (ntfs_inode*));
 		if (!tmp) {
 			ntfs_error(vol->mp, "Failed to allocated internal "
 					"buffer.");
@@ -2769,7 +2769,7 @@ done:
 				memcpy(tmp, base_ni->attr_nis,
 						base_ni->nr_attr_nis *
 						sizeof(ntfs_inode *));
-			IOFree(base_ni->attr_nis, base_ni->attr_nis_alloc);
+            IODelete(base_ni->attr_nis, ntfs_inode*, base_ni->attr_nis_alloc / sizeof(ntfs_inode*));
 		}
 		base_ni->attr_nis_alloc = new_size;
 		base_ni->attr_nis = tmp;
@@ -3106,7 +3106,7 @@ static errno_t ntfs_index_inode_read(ntfs_inode *base_ni, ntfs_inode *ni)
 		int new_size;
 
 		new_size = base_ni->attr_nis_alloc + 4 * sizeof(ntfs_inode *);
-		tmp = IOMallocZero(new_size);
+		tmp = IONewZero(ntfs_inode*, new_size / sizeof (ntfs_inode*));
 		if (!tmp) {
 			ntfs_error(vol->mp, "Failed to allocated internal "
 					"buffer.");
@@ -3118,7 +3118,7 @@ static errno_t ntfs_index_inode_read(ntfs_inode *base_ni, ntfs_inode *ni)
 				memcpy(tmp, base_ni->attr_nis,
 						base_ni->nr_attr_nis *
 						sizeof(ntfs_inode *));
-			IOFree(base_ni->attr_nis, base_ni->attr_nis_alloc);
+            IODelete(base_ni->attr_nis, ntfs_inode*, base_ni->attr_nis_alloc / sizeof(ntfs_inode*));
 		}
 		base_ni->attr_nis_alloc = new_size;
 		base_ni->attr_nis = tmp;
@@ -3164,7 +3164,7 @@ static inline void ntfs_inode_free(ntfs_inode *ni)
 		
 		for (i = 0; i < ni->nr_extents; i++)
 			ntfs_inode_reclaim(ni->extent_nis[i]);
-		IOFree(ni->extent_nis, ni->extent_alloc);
+        IODelete(ni->extent_nis, ntfs_inode*, ni->extent_alloc / sizeof(ntfs_inode*));
 	}
 	/*
 	 * If this is an attribute or index inode, detach it from the base
@@ -3199,12 +3199,12 @@ static inline void ntfs_inode_free(ntfs_inode *ni)
 		lck_mtx_unlock(ni->base_attr_nis_lock);
 		ni->base_attr_nis_lock = NULL;
 	}
-	if (ni->rl.alloc)
-		IOFreeData(ni->rl.rl, ni->rl.alloc);
+	if (ni->rl.alloc_count)
+		IODeleteData(ni->rl.rl, ntfs_rl_element, ni->rl.alloc_count);
 	if (ni->attr_list_alloc)
 		IOFreeData(ni->attr_list, ni->attr_list_alloc);
-	if (ni->attr_list_rl.alloc)
-		IOFreeData(ni->attr_list_rl.rl, ni->attr_list_rl.alloc);
+	if (ni->attr_list_rl.alloc_count)
+		IODeleteData(ni->attr_list_rl.rl, ntfs_rl_element, ni->attr_list_rl.alloc_count);
 	ntfs_dirhints_put(ni, 0);
 	if (ni->name_len && ni->name != I30 &&
 			ni->name != NTFS_SFM_RESOURCEFORK_NAME &&
@@ -3453,11 +3453,17 @@ static errno_t ntfs_inode_data_sync(ntfs_inode *ni, const int ioflags)
 	return err;
 }
 
-struct fn_list_entry {
-	SLIST_ENTRY(fn_list_entry) list_entry;
-	unsigned alloc, size;
+struct fn_list_entry;
+
+typedef struct {
+    SLIST_ENTRY(fn_list_entry) list_entry;
+    unsigned size;
+} fn_list_entry_hdr_t;
+
+typedef struct fn_list_entry {
+    fn_list_entry_hdr_t hdr;
 	FILENAME_ATTR fn;
-};
+} fn_list_entry_t;
 
 /**
  * ntfs_inode_sync_to_mft_record - update metadata with changes to ntfs inode
@@ -3716,8 +3722,6 @@ static errno_t ntfs_inode_sync_to_mft_record(ntfs_inode *ni)
 	 */
 	SLIST_INIT(&fn_list);
 	do {
-		unsigned size, alloc;
-
 		err = ntfs_attr_lookup(AT_FILENAME, AT_UNNAMED, 0, 0, NULL, 0,
 				actx);
 		if (err) {
@@ -3748,9 +3752,8 @@ static errno_t ntfs_inode_sync_to_mft_record(ntfs_inode *ni)
 		 * attribute value into it, and attach it to the end of the
 		 * list.
 		 */
-		size = le32_to_cpu(a->value_length);
-		alloc = offsetof(struct fn_list_entry, fn) + size;
-		next = IOMallocData(alloc);
+		unsigned size = le32_to_cpu(a->value_length);
+		next = (fn_list_entry_t*)IONew(fn_list_entry_hdr_t, u8, size);
 		if (!next) {
 			ntfs_error(vol->mp, ies, 
 					(unsigned long long)ni->mft_no,
@@ -3760,15 +3763,14 @@ static errno_t ntfs_inode_sync_to_mft_record(ntfs_inode *ni)
 			err = ENOMEM;
 			goto list_err;
 		}
-		next->alloc = alloc;
-		next->size = size;
+		next->hdr.size = size;
 		memcpy(&next->fn, (u8*)a + le16_to_cpu(a->value_offset), size);
 		/*
 		 * It makes no difference in what order we process the names so
 		 * we just insert them all the the list head thus effectively
 		 * processing them in LIFO order.
 		 */
-		SLIST_INSERT_HEAD(&fn_list, next, list_entry);
+		SLIST_INSERT_HEAD(&fn_list, next, hdr.list_entry);
 	} while (1);
 	/* We are done with the mft record so release it. */
 	ntfs_attr_search_ctx_put(actx);
@@ -3873,7 +3875,7 @@ do_skip_name:
 		}
 		ntfs_index_ctx_init(ictx, dir_ia_ni);
 		/* Get the index entry matching the current filename. */
-		err = ntfs_index_lookup(fn, next->size, &ictx);
+		err = ntfs_index_lookup(fn, next->hdr.size, &ictx);
 		if (err || ictx->entry->indexed_file !=
 				MK_LE_MREF(ni->mft_no, ni->seq_no)) {
 			if (err && err != ENOENT) {
@@ -3936,8 +3938,11 @@ do_skip_name:
 put_skip_name:
 		ntfs_index_ctx_put_reuse(ictx);
 skip_name:
-		SLIST_REMOVE_HEAD(&fn_list, list_entry);
-        IOFreeData(next, next->alloc);
+		SLIST_REMOVE_HEAD(&fn_list, hdr.list_entry);
+
+        // A separate var is needed since IODelete is a macro and could have future check on the type
+        fn_list_entry_hdr_t* hdr = &next->hdr;
+        IODelete(hdr, fn_list_entry_hdr_t, u8, hdr->size);
 	}
 	if (dir_ni) {
 		lck_rw_unlock_exclusive(&dir_ia_ni->lock);
@@ -3953,8 +3958,10 @@ list_err:
 	/* Free all the copied filenames. */
 	while (!SLIST_EMPTY(&fn_list)) {
 		next = SLIST_FIRST(&fn_list);
-		SLIST_REMOVE_HEAD(&fn_list, list_entry);
-        IOFreeData(next, next->alloc);
+		SLIST_REMOVE_HEAD(&fn_list, hdr.list_entry);
+
+        fn_list_entry_hdr_t* hdr = &next->hdr;
+        IODelete(hdr, fn_list_entry_hdr_t, u8, hdr->size);
 	}
 	if (ictx)
 		ntfs_index_ctx_free(ictx);

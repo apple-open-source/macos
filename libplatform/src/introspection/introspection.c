@@ -87,6 +87,7 @@ extern int __sysctl(int *, unsigned int, void *, size_t *, void *, size_t);
 static kern_return_t
 _platform_task_query_64_bit(platform_task_t task)
 {
+	__attribute__((uninitialized))
 	task_flags_info_data_t task_flags_info;
 	mach_msg_type_number_t count = TASK_FLAGS_INFO_COUNT;
 

@@ -139,7 +139,7 @@ int fill_task_rusage(task_t task, rusage_info_current *ri);
 void fill_task_billed_usage(task_t task, rusage_info_current *ri);
 int fill_task_io_rusage(task_t task, rusage_info_current *ri);
 int fill_task_qos_rusage(task_t task, rusage_info_current *ri);
-uint64_t get_task_logical_writes(task_t task, boolean_t external);
+uint64_t get_task_logical_writes(task_t task, bool external);
 void fill_task_monotonic_rusage(task_t task, rusage_info_current *ri);
 
 rlim_t maxdmap = MAXDSIZ;       /* XXX */
@@ -2461,7 +2461,7 @@ gather_rusage_info(proc_t p, rusage_info_current *ru, int flavor)
 #endif /* __has_feature(ptrauth_calls) */
 		OS_FALLTHROUGH;
 	case RUSAGE_INFO_V4:
-		ru->ri_logical_writes = get_task_logical_writes(p->task, FALSE);
+		ru->ri_logical_writes = get_task_logical_writes(p->task, false);
 		ru->ri_lifetime_max_phys_footprint = get_task_phys_footprint_lifetime_max(p->task);
 #if CONFIG_LEDGER_INTERVAL_MAX
 		ru->ri_interval_max_phys_footprint = get_task_phys_footprint_interval_max(p->task, FALSE);

@@ -51,10 +51,7 @@ RetainPtr<NSDictionary> GPUProcess::additionalStateForDiagnosticReport() const
                 continue;
 
             auto stateInfo = adoptNS([[NSMutableDictionary alloc] initWithCapacity:backendMap.size()]);
-            for (auto& identifierAndBackend : backendMap) {
-                auto& [backendIdentifier, backend] = identifierAndBackend;
-                [stateInfo setObject:@(name(backend->lastKnownState())) forKey:backendIdentifier.loggingString()];
-            }
+            // FIXME: Log some additional diagnostic state on RemoteRenderingBackend.
             [webProcessConnectionInfo setObject:stateInfo.get() forKey:webProcessIdentifier.loggingString()];
         }
 
@@ -69,15 +66,14 @@ RetainPtr<NSDictionary> GPUProcess::additionalStateForDiagnosticReport() const
 #if ENABLE(CFPREFS_DIRECT_MODE)
 void GPUProcess::notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue)
 {
-    id value = nil;
-    if (encodedValue) {
-        value = decodePreferenceValue(encodedValue);
-        if (!value)
-            return;
-    }
-    setPreferenceValue(domain, key, value);
+    preferenceDidUpdate(domain, key, encodedValue);
 }
-#endif
+
+void GPUProcess::dispatchSimulatedNotificationsForPreferenceChange(const String& key)
+{
+}
+
+#endif // ENABLE(CFPREFS_DIRECT_MODE)
 
 } // namespace WebKit
 

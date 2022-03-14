@@ -343,7 +343,7 @@ DIROPS_IsEntryASymLink(struct dosdirentry* psEntry, FileSystemRecord_s *psFSReco
         uReadAccClusters += uReadClusters;
         if (*piError)
         {
-            MSDOS_LOG(LEVEL_ERROR, "DIROPS_IsEntryASymLink failed to get next cont clusers = %d\n", *piError);
+            MSDOS_LOG(LEVEL_ERROR, "DIROPS_IsEntryASymLink failed to get next cont clusers. Error [%d]\n", *piError);
             break;
         }
         uReadSize +=  pread(psFSRecord->iFD, pvBuffer+uReadSize, uReadClusters*CLUSTER_SIZE(psFSRecord), DIROPS_VolumeOffsetForCluster(psFSRecord,uStartCluster));
@@ -2544,12 +2544,15 @@ DIROPS_LookForDirEntryByName (NodeRecord_s* psFolderNode, const char *pcUTF8Name
         }
         else
         {
-            //Should never get here - all HT entries should be valid
-            MSDOS_LOG(LEVEL_ERROR, "psTableEntry->uEntryOffsetInDir %llu, status: %d.\n",
-                      psTableEntry->uEntryOffsetInDir, eStatus);
-            assert(0);
+            //We have an issue with HT, found un-expected type in the hastable, log a fault and skip it
+            MSDOS_LOG(LEVEL_FAULT,
+                      "%s: Found unexpected type during hashed lookup, eStatus %d, skipping",
+                      __FUNCTION__, eStatus);
+            //TODO: We should investiage if it's really a fault to have something else besides directories and files in
+            //TODO: the hash table. In case we found it we should try to repair the hashtable and limp along. Also we
+            //TODO: need to make sure we do not insert un-expect stuff into hashtable as well.
         }
-        
+
         psTableEntry = psTableEntry->psNextEntry;
     } while ((psTableEntry != NULL) && !bFoundMatch);
 

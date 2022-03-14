@@ -77,6 +77,12 @@ T_DECL(small_mem_pressure, "small memory pressure thread",
 	T_PASS("didn't crash");
 }
 
+// Disabled until rdar://83904507 is fixed
+//
+// Need to compile the test out entirely because T_META_MAYFAIL doesn't handle
+// test crashes - rdar://86164532
+#if 0
+
 T_DECL(medium_mem_pressure, "medium memory pressure thread",
 #if TARGET_OS_WATCH
 		T_META_TIMEOUT(TEST_TIMEOUT),
@@ -98,6 +104,8 @@ T_DECL(medium_mem_pressure, "medium memory pressure thread",
 	stress(64*1024, 1000);
 	T_PASS("didn't crash");
 }
+
+#endif
 
 T_DECL(tiny_mem_pressure_multi, "test memory pressure in tiny on threads",
 #if TARGET_OS_WATCH

@@ -188,10 +188,6 @@ print_vm_statistics(void)
 	}
 }
 
-/*
-	this will work for up to 64 TB of RAM -- beyond that we exceed Intel's max for VRAM (48 bits of addressable space).
-	By the time we get there Intel probably will have increased this
- */
 static unsigned long long
 get_max_range_size()
 {
@@ -315,7 +311,7 @@ process_pages(int num_pages, int page_op)
 						//printf("stopped faulting after %d pages\n", i);
 						break;
 					}
-					if ((uintptr_t)range_current_addr < get_max_range_size()) {
+					if (range_current_addr < range_end_addr) {
 						memcpy(range_current_addr, random_data, PAGE_SIZE);
 						range_current_addr += PAGE_SIZE;
 					} else {

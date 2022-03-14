@@ -691,7 +691,8 @@ class OctagonCKKSTests: OctagonTestsBase {
     }
 
     func testWaitForPriorityViewAPIDuringJoinWithSlowCKFetch() throws {
-        self.startCKAccountStatusMock()
+        // CKKS will be very, very slow.
+        self.holdCloudKitFetches()
 
         let allSharesContext = self.makeInitiatorContext(contextID: "allShares", authKitAdapter: self.mockAuthKit3)
 
@@ -701,9 +702,6 @@ class OctagonCKKSTests: OctagonTestsBase {
         self.putFakeKeyHierarchiesInCloudKit()
         self.putFakeDeviceStatusesInCloudKit()
         try self.putSelfTLKSharesInCloudKit(context: allSharesContext)
-
-        // Now, recover from this peer, but have CKKS be so very slow.
-        self.holdCloudKitFetches()
 
         self.assertJoinViaEscrowRecovery(joiningContext: self.cuttlefishContext, sponsor: allSharesContext)
 

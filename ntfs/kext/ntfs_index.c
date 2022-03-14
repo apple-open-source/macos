@@ -40,6 +40,7 @@
 #include <string.h>
 
 #include <libkern/libkern.h>
+#include <IOKit/IOLib.h>
 
 #include <kern/debug.h>
 #include <kern/locks.h>
@@ -291,7 +292,7 @@ void ntfs_index_ctx_put_reuse_single(ntfs_index_context *ictx)
 	if (ictx->entry && ictx->is_locked)
 		ntfs_index_ctx_unlock(ictx);
 	if (ictx->entries)
-		IOFree(ictx->entries, ictx->max_entries * sizeof(INDEX_ENTRY*));
+		IODelete(ictx->entries, INDEX_ENTRY*, ictx->max_entries);
 }
 
 /**
@@ -361,7 +362,7 @@ static errno_t ntfs_index_get_entries(ntfs_index_context *ictx)
 	nr_entries = 0;
 	max_entries = ictx->max_entries;
 	/* Allocate memory for the index entry pointers in the index node. */
-	entries = IOMallocZero(max_entries * sizeof(INDEX_ENTRY*));
+	entries = IONewZero(INDEX_ENTRY*, max_entries);
 	if (!entries) {
 		ntfs_error(ictx->idx_ni->vol->mp, "Failed to allocate index "
 				"entry pointer array.");
@@ -409,7 +410,7 @@ static errno_t ntfs_index_get_entries(ntfs_index_context *ictx)
 	ntfs_debug("Done.");
 	return 0;
 err:
-	IOFree(entries, max_entries * sizeof(INDEX_ENTRY*));
+	IODelete(entries, INDEX_ENTRY*, max_entries);
 	ntfs_error(ictx->idx_ni->vol->mp, "Corrupt index in inode 0x%llx.  "
 			"Run chkdsk.",
 			(unsigned long long)ictx->idx_ni->mft_no);
@@ -2337,7 +2338,7 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 	if (!ir_ictx)
 		return ENOMEM;
     ir_ictx->max_entries = ictx->max_entries;
-	ir_ictx->entries = IOMallocZero(ir_ictx->max_entries * sizeof(INDEX_ENTRY*));
+	ir_ictx->entries = IONewZero(INDEX_ENTRY*, ir_ictx->max_entries);
 	if (!ir_ictx->entries) {
 		err = ENOMEM;
 		goto err;
@@ -2380,12 +2381,11 @@ errno_t ntfs_index_move_root_to_allocation_block(ntfs_index_context *ictx)
 		bzero(ia, PAGE_SIZE);
 	} else {
 		/* Allocate a temporary buffer and zero it out. */
-		ia = IOMallocData(idx_ni->block_size);
+		ia = IOMallocZeroData(idx_ni->block_size);
 		if (!ia) {
 			err = ENOMEM;
 			goto err;
 		}
-		bzero(ia, idx_ni->block_size);
 		upl = NULL;
 		pl = NULL;
 	}

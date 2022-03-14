@@ -38,6 +38,8 @@
 #include "DateInputType.h"
 #include "DateTimeLocalInputType.h"
 #include "Decimal.h"
+#include "DocumentInlines.h"
+#include "ElementInlines.h"
 #include "EmailInputType.h"
 #include "EventNames.h"
 #include "FileInputType.h"
@@ -147,7 +149,7 @@ static InputTypeFactoryMap createInputTypeFactoryMap()
 Ref<InputType> InputType::create(HTMLInputElement& element, const AtomString& typeName)
 {
     if (!typeName.isEmpty()) {
-        static const auto factoryMap = makeNeverDestroyed(createInputTypeFactoryMap());
+        static NeverDestroyed factoryMap = createInputTypeFactoryMap();
         auto&& [conditional, factory] = factoryMap.get().get(typeName);
         if (factory && (!conditional || std::invoke(conditional, element.document().settings())))
             return factory(element);
@@ -194,7 +196,7 @@ bool InputType::isFormDataAppendable() const
     return !element()->name().isEmpty();
 }
 
-bool InputType::appendFormData(DOMFormData& formData, bool) const
+bool InputType::appendFormData(DOMFormData& formData) const
 {
     ASSERT(element());
     // Always successful.
@@ -202,12 +204,12 @@ bool InputType::appendFormData(DOMFormData& formData, bool) const
     return true;
 }
 
-double InputType::valueAsDate() const
+WallTime InputType::valueAsDate() const
 {
-    return DateComponents::invalidMilliseconds();
+    return WallTime::nan();
 }
 
-ExceptionOr<void> InputType::setValueAsDate(double) const
+ExceptionOr<void> InputType::setValueAsDate(WallTime) const
 {
     return Exception { InvalidStateError };
 }
@@ -267,7 +269,12 @@ bool InputType::rangeUnderflow(const String& value) const
     if (!numericValue.isFinite())
         return false;
 
-    return numericValue < createStepRange(AnyStepHandling::Reject).minimum();
+    auto range = createStepRange(AnyStepHandling::Reject);
+
+    if (range.isReversible() && range.maximum() < range.minimum())
+        return numericValue > range.maximum() && numericValue < range.minimum();
+
+    return numericValue < range.minimum();
 }
 
 bool InputType::rangeOverflow(const String& value) const
@@ -279,7 +286,12 @@ bool InputType::rangeOverflow(const String& value) const
     if (!numericValue.isFinite())
         return false;
 
-    return numericValue > createStepRange(AnyStepHandling::Reject).maximum();
+    auto range = createStepRange(AnyStepHandling::Reject);
+
+    if (range.isReversible() && range.maximum() < range.minimum())
+        return numericValue > range.maximum() && numericValue < range.minimum();
+
+    return numericValue > range.maximum();
 }
 
 bool InputType::isInvalid(const String& value) const
@@ -680,7 +692,7 @@ FileList* InputType::files()
     return nullptr;
 }
 
-void InputType::setFiles(RefPtr<FileList>&&)
+void InputType::setFiles(RefPtr<FileList>&&, WasSetByJavaScript)
 {
 }
 
@@ -728,6 +740,11 @@ void InputType::setValue(const String& sanitizedValue, bool valueChanged, TextFi
         break;
     case DispatchNoEvent:
         break;
+    }
+
+    if (isRangeControl()) {
+        if (auto* cache = element()->document().existingAXObjectCache())
+            cache->postNotification(element(), AXObjectCache::AXValueChanged);
     }
 }
 
@@ -930,7 +947,7 @@ ExceptionOr<void> InputType::applyStep(int count, AnyStepHandling anyStepHandlin
     if (newValue > stepRange.maximum())
         newValue = stepRange.maximum();
 
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
     auto result = setValueAsDecimal(newValue, eventBehavior);
     if (result.hasException() || !element())
         return result;

@@ -31,6 +31,9 @@
 
 @interface SFSQLiteStatement ()
 @property (nonatomic, strong) NSMutableArray *temporaryBoundObjects;
+// Initialized lazily, and valid for the lifetime of the statement, since column
+// names and indexes don't change between calls to `-step`.
+@property (nonatomic, strong) NSDictionary<NSString *, NSNumber *> *indexesByColumnName;
 @end
 @implementation SFSQLiteStatement
 
@@ -39,6 +42,7 @@
 @synthesize handle = _handle;
 @synthesize reset = _reset;
 @synthesize temporaryBoundObjects = _temporaryBoundObjects;
+@synthesize indexesByColumnName = _indexesByColumnName;
 
 - (id)initWithSQLite:(SFSQLite *)SQLite SQL:(NSString *)SQL handle:(sqlite3_stmt *)handle {
     if ((self = [super init])) {
@@ -251,6 +255,15 @@
     return @(sqlite3_column_name(_handle, (int)index));
 }
 
+- (NSUInteger)indexForColumnName:(NSString *)columnName {
+    if (!_indexesByColumnName) {
+        // Populate the name-to-index lookup table as a side effect.
+        [self enumerateColumnsUsingBlock:nil];
+    }
+    NSNumber *index = _indexesByColumnName[columnName];
+    return index ? index.unsignedIntegerValue : NSNotFound;
+}
+
 - (SInt32)intAtIndex:(NSUInteger)index {
     NSAssert(!_reset, @"Statement is reset: \"%@\"", _SQL);
     
@@ -319,23 +332,41 @@
 - (NSArray *)allObjects {
     NSUInteger columnCount = [self columnCount];
     NSMutableArray *objects = [NSMutableArray arrayWithCapacity:columnCount];
-    for (NSUInteger i = 0; i < columnCount; i++) {
+    [self enumerateColumnsUsingBlock:^(NSUInteger i, NSString * __unused columnName) {
         objects[i] = [self objectAtIndex:i] ?: [NSNull null];
-    }
+    }];
     return objects;
 }
 
 - (NSDictionary *)allObjectsByColumnName {
     NSUInteger columnCount = [self columnCount];
     NSMutableDictionary *objectsByColumnName = [NSMutableDictionary dictionaryWithCapacity:columnCount];
-    for (NSUInteger i = 0; i < columnCount; i++) {
-        NSString *columnName = [self columnNameAtIndex:i];
+    [self enumerateColumnsUsingBlock:^(NSUInteger i, NSString *columnName) {
         id object = [self objectAtIndex:i];
         if (object) {
             objectsByColumnName[columnName] = object;
         }
-    }
+    }];
     return objectsByColumnName;
+}
+
+- (void)enumerateColumnsUsingBlock:(nullable void (^ NS_NOESCAPE)(NSUInteger index, NSString *columnName))block {
+    NSUInteger columnCount = [self columnCount];
+    // Take the opportunity to build our column name-to-index lookup table, if
+    // we haven't already.
+    NSMutableDictionary<NSString *, NSNumber *> *indexesByColumnName = _indexesByColumnName == nil ? [NSMutableDictionary dictionaryWithCapacity:columnCount] : nil;
+    for (NSUInteger i = 0; i < columnCount; i++) {
+        NSString *columnName = [self columnNameAtIndex:i];
+        if (indexesByColumnName) {
+            indexesByColumnName[columnName] = @(i);
+        }
+        if (block) {
+            block(i, columnName);
+        }
+    }
+    if (indexesByColumnName) {
+        _indexesByColumnName = [indexesByColumnName copy];
+    }
 }
 
 @end

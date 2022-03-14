@@ -54,7 +54,10 @@
 
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
-#if HAVE(PUACTIVITYPROGRESSCONTROLLER)
+#if HAVE(PHOTOS_UI_PRIVATE)
+SOFT_LINK_PRIVATE_FRAMEWORK(PhotosUIPrivate)
+SOFT_LINK_CLASS(PhotosUIPrivate, PUActivityProgressController)
+#elif HAVE(PHOTOS_UI)
 SOFT_LINK_FRAMEWORK(PhotosUI)
 SOFT_LINK_CLASS(PhotosUI, PUActivityProgressController)
 #endif
@@ -554,6 +557,9 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 {
     NSMutableSet *mediaTypes = [NSMutableSet set];
     for (NSString *mimeType in mimeTypes) {
+        if ([mimeType isEqualToString:@"*/*"])
+            return [NSSet set];
+
         if ([mimeType caseInsensitiveCompare:@"image/*"] == NSOrderedSame)
             [mediaTypes addObject:UTTypeImage.identifier];
         else if ([mimeType caseInsensitiveCompare:@"video/*"] == NSOrderedSame)
@@ -567,7 +573,6 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
             if (uti)
                 [mediaTypes addObject:uti.identifier];
         }
-
     }
     return mediaTypes;
 }
@@ -783,7 +788,7 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
     // Use a popover on the iPad if the source type is not the camera.
     // The camera will use a fullscreen, modal view controller.
-    BOOL usePopover = !currentUserInterfaceIdiomIsPhoneOrWatch() && sourceType != UIImagePickerControllerSourceTypeCamera;
+    BOOL usePopover = !currentUserInterfaceIdiomIsSmallScreen() && sourceType != UIImagePickerControllerSourceTypeCamera;
     if (usePopover)
         [self _presentPopoverWithContentViewController:_imagePicker.get() animated:YES];
     else
@@ -794,7 +799,7 @@ static NSSet<NSString *> *UTIsForMIMETypes(NSArray *mimeTypes)
 
 - (void)_presentMenuOptionForCurrentInterfaceIdiom:(UIViewController *)viewController
 {
-    if (currentUserInterfaceIdiomIsPhoneOrWatch())
+    if (currentUserInterfaceIdiomIsSmallScreen())
         [self _presentFullscreenViewController:viewController animated:YES];
     else
         [self _presentPopoverWithContentViewController:viewController animated:YES];

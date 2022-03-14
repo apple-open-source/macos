@@ -456,12 +456,12 @@ public:
     template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.symbolTableSpace;
+        return &vm.symbolTableSpace();
     }
 
     static SymbolTable* create(VM& vm)
     {
-        SymbolTable* symbolTable = new (NotNull, allocateCell<SymbolTable>(vm.heap)) SymbolTable(vm);
+        SymbolTable* symbolTable = new (NotNull, allocateCell<SymbolTable>(vm)) SymbolTable(vm);
         symbolTable->finishCreation(vm);
         return symbolTable;
     }

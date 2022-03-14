@@ -37,6 +37,7 @@
 #include "BlobRegistry.h"
 #include "BlobURL.h"
 #include "CrossOriginOpenerPolicy.h"
+#include "PolicyContainer.h"
 #include "SecurityOrigin.h"
 #include <mutex>
 #include <wtf/CrossThreadQueue.h>
@@ -47,8 +48,6 @@
 #include <wtf/ThreadSpecific.h>
 #include <wtf/text/StringHash.h>
 #include <wtf/threads/BinarySemaphore.h>
-
-using WTF::ThreadSpecific;
 
 namespace WebCore {
 

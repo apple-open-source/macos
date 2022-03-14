@@ -64,7 +64,7 @@ JSArrayBufferView::ConstructionContext::ConstructionContext(
         // Attempt GC allocation.
         void* temp;
         size_t size = sizeOf(length, elementSize);
-        temp = vm.primitiveGigacageAuxiliarySpace.allocateNonVirtual(vm, size, nullptr, AllocationFailureMode::ReturnNull);
+        temp = vm.primitiveGigacageAuxiliarySpace().allocate(vm, size, nullptr, AllocationFailureMode::ReturnNull);
         if (!temp)
             return;
 
@@ -268,7 +268,7 @@ ArrayBuffer* JSArrayBufferView::slowDownAndWasteMemory()
     // that you *had* done those allocations and it will GC appropriately.
     Heap* heap = Heap::heap(this);
     VM& vm = heap->vm();
-    DeferGCForAWhile deferGC(*heap);
+    DeferGCForAWhile deferGC(vm);
 
     RELEASE_ASSERT(!hasIndexingHeader(vm));
     Structure* structure = this->structure(vm);

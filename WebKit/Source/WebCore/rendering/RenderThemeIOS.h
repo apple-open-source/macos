@@ -92,8 +92,11 @@ private:
     void paintFileUploadIconDecorations(const RenderObject& inputRenderer, const RenderObject& buttonRenderer, const PaintInfo&, const IntRect&, Icon*, FileUploadDecorations) override;
 
     void adjustTextFieldStyle(RenderStyle&, const Element*) const final;
-    void paintTextFieldDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
-    void paintTextAreaDecorations(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+    void paintTextFieldDecorations(const RenderBox&, const PaintInfo&, const FloatRect&) override;
+    void adjustTextAreaStyle(RenderStyle&, const Element*) const final;
+    void paintTextAreaDecorations(const RenderBox&, const PaintInfo&, const FloatRect&) override;
+
+    void paintTextFieldInnerShadow(const PaintInfo&, const FloatRoundedRect&);
 
     void adjustMenuListButtonStyle(RenderStyle&, const Element*) const override;
     void paintMenuListButtonDecorations(const RenderBox&, const PaintInfo&, const FloatRect&) override;
@@ -112,15 +115,18 @@ private:
 #endif
 
     void adjustSearchFieldStyle(RenderStyle&, const Element*) const override;
-    void paintSearchFieldDecorations(const RenderObject&, const PaintInfo&, const IntRect&) override;
+    void paintSearchFieldDecorations(const RenderBox&, const PaintInfo&, const IntRect&) override;
 
 #if ENABLE(IOS_FORM_CONTROL_REFRESH)
-    Color checkboxRadioBorderColor(OptionSet<ControlStates::States>, OptionSet<StyleColor::Options>);
-    Color checkboxRadioBackgroundColor(OptionSet<ControlStates::States>, OptionSet<StyleColor::Options>);
-    Color checkboxRadioIndicatorColor(OptionSet<ControlStates::States>, OptionSet<StyleColor::Options>);
+    Color checkboxRadioBorderColor(OptionSet<ControlStates::States>, OptionSet<StyleColorOptions>);
+    Color checkboxRadioBackgroundColor(bool useAlternateDesign, const RenderStyle&, OptionSet<ControlStates::States>, OptionSet<StyleColorOptions>);
+    RefPtr<Gradient> checkboxRadioBackgroundGradient(const FloatRect&, OptionSet<ControlStates::States>);
+    Color checkboxRadioIndicatorColor(OptionSet<ControlStates::States>, OptionSet<StyleColorOptions>);
 
     bool paintCheckbox(const RenderObject&, const PaintInfo&, const FloatRect&) override;
     bool paintRadio(const RenderObject&, const PaintInfo&, const FloatRect&) override;
+
+    void paintCheckboxRadioInnerShadow(const PaintInfo&, const FloatRoundedRect&, OptionSet<ControlStates::States>);
 
     Seconds animationRepeatIntervalForProgressBar(const RenderProgress&) const final;
 
@@ -128,6 +134,8 @@ private:
     bool paintMeter(const RenderObject&, const PaintInfo&, const IntRect&) final;
 
 #if ENABLE(DATALIST_ELEMENT)
+    bool paintListButton(const RenderObject&, const PaintInfo&, const FloatRect&) final;
+
     void paintSliderTicks(const RenderObject&, const PaintInfo&, const FloatRect&) final;
 #endif
 
@@ -153,12 +161,12 @@ private:
 
     bool supportsBoxShadow(const RenderStyle&) const final;
 
-    Color platformActiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const override;
-    Color platformInactiveSelectionBackgroundColor(OptionSet<StyleColor::Options>) const override;
-    Color platformFocusRingColor(OptionSet<StyleColor::Options>) const final;
+    Color platformActiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const override;
+    Color platformInactiveSelectionBackgroundColor(OptionSet<StyleColorOptions>) const override;
+    Color platformFocusRingColor(OptionSet<StyleColorOptions>) const final;
 
 #if ENABLE(APP_HIGHLIGHTS)
-    Color platformAppHighlightColor(OptionSet<StyleColor::Options>) const final;
+    Color platformAppHighlightColor(OptionSet<StyleColorOptions>) const final;
 #endif
 
 #if ENABLE(TOUCH_EVENTS)
@@ -191,11 +199,17 @@ private:
     void paintMenuListButtonDecorationsWithFormControlRefresh(const RenderBox&, const PaintInfo&, const FloatRect&);
 #endif
 
-    void adjustPressedStyle(RenderStyle&, const Element&) const;
+    bool isSubmitStyleButton(const Element&) const;
+
+    void adjustButtonLikeControlStyle(RenderStyle&, const Element&) const;
 
     FloatRect addRoundedBorderClip(const RenderObject& box, GraphicsContext&, const IntRect&);
 
-    Color systemColor(CSSValueID, OptionSet<StyleColor::Options>) const override;
+    Color systemColor(CSSValueID, OptionSet<StyleColorOptions>) const override;
+
+    Color controlTintColor(const RenderStyle&, OptionSet<StyleColorOptions>) const;
+
+    void adjustStyleForAlternateFormControlDesignTransition(RenderStyle&, const Element*) const;
 
 #if USE(SYSTEM_PREVIEW)
     RetainPtr<CIContext> m_ciContext;

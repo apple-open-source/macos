@@ -46,9 +46,9 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 - (instancetype)initWithConnection:(NSXPCConnection*)connection;
 
 - (void)rpcStatus:(NSString* _Nullable)viewName
-            reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
-- (void)rpcFastStatus:(NSString* _Nullable)viewName
-                reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+        fast:(BOOL)fast
+        waitForNonTransientState:(dispatch_time_t)nonTransientStateTimeout
+        reply:(void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcResetLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResetCloudKit:(NSString* _Nullable)viewName reason:(NSString *)reason reply:(void (^)(NSError* _Nullable error))reply;
 - (void)rpcResyncLocal:(NSString* _Nullable)viewName reply:(void (^)(NSError* _Nullable error))reply;
@@ -62,7 +62,11 @@ typedef NS_ENUM(NSUInteger, CKKSKnownBadState) {
 - (void)rpcPerformanceCounters:             (void(^)(NSDictionary <NSString *,NSNumber *> *,NSError*))reply;
 - (void)rpcGetCKDeviceIDWithReply:          (void (^)(NSString* ckdeviceID))reply;
 
-// convenience wrapper for rpcStatus:reply:
+// convenience wrappers for rpcStatus:fast:waitForNonTransientState:reply:
+- (void)rpcStatus:(NSString* _Nullable)viewName
+            reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+- (void)rpcFastStatus:(NSString* _Nullable)viewName
+                reply:(void (^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
 - (void)rpcTLKMissing:(NSString* _Nullable)viewName reply:(void (^)(bool missing))reply;
 - (void)rpcKnownBadState:(NSString* _Nullable)viewName reply:(void (^)(CKKSKnownBadState))reply;
 

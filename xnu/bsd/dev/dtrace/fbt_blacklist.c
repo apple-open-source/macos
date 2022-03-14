@@ -249,6 +249,7 @@ const char * fbt_blacklist[] =
 	X86_ONLY(sync_iss_to_iks_unconditionally)
 	CLOSURE(systrace_stub)
 	CRITICAL(t_invop)
+	CLOSURE(thread_tid)
 	CLOSURE(timer_grab)
 	ARM_ONLY(timer_state_event)
 	CRITICAL(tmrCvt)
@@ -269,6 +270,7 @@ const char * fbt_blacklist[] =
 	CLOSURE(zone_range_contains)
 	CLOSURE(zone_require_panic)
 	CLOSURE(zone_require_ro)
+	CLOSURE(zpercpu_count)
 };
 #define BLACKLIST_COUNT (sizeof(fbt_blacklist)/sizeof(fbt_blacklist[0]))
 

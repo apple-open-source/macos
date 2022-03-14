@@ -73,6 +73,10 @@ CFDataRef SecOCSPRequestGetDER(SecOCSPRequestRef ocspRequest);
 */
 void SecOCSPRequestFinalize(SecOCSPRequestRef ocspRequest);
 
+/* Testing Decoder */
+SecOCSPRequestRef SecOCSPRequestCreateWithData(CFDataRef der_ocsp_request);
+SecOCSPRequestRef SecOCSPRequestCreateWithDataStrict(CFDataRef der_ocsp_request);
+
 __END_DECLS
 
 #endif /* !_SECURITY_SECOCSPREQUEST_H_ */

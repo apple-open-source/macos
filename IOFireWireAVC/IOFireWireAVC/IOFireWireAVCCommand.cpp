@@ -216,8 +216,7 @@ void IOFireWireAVCCommand::free()
 		fMem = NULL;
 	}
 
-	IOFree ( fIOFireWireAVCCommandExpansion, sizeof(ExpansionData) );
-	fIOFireWireAVCCommandExpansion = NULL;
+	IOFreeType ( fIOFireWireAVCCommandExpansion, ExpansionData );
 
     IOFWCommand::free();
 }
@@ -322,11 +321,9 @@ bool IOFireWireAVCCommand::init(IOFireWireNub *device, const UInt8 * command, UI
 	bypassRobustCommandResponseMatching = false;
 
 	// create/clear expansion data
-	fIOFireWireAVCCommandExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	fIOFireWireAVCCommandExpansion = IOMallocType( ExpansionData );
 	if( fIOFireWireAVCCommandExpansion == NULL )
 		return false;
-	else
-		bzero( fIOFireWireAVCCommandExpansion, sizeof(ExpansionData) );
     
     // create command
     if(cmdLen == 4 || cmdLen == 8) {
@@ -492,11 +489,9 @@ bool IOFireWireAVCCommandInGen::init(IOFireWireNub *device, UInt32 generation,
     fCmdLen = cmdLen;
     
 	// create/clear expansion data
-	fIOFireWireAVCCommandExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	fIOFireWireAVCCommandExpansion = IOMallocType( ExpansionData );
 	if( fIOFireWireAVCCommandExpansion == NULL )
 		return false;
-	else
-		bzero( fIOFireWireAVCCommandExpansion, sizeof(ExpansionData) );
 	
     // create command
     if(cmdLen == 4 || cmdLen == 8) {

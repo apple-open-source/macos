@@ -88,7 +88,7 @@ void WebXRInputSourceArray::update(double timestamp, const InputSourceList& inpu
     if (!added.isEmpty() || !removed.isEmpty()) {
         // A user agent MUST dispatch an inputsourceschange event on an XRSession when the session’s list of active XR input sources has changed.
         XRInputSourcesChangeEvent::Init init;
-        init.session = makeRef(m_session);
+        init.session = &m_session;
         init.added = WTFMove(added);
         init.removed = WTFMove(removed);
         
@@ -105,7 +105,7 @@ void WebXRInputSourceArray::update(double timestamp, const InputSourceList& inpu
         // 5. Set frame’s active boolean to false.
 
         for (auto& event : inputEvents) {
-            ActiveDOMObject::queueTaskKeepingObjectAlive(m_session, TaskSource::WebXR, [session = makeRefPtr(m_session), event = WTFMove(event)]() {
+            ActiveDOMObject::queueTaskKeepingObjectAlive(m_session, TaskSource::WebXR, [session = Ref { m_session }, event = WTFMove(event)]() {
                 event->setFrameActive(true);
                 session->dispatchEvent(event.copyRef());
                 event->setFrameActive(false);
@@ -143,7 +143,7 @@ void WebXRInputSourceArray::handleAddedOrUpdatedInputSources(double timestamp, c
 
     for (auto& inputSource : inputSources) {
         auto index = m_inputSources.findMatching([&inputSource](auto& item) { return item->handle() == inputSource.handle; });
-        if (index == WTF::notFound) {
+        if (index == notFound) {
             // When new XR input sources become available for XRSession session, the user agent MUST run the following steps:
             // 1. If session's promise resolved flag is not set, abort these steps.
             // 2. Let added be a new list.

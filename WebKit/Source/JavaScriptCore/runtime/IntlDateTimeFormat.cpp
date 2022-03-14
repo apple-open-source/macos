@@ -68,7 +68,7 @@ static constexpr bool verbose = false;
 
 IntlDateTimeFormat* IntlDateTimeFormat::create(VM& vm, Structure* structure)
 {
-    IntlDateTimeFormat* format = new (NotNull, allocateCell<IntlDateTimeFormat>(vm.heap)) IntlDateTimeFormat(vm, structure);
+    IntlDateTimeFormat* format = new (NotNull, allocateCell<IntlDateTimeFormat>(vm)) IntlDateTimeFormat(vm, structure);
     format->finishCreation(vm);
     return format;
 }
@@ -165,13 +165,11 @@ Vector<String> IntlDateTimeFormat::localeData(const String& locale, RelevantExte
             ASSERT(U_SUCCESS(status));
             String calendar = String(availableName, nameLength);
             keyLocaleData.append(calendar);
-            // Ensure aliases used in language tag are allowed.
-            if (calendar == "gregorian")
-                keyLocaleData.append("gregory"_s);
-            else if (calendar == "islamic-civil")
+            // Adding "islamicc" candidate for backward compatibility.
+            if (calendar == "islamic-civil"_s)
                 keyLocaleData.append("islamicc"_s);
-            else if (calendar == "ethiopic-amete-alem")
-                keyLocaleData.append("ethioaa"_s);
+            if (auto mapped = mapICUCalendarKeywordToBCP47(calendar))
+                keyLocaleData.append(WTFMove(mapped.value()));
         }
         uenum_close(calendars);
         break;
@@ -250,12 +248,10 @@ static JSObject* toDateTimeOptionsAnyDate(JSGlobalObject* globalObject, JSValue 
     // ii. Let value be Get(options, prop).
     // iii. ReturnIfAbrupt(value).
     // iv. If value is not undefined, then let needDefaults be false.
-    if (Options::useIntlDateTimeFormatDayPeriod()) {
-        JSValue dayPeriod = options->get(globalObject, vm.propertyNames->dayPeriod);
-        RETURN_IF_EXCEPTION(scope, { });
-        if (!dayPeriod.isUndefined())
-            needDefaults = false;
-    }
+    JSValue dayPeriod = options->get(globalObject, vm.propertyNames->dayPeriod);
+    RETURN_IF_EXCEPTION(scope, { });
+    if (!dayPeriod.isUndefined())
+        needDefaults = false;
 
     JSValue hour = options->get(globalObject, vm.propertyNames->hour);
     RETURN_IF_EXCEPTION(scope, { });
@@ -331,7 +327,7 @@ static inline unsigned skipLiteralText(const Container& container, unsigned star
     return length - 1;
 }
 
-void IntlDateTimeFormat::setFormatsFromPattern(const StringView& pattern)
+void IntlDateTimeFormat::setFormatsFromPattern(StringView pattern)
 {
     // Get all symbols from the pattern, and set format fields accordingly.
     // http://unicode.org/reports/tr35/tr35-dates.html#Date_Field_Symbol_Table
@@ -453,12 +449,23 @@ void IntlDateTimeFormat::setFormatsFromPattern(const StringView& pattern)
                 m_second = Second::TwoDigit;
             break;
         case 'z':
-        case 'v':
-        case 'V':
             if (count == 1)
                 m_timeZoneName = TimeZoneName::Short;
             else if (count == 4)
                 m_timeZoneName = TimeZoneName::Long;
+            break;
+        case 'O':
+            if (count == 1)
+                m_timeZoneName = TimeZoneName::ShortOffset;
+            else if (count == 4)
+                m_timeZoneName = TimeZoneName::LongOffset;
+            break;
+        case 'v':
+        case 'V':
+            if (count == 1)
+                m_timeZoneName = TimeZoneName::ShortGeneric;
+            else if (count == 4)
+                m_timeZoneName = TimeZoneName::LongGeneric;
             break;
         case 'S':
             m_fractionalSecondDigits = count;
@@ -640,13 +647,13 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
         return;
     }
 
-    m_calendar = resolved.extensions[static_cast<unsigned>(RelevantExtensionKey::Ca)];
-    if (m_calendar == "gregorian")
-        m_calendar = "gregory"_s;
-    else if (m_calendar == "islamicc")
-        m_calendar = "islamic-civil"_s;
-    else if (m_calendar == "ethioaa")
-        m_calendar = "ethiopic-amete-alem"_s;
+    {
+        String calendar = resolved.extensions[static_cast<unsigned>(RelevantExtensionKey::Ca)];
+        if (auto mapped = mapICUCalendarKeywordToBCP47(calendar))
+            m_calendar = WTFMove(mapped.value());
+        else
+            m_calendar = WTFMove(calendar);
+    }
 
     hourCycle = parseHourCycle(resolved.extensions[static_cast<unsigned>(RelevantExtensionKey::Hc)]);
     m_numberingSystem = resolved.extensions[static_cast<unsigned>(RelevantExtensionKey::Nu)];
@@ -750,11 +757,8 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
         break;
     }
 
-    DayPeriod dayPeriod = DayPeriod::None;
-    if (Options::useIntlDateTimeFormatDayPeriod()) {
-        dayPeriod = intlOption<DayPeriod>(globalObject, options, vm.propertyNames->dayPeriod, { { "narrow"_s, DayPeriod::Narrow }, { "short"_s, DayPeriod::Short }, { "long"_s, DayPeriod::Long } }, "dayPeriod must be \"narrow\", \"short\", or \"long\""_s, DayPeriod::None);
-        RETURN_IF_EXCEPTION(scope, void());
-    }
+    DayPeriod dayPeriod = intlOption<DayPeriod>(globalObject, options, vm.propertyNames->dayPeriod, { { "narrow"_s, DayPeriod::Narrow }, { "short"_s, DayPeriod::Short }, { "long"_s, DayPeriod::Long } }, "dayPeriod must be \"narrow\", \"short\", or \"long\""_s, DayPeriod::None);
+    RETURN_IF_EXCEPTION(scope, void());
 
     Hour hour = intlOption<Hour>(globalObject, options, vm.propertyNames->hour, { { "2-digit"_s, Hour::TwoDigit }, { "numeric"_s, Hour::Numeric } }, "hour must be \"2-digit\" or \"numeric\""_s, Hour::None);
     RETURN_IF_EXCEPTION(scope, void());
@@ -805,22 +809,20 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
         }
     }
 
-    if (Options::useIntlDateTimeFormatDayPeriod()) {
-        // dayPeriod must be set after setting hour.
-        // https://unicode-org.atlassian.net/browse/ICU-20731
-        switch (dayPeriod) {
-        case DayPeriod::Narrow:
-            skeletonBuilder.append("BBBBB");
-            break;
-        case DayPeriod::Short:
-            skeletonBuilder.append('B');
-            break;
-        case DayPeriod::Long:
-            skeletonBuilder.append("BBBB");
-            break;
-        case DayPeriod::None:
-            break;
-        }
+    // dayPeriod must be set after setting hour.
+    // https://unicode-org.atlassian.net/browse/ICU-20731
+    switch (dayPeriod) {
+    case DayPeriod::Narrow:
+        skeletonBuilder.append("BBBBB");
+        break;
+    case DayPeriod::Short:
+        skeletonBuilder.append('B');
+        break;
+    case DayPeriod::Long:
+        skeletonBuilder.append("BBBB");
+        break;
+    case DayPeriod::None:
+        break;
     }
 
     Minute minute = intlOption<Minute>(globalObject, options, vm.propertyNames->minute, { { "2-digit"_s, Minute::TwoDigit }, { "numeric"_s, Minute::Numeric } }, "minute must be \"2-digit\" or \"numeric\""_s, Minute::None);
@@ -854,7 +856,7 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
     for (unsigned i = 0; i < fractionalSecondDigits; ++i)
         skeletonBuilder.append('S');
 
-    TimeZoneName timeZoneName = intlOption<TimeZoneName>(globalObject, options, vm.propertyNames->timeZoneName, { { "short"_s, TimeZoneName::Short }, { "long"_s, TimeZoneName::Long } }, "timeZoneName must be \"short\" or \"long\""_s, TimeZoneName::None);
+    TimeZoneName timeZoneName = intlOption<TimeZoneName>(globalObject, options, vm.propertyNames->timeZoneName, { { "short"_s, TimeZoneName::Short }, { "long"_s, TimeZoneName::Long }, { "shortOffset"_s, TimeZoneName::ShortOffset }, { "longOffset"_s, TimeZoneName::LongOffset }, { "shortGeneric"_s, TimeZoneName::ShortGeneric}, { "longGeneric"_s, TimeZoneName::LongGeneric } }, "timeZoneName must be \"short\", \"long\", \"shortOffset\", \"longOffset\", \"shortGenric\", or \"longGeneric\""_s, TimeZoneName::None);
     RETURN_IF_EXCEPTION(scope, void());
     switch (timeZoneName) {
     case TimeZoneName::Short:
@@ -862,6 +864,18 @@ void IntlDateTimeFormat::initializeDateTimeFormat(JSGlobalObject* globalObject, 
         break;
     case TimeZoneName::Long:
         skeletonBuilder.append("zzzz");
+        break;
+    case TimeZoneName::ShortOffset:
+        skeletonBuilder.append('O');
+        break;
+    case TimeZoneName::LongOffset:
+        skeletonBuilder.append("OOOO");
+        break;
+    case TimeZoneName::ShortGeneric:
+        skeletonBuilder.append('v');
+        break;
+    case TimeZoneName::LongGeneric:
+        skeletonBuilder.append("vvvv");
         break;
     case TimeZoneName::None:
         break;
@@ -1165,6 +1179,14 @@ ASCIILiteral IntlDateTimeFormat::timeZoneNameString(TimeZoneName timeZoneName)
         return "short"_s;
     case TimeZoneName::Long:
         return "long"_s;
+    case TimeZoneName::ShortOffset:
+        return "shortOffset"_s;
+    case TimeZoneName::LongOffset:
+        return "longOffset"_s;
+    case TimeZoneName::ShortGeneric:
+        return "shortGeneric"_s;
+    case TimeZoneName::LongGeneric:
+        return "longGeneric"_s;
     case TimeZoneName::None:
         ASSERT_NOT_REACHED();
         return ASCIILiteral::null();
@@ -1208,46 +1230,46 @@ JSObject* IntlDateTimeFormat::resolvedOptions(JSGlobalObject* globalObject) cons
         options->putDirect(vm, vm.propertyNames->hour12, jsBoolean(m_hourCycle == HourCycle::H11 || m_hourCycle == HourCycle::H12));
     }
 
-    if (m_weekday != Weekday::None)
-        options->putDirect(vm, vm.propertyNames->weekday, jsNontrivialString(vm, weekdayString(m_weekday)));
+    if (m_dateStyle == DateTimeStyle::None && m_timeStyle == DateTimeStyle::None) {
+        if (m_weekday != Weekday::None)
+            options->putDirect(vm, vm.propertyNames->weekday, jsNontrivialString(vm, weekdayString(m_weekday)));
 
-    if (m_era != Era::None)
-        options->putDirect(vm, vm.propertyNames->era, jsNontrivialString(vm, eraString(m_era)));
+        if (m_era != Era::None)
+            options->putDirect(vm, vm.propertyNames->era, jsNontrivialString(vm, eraString(m_era)));
 
-    if (m_year != Year::None)
-        options->putDirect(vm, vm.propertyNames->year, jsNontrivialString(vm, yearString(m_year)));
+        if (m_year != Year::None)
+            options->putDirect(vm, vm.propertyNames->year, jsNontrivialString(vm, yearString(m_year)));
 
-    if (m_month != Month::None)
-        options->putDirect(vm, vm.propertyNames->month, jsNontrivialString(vm, monthString(m_month)));
+        if (m_month != Month::None)
+            options->putDirect(vm, vm.propertyNames->month, jsNontrivialString(vm, monthString(m_month)));
 
-    if (m_day != Day::None)
-        options->putDirect(vm, vm.propertyNames->day, jsNontrivialString(vm, dayString(m_day)));
+        if (m_day != Day::None)
+            options->putDirect(vm, vm.propertyNames->day, jsNontrivialString(vm, dayString(m_day)));
 
-    if (Options::useIntlDateTimeFormatDayPeriod()) {
         if (m_dayPeriod != DayPeriod::None)
             options->putDirect(vm, vm.propertyNames->dayPeriod, jsNontrivialString(vm, dayPeriodString(m_dayPeriod)));
+
+        if (m_hour != Hour::None)
+            options->putDirect(vm, vm.propertyNames->hour, jsNontrivialString(vm, hourString(m_hour)));
+
+        if (m_minute != Minute::None)
+            options->putDirect(vm, vm.propertyNames->minute, jsNontrivialString(vm, minuteString(m_minute)));
+
+        if (m_second != Second::None)
+            options->putDirect(vm, vm.propertyNames->second, jsNontrivialString(vm, secondString(m_second)));
+
+        if (m_fractionalSecondDigits)
+            options->putDirect(vm, vm.propertyNames->fractionalSecondDigits, jsNumber(m_fractionalSecondDigits));
+
+        if (m_timeZoneName != TimeZoneName::None)
+            options->putDirect(vm, vm.propertyNames->timeZoneName, jsNontrivialString(vm, timeZoneNameString(m_timeZoneName)));
+    } else {
+        if (m_dateStyle != DateTimeStyle::None)
+            options->putDirect(vm, vm.propertyNames->dateStyle, jsNontrivialString(vm, formatStyleString(m_dateStyle)));
+
+        if (m_timeStyle != DateTimeStyle::None)
+            options->putDirect(vm, vm.propertyNames->timeStyle, jsNontrivialString(vm, formatStyleString(m_timeStyle)));
     }
-
-    if (m_hour != Hour::None)
-        options->putDirect(vm, vm.propertyNames->hour, jsNontrivialString(vm, hourString(m_hour)));
-
-    if (m_minute != Minute::None)
-        options->putDirect(vm, vm.propertyNames->minute, jsNontrivialString(vm, minuteString(m_minute)));
-
-    if (m_second != Second::None)
-        options->putDirect(vm, vm.propertyNames->second, jsNontrivialString(vm, secondString(m_second)));
-
-    if (m_fractionalSecondDigits)
-        options->putDirect(vm, vm.propertyNames->fractionalSecondDigits, jsNumber(m_fractionalSecondDigits));
-
-    if (m_timeZoneName != TimeZoneName::None)
-        options->putDirect(vm, vm.propertyNames->timeZoneName, jsNontrivialString(vm, timeZoneNameString(m_timeZoneName)));
-
-    if (m_dateStyle != DateTimeStyle::None)
-        options->putDirect(vm, vm.propertyNames->dateStyle, jsNontrivialString(vm, formatStyleString(m_dateStyle)));
-
-    if (m_timeStyle != DateTimeStyle::None)
-        options->putDirect(vm, vm.propertyNames->timeStyle, jsNontrivialString(vm, formatStyleString(m_timeStyle)));
 
     return options;
 }

@@ -348,13 +348,15 @@ struct c_sv_hash_entry c_segment_sv_hash_table[C_SV_HASH_SIZE]  __attribute__ ((
 static boolean_t compressor_needs_to_swap(void);
 static void vm_compressor_swap_trigger_thread(void);
 static void vm_compressor_do_delayed_compactions(boolean_t);
-static void vm_compressor_process_major_segments(void);
 static void vm_compressor_compact_and_swap(boolean_t);
 static void vm_compressor_age_swapped_in_segments(boolean_t);
 
 struct vm_compressor_swapper_stats vmcs_stats;
 
 #if XNU_TARGET_OS_OSX
+#if (__arm64__)
+static void vm_compressor_process_major_segments(void);
+#endif /* (__arm64__) */
 static void vm_compressor_take_paging_space_action(void);
 #endif /* XNU_TARGET_OS_OSX */
 
@@ -868,8 +870,8 @@ try_again:
 	vmk_flags = VM_MAP_KERNEL_FLAGS_NONE;
 	vmk_flags.vmkf_permanent = TRUE;
 	retval = kmem_suballoc(kernel_map, &start_addr, compressor_submap_size,
-	    FALSE, VM_FLAGS_ANYWHERE, vmk_flags, VM_KERN_MEMORY_COMPRESSOR,
-	    &compressor_map);
+	    VM_MAP_CREATE_NEVER_FAULTS, VM_FLAGS_ANYWHERE, vmk_flags,
+	    VM_KERN_MEMORY_COMPRESSOR, &compressor_map);
 
 	if (retval != KERN_SUCCESS) {
 		if (++attempts > 3) {
@@ -916,7 +918,7 @@ try_again:
 	}
 
 	compressor_segment_zone = zone_create("compressor_segment",
-	    c_segment_size, ZC_NOENCRYPT | ZC_ZFREE_CLEARMEM);
+	    c_segment_size, ZC_PGZ_USE_GUARDS | ZC_NOENCRYPT | ZC_ZFREE_CLEARMEM);
 
 	c_segments_busy = FALSE;
 
@@ -3048,7 +3050,18 @@ vm_compressor_compact_and_swap(boolean_t flush_all)
 		fastwake_warmup = FALSE;
 	}
 
+#if (XNU_TARGET_OS_OSX && __arm64__)
+	/*
+	 * Re-considering major csegs showed benefits on all platforms by
+	 * significantly reducing fragmentation and getting back memory.
+	 * However, on smaller devices, eg watch, there was increased power
+	 * use for the additional compactions. And the turnover in csegs on
+	 * those smaller platforms is high enough in the decompression/free
+	 * path that we can skip reconsidering them here because we already
+	 * consider them for major compaction in those paths.
+	 */
 	vm_compressor_process_major_segments();
+#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 
 	/*
 	 * it's possible for the c_age_list_head to be empty if we
@@ -3710,6 +3723,7 @@ c_current_seg_filled(c_segment_t c_seg, c_segment_t *current_chead)
 }
 
 
+#if (XNU_TARGET_OS_OSX && __arm64__)
 static void
 vm_compressor_process_major_segments(void)
 {
@@ -3726,6 +3740,7 @@ vm_compressor_process_major_segments(void)
 		}
 	}
 }
+#endif /* (XNU_TARGET_OS_OSX && __arm64__) */
 
 /*
  * returns with c_seg locked
@@ -3983,7 +3998,7 @@ c_compressed_record_data(char *src, int c_size)
 static int
 c_compress_page(char *src, c_slot_mapping_t slot_ptr, c_segment_t *current_chead, char *scratch_buf)
 {
-	int             c_size;
+	int             c_size = -1;
 	int             c_rounded_size = 0;
 	int             max_csize;
 	c_slot_t        cs;

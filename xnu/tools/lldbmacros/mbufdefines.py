@@ -1,6 +1,9 @@
+from __future__ import absolute_import
+
 from xnu import *
 from utils import *
 import ctypes
+from future.utils import iteritems
 
 MBSHIFT = 20
 MSIZE = 256
@@ -22,7 +25,7 @@ MCF_NOCPUCACHE = 0x10
 
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
-    reverse = dict((value, key) for key, value in enums.iteritems())
+    reverse = dict((value, key) for key, value in iteritems(enums))
     enums['reverse_mapping'] = reverse
     return type('Enum', (), enums)
 

@@ -1,3 +1,5 @@
+/*	$NetBSD: unvis.c,v 1.13 2010/11/27 19:46:25 christos Exp $	*/
+
 /*-
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,18 +29,17 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
-"@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
+__COPYRIGHT("@(#) Copyright (c) 1989, 1993\
+ The Regents of the University of California.  All rights reserved.");
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)unvis.c	8.1 (Berkeley) 6/6/93";
 #endif
-static const char rcsid[] =
-  "$FreeBSD: src/usr.bin/unvis/unvis.c,v 1.9 2002/09/04 23:29:08 dwmalone Exp $";
+__RCSID("$NetBSD: unvis.c,v 1.13 2010/11/27 19:46:25 christos Exp $");
 #endif /* not lint */
 
 #include <err.h>
@@ -52,46 +49,64 @@ static const char rcsid[] =
 #include <vis.h>
 #include <sysexits.h>
 
-void process(FILE *, const char *);
-static void usage(void);
+static void process(FILE *, const char *, int);
 
 int
 main(int argc, char *argv[])
 {
 	FILE *fp;
-	int ch;
+	int ch, eflags = 0;
 
-	while ((ch = getopt(argc, argv, "")) != -1)
+	setprogname(argv[0]);
+	while ((ch = getopt(argc, argv, "eHhm")) != -1)
 		switch((char)ch) {
+		case 'e':
+			eflags |= VIS_NOESCAPE;
+			break;
+		case 'H':
+			eflags |= VIS_HTTP1866;
+			break;
+		case 'h':
+			eflags |= VIS_HTTP1808;
+			break;
+		case 'm':
+			eflags |= VIS_MIMESTYLE;
+			break;
 		case '?':
 		default:
-			usage();
+			(void)fprintf(stderr,
+			    "Usage: %s [-e] [-Hh | -m] [file...]\n",
+			    getprogname());
+			return EXIT_FAILURE;
 		}
 	argc -= optind;
 	argv += optind;
 
+	switch (eflags & (VIS_HTTP1808|VIS_HTTP1866|VIS_MIMESTYLE)) {
+	case VIS_HTTP1808|VIS_MIMESTYLE:
+	case VIS_HTTP1866|VIS_MIMESTYLE:
+	case VIS_HTTP1808|VIS_HTTP1866|VIS_MIMESTYLE:
+		errx(EXIT_FAILURE, "Can't mix -m with -h and/or -H");
+		/*NOTREACHED*/
+	default:
+		break;
+	}
+
 	if (*argv)
 		while (*argv) {
-			if ((fp=fopen(*argv, "r")) != NULL)
-				process(fp, *argv);
+			if ((fp = fopen(*argv, "r")) != NULL)
+				process(fp, *argv, eflags);
 			else
 				warn("%s", *argv);
 			argv++;
 		}
 	else
-		process(stdin, "<stdin>");
-	exit(0);
+		process(stdin, "<stdin>", eflags);
+	return EXIT_SUCCESS;
 }
 
 static void
-usage(void)
-{
-	fprintf(stderr, "usage: unvis [file ...]\n");
-	exit(1);
-}
-
-void
-process(FILE *fp, const char *filename)
+process(FILE *fp, const char *filename, int eflags)
 {
 	int offset = 0, c, ret;
 	int state = 0;
@@ -100,12 +115,12 @@ process(FILE *fp, const char *filename)
 	while ((c = getc(fp)) != EOF) {
 		offset++;
 	again:
-		switch(ret = unvis(&outc, (char)c, &state, 0)) {
+		switch(ret = unvis(&outc, (char)c, &state, eflags)) {
 		case UNVIS_VALID:
-			putchar(outc);
+			(void)putchar(outc);
 			break;
 		case UNVIS_VALIDPUSH:
-			putchar(outc);
+			(void)putchar(outc);
 			goto again;
 		case UNVIS_SYNBAD:
 			warnx("%s: offset: %d: can't decode", filename, offset);
@@ -116,11 +131,12 @@ process(FILE *fp, const char *filename)
 			break;
 		default:
 			errx(1, "bad return value (%d), can't happen", ret);
+			/* NOTREACHED */
 		}
 	}
-	if (unvis(&outc, (char)0, &state, UNVIS_END) == UNVIS_VALID)
-		putchar(outc);
-	
+	if (unvis(&outc, (char)0, &state, eflags | UNVIS_END) == UNVIS_VALID)
+		(void)putchar(outc);
+
 	if (ferror(fp))
 		errx(EX_IOERR, "Error reading %s", fp);
 }

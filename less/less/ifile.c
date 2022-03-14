@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -21,37 +21,40 @@
 
 #include "less.h"
 
-extern IFILE	curr_ifile;
-extern int	unix2003_compat;
+extern IFILE    curr_ifile;
+extern int      unix2003_compat;
 
 struct ifile {
-	struct ifile *h_next;		/* Links for command line list */
+	struct ifile *h_next;           /* Links for command line list */
 	struct ifile *h_prev;
-	char *h_filename;		/* Name of the file */
-	void *h_filestate;		/* File state (used in ch.c) */
-	int h_index;			/* Index within command line list */
-	int h_hold;			/* Hold count */
-	char h_opened;			/* Has this ifile been opened? */
-	struct scrpos h_scrpos;		/* Saved position within the file */
+	char *h_filename;               /* Name of the file */
+	char *h_rfilename;              /* Canonical name of the file */
+	void *h_filestate;              /* File state (used in ch.c) */
+	int h_index;                    /* Index within command line list */
+	int h_hold;                     /* Hold count */
+	char h_opened;                  /* Has this ifile been opened? */
+	struct scrpos h_scrpos;         /* Saved position within the file */
+	void *h_altpipe;                /* Alt pipe */
+	char *h_altfilename;            /* Alt filename */
 };
 
 /*
  * Convert an IFILE (external representation)
  * to a struct file (internal representation), and vice versa.
  */
-#define int_ifile(h)	((struct ifile *)(h))
-#define ext_ifile(h)	((IFILE)(h))
+#define int_ifile(h)    ((struct ifile *)(h))
+#define ext_ifile(h)    ((IFILE)(h))
 
 /*
  * Anchor for linked list.
  */
-static struct ifile anchor = { &anchor, &anchor, NULL, NULL, 0, 0, '\0',
+static struct ifile anchor = { &anchor, &anchor, NULL, NULL, NULL, 0, 0, '\0',
 				{ NULL_POSITION, 0 } };
 static int ifiles = 0;
 
 	static void
 incr_index(p, incr)
-	register struct ifile *p;
+	struct ifile *p;
 	int incr;
 {
 	for (;  p != &anchor;  p = p->h_next)
@@ -108,18 +111,27 @@ new_ifile(filename, prev)
 	char *filename;
 	struct ifile *prev;
 {
-	register struct ifile *p;
+	struct ifile *p;
 
 	/*
 	 * Allocate and initialize structure.
 	 */
 	p = (struct ifile *) ecalloc(1, sizeof(struct ifile));
 	p->h_filename = save(filename);
+	p->h_rfilename = lrealpath(filename);
 	p->h_scrpos.pos = NULL_POSITION;
 	p->h_opened = 0;
 	p->h_hold = 0;
 	p->h_filestate = NULL;
+	p->h_altfilename = NULL;
+	p->h_altpipe = NULL;
 	link_ifile(p, prev);
+	/*
+	 * {{ It's dodgy to call mark.c functions from here;
+	 *    there is potentially dangerous recursion.
+	 *    Probably need to revisit this design. }}
+	 */
+	mark_check_ifile(ext_ifile(p));
 	return (p);
 }
 
@@ -130,7 +142,7 @@ new_ifile(filename, prev)
 del_ifile(h)
 	IFILE h;
 {
-	register struct ifile *p;
+	struct ifile *p;
 
 	if (h == NULL_IFILE)
 		return;
@@ -143,6 +155,7 @@ del_ifile(h)
 		curr_ifile = getoff_ifile(curr_ifile);
 	p = int_ifile(h);
 	unlink_ifile(p);
+	free(p->h_rfilename);
 	free(p->h_filename);
 	free(p);
 }
@@ -154,7 +167,7 @@ del_ifile(h)
 next_ifile(h)
 	IFILE h;
 {
-	register struct ifile *p;
+	struct ifile *p;
 
 	p = (h == NULL_IFILE) ? &anchor : int_ifile(h);
 	if (p->h_next == &anchor)
@@ -169,7 +182,7 @@ next_ifile(h)
 prev_ifile(h)
 	IFILE h;
 {
-	register struct ifile *p;
+	struct ifile *p;
 
 	p = (h == NULL_IFILE) ? &anchor : int_ifile(h);
 	if (p->h_prev == &anchor)
@@ -197,7 +210,7 @@ getoff_ifile(ifile)
  * Return the number of ifiles.
  */
 	public int
-nifile()
+nifile(VOID_PARAM)
 {
 	return (ifiles);
 }
@@ -209,12 +222,29 @@ nifile()
 find_ifile(filename)
 	char *filename;
 {
-	register struct ifile *p;
+	struct ifile *p;
+	char *rfilename = lrealpath(filename);
 
 	for (p = anchor.h_next;  p != &anchor;  p = p->h_next)
-		if (strcmp(filename, p->h_filename) == 0)
-			return (p);
-	return (NULL);
+	{
+		if (strcmp(rfilename, p->h_rfilename) == 0)
+		{
+			/*
+			 * If given name is shorter than the name we were
+			 * previously using for this file, adopt shorter name.
+			 */
+			if (strlen(filename) < strlen(p->h_filename))
+			{
+				free(p->h_filename);
+				p->h_filename = save(filename);
+			}
+			break;
+		}
+	}
+	free(rfilename);
+	if (p == &anchor)
+		p = NULL;
+	return (p);
 }
 
 /*
@@ -227,7 +257,7 @@ get_ifile(filename, prev)
 	char *filename;
 	IFILE prev;
 {
-	register struct ifile *p;
+	struct ifile *p;
 
 	if (unix2003_compat) {
 		/* don't exclude duplicates in list */
@@ -240,7 +270,7 @@ get_ifile(filename, prev)
 }
 
 /*
- * Get the filename associated with a ifile.
+ * Get the display filename associated with a ifile.
  */
 	public char *
 get_filename(ifile)
@@ -249,6 +279,18 @@ get_filename(ifile)
 	if (ifile == NULL)
 		return (NULL);
 	return (int_ifile(ifile)->h_filename);
+}
+
+/*
+ * Get the canonical filename associated with a ifile.
+ */
+	public char *
+get_real_filename(ifile)
+	IFILE ifile;
+{
+	if (ifile == NULL)
+		return (NULL);
+	return (int_ifile(ifile)->h_rfilename);
 }
 
 /*
@@ -334,11 +376,44 @@ set_filestate(ifile, filestate)
 	int_ifile(ifile)->h_filestate = filestate;
 }
 
+	public void
+set_altpipe(ifile, p)
+	IFILE ifile;
+	void *p;
+{
+	int_ifile(ifile)->h_altpipe = p;
+}
+
+	public void *
+get_altpipe(ifile)
+	IFILE ifile;
+{
+	return (int_ifile(ifile)->h_altpipe);
+}
+
+	public void
+set_altfilename(ifile, altfilename)
+	IFILE ifile;
+	char *altfilename;
+{
+	struct ifile *p = int_ifile(ifile);
+	if (p->h_altfilename != NULL && p->h_altfilename != altfilename)
+		free(p->h_altfilename);
+	p->h_altfilename = altfilename;
+}
+
+	public char *
+get_altfilename(ifile)
+	IFILE ifile;
+{
+	return (int_ifile(ifile)->h_altfilename);
+}
+
 #if 0
 	public void
-if_dump()
+if_dump(VOID_PARAM)
 {
-	register struct ifile *p;
+	struct ifile *p;
 
 	for (p = anchor.h_next;  p != &anchor;  p = p->h_next)
 	{

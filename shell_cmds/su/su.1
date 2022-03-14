@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)su.1	8.2 (Berkeley) 4/18/94
-.\" $FreeBSD: src/usr.bin/su/su.1,v 1.40 2007/07/24 06:41:07 delphij Exp $
+.\" $FreeBSD$
 .\"
-.Dd September 13, 2006
+.Dd March 26, 2020
 .Dt SU 1
 .Os
 .Sh NAME
@@ -41,6 +37,8 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl
+.\" .Op Fl c Ar class
+.\" .Op Fl flms
 .Op Fl flm
 .Op Ar login Op Ar args
 .Sh DESCRIPTION
@@ -83,9 +81,18 @@ in which case it is unmodified.
 The invoked shell is the one belonging to the target login.
 This is the traditional behavior of
 .Nm .
+.\" Resource limits and session priority applicable to the original user's
+.\" login class (see
+.\" .Xr login.conf 5 )
+.\" are also normally retained unless the target login has a user ID of 0.
 .Pp
 The options are as follows:
 .Bl -tag -width Ds
+.\" .It Fl c Ar class
+.\" Use the settings of the specified login class.
+.\" The login class must be defined in
+.\" .Xr login.conf 5 .
+.\" Only allowed for the super-user.
 .It Fl f
 If the invoked shell is
 .Xr csh 1 ,
@@ -112,9 +119,13 @@ is set to
 .Dq Pa /bin:/usr/bin .
 .Ev TERM
 is imported from your current environment.
+.\" Environment variables may be set or overridden from the login class
+.\" capabilities database according to the class of the target login.
 The invoked shell is the target login's, and
 .Nm
 will change directory to the target login's home directory.
+.\" Resource limits and session priority are modified to that for the
+.\" target account's login class.
 .It Fl
 (no letter) The same as
 .Fl l .
@@ -128,6 +139,14 @@ and the caller's real uid is
 non-zero,
 .Nm
 will fail.
+.\" .It Fl s
+.\" Set the MAC label to the user's default label as part of the user
+.\" credential setup.
+.\" Setting the MAC label may fail if the MAC label of the invoking process
+.\" is not sufficient to transition to the user's default MAC label.
+.\" If the label cannot be set,
+.\" .Nm
+.\" will fail.
 .El
 .Pp
 The
@@ -171,20 +190,33 @@ The user ID is always the effective ID (the target user ID) after an
 unless the user ID is 0 (root).
 .El
 .Sh FILES
-.Bl -tag -width ".Pa /etc/pam.d/su" -compact
+.Bl -tag -width "/etc/pam.d/su" -compact
 .It Pa /etc/pam.d/su
 PAM configuration for
 .Nm .
 .El
 .Sh EXAMPLES
 .Bl -tag -width 5n -compact
-.It Li "su man -c catman"
-Runs the command
-.Li catman
-as user
-.Li man .
-You will be asked for man's password unless your real UID is 0.
-.It Li "su man -c 'catman /usr/share/man /usr/local/man'"
+.\" .It Li "su -m operator -c poweroff"
+.It Li "su -m operator poweroff"
+Starts a shell as user
+.Li operator ,
+and runs the command
+.Li poweroff .
+You will be asked for operator's password unless your real UID is 0.
+Note that the
+.Fl m
+option is required since user
+.Dq operator
+does not have a valid shell by default.
+In this example,
+.Fl c
+is passed to the shell of the user
+.Dq operator ,
+and is not interpreted as an argument to
+.Nm .
+.\" .It Li "su -m operator -c 'shutdown -p now'"
+.It Li "su -m operator 'shutdown -p now'"
 Same as above, but the target command consists of more than a
 single word and hence is quoted for use with the
 .Fl c
@@ -192,6 +224,15 @@ option being passed to the shell.
 (Most shells expect the argument to
 .Fl c
 to be a single word).
+.\" .It Li "su -m -c staff operator -c 'shutdown -p now'"
+.\" Same as above, but the target command is run with the resource limits of
+.\" the login class
+.\" .Dq staff .
+.\" Note: in this example, the first
+.\" .Fl c
+.\" option applies to
+.\" .Nm
+.\" while the second is an argument to the shell being invoked.
 .It Li "su -l foo"
 Simulate a login for user foo.
 .It Li "su - foo"
@@ -203,6 +244,7 @@ Simulate a login for root.
 .Xr csh 1 ,
 .Xr sh 1 ,
 .Xr group 5 ,
+.\" .Xr login.conf 5 ,
 .Xr passwd 5 ,
 .Xr environ 7 ,
 .Xr pam_group 8

@@ -75,7 +75,7 @@ void WebPasteboardProxy::grantAccess(WebProcessProxy& process, const String& pas
         return;
     }
 
-    m_pasteboardNameToAccessInformationMap.set(pasteboardName, PasteboardAccessInformation { changeCount, {{ makeWeakPtr(process), type }} });
+    m_pasteboardNameToAccessInformationMap.set(pasteboardName, PasteboardAccessInformation { changeCount, {{ process, type }} });
 }
 
 void WebPasteboardProxy::revokeAccess(WebProcessProxy& process)
@@ -135,7 +135,7 @@ void WebPasteboardProxy::didModifyContentsOfPasteboard(IPC::Connection& connecti
     auto changeCountAndProcesses = m_pasteboardNameToAccessInformationMap.find(pasteboardName);
     if (changeCountAndProcesses != m_pasteboardNameToAccessInformationMap.end() && previousChangeCount == changeCountAndProcesses->value.changeCount) {
         if (auto accessType = changeCountAndProcesses->value.accessType(*process))
-            changeCountAndProcesses->value = PasteboardAccessInformation { newChangeCount, {{ makeWeakPtr(*process), *accessType }} };
+            changeCountAndProcesses->value = PasteboardAccessInformation { newChangeCount, {{ *process, *accessType }} };
     }
 }
 
@@ -155,7 +155,7 @@ void WebPasteboardProxy::getPasteboardTypes(IPC::Connection& connection, const S
 }
 
 void WebPasteboardProxy::getPasteboardPathnamesForType(IPC::Connection& connection, const String& pasteboardName, const String& pasteboardType, std::optional<PageIdentifier> pageID,
-    CompletionHandler<void(Vector<String>&& pathnames, SandboxExtension::HandleArray&& sandboxExtensions)>&& completionHandler)
+    CompletionHandler<void(Vector<String>&& pathnames, Vector<SandboxExtension::Handle>&& sandboxExtensions)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler({ }, { }));
 
@@ -168,19 +168,17 @@ void WebPasteboardProxy::getPasteboardPathnamesForType(IPC::Connection& connecti
 
     PlatformPasteboard::performAsDataOwner(*dataOwner, [&] {
         Vector<String> pathnames;
-        SandboxExtension::HandleArray sandboxExtensions;
+        Vector<SandboxExtension::Handle> sandboxExtensions;
         if (webProcessProxyForConnection(connection)) {
             PlatformPasteboard(pasteboardName).getPathnamesForType(pathnames, pasteboardType);
-#if PLATFORM(MAC)
             // On iOS, files are copied into app's container upon paste.
-            sandboxExtensions.allocate(pathnames.size());
-            for (size_t i = 0; i < pathnames.size(); i++) {
-                auto& filename = pathnames[i];
+#if PLATFORM(MAC)
+            sandboxExtensions = pathnames.map([](auto& filename) {
                 if (![[NSFileManager defaultManager] fileExistsAtPath:filename])
-                    continue;
-                if (auto handle = SandboxExtension::createHandle(filename, SandboxExtension::Type::ReadOnly))
-                    sandboxExtensions[i] = WTFMove(*handle);
-            }
+                    return SandboxExtension::Handle { };
+
+                return valueOrDefault(SandboxExtension::createHandle(filename, SandboxExtension::Type::ReadOnly));
+            });
 #endif
         }
         completionHandler(WTFMove(pathnames), WTFMove(sandboxExtensions));
@@ -234,10 +232,9 @@ void WebPasteboardProxy::getPasteboardBufferForType(IPC::Connection& connection,
         uint64_t size = buffer->size();
         if (!size)
             return completionHandler({ });
-        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(size);
+        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
         if (!sharedMemoryBuffer)
             return completionHandler({ });
-        memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
         SharedMemory::Handle handle;
         if (!sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly))
             return completionHandler({ });
@@ -421,7 +418,7 @@ void WebPasteboardProxy::setPasteboardBufferForType(IPC::Connection& connection,
         auto sharedMemoryBuffer = SharedMemory::map(ipcHandle.handle, SharedMemory::Protection::ReadOnly);
         if (!sharedMemoryBuffer)
             return completionHandler(0);
-        auto buffer = SharedBuffer::create(static_cast<unsigned char *>(sharedMemoryBuffer->data()), static_cast<size_t>(ipcHandle.dataSize));
+        auto buffer = sharedMemoryBuffer->createSharedBuffer(ipcHandle.dataSize);
         auto newChangeCount = PlatformPasteboard(pasteboardName).setBufferForType(buffer.ptr(), pasteboardType);
         didModifyContentsOfPasteboard(connection, pasteboardName, previousChangeCount, newChangeCount);
         completionHandler(newChangeCount);
@@ -540,7 +537,7 @@ void WebPasteboardProxy::readURLFromPasteboard(IPC::Connection& connection, size
     });
 }
 
-void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection& connection, size_t index, const String& pasteboardType, const String& pasteboardName, std::optional<PageIdentifier> pageID, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
+void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection& connection, std::optional<size_t> index, const String& pasteboardType, const String& pasteboardName, std::optional<PageIdentifier> pageID, CompletionHandler<void(SharedMemory::IPCHandle&&)>&& completionHandler)
 {
     MESSAGE_CHECK_COMPLETION(!pasteboardType.isEmpty(), completionHandler({ }));
 
@@ -557,10 +554,9 @@ void WebPasteboardProxy::readBufferFromPasteboard(IPC::Connection& connection, s
         uint64_t size = buffer->size();
         if (!size)
             return completionHandler({ });
-        RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(size);
+        auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
         if (!sharedMemoryBuffer)
             return completionHandler({ });
-        memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
         SharedMemory::Handle handle;
         if (!sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly))
             return completionHandler({ });
@@ -690,7 +686,7 @@ void WebPasteboardProxy::PasteboardAccessInformation::grantAccess(WebProcessProx
     });
 
     if (matchIndex == notFound) {
-        processes.append({ makeWeakPtr(process), type });
+        processes.append({ process, type });
         return;
     }
 

@@ -68,6 +68,15 @@
 #endif
 #endif
 
+#ifndef MAP_RESILIENT_MEDIA
+/*
+ * Apple extension to allow reading past the end of an mmap-ped file without crashing.
+ * This allows for a NUL terminator on files with a length that is an even multiple of
+ * the page size.
+ */
+#define MAP_RESILIENT_MEDIA 0
+#endif
+
 #include <libxml/xmlmemory.h>
 #include <libxml/parser.h>
 #include <libxml/parserInternals.h>
@@ -1866,7 +1875,14 @@ static void streamFile(char *filename) {
 	    return;
 	if ((fd = open(filename, O_RDONLY)) < 0)
 	    return;
-	base = mmap(NULL, info.st_size, PROT_READ, MAP_SHARED, fd, 0) ;
+        size_t max_size_t = (size_t)-1;
+        if ((uint64_t)info.st_size >= max_size_t) {
+            close(fd);
+            fprintf(stderr, "file too large to mmap %s\n", filename);
+            progresult = XMLLINT_ERR_RDFILE;
+            return;
+        }
+        base = mmap(NULL, info.st_size + 1, PROT_READ, MAP_SHARED | MAP_RESILIENT_MEDIA, fd, 0); /* +1 for NUL terminator. */
 	if (base == (void *) MAP_FAILED) {
 	    close(fd);
 	    fprintf(stderr, "mmap failure for file %s\n", filename);
@@ -2269,7 +2285,14 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 	    return;
 	if ((fd = open(filename, O_RDONLY)) < 0)
 	    return;
-	base = mmap(NULL, info.st_size, PROT_READ, MAP_SHARED, fd, 0) ;
+        size_t max_size_t = (size_t)-1;
+        if ((uint64_t)info.st_size >= max_size_t) {
+            close(fd);
+            fprintf(stderr, "file too large to mmap %s\n", filename);
+            progresult = XMLLINT_ERR_RDFILE;
+            return;
+        }
+        base = mmap(NULL, info.st_size + 1, PROT_READ, MAP_SHARED | MAP_RESILIENT_MEDIA, fd, 0); /* +1 for NUL terminator. */
 	if (base == (void *) MAP_FAILED) {
 	    close(fd);
 	    fprintf(stderr, "mmap failure for file %s\n", filename);
@@ -2396,7 +2419,14 @@ static void parseAndPrintFile(char *filename, xmlParserCtxtPtr rectxt) {
 		return;
 	    if ((fd = open(filename, O_RDONLY)) < 0)
 		return;
-	    base = mmap(NULL, info.st_size, PROT_READ, MAP_SHARED, fd, 0) ;
+            size_t max_size_t = (size_t)-1;
+            if ((uint64_t)info.st_size >= max_size_t) {
+                close(fd);
+                fprintf(stderr, "file too large to mmap %s\n", filename);
+                progresult = XMLLINT_ERR_RDFILE;
+                return;
+            }
+            base = mmap(NULL, info.st_size + 1, PROT_READ, MAP_SHARED | MAP_RESILIENT_MEDIA, fd, 0); /* +1 for NUL terminator. */
 	    if (base == (void *) MAP_FAILED) {
 	        close(fd);
 	        fprintf(stderr, "mmap failure for file %s\n", filename);
@@ -3181,7 +3211,28 @@ main(int argc, char **argv) {
 	usage(argv[0]);
 	return(1);
     }
+
+    /* xmlMemSetup must be called before initializing the parser. */
+    for (i = 1; i < argc ; i++) {
+	if (!strcmp(argv[i], "-"))
+	    break;
+	if (argv[i][0] != '-')
+	    continue;
+
+	if ((!strcmp(argv[i], "-maxmem")) ||
+	    (!strcmp(argv[i], "--maxmem"))) {
+	     i++;
+	     if (sscanf(argv[i], "%d", &maxmem) == 1) {
+	         xmlMemSetup(myFreeFunc, myMallocFunc, myReallocFunc,
+		             myStrdupFunc);
+	     } else {
+	         maxmem = 0;
+	     }
+        }
+    }
+
     LIBXML_TEST_VERSION
+
     for (i = 1; i < argc ; i++) {
 	if (!strcmp(argv[i], "-"))
 	    break;
@@ -3427,12 +3478,6 @@ main(int argc, char **argv) {
 	else if ((!strcmp(argv[i], "-maxmem")) ||
 	         (!strcmp(argv[i], "--maxmem"))) {
 	     i++;
-	     if (sscanf(argv[i], "%d", &maxmem) == 1) {
-	         xmlMemSetup(myFreeFunc, myMallocFunc, myReallocFunc,
-		             myStrdupFunc);
-	     } else {
-	         maxmem = 0;
-	     }
         }
 	else if ((!strcmp(argv[i], "-format")) ||
 	         (!strcmp(argv[i], "--format"))) {

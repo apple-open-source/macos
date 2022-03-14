@@ -416,14 +416,13 @@ static void TestGetContainedRegions() {
     }
 }
 
-static const char* testGroupings[] = {
-    "003", "021,013,029",
-    "419", "013,029,005",
-    "EU",  "AT,BE,CY,CZ,DE,DK,EE,ES,FI,FR,GR,HR,HU,IE,IT,LT,LU,LV,MT,NL,PL,PT,SE,SI,SK,BG,RO"
-};
-
-// Apple addition: rdar://76087706
 static void TestGroupingChildren() {
+    const char* testGroupings[] = {
+        "003", "021,013,029",
+        "419", "013,029,005",
+        "EU",  "AT,BE,CY,CZ,DE,DK,EE,ES,FI,FR,GR,HR,HU,IE,IT,LT,LU,LV,MT,NL,PL,PT,SE,SI,SK,BG,RO"
+    };
+
     for (int32_t i = 0; i < UPRV_LENGTHOF(testGroupings); i += 2) {
         const char* groupingCode = testGroupings[i];
         const char* expectedChildren = testGroupings[i + 1];
@@ -443,11 +442,14 @@ static void TestGroupingChildren() {
                     if (expectedChildEnd == NULL) {
                         expectedChildEnd = expectedChildStart + uprv_strlen(expectedChildStart);
                     }
-                    if (uprv_strlen(actualChild) != expectedChildEnd - expectedChildStart || uprv_strncmp(actualChild, expectedChildStart, expectedChildEnd - expectedChildStart) != 0) {
+                    if (uprv_strlen(actualChild) != (size_t)(expectedChildEnd - expectedChildStart) || uprv_strncmp(actualChild, expectedChildStart, expectedChildEnd - expectedChildStart) != 0) {
                         log_err("Mismatch in child list for %s at position %d: expected %s, got %s\n", groupingCode, i, expectedChildStart, actualChild);
                     }
                     expectedChildStart = (*expectedChildEnd != '\0') ? expectedChildEnd + 1 : expectedChildEnd;
                     ++numExpectedChildren;
+                }
+                if (expectedChildEnd == NULL) {
+                    expectedChildEnd = expectedChildren;
                 }
                 while (expectedChildEnd != NULL && *expectedChildEnd != '\0') {
                     expectedChildEnd = uprv_strchr(expectedChildEnd + 1, ',');

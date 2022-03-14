@@ -25,6 +25,7 @@
 #include "FloatPoint.h"
 #include "Image.h"
 #include "IntRect.h"
+#include "RenderSVGResourceMaskerInlines.h"
 #include "SVGRenderingContext.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -83,7 +84,7 @@ bool RenderSVGResourceMasker::applyResource(RenderElement& renderer, const Rende
 #endif
 
         // FIXME (149470): This image buffer should not be unconditionally unaccelerated. Making it match the context breaks alpha masking, though.
-        maskerData->maskImage = SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, maskColorSpace, RenderingMode::Unaccelerated, context);
+        maskerData->maskImage = SVGRenderingContext::createImageBuffer(repaintRect, absoluteTransform, maskColorSpace, RenderingMode::Unaccelerated, nullptr);
         if (!maskerData->maskImage)
             return false;
 

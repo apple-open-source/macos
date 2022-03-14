@@ -54,10 +54,10 @@ Ref<SourceBufferPrivateRemote> SourceBufferPrivateRemote::create(GPUProcessConne
 }
 
 SourceBufferPrivateRemote::SourceBufferPrivateRemote(GPUProcessConnection& gpuProcessConnection, RemoteSourceBufferIdentifier remoteSourceBufferIdentifier, const MediaSourcePrivateRemote& mediaSourcePrivate, const MediaPlayerPrivateRemote& mediaPlayerPrivate)
-    : m_gpuProcessConnection(makeWeakPtr(gpuProcessConnection))
+    : m_gpuProcessConnection(gpuProcessConnection)
     , m_remoteSourceBufferIdentifier(remoteSourceBufferIdentifier)
-    , m_mediaSourcePrivate(makeWeakPtr(mediaSourcePrivate))
-    , m_mediaPlayerPrivate(makeWeakPtr(mediaPlayerPrivate))
+    , m_mediaSourcePrivate(mediaSourcePrivate)
+    , m_mediaPlayerPrivate(mediaPlayerPrivate)
 #if !RELEASE_LOG_DISABLED
     , m_logger(m_mediaSourcePrivate->logger())
     , m_logIdentifier(m_mediaSourcePrivate->nextSourceBufferLogIdentifier())
@@ -199,7 +199,7 @@ void SourceBufferPrivateRemote::removeCodedFrames(const MediaTime& start, const 
         return;
 
     m_gpuProcessConnection->connection().sendWithAsyncReply(
-        Messages::RemoteSourceBufferProxy::RemoveCodedFrames(start, end, currentMediaTime, isEnded), [this, protectedThis = makeRef(*this), completionHandler = WTFMove(completionHandler)](auto&& buffered, uint64_t totalTrackBufferSizeInBytes) mutable {
+        Messages::RemoteSourceBufferProxy::RemoveCodedFrames(start, end, currentMediaTime, isEnded), [this, protectedThis = Ref { *this }, completionHandler = WTFMove(completionHandler)](auto&& buffered, uint64_t totalTrackBufferSizeInBytes) mutable {
             setBufferedRanges(buffered);
             m_totalTrackBufferSizeInBytes = totalTrackBufferSizeInBytes;
             completionHandler();
@@ -341,10 +341,10 @@ void SourceBufferPrivateRemote::updateTrackIds(Vector<std::pair<AtomString, Atom
     Vector<std::pair<TrackPrivateRemoteIdentifier, TrackPrivateRemoteIdentifier>> identifierPairs;
 
     for (auto& trackIdPair : trackIdPairs) {
-        ASSERT(m_trackIdentifierMap.contains(trackIdPair.first));
+        ASSERT(m_prevTrackIdentifierMap.contains(trackIdPair.first));
         ASSERT(m_trackIdentifierMap.contains(trackIdPair.second));
 
-        auto oldIdentifier = m_trackIdentifierMap.take(trackIdPair.first);
+        auto oldIdentifier = m_prevTrackIdentifierMap.take(trackIdPair.first);
         auto newIdentifier = m_trackIdentifierMap.get(trackIdPair.second);
         identifierPairs.append(std::make_pair(oldIdentifier, newIdentifier));
     }
@@ -382,6 +382,7 @@ void SourceBufferPrivateRemote::sourceBufferPrivateDidReceiveInitializationSegme
     SourceBufferPrivateClient::InitializationSegment segment;
     segment.duration = segmentInfo.duration;
 
+    m_prevTrackIdentifierMap.swap(m_trackIdentifierMap);
     for (auto& audioTrack : segmentInfo.audioTracks) {
         SourceBufferPrivateClient::InitializationSegment::AudioTrackInformation info;
         info.track = m_mediaPlayerPrivate->audioTrackPrivateRemote(audioTrack.identifier);
@@ -481,7 +482,7 @@ uint64_t SourceBufferPrivateRemote::totalTrackBufferSizeInBytes() const
 #if !RELEASE_LOG_DISABLED
 WTFLogChannel& SourceBufferPrivateRemote::logChannel() const
 {
-    return LogMedia;
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 #endif
 

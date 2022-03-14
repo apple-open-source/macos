@@ -28,7 +28,11 @@
 
 #if ENABLE(WEBASSEMBLY)
 
+#include "JSCellInlines.h"
+#include "JSObjectInlines.h"
+#include "JSWebAssemblyTag.h"
 #include "ObjectConstructor.h"
+#include "StructureInlines.h"
 #include "WasmFormat.h"
 
 namespace JSC {
@@ -50,7 +54,7 @@ const ClassInfo WebAssemblyTagPrototype::s_info = { "WebAssembly.Tag", &Base::s_
 
 WebAssemblyTagPrototype* WebAssemblyTagPrototype::create(VM& vm, JSGlobalObject*, Structure* structure)
 {
-    auto* object = new (NotNull, allocateCell<WebAssemblyTagPrototype>(vm.heap)) WebAssemblyTagPrototype(vm, structure);
+    auto* object = new (NotNull, allocateCell<WebAssemblyTagPrototype>(vm)) WebAssemblyTagPrototype(vm, structure);
     object->finishCreation(vm);
     return object;
 }

@@ -151,11 +151,9 @@ extern struct waitq select_conflict_queue;
 #define f_ops fp_glob->fg_ops
 #define f_offset fp_glob->fg_offset
 
-static SECURITY_READ_ONLY_LATE(zone_t) fp_zone;
-ZONE_INIT(&fp_zone, "fileproc", sizeof(struct fileproc),
-    ZC_ZFREE_CLEARMEM, ZONE_ID_FILEPROC, NULL);
+ZONE_DEFINE_TYPE(fg_zone, "fileglob", struct fileglob, ZC_ZFREE_CLEARMEM);
+ZONE_DEFINE_ID(ZONE_ID_FILEPROC, "fileproc", struct fileproc, ZC_ZFREE_CLEARMEM);
 
-ZONE_DECLARE(fg_zone, "fileglob", sizeof(struct fileglob), ZC_ZFREE_CLEARMEM);
 /*
  * If you need accounting for KM_OFILETABL consider using
  * KALLOC_HEAP_DEFINE to define a view.
@@ -1009,7 +1007,7 @@ fileproc_alloc_init(void)
 {
 	struct fileproc *fp;
 
-	fp = zalloc_flags(fp_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	fp = zalloc_id(ZONE_ID_FILEPROC, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	os_ref_init(&fp->fp_iocount, &f_refgrp);
 	return fp;
 }
@@ -1029,7 +1027,7 @@ fileproc_free(struct fileproc *fp)
 		guarded_fileproc_unguard(fp);
 	}
 	assert(fp->fp_wset == NULL);
-	zfree(fp_zone, fp);
+	zfree_id(ZONE_ID_FILEPROC, fp);
 }
 
 
@@ -1569,17 +1567,17 @@ fileproc_drain(proc_t p, struct fileproc * fp)
 
 		fo_drain(fp, &context);
 		if ((fp->fp_flags & FP_INSELECT) == FP_INSELECT) {
-			struct waitq_set *wqset;
+			struct select_set *selset;
 
 			if (fp->fp_guard_attrs) {
-				wqset = fp->fp_guard->fpg_wset;
+				selset = fp->fp_guard->fpg_wset;
 			} else {
-				wqset = fp->fp_wset;
+				selset = fp->fp_wset;
 			}
-			if (waitq_wakeup64_all((struct waitq *)wqset, NO_EVENT64,
+			if (waitq_wakeup64_all(selset, NO_EVENT64,
 			    THREAD_INTERRUPTED, WAITQ_ALL_PRIORITIES) == KERN_INVALID_ARGUMENT) {
 				panic("bad wait queue for waitq_wakeup64_all %p (%sfp:%p)",
-				    wqset, fp->fp_guard_attrs ? "guarded " : "", fp);
+				    selset, fp->fp_guard_attrs ? "guarded " : "", fp);
 			}
 		}
 		if ((fp->fp_flags & FP_SELCONFLICT) == FP_SELCONFLICT) {
@@ -1646,29 +1644,39 @@ fp_close_and_unlock(proc_t p, int fd, struct fileproc *fp, int flags)
 	}
 	p->p_fd.fd_ofileflags[fd] |= (UF_RESERVED | UF_CLOSING);
 
-	if ((fp->fp_flags & FP_AIOISSUED) || kauth_authorize_fileop_has_listeners()) {
+	if ((fp->fp_flags & FP_AIOISSUED) ||
+#if CONFIG_MACF
+	    (FILEGLOB_DTYPE(fg) == DTYPE_VNODE)
+#else
+	    kauth_authorize_fileop_has_listeners()
+#endif
+	    ) {
 		proc_fdunlock(p);
 
-		if ((FILEGLOB_DTYPE(fg) == DTYPE_VNODE) && kauth_authorize_fileop_has_listeners()) {
+		if (FILEGLOB_DTYPE(fg) == DTYPE_VNODE) {
 			/*
 			 * call out to allow 3rd party notification of close.
 			 * Ignore result of kauth_authorize_fileop call.
 			 */
-			if (vnode_getwithref((vnode_t)fg_get_data(fg)) == 0) {
+#if CONFIG_MACF
+			cred = kauth_cred_proc_ref(p);
+			mac_file_notify_close(cred, fp->fp_glob);
+			kauth_cred_unref(&cred);
+#endif
+
+			if (kauth_authorize_fileop_has_listeners() &&
+			    vnode_getwithref((vnode_t)fg_get_data(fg)) == 0) {
 				u_int   fileop_flags = 0;
 				if (fg->fg_flag & FWASWRITTEN) {
 					fileop_flags |= KAUTH_FILEOP_CLOSE_MODIFIED;
 				}
 				kauth_authorize_fileop(fg->fg_cred, KAUTH_FILEOP_CLOSE,
 				    (uintptr_t)fg_get_data(fg), (uintptr_t)fileop_flags);
-#if CONFIG_MACF
-				cred = kauth_cred_proc_ref(p);
-				mac_file_notify_close(cred, fp->fp_glob);
-				kauth_cred_unref(&cred);
-#endif
+
 				vnode_put((vnode_t)fg_get_data(fg));
 			}
 		}
+
 		if (fp->fp_flags & FP_AIOISSUED) {
 			/*
 			 * cancel all async IO requests that can be cancelled.

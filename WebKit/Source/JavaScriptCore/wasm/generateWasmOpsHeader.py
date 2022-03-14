@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright (C) 2016-2017 Apple Inc. All rights reserved.
 #
@@ -194,6 +194,7 @@ contents = wasm.header + """
 #if ENABLE(WEBASSEMBLY)
 
 #include <cstdint>
+#include <wtf/PrintStream.h>
 
 #if ENABLE(WEBASSEMBLY_B3JIT)
 #include "B3Type.h"

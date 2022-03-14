@@ -943,8 +943,16 @@ ldap_int_tls_start ( LDAP *ld, LDAPConn *conn, LDAPURLDesc *srv )
 		if (ld->ld_errno != LDAP_SUCCESS) {
 #ifdef __APPLE__
                         /* If the hostname is really an IP address, do the reverse
-                         * lookup and see if that matches the cert.
+                         * lookup and see if that matches the cert.  If the hostname
+                         * is not an IP address return the error without doing the
+                         * reverse lookup.
                          */
+                        struct in_addr addr;
+                        if (inet_aton(host, &addr) == 0) {
+                            Debug( LDAP_DEBUG_ANY, "host '%s' is not an IP address, not attempting reverse lookup\n", host, 0, 0);
+                            return ld->ld_errno;
+                        }
+
                         char *hostname = ldap_host_connected_to( sb, host );
                         if (hostname) {
                                 Debug( LDAP_DEBUG_ANY,

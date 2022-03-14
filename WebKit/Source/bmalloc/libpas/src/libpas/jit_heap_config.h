@@ -51,16 +51,18 @@ PAS_BEGIN_EXTERN_C;
 
 PAS_API void jit_heap_config_activate(void);
 
-static PAS_ALWAYS_INLINE size_t jit_type_size(pas_heap_type* type)
+static PAS_ALWAYS_INLINE size_t jit_type_size(const pas_heap_type* type)
 {
     PAS_TESTING_ASSERT(!type);
     return 1;
 }
-static PAS_ALWAYS_INLINE size_t jit_type_alignment(pas_heap_type* type)
+static PAS_ALWAYS_INLINE size_t jit_type_alignment(const pas_heap_type* type)
 {
     PAS_TESTING_ASSERT(!type);
     return 1;
 }
+
+PAS_API void jit_type_dump(const pas_heap_type* type, pas_stream* stream);
 
 PAS_API pas_page_base* jit_page_header_for_boundary_remote(pas_enumerator* enumerator, void* boundary);
 
@@ -69,18 +71,17 @@ static PAS_ALWAYS_INLINE void* jit_small_bitfit_boundary_for_page_header(pas_pag
 PAS_API void* jit_small_bitfit_allocate_page(
     pas_segregated_heap* heap, pas_physical_memory_transaction* transaction);
 PAS_API pas_page_base* jit_small_bitfit_create_page_header(
-    void* boundary, pas_lock_hold_mode heap_lock_hold_mode);
+    void* boundary, pas_page_kind kind, pas_lock_hold_mode heap_lock_hold_mode);
 PAS_API void jit_small_bitfit_destroy_page_header(
     pas_page_base* page, pas_lock_hold_mode heap_lock_hold_mode);
 
 PAS_BITFIT_PAGE_CONFIG_SPECIALIZATION_DECLARATIONS(jit_small_bitfit_page_config);
 
 static PAS_ALWAYS_INLINE pas_page_base* jit_medium_bitfit_page_header_for_boundary(void* boundary);
-static PAS_ALWAYS_INLINE void* jit_medium_bitfit_boundary_for_page_headery(pas_page_base* page);
 PAS_API void* jit_medium_bitfit_allocate_page(
     pas_segregated_heap* heap, pas_physical_memory_transaction* transaction);
 PAS_API pas_page_base* jit_medium_bitfit_create_page_header(
-    void* boundary, pas_lock_hold_mode heap_lock_hold_mode);
+    void* boundary, pas_page_kind kind, pas_lock_hold_mode heap_lock_hold_mode);
 PAS_API void jit_medium_bitfit_destroy_page_header(
     pas_page_base* page, pas_lock_hold_mode heap_lock_hold_mode);
 
@@ -102,7 +103,6 @@ PAS_API bool jit_heap_config_for_each_shared_page_directory(
     bool (*callback)(pas_segregated_shared_page_directory* directory,
                      void* arg),
     void* arg);
-
 PAS_API bool jit_heap_config_for_each_shared_page_directory_remote(
     pas_enumerator* enumerator,
     pas_segregated_heap* heap,
@@ -110,6 +110,8 @@ PAS_API bool jit_heap_config_for_each_shared_page_directory_remote(
                      pas_segregated_shared_page_directory* directory,
                      void* arg),
     void* arg);
+PAS_API void jit_heap_config_dump_shared_page_directory_arg(
+    pas_stream* stream, pas_segregated_shared_page_directory* directory);
 
 PAS_HEAP_CONFIG_SPECIALIZATION_DECLARATIONS(jit_heap_config);
 
@@ -118,27 +120,23 @@ PAS_HEAP_CONFIG_SPECIALIZATION_DECLARATIONS(jit_heap_config);
             .is_enabled = true, \
             .heap_config_ptr = &jit_heap_config, \
             .page_config_ptr = &jit_heap_config.variant_lowercase ## _bitfit_config.base, \
-            .page_kind = pas_ ## variant_lowercase ## _bitfit_page_kind, \
+            .page_config_kind = pas_page_config_kind_bitfit, \
             .min_align_shift = JIT_ ## variant_uppercase ## _MIN_ALIGN_SHIFT, \
             .page_size = JIT_ ## variant_uppercase ## _PAGE_SIZE, \
             .granule_size = JIT_ ## variant_uppercase ## _GRANULE_SIZE, \
-            .page_header_size = PAS_BITFIT_PAGE_HEADER_SIZE( \
-                JIT_ ## variant_uppercase ## _PAGE_SIZE, \
-                JIT_ ## variant_uppercase ## _GRANULE_SIZE, \
-                JIT_ ## variant_uppercase ## _MIN_ALIGN_SHIFT), \
+            .max_object_size = \
+                PAS_BITFIT_MAX_FREE_MAX_VALID << JIT_ ## variant_uppercase ## _MIN_ALIGN_SHIFT, \
             .page_header_for_boundary = jit_ ## variant_lowercase ## _bitfit_page_header_for_boundary, \
             .boundary_for_page_header = jit_ ## variant_lowercase ## _bitfit_boundary_for_page_header, \
             .page_header_for_boundary_remote = jit_page_header_for_boundary_remote, \
-            .page_object_payload_offset = 0, \
-            .page_object_payload_size = JIT_ ## variant_uppercase ## _PAGE_SIZE, \
-            .max_object_size = \
-                PAS_BITFIT_MAX_FREE_MAX_VALID << JIT_ ## variant_uppercase ## _MIN_ALIGN_SHIFT, \
-            .page_allocator = jit_ ## variant_lowercase ## _bitfit_allocate_page, \
             .create_page_header = jit_ ## variant_lowercase ## _bitfit_create_page_header, \
             .destroy_page_header = jit_ ## variant_lowercase ## _bitfit_destroy_page_header \
         }, \
         .variant = pas_ ## variant_lowercase ## _bitfit_page_config_variant, \
         .kind = pas_bitfit_page_config_kind_jit_ ## variant_lowercase ## _bitfit, \
+        .page_object_payload_offset = 0, \
+        .page_object_payload_size = JIT_ ## variant_uppercase ## _PAGE_SIZE, \
+        .page_allocator = jit_ ## variant_lowercase ## _bitfit_allocate_page, \
         PAS_BITFIT_PAGE_CONFIG_SPECIALIZATIONS(jit_ ## variant_lowercase ## _bitfit_page_config) \
     }
 
@@ -148,6 +146,7 @@ PAS_HEAP_CONFIG_SPECIALIZATION_DECLARATIONS(jit_heap_config);
         .activate_callback = jit_heap_config_activate, \
         .get_type_size = jit_type_size, \
         .get_type_alignment = jit_type_alignment, \
+        .dump_type = jit_type_dump, \
         .large_alignment = JIT_SMALL_MIN_ALIGN, \
         .small_segregated_config = { \
             .base = { \
@@ -179,6 +178,7 @@ PAS_HEAP_CONFIG_SPECIALIZATION_DECLARATIONS(jit_heap_config);
         .for_each_shared_page_directory = jit_heap_config_for_each_shared_page_directory, \
         .for_each_shared_page_directory_remote = \
             jit_heap_config_for_each_shared_page_directory_remote, \
+        .dump_shared_page_directory_arg = jit_heap_config_dump_shared_page_directory_arg, \
         PAS_HEAP_CONFIG_SPECIALIZATIONS(jit_heap_config) \
     })
 

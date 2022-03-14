@@ -66,8 +66,8 @@
 extern int debug_task;
 
 /* zone for debug_state area */
-ZONE_DECLARE(ads_zone, "arm debug state", sizeof(arm_debug_state_t), ZC_NONE);
-ZONE_DECLARE(user_ss_zone, "user save state", sizeof(arm_context_t), ZC_NONE);
+ZONE_DEFINE_TYPE(ads_zone, "arm debug state", arm_debug_state_t, ZC_NONE);
+ZONE_DEFINE_TYPE(user_ss_zone, "user save state", arm_context_t, ZC_NONE);
 
 /*
  * Routine: consider_machine_collect

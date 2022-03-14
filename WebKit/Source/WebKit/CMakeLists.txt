@@ -7,6 +7,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
 )
 
 set(WebKit_INCLUDE_DIRECTORIES
+    "${PAL_FRAMEWORK_HEADERS_DIR}"
     "${WebCore_PRIVATE_FRAMEWORK_HEADERS_DIR}"
     "${WebKit_FRAMEWORK_HEADERS_DIR}"
     "${WebKit_DERIVED_SOURCES_DIR}"
@@ -14,6 +15,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}"
     "${WEBKIT_DIR}/GPUProcess"
     "${WEBKIT_DIR}/GPUProcess/graphics"
+    "${WEBKIT_DIR}/GPUProcess/graphics/WebGPU"
     "${WEBKIT_DIR}/GPUProcess/media"
     "${WEBKIT_DIR}/GPUProcess/webrtc"
     "${WEBKIT_DIR}/NetworkProcess"
@@ -23,6 +25,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/NetworkProcess/Downloads"
     "${WEBKIT_DIR}/NetworkProcess/FileAPI"
     "${WEBKIT_DIR}/NetworkProcess/IndexedDB"
+    "${WEBKIT_DIR}/NetworkProcess/Notifications"
     "${WEBKIT_DIR}/NetworkProcess/PrivateClickMeasurement"
     "${WEBKIT_DIR}/NetworkProcess/ServiceWorker"
     "${WEBKIT_DIR}/NetworkProcess/WebStorage"
@@ -43,10 +46,12 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Shared/Databases/IndexedDB"
     "${WEBKIT_DIR}/Shared/FileAPI"
     "${WEBKIT_DIR}/Shared/Gamepad"
+    "${WEBKIT_DIR}/Shared/Notifications"
     "${WEBKIT_DIR}/Shared/Plugins"
     "${WEBKIT_DIR}/Shared/Plugins/Netscape"
     "${WEBKIT_DIR}/Shared/Plugins/Netscape/x11"
     "${WEBKIT_DIR}/Shared/RemoteLayerTree"
+    "${WEBKIT_DIR}/Shared/WebGPU"
     "${WEBKIT_DIR}/Shared/WebsiteData"
     "${WEBKIT_DIR}/Shared/XR"
     "${WEBKIT_DIR}/UIProcess"
@@ -87,6 +92,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/Geolocation"
     "${WEBKIT_DIR}/WebProcess/GPU"
     "${WEBKIT_DIR}/WebProcess/GPU/graphics"
+    "${WEBKIT_DIR}/WebProcess/GPU/graphics/WebGPU"
     "${WEBKIT_DIR}/WebProcess/GPU/media"
     "${WEBKIT_DIR}/WebProcess/GPU/webrtc"
     "${WEBKIT_DIR}/WebProcess/IconDatabase"
@@ -98,6 +104,7 @@ set(WebKit_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/Launching"
     "${WEBKIT_DIR}/WebProcess/MediaCache"
     "${WEBKIT_DIR}/WebProcess/MediaStream"
+    "${WEBKIT_DIR}/WebProcess/Model"
     "${WEBKIT_DIR}/WebProcess/Network"
     "${WEBKIT_DIR}/WebProcess/Network/webrtc"
     "${WEBKIT_DIR}/WebProcess/Notifications"
@@ -127,8 +134,32 @@ set(WebKit_MESSAGES_IN_FILES
     GPUProcess/GPUConnectionToWebProcess
     GPUProcess/GPUProcess
 
+    GPUProcess/graphics/RemoteDisplayListRecorder
     GPUProcess/graphics/RemoteGraphicsContextGL
     GPUProcess/graphics/RemoteRenderingBackend
+
+    GPUProcess/graphics/WebGPU/RemoteAdapter
+    GPUProcess/graphics/WebGPU/RemoteBindGroup
+    GPUProcess/graphics/WebGPU/RemoteBindGroupLayout
+    GPUProcess/graphics/WebGPU/RemoteBuffer
+    GPUProcess/graphics/WebGPU/RemoteCommandBuffer
+    GPUProcess/graphics/WebGPU/RemoteCommandEncoder
+    GPUProcess/graphics/WebGPU/RemoteComputePassEncoder
+    GPUProcess/graphics/WebGPU/RemoteComputePipeline
+    GPUProcess/graphics/WebGPU/RemoteDevice
+    GPUProcess/graphics/WebGPU/RemoteExternalTexture
+    GPUProcess/graphics/WebGPU/RemoteGPU
+    GPUProcess/graphics/WebGPU/RemotePipelineLayout
+    GPUProcess/graphics/WebGPU/RemoteQuerySet
+    GPUProcess/graphics/WebGPU/RemoteQueue
+    GPUProcess/graphics/WebGPU/RemoteRenderBundle
+    GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder
+    GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder
+    GPUProcess/graphics/WebGPU/RemoteRenderPipeline
+    GPUProcess/graphics/WebGPU/RemoteSampler
+    GPUProcess/graphics/WebGPU/RemoteShaderModule
+    GPUProcess/graphics/WebGPU/RemoteTexture
+    GPUProcess/graphics/WebGPU/RemoteTextureView
 
     GPUProcess/media/RemoteAudioDestinationManager
     GPUProcess/media/RemoteAudioSessionProxy
@@ -166,6 +197,7 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/NetworkSocketChannel
     NetworkProcess/NetworkSocketStream
 
+    NetworkProcess/ServiceWorker/ServiceWorkerDownloadTask
     NetworkProcess/ServiceWorker/ServiceWorkerFetchTask
     NetworkProcess/ServiceWorker/WebSWServerConnection
     NetworkProcess/ServiceWorker/WebSWServerToContextConnection
@@ -181,16 +213,12 @@ set(WebKit_MESSAGES_IN_FILES
     NetworkProcess/webrtc/NetworkRTCProvider
     NetworkProcess/webrtc/RTCDataChannelRemoteManagerProxy
 
-    PluginProcess/PluginControllerProxy
-    PluginProcess/PluginProcess
-    PluginProcess/WebProcessConnection
-
     Shared/AuxiliaryProcess
     Shared/WebConnection
 
     Shared/Authentication/AuthenticationManager
 
-    Shared/Plugins/NPObjectMessageReceiver
+    Shared/Notifications/NotificationManagerMessageHandler
 
     UIProcess/DrawingAreaProxy
 
@@ -202,6 +230,7 @@ set(WebKit_MESSAGES_IN_FILES
     UIProcess/WebCookieManagerProxy
     UIProcess/WebFullScreenManagerProxy
     UIProcess/WebGeolocationManagerProxy
+    UIProcess/WebLockRegistryProxy
     UIProcess/WebPageProxy
     UIProcess/WebPasteboardProxy
     UIProcess/WebProcessPool
@@ -217,8 +246,6 @@ set(WebKit_MESSAGES_IN_FILES
     UIProcess/Inspector/WebInspectorUIProxy
 
     UIProcess/Network/NetworkProcessProxy
-
-    UIProcess/Plugins/PluginProcessProxy
 
     UIProcess/UserContent/WebUserContentControllerProxy
 
@@ -237,6 +264,8 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy
     WebProcess/GPU/graphics/RemoteRenderingBackendProxy
 
+    WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy
+
     WebProcess/GPU/media/RemoteAudioHardwareListener
     WebProcess/GPU/media/MediaPlayerPrivateRemote
     WebProcess/GPU/media/MediaSourcePrivateRemote
@@ -248,7 +277,6 @@ set(WebKit_MESSAGES_IN_FILES
     WebProcess/GPU/media/RemoteRemoteCommandListener
     WebProcess/GPU/media/SourceBufferPrivateRemote
 
-    WebProcess/GPU/webrtc/AudioMediaStreamTrackRendererInternalUnitManager
     WebProcess/GPU/webrtc/LibWebRTCCodecs
     WebProcess/GPU/webrtc/SampleBufferDisplayLayer
 
@@ -274,10 +302,6 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/Notifications/WebNotificationManager
 
-    WebProcess/Plugins/PluginProcessConnection
-    WebProcess/Plugins/PluginProcessConnectionManager
-    WebProcess/Plugins/PluginProxy
-
     WebProcess/Speech/SpeechRecognitionRealtimeMediaSourceManager
 
     WebProcess/Storage/WebSWClientConnection
@@ -285,7 +309,9 @@ set(WebKit_MESSAGES_IN_FILES
 
     WebProcess/UserContent/WebUserContentController
 
+    WebProcess/WebCoreSupport/RemoteWebLockRegistry
     WebProcess/WebCoreSupport/WebBroadcastChannelRegistry
+    WebProcess/WebCoreSupport/WebFileSystemStorageConnection
     WebProcess/WebCoreSupport/WebSpeechRecognitionConnection
 
     WebProcess/WebPage/DrawingArea
@@ -312,6 +338,7 @@ set(WebProcess_LIBRARIES WebKit)
 set(NetworkProcess_LIBRARIES WebKit)
 set(GPUProcess_LIBRARIES WebKit)
 set(PluginProcess_LIBRARIES WebKit)
+set(WebAuthnProcess_LIBRARIES WebKit)
 
 if (ENABLE_ENCRYPTED_MEDIA AND ENABLE_OPENCDM)
   list(APPEND WebKit_SYSTEM_INCLUDE_DIRECTORIES
@@ -418,6 +445,11 @@ if (ENABLE_PLUGIN_PROCESS)
     list(APPEND WebKit_INTERFACE_DEPENDENCIES PluginProcess)
 endif ()
 
+if (ENABLE_WEB_AUTHN)
+    WEBKIT_EXECUTABLE_DECLARE(WebAuthnProcess)
+    list(APPEND WebKit_INTERFACE_DEPENDENCIES WebAuthnProcess)
+endif ()
+
 WEBKIT_FRAMEWORK_DECLARE(WebKit)
 WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS()
 
@@ -455,7 +487,11 @@ macro(GENERATE_MESSAGE_SOURCES _output_source _inputs)
         )
         list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/${_name}MessageReceiver.cpp)
     endforeach ()
-    list(APPEND ${_output_source} ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp)
+
+    list(APPEND ${_output_source}
+        ${WebKit_DERIVED_SOURCES_DIR}/MessageArgumentDescriptions.cpp
+        ${WebKit_DERIVED_SOURCES_DIR}/MessageNames.cpp
+    )
 
     add_custom_command(
         OUTPUT
@@ -595,6 +631,12 @@ if (ENABLE_PLUGIN_PROCESS)
     ADD_WEBKIT_PREFIX_HEADER(PluginProcess)
 endif ()
 
+if (ENABLE_WEB_AUTHN)
+    list(APPEND WebAuthnProcess_PRIVATE_INCLUDE_DIRECTORIES $<TARGET_PROPERTY:WebKit,INCLUDE_DIRECTORIES>)
+    WEBKIT_EXECUTABLE(WebAuthnProcess)
+    ADD_WEBKIT_PREFIX_HEADER(WebAuthnProcess)
+endif ()
+
 if (COMPILER_IS_GCC_OR_CLANG)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebKit -Wno-unused-parameter)
     WEBKIT_ADD_TARGET_CXX_FLAGS(WebProcess -Wno-unused-parameter)
@@ -605,6 +647,13 @@ if (COMPILER_IS_GCC_OR_CLANG)
     if (ENABLE_PLUGIN_PROCESS)
         WEBKIT_ADD_TARGET_CXX_FLAGS(PluginProcess -Wno-unused-parameter)
     endif ()
+    if (ENABLE_WEB_AUTHN)
+        WEBKIT_ADD_TARGET_CXX_FLAGS(WebAuthnProcess -Wno-unused-parameter)
+    endif ()
+endif ()
+
+if (APPLE)
+    WEBKIT_ADD_TARGET_CXX_FLAGS(WebKit -fobjc-weak)
 endif ()
 
 if ("${PORT}" STREQUAL "Mac")

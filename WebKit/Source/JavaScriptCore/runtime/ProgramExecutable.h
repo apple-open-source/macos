@@ -30,6 +30,8 @@
 
 namespace JSC {
 
+class UnlinkedProgramCodeBlock;
+
 class ProgramExecutable final : public GlobalExecutable {
     friend class LLIntOffsetsExtractor;
 public:
@@ -39,13 +41,13 @@ public:
     template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.programExecutableSpace.space;
+        return &vm.programExecutableSpace().space;
     }
 
     static ProgramExecutable* create(JSGlobalObject* globalObject, const SourceCode& source)
     {
         VM& vm = getVM(globalObject);
-        ProgramExecutable* executable = new (NotNull, allocateCell<ProgramExecutable>(vm.heap)) ProgramExecutable(globalObject, source);
+        ProgramExecutable* executable = new (NotNull, allocateCell<ProgramExecutable>(vm)) ProgramExecutable(globalObject, source);
         executable->finishCreation(vm);
         return executable;
     }

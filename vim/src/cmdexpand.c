@@ -48,6 +48,8 @@ ExpandEscape(
 {
     int		i;
     char_u	*p;
+    int		vse_what = xp->xp_context == EXPAND_BUFFERS
+						       ? VSE_BUFFER : VSE_NONE;
 
     // May change home directory back to "~"
     if (options & WILD_HOME_REPLACE)
@@ -84,9 +86,10 @@ ExpandEscape(
 		    }
 		}
 #ifdef BACKSLASH_IN_FILENAME
-		p = vim_strsave_fnameescape(files[i], FALSE);
+		p = vim_strsave_fnameescape(files[i], vse_what);
 #else
-		p = vim_strsave_fnameescape(files[i], xp->xp_shell);
+		p = vim_strsave_fnameescape(files[i],
+					  xp->xp_shell ? VSE_SHELL : vse_what);
 #endif
 		if (p != NULL)
 		{
@@ -363,13 +366,13 @@ ExpandOne(
 	    // are wildcards, the real problem is that there was no match,
 	    // causing the pattern to be added, which has illegal characters.
 	    if (!(options & WILD_SILENT) && (options & WILD_LIST_NOTFOUND))
-		semsg(_(e_nomatch2), str);
+		semsg(_(e_no_match_str_2), str);
 #endif
 	}
 	else if (xp->xp_numfiles == 0)
 	{
 	    if (!(options & WILD_SILENT))
-		semsg(_(e_nomatch2), str);
+		semsg(_(e_no_match_str_2), str);
 	}
 	else
 	{
@@ -403,7 +406,7 @@ ExpandOne(
 		    // together. Don't really want to wait for this message
 		    // (and possibly have to hit return to continue!).
 		    if (!(options & WILD_SILENT))
-			emsg(_(e_toomany));
+			emsg(_(e_too_many_file_names));
 		    else if (!(options & WILD_NO_BEEP))
 			beep_flush();
 		}
@@ -975,6 +978,7 @@ set_one_cmd_context(
 
     ExpandInit(xp);
     xp->xp_pattern = buff;
+    xp->xp_line = buff;
     xp->xp_context = EXPAND_COMMANDS;	// Default until we get past command
     ea.argt = 0;
 
@@ -1277,12 +1281,8 @@ set_one_cmd_context(
 		xp->xp_context = EXPAND_SHELLCMD;
 	}
 
-	// Check for environment variable
-	if (*xp->xp_pattern == '$'
-#if defined(MSWIN)
-		|| *xp->xp_pattern == '%'
-#endif
-		)
+	// Check for environment variable.
+	if (*xp->xp_pattern == '$')
 	{
 	    for (p = xp->xp_pattern + 1; *p != NUL; ++p)
 		if (!vim_isIDc(*p))
@@ -1296,7 +1296,7 @@ set_one_cmd_context(
 		    compl = EXPAND_ENV_VARS;
 	    }
 	}
-	// Check for user names
+	// Check for user names.
 	if (*xp->xp_pattern == '~')
 	{
 	    for (p = xp->xp_pattern + 1; *p != NUL && *p != '/'; ++p)
@@ -1370,6 +1370,8 @@ set_one_cmd_context(
 	case CMD_verbose:
 	case CMD_vertical:
 	case CMD_windo:
+	case CMD_vim9cmd:
+	case CMD_legacy:
 	    return arg;
 
 	case CMD_filter:
@@ -1555,9 +1557,11 @@ set_one_cmd_context(
 
 	case CMD_function:
 	case CMD_delfunction:
-	case CMD_disassemble:
 	    xp->xp_context = EXPAND_USER_FUNC;
 	    xp->xp_pattern = arg;
+	    break;
+	case CMD_disassemble:
+	    set_context_in_disassemble_cmd(xp, arg);
 	    break;
 
 	case CMD_echohl:
@@ -2069,7 +2073,9 @@ ExpandFromContext(
 
     // When expanding a function name starting with s:, match the <SNR>nr_
     // prefix.
-    if (xp->xp_context == EXPAND_USER_FUNC && STRNCMP(pat, "^s:", 3) == 0)
+    if ((xp->xp_context == EXPAND_USER_FUNC
+				       || xp->xp_context == EXPAND_DISASSEMBLE)
+	    && STRNCMP(pat, "^s:", 3) == 0)
     {
 	int len = (int)STRLEN(pat) + 20;
 
@@ -2118,6 +2124,7 @@ ExpandFromContext(
 	    {EXPAND_USER_VARS, get_user_var_name, FALSE, TRUE},
 	    {EXPAND_FUNCTIONS, get_function_name, FALSE, TRUE},
 	    {EXPAND_USER_FUNC, get_user_func_name, FALSE, TRUE},
+	    {EXPAND_DISASSEMBLE, get_disassemble_argument, FALSE, TRUE},
 	    {EXPAND_EXPRESSION, get_expr_name, FALSE, TRUE},
 # endif
 # ifdef FEAT_MENU
@@ -2131,8 +2138,8 @@ ExpandFromContext(
 	    {EXPAND_SYNTIME, get_syntime_arg, TRUE, TRUE},
 # endif
 	    {EXPAND_HIGHLIGHT, get_highlight_name, TRUE, TRUE},
-	    {EXPAND_EVENTS, get_event_name, TRUE, TRUE},
-	    {EXPAND_AUGROUP, get_augroup_name, TRUE, TRUE},
+	    {EXPAND_EVENTS, get_event_name, TRUE, FALSE},
+	    {EXPAND_AUGROUP, get_augroup_name, TRUE, FALSE},
 # ifdef FEAT_CSCOPE
 	    {EXPAND_CSCOPE, get_cscope_name, TRUE, TRUE},
 # endif
@@ -2155,7 +2162,7 @@ ExpandFromContext(
 	// Find a context in the table and call the ExpandGeneric() with the
 	// right function to do the expansion.
 	ret = FAIL;
-	for (i = 0; i < (int)(sizeof(tab) / sizeof(struct expgen)); ++i)
+	for (i = 0; i < (int)ARRAY_LENGTH(tab); ++i)
 	    if (xp->xp_context == tab[i].context)
 	    {
 		if (tab[i].ic)
@@ -2259,7 +2266,8 @@ ExpandGeneric(
     {
 	if (xp->xp_context == EXPAND_EXPRESSION
 		|| xp->xp_context == EXPAND_FUNCTIONS
-		|| xp->xp_context == EXPAND_USER_FUNC)
+		|| xp->xp_context == EXPAND_USER_FUNC
+		|| xp->xp_context == EXPAND_DISASSEMBLE)
 	    // <SNR> functions should be sorted to the end.
 	    qsort((void *)*file, (size_t)*num_file, sizeof(char_u *),
 							   sort_func_compare);
@@ -2334,7 +2342,7 @@ expand_shellcmd(
     // Go over all directories in $PATH.  Expand matches in that directory and
     // collect them in "ga".  When "." is not in $PATH also expand for the
     // current directory, to find "subdir/cmd".
-    ga_init2(&ga, (int)sizeof(char *), 10);
+    ga_init2(&ga, sizeof(char *), 10);
     hash_init(&found_ht);
     for (s = path; ; s = e)
     {
@@ -2489,7 +2497,7 @@ ExpandUserDefined(
     if (retstr == NULL)
 	return FAIL;
 
-    ga_init2(&ga, (int)sizeof(char *), 3);
+    ga_init2(&ga, sizeof(char *), 3);
     for (s = retstr; *s != NUL; s = e)
     {
 	e = vim_strchr(s, '\n');
@@ -2535,7 +2543,7 @@ ExpandUserList(
     if (retlist == NULL)
 	return FAIL;
 
-    ga_init2(&ga, (int)sizeof(char *), 3);
+    ga_init2(&ga, sizeof(char *), 3);
     // Loop over the items in the list.
     FOR_ALL_LIST_ITEMS(retlist, li)
     {
@@ -2884,11 +2892,18 @@ f_getcompletion(typval_T *argvars, typval_T *rettv)
     expand_T	xpc;
     int		filtered = FALSE;
     int		options = WILD_SILENT | WILD_USE_NL | WILD_ADD_SLASH
-								| WILD_NO_BEEP;
+					| WILD_NO_BEEP | WILD_HOME_REPLACE;
 
+    if (in_vim9script()
+	    && (check_for_string_arg(argvars, 0) == FAIL
+		|| check_for_string_arg(argvars, 1) == FAIL
+		|| check_for_opt_bool_arg(argvars, 2) == FAIL))
+	return;
+
+    pat = tv_get_string(&argvars[0]);
     if (argvars[1].v_type != VAR_STRING)
     {
-	semsg(_(e_invarg2), "type must be a string");
+	semsg(_(e_invalid_argument_str), "type must be a string");
 	return;
     }
     type = tv_get_string(&argvars[1]);
@@ -2906,18 +2921,19 @@ f_getcompletion(typval_T *argvars, typval_T *rettv)
     ExpandInit(&xpc);
     if (STRCMP(type, "cmdline") == 0)
     {
-	set_one_cmd_context(&xpc, tv_get_string(&argvars[0]));
+	set_one_cmd_context(&xpc, pat);
 	xpc.xp_pattern_len = (int)STRLEN(xpc.xp_pattern);
+	xpc.xp_col = (int)STRLEN(pat);
     }
     else
     {
-	xpc.xp_pattern = tv_get_string(&argvars[0]);
+	xpc.xp_pattern = pat;
 	xpc.xp_pattern_len = (int)STRLEN(xpc.xp_pattern);
 
 	xpc.xp_context = cmdcomplete_str_to_type(type);
 	if (xpc.xp_context == EXPAND_NOTHING)
 	{
-	    semsg(_(e_invarg2), type);
+	    semsg(_(e_invalid_argument_str), type);
 	    return;
 	}
 

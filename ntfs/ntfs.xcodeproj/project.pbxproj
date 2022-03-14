@@ -514,7 +514,7 @@
 		F99B8773246B8980006E31FE /* ntfs_debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_debug.c; path = kext/ntfs_debug.c; sourceTree = "<group>"; };
 		F99B8774246B8980006E31FE /* ntfs_unistr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_unistr.h; path = kext/ntfs_unistr.h; sourceTree = "<group>"; };
 		F99B8775246B8980006E31FE /* ntfs_dir.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_dir.c; path = kext/ntfs_dir.c; sourceTree = "<group>"; };
-		F99B8776246B8980006E31FE /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_vfsops.c; path = kext/ntfs_vfsops.c; sourceTree = "<group>"; };
+		F99B8776246B8980006E31FE /* ntfs_vfsops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_vfsops.c; path = kext/ntfs_vfsops.c; sourceTree = "<group>"; usesTabs = 1; };
 		F99B8777246B8981006E31FE /* ntfs_volume.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ntfs_volume.h; path = kext/ntfs_volume.h; sourceTree = "<group>"; };
 		F99B8778246B8981006E31FE /* ntfs_hash.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_hash.c; path = kext/ntfs_hash.c; sourceTree = "<group>"; };
 		F99B8779246B8981006E31FE /* ntfs_sfm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ntfs_sfm.c; path = kext/ntfs_sfm.c; sourceTree = "<group>"; };

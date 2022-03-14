@@ -439,7 +439,7 @@ IOReturn IOFireWireSBP2LSIWorkaroundDescriptor::rangeTableAllocatorInitialize
 	if( status == kIOReturnSuccess )
 	{
 		fRangeTableSize = sizeof( IOPhysicalRange ) * entries;
-		fRangeTable = (IOPhysicalRange*) IOMalloc( fRangeTableSize );
+		fRangeTable = (IOPhysicalRange*) IONew( IOPhysicalRange, entries );
 		if( fRangeTable == NULL )
 			status = kIOReturnError;
 	}
@@ -473,11 +473,12 @@ IOPhysicalRange * IOFireWireSBP2LSIWorkaroundDescriptor::rangeTableAllocatorNewT
 
 		if( fRangeTable )
 		{
-			IOFree( fRangeTable, fRangeTableSize  );
+			IODelete( fRangeTable, IOPhysicalRange, (fRangeTableSize/sizeof( IOPhysicalRange )) );
 			fRangeTable = NULL;
 		}
 		
-		fRangeTable = (IOPhysicalRange*) IOMalloc( requestedSize );
+		fRangeTable = IONew( IOPhysicalRange, entries );
+		fRangeTableSize = requestedSize;
 		if( !fRangeTable )
 			status = kIOReturnNoMemory;
 			
@@ -498,7 +499,7 @@ void IOFireWireSBP2LSIWorkaroundDescriptor::rangeTableAllocatorFree( void )
 
 	if( fRangeTable )
 	{
-		IOFree( fRangeTable, fRangeTableSize  );
+		IODelete( fRangeTable, IOPhysicalRange, (fRangeTableSize/sizeof( IOPhysicalRange )) );
 		fRangeTable = NULL;
 	}
 }

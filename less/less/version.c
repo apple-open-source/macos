@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -800,11 +800,126 @@ v484  9/20/16   Update to Unicode 9.0.0 database.
 v485  10/21/16  Fix "nothing to search" bug when top/bottom line is empty;
                 Display line numbers in bold. (thanks to Jason Hood);
                 Fix incorrect display when entering double-width chars in 
-		search string.
+                search string.
 v486  10/22/16  New commands ESC-{ and ESC-} to shift to start/end of 
                 displayed lines; new option -Da in Windows version to 
-		enable SGR mode (thanks to Jason Hood).
+                enable SGR mode (thanks to Jason Hood).
 v487  10/23/16  configure --help formatting.
+-----------------------------------------------------------------
+v488  2/23/17   Fix memory leaks in search (thanks to John Brooks).
+v489  3/30/17   Make -F not do init/deinit if file fits on one screen
+                (thanks to Jindrich Novy).
+v490  4/5/17    Switch to ANSI prototypes in funcs.h; remove "register".
+v491  4/7/17    Fix signed char bug.
+v492  4/21/17   Handle SIGTERM.
+v493  6/22/17   Fix bug initializing charset in MSDOS build.
+v494  6/26/17   Update Unicode tables; make Cf chars composing not binary.
+v495  7/3/17    Improve binary file detection (thanks to Bela Lubkin);
+                do -R filter when matching tags (thanks to Matthew Malcomson).
+v496  7/5/17    Add LESSRSCROLL marker.
+v497  7/5/17    Sync.
+v498  7/7/17    Fix early truncation of text if last char is double-width.
+v499  7/10/17   Misc fixes.
+v500  7/11/17   Fix bug where certain env variables couldn't be set in lesskey.
+v501  7/12/17   Make sure rscroll char is standout by default.
+v502  7/13/17   Control rscroll char via command line option not env variable.
+v503  7/13/17   Switch to git.
+v504  7/13/17   Call opt_rscroll at startup; change mkhelp.c to mkhelp.pl.
+v505  7/17/17   Add M and ESC-M commands; 
+                fix buffer handling with stdin and LESSOPEN.
+v506  7/17/17   On Windows, convert UTF-8 to multibyte if console is not UTF-8;
+                handle extended chars on input (thanks to Jason Hood).
+v507  7/18/17   Fix some bugs handling filenames containing shell metachars.
+v508  7/19/17   Fix bugs when using LESSOPEN to read stdin.
+v509  7/19/17   Fix another stdin bug.
+v510  7/20/17   Fix bug in determining when to reopen a file.
+v511  7/25/17   Fix bugs in recent MSDOS changes (thanks to Jason Hood).
+v512  7/26/17   Fix MSDOS build.
+v513  7/26/17   Fix switch to normal attr at end of line with -R and rscroll.
+v514  7/27/17   Fix bug in fcomplete when pattern does not match a file.
+v515  7/28/17   Allow 'u' in -D option on Windows.
+v516  7/29/17   Fix bug using LESSOPEN with filename containing metachars.
+v517  7/30/17   Status column shows matches even if hiliting is disabled via -G.
+v518  8/1/17    Use underline in sgr mode in MSDOS (thanks to Jason Hood).
+v519  8/10/17   Fix rscroll bug when last char of line starts coloration.
+v520  9/3/17    Fix compiler warning.
+v521  10/20/17  Fix binary file warning in UTF-8 files with SGI sequences.
+v522  10/20/17  Handle keypad ENTER key properly.
+v523  10/23/17  Cleanup.
+v524  10/24/17  Fix getcc bug.
+v525  10/24/17  Change M command to mark last displayed line.
+v526  10/25/17  Fix search hilite bug introduced in v517.
+v527  10/30/17  Fix search hilite bug on last page with -a.
+v528  11/3/17   Make second ESC-u clear status column.
+v529  11/12/17  Display Unicode formatting chars in hex if -U is set.
+v530  12/2/17   Minor doc change and add missing VOID_PARAM.
+-----------------------------------------------------------------
+v531  5/13/18   Fix bug with v on empty file; fix bug with v on file with 
+                metachars in name; add --nohistdups option.
+v532  7/27/18   Redraw screen on SIGWINCH even if screen size doesn't change.
+v533  8/1/18    Shell escape filenames in history; use PCRE_UTF8 flag; 
+                use wide-chars for Windows console title (thanks to Jason Hood).
+v534  8/9/18    Support PCRE2.
+v535  8/16/18   Don't count lines of initial screen if using -X with -F
+                (thanks to Linus Torvalds).
+v536  8/31/18   Use descriptive error messages for PCRE2.
+v537  8/31/18   Support mingw build system (thanks to Mike Soyka).
+v538  9/3/18    Clean up some WIN32 code.
+v539  9/13/18   Fix spurious input on Windows with CAPSLOCK.
+v540  10/29/18  Add --mouse option.
+v541  10/30/18  Add --MOUSE option.
+v542  11/6/18   Add mouse support for WIN32; add --wheel-lines option.
+                (thanks to Jason Hood).
+v543  11/12/18  Code cleanup.
+v544  11/16/18  Don't init/deinit keyboard/mouse if quit due to -F.
+v545  11/22/18  Fix Windows build, memory leaks.
+v546  11/29/18  Add --save-marks option.
+v547  11/30/18  Fix some bugs with saved marks.
+v548  12/14/18  Ignore mouse input when line editing.
+v549  2/10/19   Support X11 mouse extension 1006;
+                Win32 fixes (thanks to Jason Hood).
+v550  2/16/19   Fix Win32 build; don't enable mouse unless --mouse is set.
+v551  6/10/19   Doc changes.
+-----------------------------------------------------------------
+v552  7/8/19    Update Unicode tables.
+v553  10/17/19  Support tinfow; handle zero-width Hangul chars.
+v554  1/19/20   Remove erroneous free().
+v555  3/15/20   Display error msg immediately when toggle -o without stdin.
+v556  3/15/20   Update copyright.
+v557  3/21/20   Fix memory corruption with libtermcap.
+v558  4/17/20   Don't init terminal if -F and file fits on one screen (WIN32).
+v559  4/19/20   Handle deinit correctly on WIN32.
+v560  5/3/20    Fix regression when command results in no movement;
+                fix some less.nro issues (thanks to Bjarni I. Gislason).
+v561  5/11/20   Fix erroneous EOF calculation when F command is interrupted.
+v562  5/19/20   Update Unicode tables; minor doc formatting.
+v563  6/13/20   Fix crash due to realpath() incompatibility.
+v564  8/25/20   Handle realpath consistently; update docs.
+v565  11/3/20   Add ESC-U command, optimize calls to realpath().
+v566  11/25/20  Fix crash when reopening a file while using LESSOPEN;
+                support OSC 8 hyperlinks.
+v567  11/25/20  Fix typo.
+v568  11/29/20  Fix some hyperlink bugs; add ^W search modifier
+                (thanks to Arminius); allow Makefile.aut to use Python 
+                instead of Perl (thanks to Charlie Lin).
+v569  12/1/20   Allow multiple & filters (thanks to Mattias Johansson),
+                allow ^X to exit F command.
+v570  12/12/20  Better handling of multiple + or -p options;
+                fix bugs in horizontal scrolling.
+v571  12/30/20  Add --line-num-width and --status-col-width options.
+v572  1/4/21    Save lastmark in history file; don't toggle mouse reporting;
+                implement termcap delays.
+v573  1/9/21    Limit eof bell to 1 per second.
+v574  1/13/21   Add incremental search.
+v575  1/17/21   Fix build without HILITE_SEARCH;
+                fix bug with ^K in lesskey extra string.
+v576  2/4/21    Make sure search result is visible; add --use-color and --color.
+v577  2/9/21    Use ttyname to get name of tty device.
+v578  2/9/21    Doc
+v579  2/14/21   Fix double-width char bugs and non-match search crash.
+v580  3/2/21    Some color fixes; fix compiler warnings; some lesstest support.
+v581  4/6/21    Ignore SIGTSTP in secure mode; don't print "skipping" when filtering.
+v581.2 4/28/21  Fix failure to deinit mouse.
 */
 
-char version[] = "487";
+char version[] = "581.2";

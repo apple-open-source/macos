@@ -85,7 +85,7 @@ MALLOC_DECLARE(M_MSDOSFSMNT);
 /*
  * Layout of the mount control block for a msdos file system.
  */
-struct msdosfsmount {
+typedef struct msdosfsmount {
 	struct mount *pm_mountp;/* vfs mount struct for this fs */
 	dev_t pm_dev;		/* block special device mounted */
 	uid_t pm_uid;		/* uid to set as owner of the files */
@@ -156,7 +156,7 @@ struct msdosfsmount {
     bool            pm_flush_request;   /* Request flag */
 
 	u_int32_t	pm_iosize;		/* "optimal" I/O size */
-};
+} msdosfsmount_t;
 
 /* Flag bits for pm_fat_flags */
 enum {

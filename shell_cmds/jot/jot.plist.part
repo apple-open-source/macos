@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>jot</string>
+		<key>OpenSourceVersion</key>
+		<string>2019-09-21</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/jot?id=a811237df2db8e1ccd19113e1da3f60dc34a8be3</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-18</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>jot.c: Removed capsicum support</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

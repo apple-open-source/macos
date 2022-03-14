@@ -49,11 +49,8 @@ static PAS_ALWAYS_INLINE void pas_segregated_exclusive_view_did_start_allocating
 
     static const bool verbose = false;
 
-    unsigned view_index;
-
+    PAS_UNUSED_PARAM(view);
     PAS_UNUSED_PARAM(global_directory);
-
-    view_index = view->index;
 
     if (verbose)
         pas_log("Did start allocating in %p.\n", page);
@@ -170,8 +167,9 @@ static PAS_ALWAYS_INLINE void pas_segregated_exclusive_view_note_eligibility(
                 break;
             }
 
-            allocator_result = pas_thread_local_cache_try_get_local_allocator(
-                cache, page->view_cache_index);
+            allocator_result =
+                pas_thread_local_cache_try_get_local_allocator_for_possibly_uninitialized_but_not_unselected_index(
+                    cache, page->view_cache_index);
             if (!allocator_result.did_succeed) {
                 if (verbose) {
                     pas_log("%p: View cache is disabled for this page or it doesn't exist yet in this "

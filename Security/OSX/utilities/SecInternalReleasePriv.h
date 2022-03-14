@@ -31,6 +31,9 @@ __BEGIN_DECLS
 
 bool SecIsInternalRelease(void);
 
+/* Determines if the system has explicitly enabled QA root certificates for trust evaluation. */
+bool SecAreQARootCertificatesEnabled(void);
+
 __END_DECLS
 
 

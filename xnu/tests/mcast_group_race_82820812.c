@@ -30,7 +30,7 @@ thread_func(__unused void* arg)
 
 T_DECL(mcast_group_race_82820812, "Race between multicast group join operations.",
     T_META_ASROOT(true),
-    T_META_ENABLED(!TARGET_OS_OSX && !TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR))
+    T_META_ENABLED(!TARGET_OS_BRIDGE && !TARGET_OS_SIMULATOR))
 {
 	pthread_t th;
 	uint32_t i = 0;
@@ -47,7 +47,7 @@ T_DECL(mcast_group_race_82820812, "Race between multicast group join operations.
 
 		for (j = 0; j < IP_MIN_MEMBERSHIPS - 1; ++j) {
 			filler_group.imr_multiaddr.s_addr = htonl(ntohl(inet_addr("224.0.0.3")) + j);
-			T_ASSERT_POSIX_SUCCESS(setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &filler_group, sizeof(filler_group)), "setsockopt");
+			setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &filler_group, sizeof(filler_group));
 		}
 
 		T_ASSERT_POSIX_ZERO(pthread_create(&th, NULL, thread_func, NULL), "pthread_create");
@@ -56,10 +56,9 @@ T_DECL(mcast_group_race_82820812, "Race between multicast group join operations.
 		}
 		lock_b = 1;
 
-		T_ASSERT_POSIX_SUCCESS(setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group_b, sizeof(group_b)), NULL);
+		setsockopt(fd, IPPROTO_IP, IP_ADD_MEMBERSHIP, &group_b, sizeof(group_b));
 
 		T_ASSERT_POSIX_ZERO(pthread_join(th, NULL), "pthread_join");
-
 		T_ASSERT_POSIX_SUCCESS(close(fd), "close");
 	}
 }

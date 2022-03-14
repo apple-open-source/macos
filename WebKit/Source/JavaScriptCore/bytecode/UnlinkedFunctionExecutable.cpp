@@ -251,7 +251,7 @@ UnlinkedFunctionCodeBlock* UnlinkedFunctionExecutable::unlinkedCodeBlockFor(
         m_unlinkedCodeBlockForConstruct.set(vm, this, result);
         break;
     }
-    vm.unlinkedFunctionExecutableSpace.set.add(this);
+    vm.unlinkedFunctionExecutableSpace().set.add(this);
     return result;
 }
 
@@ -265,7 +265,7 @@ void UnlinkedFunctionExecutable::decodeCachedCodeBlocks(VM& vm)
     int32_t cachedCodeBlockForCallOffset = m_cachedCodeBlockForCallOffset;
     int32_t cachedCodeBlockForConstructOffset = m_cachedCodeBlockForConstructOffset;
 
-    DeferGC deferGC(vm.heap);
+    DeferGC deferGC(vm);
 
     // No need to clear m_unlinkedCodeBlockForCall here, since we moved the decoder out of the same slot
     if (cachedCodeBlockForCallOffset)
@@ -277,7 +277,7 @@ void UnlinkedFunctionExecutable::decodeCachedCodeBlocks(VM& vm)
 
     WTF::storeStoreFence();
     m_isCached = false;
-    vm.heap.writeBarrier(this);
+    vm.writeBarrier(this);
 }
 
 UnlinkedFunctionExecutable::RareData& UnlinkedFunctionExecutable::ensureRareDataSlow()
@@ -310,7 +310,7 @@ void UnlinkedFunctionExecutable::finalizeUnconditionally(VM& vm)
         clearIfDead(m_unlinkedCodeBlockForCall);
         clearIfDead(m_unlinkedCodeBlockForConstruct);
         if (isCleared && !isStillValid)
-            vm.unlinkedFunctionExecutableSpace.set.remove(this);
+            vm.unlinkedFunctionExecutableSpace().set.remove(this);
     }
 }
 

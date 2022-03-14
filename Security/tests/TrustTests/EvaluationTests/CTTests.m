@@ -1199,14 +1199,30 @@ errOut:
 @end
 
 static NSArray *keychainCerts = nil;
+id mockFailedMA = nil;
 
 @implementation CTEnforcementTests
 + (void)setUp {
+    /* Mock a failing MobileAsset so we control the MobileAsset enforcement behaviors */
+#if !TARGET_OS_BRIDGE
+    mockFailedMA = OCMClassMock([MAAsset class]);
+    OCMStub([mockFailedMA startCatalogDownload:[OCMArg any]
+                                       options:[OCMArg any]
+                                          then:([OCMArg invokeBlockWithArgs:OCMOCK_VALUE((NSInteger){MADownloadFailed}), nil])]);
+#endif
+
     [super setUp];
     NSURL *trustedLogsURL = [[NSBundle bundleForClass:[self class]] URLForResource:@"CTlogs"
                                                                      withExtension:@"plist"
                                                                       subdirectory:@"si-82-sectrust-ct-data"];
     trustedCTLogs = [NSArray arrayWithContentsOfURL:trustedLogsURL];
+}
+
++ (void)tearDown {
+#if !TARGET_OS_BRIDGE
+    [mockFailedMA stopMocking];
+#endif
+    [super tearDown];
 }
 
 - (void)setUp {
@@ -1225,13 +1241,6 @@ static NSArray *keychainCerts = nil;
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    /* Mock a failing MobileAsset so we don't enforce via MobileAsset */
-    id mockFailedMA = OCMClassMock([MAAsset class]);
-    OCMStub([mockFailedMA startCatalogDownload:[OCMArg any]
-                                       options:[OCMArg any]
-                                          then:([OCMArg invokeBlockWithArgs:OCMOCK_VALUE((NSInteger){MADownloadFailed}), nil])]);
-    SecOTAPKIResetCurrentAssetVersion(NULL);
-
     require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
     require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
@@ -1243,6 +1252,7 @@ static NSArray *keychainCerts = nil;
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // Out-of-date asset, test system cert after date without CT passes
+    SecOTAPKIResetCurrentAssetVersion(NULL);
     ok(SecTrustEvaluateWithError(trust, NULL), "system post-flag-date non-CT cert failed with out-of-date asset");
 
 errOut:
@@ -1810,55 +1820,6 @@ errOut:
     CFReleaseNull(trust);
 }
 
-- (void) testBasejumper {
-    SecCertificateRef baltimoreRoot = NULL, appleISTCA2 = NULL, deprecatedSSLServer = NULL;
-    SecTrustRef trust = NULL;
-    SecPolicyRef policy = SecPolicyCreateSSL(true, CFSTR("basejumper.apple.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:576000000.0]; // April 3, 2019 at 9:00:00 AM PDT
-    NSArray *certs = nil, *enforcement_anchors = nil;
-
-    require_action(baltimoreRoot = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"BaltimoreCyberTrustRoot"],
-                   errOut, fail("failed to create geotrust root"));
-    require_action(appleISTCA2 = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"AppleISTCA2_Baltimore"],
-                   errOut, fail("failed to create apple IST CA"));
-    require_action(deprecatedSSLServer = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"basejumper"],
-                   errOut, fail("failed to create deprecated SSL Server cert"));
-
-    certs = @[ (__bridge id)deprecatedSSLServer, (__bridge id)appleISTCA2 ];
-    enforcement_anchors = @[ (__bridge id)baltimoreRoot ];
-    require_noerr_action(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trust), errOut, fail("failed to create trust"));
-    require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
-    require_noerr_action(SecTrustSetAnchorCertificates(trust, (__bridge CFArrayRef)enforcement_anchors), errOut, fail("failed to set anchors"));
-    require_noerr_action(SecTrustSetTrustedLogs(trust, (__bridge CFArrayRef)trustedCTLogs), errOut, fail("failed to set trusted logs"));
-    XCTAssert(SecTrustEvaluateWithError(trust, NULL), "non-CT basejumper cert failed");
-
-#if !TARGET_OS_BRIDGE
-    // bridgeOS doesn't ever enforce CT
-    // Test with generic CT allowlist disable
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlist"), kCFBooleanTrue, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-    SecTrustSetNeedsEvaluation(trust);
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "non-CT basejumper succeeded with allowlist disabled");
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlist"), kCFBooleanFalse, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-
-    // Test with Apple allowlist disable
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlistApple"), kCFBooleanTrue, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-    SecTrustSetNeedsEvaluation(trust);
-    XCTAssertFalse(SecTrustEvaluateWithError(trust, NULL), "non-CT basejumper succeeded with Apple allowlist disabled");
-    CFPreferencesSetAppValue(CFSTR("DisableCTAllowlistApple"), kCFBooleanFalse, CFSTR("com.apple.security"));
-    CFPreferencesAppSynchronize(CFSTR("com.apple.security"));
-#endif // !TARGET_OS_BRIDGE
-
-errOut:
-    CFReleaseNull(baltimoreRoot);
-    CFReleaseNull(appleISTCA2);
-    CFReleaseNull(deprecatedSSLServer);
-    CFReleaseNull(policy);
-    CFReleaseNull(trust);
-}
-
 // test google subCA after date without CT fails
 - (void) testGoogleSubCAException {
     SecCertificateRef globalSignRoot = NULL, googleIAG3 = NULL, google = NULL;
@@ -2062,11 +2023,26 @@ errOut:
 
 @implementation NonTlsCTTests
 + (void)setUp {
+    /* Mock a failing MobileAsset so we control the MobileAsset enforcement behaviors */
+#if !TARGET_OS_BRIDGE
+    mockFailedMA = OCMClassMock([MAAsset class]);
+    OCMStub([mockFailedMA startCatalogDownload:[OCMArg any]
+                                       options:[OCMArg any]
+                                          then:([OCMArg invokeBlockWithArgs:OCMOCK_VALUE((NSInteger){MADownloadFailed}), nil])]);
+#endif
+
     [super setUp];
     NSURL *trustedLogsURL = [[NSBundle bundleForClass:[self class]] URLForResource:@"CTlogs"
                                                                      withExtension:@"plist"
                                                                       subdirectory:@"si-82-sectrust-ct-data"];
     trustedCTLogs = [NSArray arrayWithContentsOfURL:trustedLogsURL];
+}
+
++ (void)tearDown {
+#if !TARGET_OS_BRIDGE
+    [mockFailedMA stopMocking];
+#endif
+    [super tearDown];
 }
 
 - (SecPolicyRef)nonTlsCTRequiredPolicy
@@ -2085,13 +2061,6 @@ errOut:
     NSArray *enforce_anchors = nil;
     NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:562340800.0]; // October 27, 2018 at 6:46:40 AM PDT
 
-    /* Mock a failing MobileAsset so we don't enforce via MobileAsset */
-    id mockFailedMA = OCMClassMock([MAAsset class]);
-    OCMStub([mockFailedMA startCatalogDownload:[OCMArg any]
-                                       options:[OCMArg any]
-                                          then:([OCMArg invokeBlockWithArgs:OCMOCK_VALUE((NSInteger){MADownloadFailed}), nil])]);
-    SecOTAPKIResetCurrentAssetVersion(NULL);
-
     require_action(system_root = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_root"],
                    errOut, fail("failed to create system root"));
     require_action(system_server_after = (__bridge SecCertificateRef)[CTTests SecCertificateCreateFromResource:@"enforcement_system_server_after"],
@@ -2103,6 +2072,7 @@ errOut:
     require_noerr_action(SecTrustSetVerifyDate(trust, (__bridge CFDateRef)date), errOut, fail("failed to set verify date"));
 
     // Out-of-date asset, test cert without CT passes
+    SecOTAPKIResetCurrentAssetVersion(NULL);
     ok(SecTrustEvaluateWithError(trust, NULL), "non-CT cert failed with out-of-date asset");
 
 errOut:

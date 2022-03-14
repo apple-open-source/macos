@@ -67,6 +67,7 @@ CFArrayRef SOSCCCopyViewUnawarePeerInfo_Server(CFErrorRef* error);
 bool SOSCCRejectApplicants_Server(CFArrayRef applicants, CFErrorRef* error);
 bool SOSCCAcceptApplicants_Server(CFArrayRef applicants, CFErrorRef* error);
 
+CFStringRef SOSCCCopyMyPID_Server(CFErrorRef* error);
 SOSPeerInfoRef SOSCCCopyMyPeerInfo_Server(CFErrorRef* error);
 CFArrayRef SOSCCCopyEngineState_Server(CFErrorRef* error);
 
@@ -78,6 +79,9 @@ bool SOSCCResetToEmpty_Server(CFErrorRef* error);
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef *error);
 
+#if (TARGET_OS_IOS || TARGET_OS_OSX)
+int SOSCCMatchOTViews_Server(void);
+#endif
 SOSViewResultCode SOSCCView_Server(CFStringRef view, SOSViewActionCode action, CFErrorRef *error);
 bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews);
 

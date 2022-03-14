@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>getconf</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-10-01</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/getconf?id=7cc42f6d25ef2e19059d088fa7d4853fe9afefb5</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-07-18</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>confstr.gperf: Darwin-specific configuration items (4867212)</string>
+			<string>limits.gperf, sysconf.gperf, pathconf.gperf: POSIX-conformant non-underscore equivalent names (3514547)</string>
+			<string>limits.gperf, posix.gperf: POSIX/XOPEN mismatches (3668584)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

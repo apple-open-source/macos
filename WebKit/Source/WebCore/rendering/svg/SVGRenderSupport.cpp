@@ -28,6 +28,8 @@
 #include "SVGRenderSupport.h"
 
 #include "ElementAncestorIterator.h"
+#include "LegacyRenderSVGRoot.h"
+#include "LegacyRenderSVGShape.h"
 #include "NodeRenderStyle.h"
 #include "RenderChildIterator.h"
 #include "RenderElement.h"
@@ -43,6 +45,7 @@
 #include "RenderSVGText.h"
 #include "RenderSVGTransformableContainer.h"
 #include "RenderSVGViewportContainer.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGGeometryElement.h"
 #include "SVGResources.h"
 #include "SVGResourcesCache.h"
@@ -84,10 +87,10 @@ const RenderElement& SVGRenderSupport::localToParentTransform(const RenderElemen
     ASSERT(renderer.parent());
     auto& parent = *renderer.parent();
 
-    // At the SVG/HTML boundary (aka RenderSVGRoot), we apply the localToBorderBoxTransform
+    // At the SVG/HTML boundary (aka LegacyRenderSVGRoot), we apply the localToBorderBoxTransform
     // to map an element from SVG viewport coordinates to CSS box coordinates.
-    if (is<RenderSVGRoot>(parent))
-        transform = downcast<RenderSVGRoot>(parent).localToBorderBoxTransform() * renderer.localToParentTransform();
+    if (is<LegacyRenderSVGRoot>(parent))
+        transform = downcast<LegacyRenderSVGRoot>(parent).localToBorderBoxTransform() * renderer.localToParentTransform();
     else
         transform = renderer.localToParentTransform();
 
@@ -101,7 +104,7 @@ void SVGRenderSupport::mapLocalToContainer(const RenderElement& renderer, const 
 
     transformState.applyTransform(transform);
 
-    MapCoordinatesFlags mode = UseTransforms;
+    OptionSet<MapCoordinatesMode> mode = UseTransforms;
     parent.mapLocalToContainer(ancestorContainer, transformState, mode, wasFixed);
 }
 
@@ -156,7 +159,7 @@ void SVGRenderSupport::computeContainerBoundingBoxes(const RenderElement& contai
             continue;
 
         // Don't include elements in the union that do not render.
-        if (is<RenderSVGShape>(current) && downcast<RenderSVGShape>(current).isRenderingDisabled())
+        if (is<LegacyRenderSVGShape>(current) && downcast<LegacyRenderSVGShape>(current).isRenderingDisabled())
             continue;
 
         const AffineTransform& transform = current.localToParentTransform();
@@ -180,14 +183,14 @@ bool SVGRenderSupport::paintInfoIntersectsRepaintRect(const FloatRect& localRepa
     return localTransform.mapRect(localRepaintRect).intersects(paintInfo.rect);
 }
 
-RenderSVGRoot* SVGRenderSupport::findTreeRootObject(RenderElement& start)
+LegacyRenderSVGRoot* SVGRenderSupport::findTreeRootObject(RenderElement& start)
 {
-    return lineageOfType<RenderSVGRoot>(start).first();
+    return lineageOfType<LegacyRenderSVGRoot>(start).first();
 }
 
-const RenderSVGRoot* SVGRenderSupport::findTreeRootObject(const RenderElement& start)
+const LegacyRenderSVGRoot* SVGRenderSupport::findTreeRootObject(const RenderElement& start)
 {
-    return lineageOfType<RenderSVGRoot>(start).first();
+    return lineageOfType<LegacyRenderSVGRoot>(start).first();
 }
 
 static inline void invalidateResourcesOfChildren(RenderElement& renderer)
@@ -203,19 +206,23 @@ static inline void invalidateResourcesOfChildren(RenderElement& renderer)
 static inline bool layoutSizeOfNearestViewportChanged(const RenderElement& renderer)
 {
     const RenderElement* start = &renderer;
-    while (start && !is<RenderSVGRoot>(*start) && !is<RenderSVGViewportContainer>(*start))
+    while (start && !start->isSVGRootOrLegacySVGRoot() && !is<RenderSVGViewportContainer>(*start))
         start = start->parent();
 
     ASSERT(start);
     if (is<RenderSVGViewportContainer>(*start))
         return downcast<RenderSVGViewportContainer>(*start).isLayoutSizeChanged();
 
-    return downcast<RenderSVGRoot>(*start).isLayoutSizeChanged();
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
+    if (is<RenderSVGRoot>(*start))
+        return downcast<RenderSVGRoot>(*start).isLayoutSizeChanged();
+#endif
+    return downcast<LegacyRenderSVGRoot>(*start).isLayoutSizeChanged();
 }
 
 bool SVGRenderSupport::transformToRootChanged(RenderElement* ancestor)
 {
-    while (ancestor && !is<RenderSVGRoot>(*ancestor)) {
+    while (ancestor && !ancestor->isSVGRootOrLegacySVGRoot()) {
         if (is<RenderSVGTransformableContainer>(*ancestor))
             return downcast<RenderSVGTransformableContainer>(*ancestor).didTransformToRootUpdate();
         if (is<RenderSVGViewportContainer>(*ancestor))
@@ -256,9 +263,9 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
             // When selfNeedsLayout is false and the layout size changed, we have to check whether this child uses relative lengths
             auto& element = downcast<SVGElement>(*child.node());
             if (element.hasRelativeLengths()) {
-                // When the layout size changed and when using relative values tell the RenderSVGShape to update its shape object
-                if (is<RenderSVGShape>(child))
-                    downcast<RenderSVGShape>(child).setNeedsShapeUpdate();
+                // When the layout size changed and when using relative values tell the LegacyRenderSVGShape to update its shape object
+                if (is<LegacyRenderSVGShape>(child))
+                    downcast<LegacyRenderSVGShape>(child).setNeedsShapeUpdate();
                 else if (is<RenderSVGText>(child)) {
                     auto& svgText = downcast<RenderSVGText>(child);
                     svgText.setNeedsTextMetricsUpdate();
@@ -299,7 +306,7 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
 
 bool SVGRenderSupport::isOverflowHidden(const RenderElement& renderer)
 {
-    // RenderSVGRoot should never query for overflow state - it should always clip itself to the initial viewport size.
+    // LegacyRenderSVGRoot should never query for overflow state - it should always clip itself to the initial viewport size.
     ASSERT(!renderer.isDocumentElementRenderer());
 
     return renderer.style().overflowX() == Overflow::Hidden || renderer.style().overflowX() == Overflow::Scroll;
@@ -385,16 +392,16 @@ inline FloatRect clipPathReferenceBox(const RenderElement& renderer, CSSBoxType 
 
 inline bool isPointInCSSClippingArea(const RenderElement& renderer, const FloatPoint& point)
 {
-    ClipPathOperation* clipPathOperation = renderer.style().clipPath();
-    if (is<ShapeClipPathOperation>(clipPathOperation)) {
-        auto& clipPath = downcast<ShapeClipPathOperation>(*clipPathOperation);
+    PathOperation* clipPathOperation = renderer.style().clipPath();
+    if (is<ShapePathOperation>(clipPathOperation)) {
+        auto& clipPath = downcast<ShapePathOperation>(*clipPathOperation);
         FloatRect referenceBox = clipPathReferenceBox(renderer, clipPath.referenceBox());
         if (!referenceBox.contains(point))
             return false;
         return clipPath.pathForReferenceRect(referenceBox).contains(point, clipPath.windRule());
     }
-    if (is<BoxClipPathOperation>(clipPathOperation)) {
-        auto& clipPath = downcast<BoxClipPathOperation>(*clipPathOperation);
+    if (is<BoxPathOperation>(clipPathOperation)) {
+        auto& clipPath = downcast<BoxPathOperation>(*clipPathOperation);
         FloatRect referenceBox = clipPathReferenceBox(renderer, clipPath.referenceBox());
         if (!referenceBox.contains(point))
             return false;
@@ -406,21 +413,21 @@ inline bool isPointInCSSClippingArea(const RenderElement& renderer, const FloatP
 
 void SVGRenderSupport::clipContextToCSSClippingArea(GraphicsContext& context, const RenderElement& renderer)
 {
-    ClipPathOperation* clipPathOperation = renderer.style().clipPath();
-    if (is<ShapeClipPathOperation>(clipPathOperation)) {
-        auto& clipPath = downcast<ShapeClipPathOperation>(*clipPathOperation);
+    PathOperation* clipPathOperation = renderer.style().clipPath();
+    if (is<ShapePathOperation>(clipPathOperation)) {
+        auto& clipPath = downcast<ShapePathOperation>(*clipPathOperation);
         auto localToParentTransform = renderer.localToParentTransform();
 
         auto referenceBox = clipPathReferenceBox(renderer, clipPath.referenceBox());
         referenceBox = localToParentTransform.mapRect(referenceBox);
 
         auto path = clipPath.pathForReferenceRect(referenceBox);
-        path.transform(localToParentTransform.inverse().value_or(AffineTransform()));
+        path.transform(valueOrDefault(localToParentTransform.inverse()));
 
         context.clipPath(path, clipPath.windRule());
     }
-    if (is<BoxClipPathOperation>(clipPathOperation)) {
-        auto& clipPath = downcast<BoxClipPathOperation>(*clipPathOperation);
+    if (is<BoxPathOperation>(clipPathOperation)) {
+        auto& clipPath = downcast<BoxPathOperation>(*clipPathOperation);
         FloatRect referenceBox = clipPathReferenceBox(renderer, clipPath.referenceBox());
         context.clipPath(clipPath.pathForReferenceRect(FloatRoundedRect {referenceBox}));
     }
@@ -431,8 +438,8 @@ bool SVGRenderSupport::pointInClippingArea(const RenderElement& renderer, const 
     if (SVGHitTestCycleDetectionScope::isVisiting(renderer))
         return false;
 
-    ClipPathOperation* clipPathOperation = renderer.style().clipPath();
-    if (is<ShapeClipPathOperation>(clipPathOperation) || is<BoxClipPathOperation>(clipPathOperation))
+    PathOperation* clipPathOperation = renderer.style().clipPath();
+    if (is<ShapePathOperation>(clipPathOperation) || is<BoxPathOperation>(clipPathOperation))
         return isPointInCSSClippingArea(renderer, point);
 
     // We just take clippers into account to determine if a point is on the node. The Specification may
@@ -461,7 +468,7 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
     context.setStrokeThickness(lengthContext.valueForLength(style.strokeWidth()));
     context.setLineCap(style.capStyle());
     context.setLineJoin(style.joinStyle());
-    if (style.joinStyle() == MiterJoin)
+    if (style.joinStyle() == LineJoin::Miter)
         context.setMiterLimit(style.strokeMiterLimit());
 
     const Vector<SVGLengthValue>& dashes = svgStyle.strokeDashArray();
@@ -474,10 +481,13 @@ void SVGRenderSupport::applyStrokeStyleToContext(GraphicsContext& context, const
         float scaleFactor = 1;
 
         if (is<SVGGeometryElement>(element)) {
-            ASSERT(renderer.isSVGShape());
+            ASSERT(renderer.isSVGShapeOrLegacySVGShape());
             // FIXME: A value of zero is valid. Need to differentiate this case from being unspecified.
-            if (float pathLength = downcast<SVGGeometryElement>(element)->pathLength())
-                scaleFactor = downcast<RenderSVGShape>(renderer).getTotalLength() / pathLength;
+            if (float pathLength = downcast<SVGGeometryElement>(element)->pathLength()) {
+                if (is<LegacyRenderSVGShape>(renderer))
+                    scaleFactor = downcast<LegacyRenderSVGShape>(renderer).getTotalLength() / pathLength;
+                // FIXME: [LBSE] Upstream RenderSVGShape
+            }
         }
         
         for (auto& dash : dashes) {
@@ -508,7 +518,7 @@ void SVGRenderSupport::styleChanged(RenderElement& renderer, const RenderStyle* 
 
 bool SVGRenderSupport::isolatesBlending(const RenderStyle& style)
 {
-    return style.svgStyle().isolatesBlending() || style.hasFilter() || style.hasBlendMode() || style.opacity() < 1.0f;
+    return style.hasPositionedMask() || style.hasFilter() || style.hasBlendMode() || style.opacity() < 1.0f;
 }
 
 void SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(const RenderElement& renderer)
@@ -520,7 +530,7 @@ void SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(const RenderEle
         auto* style = ancestor.computedStyle();
         if (!style || !isolatesBlending(*style))
             continue;
-        if (style->svgStyle().hasMasker())
+        if (style->hasPositionedMask())
             ancestor.setShouldIsolateBlending(renderer.style().hasBlendMode());
         return;
     }
@@ -530,7 +540,7 @@ void SVGRenderSupport::updateMaskedAncestorShouldIsolateBlending(const RenderEle
 
 SVGHitTestCycleDetectionScope::SVGHitTestCycleDetectionScope(const RenderElement& element)
 {
-    m_element = makeWeakPtr(&element);
+    m_element = element;
     auto result = visitedElements().add(*m_element);
     ASSERT_UNUSED(result, result.isNewEntry);
 }

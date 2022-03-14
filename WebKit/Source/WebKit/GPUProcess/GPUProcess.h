@@ -42,6 +42,10 @@
 #include <CoreGraphics/CGDisplayConfiguration.h>
 #endif
 
+#if USE(GRAPHICS_LAYER_WC)
+#include "WCSharedSceneContextHolder.h"
+#endif
+
 namespace WebCore {
 class NowPlayingManager;
 struct MockMediaDevice;
@@ -93,6 +97,10 @@ public:
     WorkQueue& libWebRTCCodecsQueue();
 #endif
 
+#if USE(GRAPHICS_LAYER_WC)
+    WCSharedSceneContextHolder& sharedSceneContext() { return m_sharedSceneContext; }
+#endif
+
 #if ENABLE(VP9)
     void enableVP9Decoders(bool shouldEnableVP8Decoder, bool shouldEnableVP9Decoder, bool shouldEnableVP9SWDecoder);
 #endif
@@ -100,6 +108,12 @@ public:
     void tryExitIfUnusedAndUnderMemoryPressure();
 
     const String& applicationVisibleName() const { return m_applicationVisibleName; }
+
+    void webProcessConnectionCountForTesting(CompletionHandler<void(uint64_t)>&&);
+
+#if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
+    void processIsStartingToCaptureAudio(GPUConnectionToWebProcess&);
+#endif
 
 private:
     void lowMemoryHandler(Critical, Synchronous);
@@ -161,8 +175,13 @@ private:
     void setVorbisDecoderEnabled(bool);
 #endif
 
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    void setMediaSourceInlinePaintingEnabled(bool);
+#endif
+
 #if ENABLE(CFPREFS_DIRECT_MODE)
     void notifyPreferencesChanged(const String& domain, const String& key, const std::optional<String>& encodedValue);
+    void dispatchSimulatedNotificationsForPreferenceChange(const String& key) final;
 #endif
 
     // Connections to WebProcesses.
@@ -183,6 +202,10 @@ private:
 #endif
 #if USE(LIBWEBRTC) && PLATFORM(COCOA)
     RefPtr<WorkQueue> m_libWebRTCCodecsQueue;
+#endif
+
+#if USE(GRAPHICS_LAYER_WC)
+    WCSharedSceneContextHolder m_sharedSceneContext;
 #endif
 
     struct GPUSession {
@@ -213,6 +236,9 @@ private:
 #endif
 #if ENABLE(VORBIS)
     bool m_vorbisEnabled { false };
+#endif
+#if ENABLE(MEDIA_SOURCE) && HAVE(AVSAMPLEBUFFERVIDEOOUTPUT)
+    bool m_mediaSourceInlinePaintingEnabled { false };
 #endif
     String m_applicationVisibleName;
 };

@@ -237,13 +237,7 @@ u_int16_t pppoe_rfc_new_client(void *host, void **data,
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
     
-    rfc = (struct pppoe_rfc *)_MALLOC(sizeof (struct pppoe_rfc), M_TEMP, M_WAITOK);
-    if (rfc == 0)
-        return 1;
-
-    //IOLog("PPPoE new_client rfc = %p\n", rfc);
-
-    bzero(rfc, sizeof(struct pppoe_rfc));
+    rfc = kalloc_type(struct pppoe_rfc, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
     rfc->host = host;
     rfc->unit = 0xFFFF;
@@ -290,7 +284,7 @@ void pppoe_rfc_free_client(void *data)
             pppoe_dlil_detach(rfc->ifp);
         
         TAILQ_REMOVE(&pppoe_rfc_head, rfc, next);
-        _FREE(rfc, M_TEMP);
+        kfree_type(struct pppoe_rfc, rfc);
     }
 }
 

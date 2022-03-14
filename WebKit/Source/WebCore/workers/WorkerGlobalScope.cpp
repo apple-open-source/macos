@@ -31,15 +31,17 @@
 #include "CSSFontSelector.h"
 #include "CSSValueList.h"
 #include "CSSValuePool.h"
+#include "CommonVM.h"
 #include "ContentSecurityPolicy.h"
 #include "Crypto.h"
-#include "FontCache.h"
 #include "FontCustomPlatformData.h"
 #include "FontFaceSet.h"
 #include "IDBConnectionProxy.h"
 #include "ImageBitmapOptions.h"
 #include "InspectorInstrumentation.h"
+#include "JSDOMExceptionHandling.h"
 #include "Performance.h"
+#include "RTCDataChannelRemoteHandlerConnection.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScheduledAction.h"
 #include "ScriptSourceCode.h"
@@ -47,20 +49,25 @@
 #include "SecurityOriginPolicy.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "SocketProvider.h"
+#include "WorkerCacheStorageConnection.h"
 #include "WorkerFileSystemStorageConnection.h"
 #include "WorkerFontLoadRequest.h"
 #include "WorkerLoaderProxy.h"
 #include "WorkerLocation.h"
+#include "WorkerMessagePortChannelProvider.h"
 #include "WorkerMessagingProxy.h"
 #include "WorkerNavigator.h"
+#include "WorkerOrWorkletGlobalScope.h"
 #include "WorkerReportingProxy.h"
 #include "WorkerSWClientConnection.h"
 #include "WorkerScriptLoader.h"
 #include "WorkerStorageConnection.h"
+#include "WorkerThread.h"
 #include <JavaScriptCore/ScriptArguments.h>
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Lock.h>
+#include <wtf/WorkQueue.h>
 #include <wtf/threads/BinarySemaphore.h>
 
 namespace WebCore {
@@ -74,12 +81,18 @@ static HashSet<ScriptExecutionContextIdentifier>& allWorkerGlobalScopeIdentifier
     return identifiers;
 }
 
+static WorkQueue& sharedFileSystemStorageQueue()
+{
+    static NeverDestroyed<Ref<WorkQueue>> queue(WorkQueue::create("Shared File System Storage Queue",  WorkQueue::QOS::Default));
+    return queue.get();
+}
+
 WTF_MAKE_ISO_ALLOCATED_IMPL(WorkerGlobalScope);
 
 WorkerGlobalScope::WorkerGlobalScope(WorkerThreadType type, const WorkerParameters& params, Ref<SecurityOrigin>&& origin, WorkerThread& thread, Ref<SecurityOrigin>&& topOrigin, IDBClient::IDBConnectionProxy* connectionProxy, SocketProvider* socketProvider)
-    : WorkerOrWorkletGlobalScope(type, JSC::VM::create(), &thread)
+    : WorkerOrWorkletGlobalScope(type, isMainThread() ? Ref { commonVM() } : JSC::VM::create(), &thread)
     , m_url(params.scriptURL)
-    , m_identifier(params.identifier)
+    , m_inspectorIdentifier(params.inspectorIdentifier)
     , m_userAgent(params.userAgent)
     , m_isOnline(params.isOnline)
     , m_shouldBypassMainWorldContentSecurityPolicy(params.shouldBypassMainWorldContentSecurityPolicy)
@@ -94,7 +107,7 @@ WorkerGlobalScope::WorkerGlobalScope(WorkerThreadType type, const WorkerParamete
 {
     {
         Locker locker { allWorkerGlobalScopeIdentifiersLock };
-        allWorkerGlobalScopeIdentifiers().add(contextIdentifier());
+        allWorkerGlobalScopeIdentifiers().add(identifier());
     }
 
     if (m_topOrigin->hasUniversalAccess())
@@ -115,7 +128,7 @@ WorkerGlobalScope::~WorkerGlobalScope()
 
     {
         Locker locker { allWorkerGlobalScopeIdentifiersLock };
-        allWorkerGlobalScopeIdentifiers().remove(contextIdentifier());
+        allWorkerGlobalScopeIdentifiers().remove(identifier());
     }
 
     m_performance = nullptr;
@@ -190,7 +203,7 @@ SocketProvider* WorkerGlobalScope::socketProvider()
 RefPtr<RTCDataChannelRemoteHandlerConnection> WorkerGlobalScope::createRTCDataChannelRemoteHandlerConnection()
 {
     RefPtr<RTCDataChannelRemoteHandlerConnection> connection;
-    callOnMainThreadAndWait([workerThread = makeRef(thread()), &connection]() mutable {
+    callOnMainThreadAndWait([workerThread = Ref { thread() }, &connection]() mutable {
         connection = workerThread->workerLoaderProxy().createRTCDataChannelRemoteHandlerConnection();
     });
     ASSERT(connection);
@@ -227,6 +240,11 @@ WorkerStorageConnection& WorkerGlobalScope::storageConnection()
         m_storageConnection = WorkerStorageConnection::create(*this);
 
     return *m_storageConnection;
+}
+
+void WorkerGlobalScope::postFileSystemStorageTask(Function<void()>&& task)
+{
+    sharedFileSystemStorageQueue().dispatch(WTFMove(task));
 }
 
 WorkerFileSystemStorageConnection& WorkerGlobalScope::getFileSystemStorageConnection(Ref<FileSystemStorageConnection>&& mainThreadConnection)
@@ -284,11 +302,11 @@ void WorkerGlobalScope::setIsOnline(bool isOnline)
         m_navigator->setIsOnline(isOnline);
 }
 
-ExceptionOr<int> WorkerGlobalScope::setTimeout(JSC::JSGlobalObject& state, std::unique_ptr<ScheduledAction> action, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
+ExceptionOr<int> WorkerGlobalScope::setTimeout(std::unique_ptr<ScheduledAction> action, int timeout, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments)
 {
     // FIXME: Should this check really happen here? Or should it happen when code is about to eval?
     if (action->type() == ScheduledAction::Type::Code) {
-        if (!contentSecurityPolicy()->allowEval(&state))
+        if (!contentSecurityPolicy()->allowEval(globalObject(), LogToConsole::Yes, action->code()))
             return 0;
     }
 
@@ -302,11 +320,11 @@ void WorkerGlobalScope::clearTimeout(int timeoutId)
     DOMTimer::removeById(*this, timeoutId);
 }
 
-ExceptionOr<int> WorkerGlobalScope::setInterval(JSC::JSGlobalObject& state, std::unique_ptr<ScheduledAction> action, int timeout, Vector<JSC::Strong<JSC::Unknown>>&& arguments)
+ExceptionOr<int> WorkerGlobalScope::setInterval(std::unique_ptr<ScheduledAction> action, int timeout, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments)
 {
     // FIXME: Should this check really happen here? Or should it happen when code is about to eval?
     if (action->type() == ScheduledAction::Type::Code) {
-        if (!contentSecurityPolicy()->allowEval(&state))
+        if (!contentSecurityPolicy()->allowEval(globalObject(), LogToConsole::Yes, action->code()))
             return 0;
     }
 
@@ -320,7 +338,7 @@ void WorkerGlobalScope::clearInterval(int timeoutId)
     DOMTimer::removeById(*this, timeoutId);
 }
 
-ExceptionOr<void> WorkerGlobalScope::importScripts(const Vector<String>& urls)
+ExceptionOr<void> WorkerGlobalScope::importScripts(const FixedVector<String>& urls)
 {
     ASSERT(contentSecurityPolicy());
 
@@ -369,7 +387,7 @@ ExceptionOr<void> WorkerGlobalScope::importScripts(const Vector<String>& urls)
         {
             NakedPtr<JSC::Exception> exception;
             ScriptSourceCode sourceCode(scriptLoader->script(), URL(scriptLoader->responseURL()));
-            sourceProvider = makeWeakPtr(static_cast<ScriptBufferSourceProvider&>(sourceCode.provider()));
+            sourceProvider = static_cast<ScriptBufferSourceProvider&>(sourceCode.provider());
             script()->evaluate(sourceCode, exception);
             if (exception) {
                 script()->setException(exception);
@@ -512,13 +530,6 @@ CSSFontSelector* WorkerGlobalScope::cssFontSelector()
     return m_cssFontSelector.get();
 }
 
-FontCache& WorkerGlobalScope::fontCache()
-{
-    if (!m_fontCache)
-        m_fontCache = FontCache::create();
-    return *m_fontCache;
-}
-
 Ref<FontFaceSet> WorkerGlobalScope::fonts()
 {
     ASSERT(cssFontSelector());
@@ -561,14 +572,14 @@ void WorkerGlobalScope::deleteJSCodeAndGC(Synchronous synchronous)
     vm().deleteAllCode(JSC::DeleteAllCodeIfNotCollecting);
 
     if (synchronous == Synchronous::Yes) {
-        if (!vm().heap.isCurrentThreadBusy()) {
+        if (!vm().heap.currentThreadIsDoingGCWork()) {
             vm().heap.collectNow(JSC::Sync, JSC::CollectionScope::Full);
             WTF::releaseFastMallocFreeMemory();
             return;
         }
     }
 #if PLATFORM(IOS_FAMILY)
-    if (!vm().heap.isCurrentThreadBusy()) {
+    if (!vm().heap.currentThreadIsDoingGCWork()) {
         vm().heap.collectNowFullIfNotDoneRecently(JSC::Async);
         return;
     }
@@ -593,7 +604,7 @@ void WorkerGlobalScope::releaseMemoryInWorkers(Synchronous synchronous)
 void WorkerGlobalScope::setMainScriptSourceProvider(ScriptBufferSourceProvider& provider)
 {
     ASSERT(!m_mainScriptSourceProvider);
-    m_mainScriptSourceProvider = makeWeakPtr(provider);
+    m_mainScriptSourceProvider = provider;
 }
 
 void WorkerGlobalScope::addImportedScriptSourceProvider(const URL& url, ScriptBufferSourceProvider& provider)

@@ -64,6 +64,8 @@ extern CKKSState* const CKKSStateReencryptOutgoingItems;
 extern CKKSState* const CKKSStateProcessOutgoingQueue;
 extern CKKSState* const CKKSStateOutgoingQueueOperationFailed;
 
+extern CKKSState* const CKKSStateExpandToHandleAllViews;
+
 // Fatal error. Will not proceed unless fixed from outside class.
 extern CKKSState* const CKKSStateError;
 
@@ -102,6 +104,8 @@ extern CKKSFlag* const CKKSFlagItemReencryptionNeeded;
 
 // Used to rate-limit CK writes
 extern CKKSFlag* const CKKSFlagOutgoingQueueOperationRateToken;
+
+extern CKKSFlag* const CKKSFlagNewPriorityViews;
 
 extern CKKSFlag* const CKKSFlag24hrNotification;
 

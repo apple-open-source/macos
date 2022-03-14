@@ -675,8 +675,8 @@ static CFStringRef SOSPeerInfoCopyFormatDescription(CFTypeRef aObj, CFDictionary
     return description;
 }
 
-void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr) {
-    if(!pi) return;
+CFStringRef SOSPeerInfoCopyStateString(SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr) {
+    if(!pi) return NULL;
     bool appValid = SOSPeerInfoApplicationVerify(pi, pubKey, NULL);
     bool retired = SOSPeerInfoIsRetirementTicket(pi);
     // We won't inflate invalid peerInfos.  Mark this true to keep scanning utilities from breaking.
@@ -685,26 +685,39 @@ void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CF
     bool isMe = CFEqualSafe(SOSPeerInfoGetPeerID(pi), myPID) == true;
     bool isKVS = SOSPeerInfoKVSOnly(pi);
     bool isCKKSForAll = SOSPeerInfoSupportsCKKSForAll(pi);
+    bool userVisibleEnabled = SOSPeerInfoHasUserVisibleViewsEnabled(pi);
+    bool isPeerLegacy = SOSPeerInfoIsLegacy(pi);
     CFStringRef osVersion = CFDictionaryGetValue(pi->gestalt, kPIOSVersionKey);
-    CFStringRef tmp = SOSPeerInfoV2DictionaryCopyString(pi, sDeviceID);
-    CFStringRef deviceID = CFStringCreateTruncatedCopy(tmp, 8);
+    CFStringRef tmp = SOSPeerInfoV2DictionaryCopyString(pi, sMachineIDKey);
+    CFStringRef mid = CFStringCreateTruncatedCopy(tmp, 8);
     CFReleaseNull(tmp);
     CFStringRef serialNum = SOSPeerInfoCopySerialNumber(pi);
+    
+    CFStringRef retval = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("[name: %-20@] [%c%c%c%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [mid: %10@] [serial: %12@]"),
+        isKnown(SOSPeerInfoGetPeerName(pi)),
+        boolToChars(isMe, 'M', 'm'),
+        boolToChars(appValid, 'A', 'a'),
+        boolToChars(selfValid, 'S', 's'),
+        boolToChars(retired, 'R', 'r'),
+        boolToChars(backingUp, 'B', 'b'),
+        boolToChars(isKVS, 'K', 'I'),
+        boolToChars(isCKKSForAll, 'C', '_'),
+        boolToChars(userVisibleEnabled, 'U', '_'),
+        boolToChars(isPeerLegacy, 'L', 'O'), // Legacy or Octagon
+        sigchr,
+        isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(SOSPeerInfoGetSPID(pi)),
+        isKnown(osVersion), isKnown(mid), isKnown(serialNum));
 
-    secnotice(category, "PI:    [name: %-20@] [%c%c%c%c%c%c%c%c] [type: %-20@] [spid: %8@] [os: %10@] [devid: %10@] [serial: %12@]", isKnown(SOSPeerInfoGetPeerName(pi)),
-              boolToChars(isMe, 'M', 'm'),
-              boolToChars(appValid, 'A', 'a'),
-              boolToChars(selfValid, 'S', 's'),
-              boolToChars(retired, 'R', 'r'),
-              boolToChars(backingUp, 'B', 'b'),
-              boolToChars(isKVS, 'K', 'I'),
-              boolToChars(isCKKSForAll, 'C', '_'),
-              sigchr,
-              isKnown(SOSPeerInfoGetPeerDeviceType(pi)),  isKnown(SOSPeerInfoGetSPID(pi)),
-              isKnown(osVersion), isKnown(deviceID), isKnown(serialNum));
-
-    CFReleaseNull(deviceID);
+    CFReleaseNull(mid);
     CFReleaseNull(serialNum);
+    return retval;
+}
+
+void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr) {
+    if(!pi) return;
+    CFStringRef fmtPeer = SOSPeerInfoCopyStateString(pi, pubKey, myPID, sigchr);
+    secnotice(category, "PI:    %@", fmtPeer);
+    CFReleaseNull(fmtPeer);
 }
 
 

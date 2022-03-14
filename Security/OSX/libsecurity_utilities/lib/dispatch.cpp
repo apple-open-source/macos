@@ -136,7 +136,7 @@ bool Semaphore::wait(dispatch_time_t timeout) {
 
 
 // Transfer ownership of held resource.
-SemaphoreWait::SemaphoreWait(SemaphoreWait &originalWait)
+SemaphoreWait::SemaphoreWait(SemaphoreWait&& originalWait)
 : mSemaphore(originalWait.mSemaphore), mAcquired(originalWait.mAcquired)
 {
 	originalWait.mAcquired = false;

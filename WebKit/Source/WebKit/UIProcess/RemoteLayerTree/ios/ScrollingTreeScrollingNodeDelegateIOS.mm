@@ -45,7 +45,6 @@
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/SetForScope.h>
 
-
 @implementation WKScrollingNodeScrollViewDelegate
 
 - (instancetype)initWithScrollingTreeNodeDelegate:(WebKit::ScrollingTreeScrollingNodeDelegateIOS*)delegate
@@ -289,10 +288,26 @@ void ScrollingTreeScrollingNodeDelegateIOS::commitStateAfterChildren(const Scrol
     }
 
     if (scrollingStateNode.hasChangedProperty(ScrollingStateNode::Property::RequestedScrollPosition)) {
-        const auto& requestedScrollData = scrollingStateNode.requestedScrollData();
-        scrollingNode().scrollTo(requestedScrollData.scrollPosition, requestedScrollData.scrollType, requestedScrollData.clamping);
+        scrollingNode().handleScrollPositionRequest(scrollingStateNode.requestedScrollData());
         scrollingTree().setNeedsApplyLayerPositionsAfterCommit();
     }
+}
+
+bool ScrollingTreeScrollingNodeDelegateIOS::startAnimatedScrollToPosition(FloatPoint scrollPosition)
+{
+    auto scrollOffset = ScrollableArea::scrollOffsetFromPosition(scrollPosition, toFloatSize(scrollOrigin()));
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [scrollView() setContentOffset:scrollOffset animated:YES];
+    END_BLOCK_OBJC_EXCEPTIONS
+    return true;
+}
+
+void ScrollingTreeScrollingNodeDelegateIOS::stopAnimatedScroll()
+{
+    BEGIN_BLOCK_OBJC_EXCEPTIONS
+    [scrollView() _stopScrollingAndZoomingAnimations];
+    END_BLOCK_OBJC_EXCEPTIONS
 }
 
 #if HAVE(UISCROLLVIEW_ASYNCHRONOUS_SCROLL_EVENT_HANDLING)

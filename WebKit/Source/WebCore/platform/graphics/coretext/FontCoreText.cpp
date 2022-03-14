@@ -32,6 +32,7 @@
 #include "FontCache.h"
 #include "FontCascade.h"
 #include "FontDescription.h"
+#include "Logging.h"
 #include "OpenTypeCG.h"
 #include "SharedBuffer.h"
 #include <CoreText/CoreText.h>
@@ -108,6 +109,9 @@ static bool isAhemFont(CFStringRef familyName)
 
 bool fontHasTable(CTFontRef ctFont, unsigned tableTag)
 {
+#if USE(CTFONTHASTABLE)
+    return CTFontHasTable(ctFont, tableTag);
+#else
     auto tableTags = adoptCF(CTFontCopyAvailableTables(ctFont, kCTFontTableOptionNoOptions));
     if (!tableTags)
         return false;
@@ -118,10 +122,14 @@ bool fontHasTable(CTFontRef ctFont, unsigned tableTag)
             return true;
     }
     return false;
+#endif
 }
 
 bool fontHasEitherTable(CTFontRef ctFont, unsigned tableTag1, unsigned tableTag2)
 {
+#if USE(CTFONTHASTABLE)
+    return fontHasTable(ctFont, tableTag1) || fontHasTable(ctFont, tableTag2);
+#else
     auto tableTags = adoptCF(CTFontCopyAvailableTables(ctFont, kCTFontTableOptionNoOptions));
     if (!tableTags)
         return false;
@@ -132,6 +140,7 @@ bool fontHasEitherTable(CTFontRef ctFont, unsigned tableTag1, unsigned tableTag2
             return true;
     }
     return false;
+#endif
 }
 
 void Font::platformInit()
@@ -579,16 +588,15 @@ float Font::platformWidthForGlyph(Glyph glyph) const
             CTFontGetAdvancesForGlyphs(m_platformData.ctFont(), orientation, &glyph, &advance, 1);
         }
     }
-    return advance.width + m_syntheticBoldOffset;
+    return advance.width;
 }
 
 #endif
 
-void Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned beginningGlyphIndex, unsigned beginningStringIndex, bool enableKerning, bool requiresShaping, const AtomString& locale, StringView text, TextDirection textDirection) const
+GlyphBufferAdvance Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned beginningGlyphIndex, unsigned beginningStringIndex, bool enableKerning, bool requiresShaping, const AtomString& locale, StringView text, TextDirection textDirection) const
 {
     UNUSED_PARAM(requiresShaping);
 
-    // FIXME: Implement GlyphBuffer initial advance.
 #if USE(CTFONTSHAPEGLYPHS)
     auto handler = ^(CFRange range, CGGlyph** newGlyphsPointer, CGSize** newAdvancesPointer, CGPoint** newOffsetsPointer, CFIndex** newIndicesPointer)
     {
@@ -597,8 +605,11 @@ void Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned beginningGlyphInde
             range.length = std::min(range.location, -range.length);
             range.location = range.location - range.length;
             glyphBuffer.remove(beginningGlyphIndex + range.location, range.length);
-        } else
+            LOG_WITH_STREAM(TextShaping, stream << "Callback called to remove at location " << range.location << " and length " << range.length);
+        } else {
             glyphBuffer.makeHole(beginningGlyphIndex + range.location, range.length, this);
+            LOG_WITH_STREAM(TextShaping, stream << "Callback called to insert hole at location " << range.location << " and length " << range.length);
+        }
 
         *newGlyphsPointer = glyphBuffer.glyphs(beginningGlyphIndex);
         *newAdvancesPointer = glyphBuffer.advances(beginningGlyphIndex);
@@ -609,24 +620,87 @@ void Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned beginningGlyphInde
     auto substring = text.substring(beginningStringIndex);
     auto upconvertedCharacters = substring.upconvertedCharacters();
     auto localeString = LocaleCocoa::canonicalLanguageIdentifierFromString(locale).string().createCFString();
+    auto numberOfInputGlyphs = glyphBuffer.size() - beginningGlyphIndex;
+    // FIXME: Enable kerning for single glyphs when rdar://82195405 is fixed
     CTFontShapeOptions options = kCTFontShapeWithClusterComposition
-        | (enableKerning ? kCTFontShapeWithKerning : 0)
+        | (enableKerning && numberOfInputGlyphs ? kCTFontShapeWithKerning : 0)
         | (textDirection == TextDirection::RTL ? kCTFontShapeRightToLeft : 0);
 
     for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
         glyphBuffer.offsetsInString(beginningGlyphIndex)[i] -= beginningStringIndex;
 
-    CTFontShapeGlyphs(
+    LOG_WITH_STREAM(TextShaping,
+        stream << "Simple shaping " << numberOfInputGlyphs << " glyphs in font " << String(adoptCF(CTFontCopyPostScriptName(m_platformData.ctFont())).get()) << ".\n";
+        const auto* glyphs = glyphBuffer.glyphs(beginningGlyphIndex);
+        stream << "Glyphs:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << glyphs[i];
+        stream << "\n";
+        const auto* advances = glyphBuffer.advances(beginningGlyphIndex);
+        stream << "Advances:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << FloatSize(advances[i]);
+        stream << "\n";
+        const auto* origins = glyphBuffer.origins(beginningGlyphIndex);
+        stream << "Origins:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << origins[i];
+        stream << "\n";
+        const auto* offsets = glyphBuffer.offsetsInString(beginningGlyphIndex);
+        stream << "Offsets:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << offsets[i];
+        stream << "\n";
+        const UChar* codeUnits = upconvertedCharacters.get();
+        stream << "Code Units:";
+        for (unsigned i = 0; i < numberOfInputGlyphs; ++i)
+            stream << " " << codeUnits[i];
+    );
+
+    auto initialAdvance = CTFontShapeGlyphs(
         m_platformData.ctFont(),
         glyphBuffer.glyphs(beginningGlyphIndex),
-        reinterpret_cast<CGSize*>(glyphBuffer.advances(beginningGlyphIndex)),
-        reinterpret_cast<CGPoint*>(glyphBuffer.origins(beginningGlyphIndex)),
+        glyphBuffer.advances(beginningGlyphIndex),
+        glyphBuffer.origins(beginningGlyphIndex),
         glyphBuffer.offsetsInString(beginningGlyphIndex),
         reinterpret_cast<const UniChar*>(upconvertedCharacters.get()),
-        glyphBuffer.size() - beginningGlyphIndex,
+        numberOfInputGlyphs,
         options,
         localeString.get(),
         handler);
+
+    LOG_WITH_STREAM(TextShaping,
+        stream << "Shaping result: " << glyphBuffer.size() - beginningGlyphIndex << " glyphs.\n";
+        const auto* glyphs = glyphBuffer.glyphs(beginningGlyphIndex);
+        stream << "Glyphs:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << glyphs[i];
+        stream << "\n";
+        const auto* advances = glyphBuffer.advances(beginningGlyphIndex);
+        stream << "Advances:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << FloatSize(advances[i]);
+        stream << "\n";
+        const auto* origins = glyphBuffer.origins(beginningGlyphIndex);
+        stream << "Origins:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << origins[i];
+        stream << "\n";
+        const auto* offsets = glyphBuffer.offsetsInString(beginningGlyphIndex);
+        stream << "Offsets:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << offsets[i];
+        stream << "\n";
+        const UChar* codeUnits = upconvertedCharacters.get();
+        stream << "Code Units:";
+        for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
+            stream << " " << codeUnits[i];
+        stream << "\n";
+        stream << "Initial advance: " << FloatSize(initialAdvance);
+    );
+
+    ASSERT(numberOfInputGlyphs || glyphBuffer.size() == beginningGlyphIndex);
+    ASSERT(numberOfInputGlyphs || (!initialAdvance.width && !initialAdvance.height));
 
     for (unsigned i = 0; i < glyphBuffer.size() - beginningGlyphIndex; ++i)
         glyphBuffer.offsetsInString(beginningGlyphIndex)[i] += beginningStringIndex;
@@ -652,11 +726,15 @@ void Font::applyTransforms(GlyphBuffer& glyphBuffer, unsigned beginningGlyphInde
 
     CTFontTransformOptions options = (enableKerning ? kCTFontTransformApplyPositioning : 0) | kCTFontTransformApplyShaping;
     CTFontTransformGlyphs(m_platformData.ctFont(), glyphBuffer.glyphs(beginningGlyphIndex), reinterpret_cast<CGSize*>(glyphBuffer.advances(beginningGlyphIndex)), glyphBuffer.size() - beginningGlyphIndex, options);
+
+    auto initialAdvance = makeGlyphBufferAdvance();
 #endif
 
     // See the comment above in this function where the other call to reverse() is.
     if (textDirection == TextDirection::RTL)
         glyphBuffer.reverse(beginningGlyphIndex, glyphBuffer.size() - beginningGlyphIndex);
+
+    return initialAdvance;
 }
 
 static int extractNumber(CFNumberRef number)
@@ -703,8 +781,7 @@ FloatRect Font::platformBoundsForGlyph(Glyph glyph) const
     CGRect ignoredRect = { };
     boundingBox = CTFontGetBoundingRectsForGlyphs(m_platformData.ctFont(), platformData().orientation() == FontOrientation::Vertical ? kCTFontOrientationVertical : kCTFontOrientationHorizontal, &glyph, &ignoredRect, 1);
     boundingBox.setY(-boundingBox.maxY());
-    if (m_syntheticBoldOffset)
-        boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);
+    boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);
 
     return boundingBox;
 }

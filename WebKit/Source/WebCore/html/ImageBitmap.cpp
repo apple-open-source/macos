@@ -52,10 +52,10 @@
 #include "RenderElement.h"
 #include "SharedBuffer.h"
 #include "SuspendableTimer.h"
+#include <variant>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Scope.h>
 #include <wtf/StdLibExtras.h>
-#include <wtf/Variant.h>
 
 namespace WebCore {
 
@@ -509,8 +509,12 @@ void ImageBitmap::createPromise(ScriptExecutionContext& scriptExecutionContext, 
 
     auto outputSize = outputSizeForSourceRectangle(sourceRectangle, options);
 
-    // FIXME: Add support for color spaces / pixel formats to ImageBitmap.
-    auto bitmapData = video->createBufferForPainting(outputSize, bufferRenderingMode, DestinationColorSpace::SRGB(), PixelFormat::BGRA8);
+    auto colorSpace = video->colorSpace();
+    if (!colorSpace)
+        colorSpace = DestinationColorSpace::SRGB();
+
+    // FIXME: Add support for pixel formats to ImageBitmap.
+    auto bitmapData = video->createBufferForPainting(outputSize, bufferRenderingMode, *colorSpace, PixelFormat::BGRA8);
     if (!bitmapData) {
         resolveWithBlankImageBuffer(scriptExecutionContext, !taintsOrigin(scriptExecutionContext.securityOrigin(), *video), WTFMove(promise));
         return;
@@ -568,7 +572,7 @@ void ImageBitmap::createPromise(ScriptExecutionContext& scriptExecutionContext, 
 
     // 4. Let the ImageBitmap object's bitmap data be a copy of the image argument's
     //    bitmap data, cropped to the source rectangle with formatting.
-    auto sourceRectangle = croppedSourceRectangleWithFormatting(existingImageBitmap->buffer()->logicalSize(), options, WTFMove(rect));
+    auto sourceRectangle = croppedSourceRectangleWithFormatting(existingImageBitmap->buffer()->truncatedLogicalSize(), options, WTFMove(rect));
     if (sourceRectangle.hasException()) {
         promise.reject(sourceRectangle.releaseException());
         return;
@@ -651,6 +655,7 @@ public:
         if (scriptExecutionContext.activeDOMObjectsAreStopped())
             return;
         auto pendingImageBitmap = new PendingImageBitmap(scriptExecutionContext, WTFMove(blob), WTFMove(options), WTFMove(rect), WTFMove(promise));
+        pendingImageBitmap->suspendIfNeeded();
         pendingImageBitmap->start(scriptExecutionContext);
     }
 
@@ -664,7 +669,6 @@ private:
         , m_promise(WTFMove(promise))
         , m_createImageBitmapTimer(&scriptExecutionContext, *this, &PendingImageBitmap::createImageBitmapAndResolvePromise)
     {
-        suspendIfNeeded();
         m_createImageBitmapTimer.suspendIfNeeded();
     }
 
@@ -746,7 +750,7 @@ void ImageBitmap::createFromBuffer(ScriptExecutionContext& scriptExecutionContex
     auto observer = ImageBitmapImageObserver::create(mimeType, expectedContentLength, sourceURL);
     auto image = BitmapImage::create(observer.ptr());
     auto result = image->setData(sharedBuffer.copyRef(), true);
-    if (result != EncodedDataStatus::Complete) {
+    if (result != EncodedDataStatus::Complete || image->isNull()) {
         promise.reject(InvalidStateError, "Cannot decode the data in the argument to createImageBitmap");
         return;
     }
@@ -842,6 +846,7 @@ ImageBitmap::ImageBitmap(std::optional<ImageBitmapBacking>&& backingStore)
     : m_backingStore(WTFMove(backingStore))
 {
     ASSERT_IMPLIES(m_backingStore, m_backingStore->buffer());
+    updateMemoryCost();
 }
 
 ImageBitmap::~ImageBitmap()
@@ -854,7 +859,10 @@ ImageBitmap::~ImageBitmap()
 
 std::optional<ImageBitmapBacking> ImageBitmap::takeImageBitmapBacking()
 {
-    return std::exchange(m_backingStore, std::nullopt);
+    auto result = std::exchange(m_backingStore, std::nullopt);
+    if (result)
+        updateMemoryCost();
+    return result;
 }
 
 RefPtr<ImageBuffer> ImageBitmap::takeImageBuffer()
@@ -863,6 +871,22 @@ RefPtr<ImageBuffer> ImageBitmap::takeImageBuffer()
         return backingStore->takeImageBuffer();
     ASSERT(isDetached());
     return nullptr;
+}
+
+void ImageBitmap::updateMemoryCost()
+{
+    if (m_backingStore) {
+        if (auto imageBuffer = m_backingStore->buffer()) {
+            m_memoryCost = imageBuffer->memoryCost();
+            return;
+        }
+    }
+    m_memoryCost = 0;
+}
+
+size_t ImageBitmap::memoryCost() const
+{
+    return m_memoryCost;
 }
 
 } // namespace WebCore

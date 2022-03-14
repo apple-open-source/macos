@@ -240,10 +240,10 @@ static struct kern_nexus_domain_provider nx_upipe_prov_s = {
 	},
 };
 
-static ZONE_DECLARE(na_upipe_zone, SKMEM_ZONE_PREFIX ".na.upipe",
+static ZONE_DEFINE(na_upipe_zone, SKMEM_ZONE_PREFIX ".na.upipe",
     sizeof(struct nexus_upipe_adapter), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nx_upipe_zone, SKMEM_ZONE_PREFIX ".nx.upipe",
+static ZONE_DEFINE(nx_upipe_zone, SKMEM_ZONE_PREFIX ".nx.upipe",
     sizeof(struct nx_upipe), ZC_ZFREE_CLEARMEM);
 
 #define SKMEM_TAG_PIPES "com.apple.skywalk.pipes"

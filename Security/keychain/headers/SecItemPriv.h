@@ -717,7 +717,18 @@ SPI_AVAILABLE(ios(10.13));
  */
 OSStatus
 SecItemDeleteKeychainItemsForAppClip(CFStringRef applicationIdentifier)
-SPI_AVAILABLE(ios(10.14));
+SPI_AVAILABLE(ios(14.0));
+
+/*!
+ @function SecItemPromoteAppClipItemsToParentApp
+ @abstract Promote keychain items of specified App Clip's application identifier to specified  Parent App's application identifier.
+ @discussion When an App Clip is promoted to the full app we want to migrate its items to that full app. This will only work if the device is unlocked, and won't migrate items with most ACLs (due to user interaction requirements). This function calls SecItemDeleteKeychainItemsForAppClip on the app clip app id after migrating all items it can, so no items get left behind.
+ @param appClipAppID Application identifier of the App Clip being promoted
+ @param parentAppID Application identifier of the Parent App the items are being promoted to.
+ @result Returns errSecSuccess if zero or more items were successfully deleted, errSecMissingEntitlement if caller isn't properly entitled, errSecInteractionNotAllowed if the keychain is locked and at least one item can't be migrated as a result, or errSecInternal if something went wrong.
+ */
+OSStatus SecItemPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStringRef parentAppID)
+SPI_AVAILABLE(ios(15.0));
 
 __END_DECLS
 

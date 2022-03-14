@@ -103,7 +103,7 @@ typedef struct { /* In memory vcn to lcn mapping structure element. */
 typedef struct {
 	ntfs_rl_element *rl;
 	unsigned elements;
-	unsigned alloc;
+	unsigned alloc_count;
 	lck_rw_t lock;
 } ntfs_runlist;
 
@@ -114,7 +114,7 @@ typedef struct {
 static inline void ntfs_rl_init(ntfs_runlist *rl)
 {
 	rl->rl = NULL;
-	rl->alloc = rl->elements = 0;
+	rl->alloc_count = rl->elements = 0;
 	lck_rw_init(&rl->lock, ntfs_lock_grp, ntfs_lock_attr);
 }
 

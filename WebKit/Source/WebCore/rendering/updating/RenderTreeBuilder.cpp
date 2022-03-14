@@ -27,8 +27,10 @@
 #include "RenderTreeBuilder.h"
 
 #include "AXObjectCache.h"
+#include "DocumentInlines.h"
 #include "Frame.h"
 #include "FrameSelection.h"
+#include "LegacyRenderSVGRoot.h"
 #include "RenderButton.h"
 #include "RenderCounter.h"
 #include "RenderDescendantIterator.h"
@@ -170,7 +172,7 @@ void RenderTreeBuilder::destroy(RenderObject& renderer, CanCollapseAnonymousBloc
     // We need to detach the subtree first so that the descendants don't have
     // access to previous/next sublings at detach().
     // FIXME: webkit.org/b/182909.
-    if (!is<RenderElement>(toDestroy.get()))
+    if (!is<RenderElement>(toDestroy))
         return;
 
     auto& childToDestroy = downcast<RenderElement>(*toDestroy.get());
@@ -289,8 +291,15 @@ void RenderTreeBuilder::attachInternal(RenderElement& parent, RenderPtr<RenderOb
         return;
     }
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGRoot>(parent)) {
         svgBuilder().attach(downcast<RenderSVGRoot>(parent), WTFMove(child), beforeChild);
+        return;
+    }
+#endif
+
+    if (is<LegacyRenderSVGRoot>(parent)) {
+        svgBuilder().attach(downcast<LegacyRenderSVGRoot>(parent), WTFMove(child), beforeChild);
         return;
     }
 
@@ -373,8 +382,13 @@ RenderPtr<RenderObject> RenderTreeBuilder::detach(RenderElement& parent, RenderO
     if (is<RenderSVGContainer>(parent))
         return svgBuilder().detach(downcast<RenderSVGContainer>(parent), child);
 
+#if ENABLE(LAYER_BASED_SVG_ENGINE)
     if (is<RenderSVGRoot>(parent))
         return svgBuilder().detach(downcast<RenderSVGRoot>(parent), child);
+#endif
+
+    if (is<LegacyRenderSVGRoot>(parent))
+        return svgBuilder().detach(downcast<LegacyRenderSVGRoot>(parent), child);
 
     if (is<RenderBlockFlow>(parent))
         return blockBuilder().detach(downcast<RenderBlockFlow>(parent), child, canCollapseAnonymousBlock);
@@ -731,7 +745,7 @@ RenderObject* RenderTreeBuilder::splitAnonymousBoxesAroundChild(RenderBox& paren
 void RenderTreeBuilder::childFlowStateChangesAndAffectsParentBlock(RenderElement& child)
 {
     if (!child.isInline()) {
-        auto parent = makeWeakPtr(child.parent());
+        WeakPtr parent = child.parent();
         if (is<RenderBlock>(*parent))
             blockBuilder().childBecameNonInline(downcast<RenderBlock>(*parent), child);
         else if (is<RenderInline>(*parent))
@@ -807,6 +821,12 @@ void RenderTreeBuilder::destroyAndCleanUpAnonymousWrappers(RenderObject& rendere
         return;
     }
 
+    // Also destroy ::backdrop along with element if there is one
+    if (is<RenderElement>(rendererToDestroy)) {
+        if (auto backdropRenderer = downcast<RenderElement>(rendererToDestroy).backdropRenderer())
+            destroy(*backdropRenderer);
+    }
+
     auto isAnonymousAndSafeToDelete = [] (const auto& renderer) {
         return renderer.isAnonymous() && !renderer.isRenderView() && !renderer.isRenderFragmentedFlow();
     };
@@ -857,7 +877,7 @@ void RenderTreeBuilder::destroyAndCleanUpAnonymousWrappers(RenderObject& rendere
     collapseAndDestroyAnonymousSiblings();
 
     // FIXME: Do not try to collapse/cleanup the anonymous wrappers inside destroy (see webkit.org/b/186746).
-    auto destroyRootParent = makeWeakPtr(*destroyRoot.parent());
+    WeakPtr destroyRootParent = *destroyRoot.parent();
     if (&rendererToDestroy != &destroyRoot) {
         // Destroy the child renderer first, before we start tearing down the anonymous wrapper ancestor chain.
         destroy(rendererToDestroy);
@@ -988,7 +1008,7 @@ void RenderTreeBuilder::reportVisuallyNonEmptyContent(const RenderElement& paren
         m_view.frameView().incrementVisuallyNonEmptyPixelCount(roundedIntSize(replacedRenderer.intrinsicSize()));
         return;
     }
-    if (is<RenderSVGRoot>(child)) {
+    if (child.isSVGRootOrLegacySVGRoot()) {
         auto fixedSize = [] (const auto& renderer) -> std::optional<IntSize> {
             auto& style = renderer.style();
             if (!style.width().isFixed() || !style.height().isFixed())

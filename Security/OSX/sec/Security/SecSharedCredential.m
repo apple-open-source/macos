@@ -24,6 +24,8 @@
  *
  */
 
+#if SHAREDWEBCREDENTIALS
+
 #include <Security/SecSharedCredential.h>
 #include <Security/SecBasePriv.h>
 #include <utilities/SecCFError.h>
@@ -35,7 +37,7 @@
 #import <AuthenticationServices/AuthenticationServices.h>
 
 // Forward declaration of the primary function implemented in this file
-OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
+OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error);
 
 CFStringRef SecCopyFQDNFromEntitlementString(CFStringRef entitlement);
 
@@ -213,13 +215,13 @@ static Class NSApplicationClass() {
 
 @end
 
-OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error) {
+OSStatus SecCopySharedWebCredentialSync(CFStringRef fqdn, CFStringRef account, CFArrayRef *credentials, CFErrorRef *error) {
     SharedCredentialController *controller = [[SharedCredentialController alloc] init];
     ASPasswordCredential *passwordCredential = [controller passwordCredential];
     OSStatus status = [controller result];
     NSArray *returnedCredentials = @[];
     if (status != errSecSuccess) {
-        secinfo("swcagent", "SecCopySharedWebCredentialSyncUsingAuthSvcs received result %d", (int)status);
+        secinfo("swcagent", "SecCopySharedWebCredentialSync received result %d", (int)status);
         if (error) {
             *error = (CFErrorRef)CFBridgingRetain([controller error]);
         }
@@ -232,7 +234,7 @@ OSStatus SecCopySharedWebCredentialSyncUsingAuthSvcs(CFStringRef fqdn, CFStringR
         };
         returnedCredentials = @[ credential ];
     } else {
-        secinfo("swcagent", "SecCopySharedWebCredentialSyncUsingAuthSvcs found no credential");
+        secinfo("swcagent", "SecCopySharedWebCredentialSync found no credential");
         status = errSecItemNotFound;
     }
     if (credentials) {
@@ -252,3 +254,5 @@ CFStringRef SecCopyFQDNFromEntitlementString(CFStringRef entitlement) {
     }
     return result;
 }
+
+#endif /* SHAREDWEBCREDENTIALS */

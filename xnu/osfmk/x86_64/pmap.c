@@ -363,11 +363,10 @@ pmap_cpu_init(void)
 }
 
 static void
-pmap_ro_zone_validate_element(
+pmap_ro_zone_validate_element_dst(
 	zone_id_t           zid,
 	vm_offset_t         va,
 	vm_offset_t         offset,
-	const vm_offset_t   new_data,
 	vm_size_t           new_data_size)
 {
 	vm_size_t elem_size = zone_elem_size_ro(zid);
@@ -385,10 +384,6 @@ pmap_ro_zone_validate_element(
 		    __func__, (void*)va, (uintptr_t)offset, (uintptr_t) new_data_size,
 		    (uintptr_t)sum);
 	}
-	if (__improbable(os_add_overflow(new_data, new_data_size, &sum))) {
-		panic("%s: Integer addition overflow %p + %lu = %lu",
-		    __func__, (void*)new_data, (uintptr_t)new_data_size, (uintptr_t)sum);
-	}
 	if (__improbable((va - page) % elem_size)) {
 		panic("%s: Start of element %p is not aligned to element size %lu",
 		    __func__, (void *)va, (uintptr_t)elem_size);
@@ -396,6 +391,24 @@ pmap_ro_zone_validate_element(
 
 	/* Check element is from correct zone */
 	zone_require_ro(zid, elem_size, (void*)va);
+}
+
+static void
+pmap_ro_zone_validate_element(
+	zone_id_t           zid,
+	vm_offset_t         va,
+	vm_offset_t         offset,
+	const vm_offset_t   new_data,
+	vm_size_t           new_data_size)
+{
+	vm_offset_t sum = 0;
+
+	if (__improbable(os_add_overflow(new_data, new_data_size, &sum))) {
+		panic("%s: Integer addition overflow %p + %lu = %lu",
+		    __func__, (void*)new_data, (uintptr_t)new_data_size, (uintptr_t)sum);
+	}
+
+	pmap_ro_zone_validate_element_dst(zid, va, offset, new_data_size);
 }
 
 void
@@ -415,6 +428,22 @@ pmap_ro_zone_memcpy(
 	pmap_ro_zone_validate_element(zid, va, offset, new_data, new_data_size);
 	/* Write through Physical Aperture */
 	memcpy((void*)phystokv(pa), (void*)new_data, new_data_size);
+}
+
+uint64_t
+pmap_ro_zone_atomic_op(
+	zone_id_t             zid,
+	vm_offset_t           va,
+	vm_offset_t           offset,
+	zro_atomic_op_t       op,
+	uint64_t              value)
+{
+	const pmap_paddr_t pa = kvtophys(va + offset);
+	vm_size_t value_size = op & 0xf;
+
+	pmap_ro_zone_validate_element_dst(zid, va, offset, value_size);
+	/* Write through Physical Aperture */
+	return __zalloc_ro_mut_atomic(phystokv(pa), op, value);
 }
 
 void
@@ -2845,8 +2874,8 @@ pmap_flush_tlbs(pmap_t  pmap, vm_map_offset_t startv, vm_map_offset_t endv, int 
 	uint64_t        deadline;
 	boolean_t       pmap_is_shared = (pmap->pm_shared || (pmap == kernel_pmap));
 	bool            need_global_flush = false;
-	uint32_t        event_code;
-	vm_map_offset_t event_startv, event_endv;
+	uint32_t        event_code = 0;
+	vm_map_offset_t event_startv = 0, event_endv = 0;
 	boolean_t       is_ept = is_ept_pmap(pmap);
 
 	assert((processor_avail_count < 2) ||

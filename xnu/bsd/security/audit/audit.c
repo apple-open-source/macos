@@ -178,7 +178,7 @@ struct cv               audit_watermark_cv;
  */
 static struct cv        audit_fail_cv;
 
-static ZONE_DECLARE(audit_record_zone, "audit_zone",
+static ZONE_DEFINE(audit_record_zone, "audit_zone",
     sizeof(struct kaudit_record), ZC_NONE);
 
 /*

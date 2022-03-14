@@ -359,7 +359,7 @@ hex_to_ascii_value(const char *hexstr, size_t *ascii_len)
 	// i points into hexstr, j points into the buffer
 	while (hexstr[i] != '\0') {
 		unsigned int hex = '\0';
-		if (isblank(hexstr[i])) {
+		if (isspace(hexstr[i])) {
 			i++;
 			continue;
 		}

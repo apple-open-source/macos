@@ -648,7 +648,7 @@ sw{
             "Dola ya Karibi Mashariki",
         }
         XOF{
-            "CFA",
+            "F CFA",
             "Faranga ya Afrika Magharibi CFA",
         }
         XPF{
@@ -1112,6 +1112,10 @@ sw{
         LRD{
             one{"dola ya Liberia"}
             other{"dola za Liberia"}
+        }
+        LSL{
+            one{"Loti za Lesoto"}
+            other{"Loti za Lesoto"}
         }
         LTL{
             one{"Litas ya Lithuania"}

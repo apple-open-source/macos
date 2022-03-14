@@ -980,7 +980,7 @@ updateConfiguration(SCPreferencesRef		prefs,
 
 __private_extern__
 void
-prime_PreferencesMonitor()
+prime_PreferencesMonitor(void)
 {
 	SC_log(LOG_DEBUG, "prime() called");
 

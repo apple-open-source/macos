@@ -230,7 +230,8 @@ protected:
 	virtual IOReturn startDMA( void );
 	virtual IOReturn stopDMA( void );
 
-	virtual bool ATAPISlaveExists( void );
+    virtual bool ATAPISlaveExists( void )  APPLE_KEXT_DEPRECATED;
+    
 	virtual UInt32 scanForDrives( void );
 
 	virtual bool waitForU8Status (UInt8 mask, UInt8 value);
@@ -288,8 +289,10 @@ protected:
     Reserved for future use.  (Internal use only)  */
     ExpansionData *reserved;
 
+    OSMetaClassDeclareReservedUsed(IOATAController, 0);
+    virtual bool ATAPISecondaryExists( void );
+    
 private:
-    OSMetaClassDeclareReservedUnused(IOATAController, 0);
     OSMetaClassDeclareReservedUnused(IOATAController, 1);
     OSMetaClassDeclareReservedUnused(IOATAController, 2);
     OSMetaClassDeclareReservedUnused(IOATAController, 3);

@@ -87,6 +87,7 @@ struct waitq_set;
 #ifdef BSD_KERNEL_PRIVATE
 #include <sys/pthread_internal.h> /* for uu_kwe entry */
 #include <sys/eventvar.h>
+#include <kern/btlog.h>
 #endif  /* BSD_KERNEL_PRIVATE */
 #ifdef __APPLE_API_PRIVATE
 #include <sys/eventvar.h>
@@ -112,11 +113,10 @@ struct label;           /* MAC label dummy struct */
 
 #if PROC_REF_DEBUG
 struct uthread_proc_ref_info {
-#define NUM_PROC_REFS_TO_TRACK 32
-#define PROC_REF_STACK_DEPTH 10
-	size_t          upri_pindex;
+#define NUM_PROC_REFS_TO_TRACK 31
+	uint32_t        upri_pindex;
+	btref_t         upri_proc_stacks[NUM_PROC_REFS_TO_TRACK];
 	void    *       upri_proc_ps[NUM_PROC_REFS_TO_TRACK];
-	uintptr_t       upri_proc_pcs[NUM_PROC_REFS_TO_TRACK][PROC_REF_STACK_DEPTH];
 };
 #endif /* PROC_REF_DEBUG */
 
@@ -141,7 +141,6 @@ struct uthread {
 	union {
 		struct _select_data {
 			u_int64_t abstime;
-			uint64_t *wqp;
 			int count;
 			struct select_nocancel_args *args;  /* original syscall arguments */
 			int32_t *retval;                    /* place to store return val */
@@ -191,6 +190,11 @@ struct uthread {
 			int32_t *retval;
 			uint flags;
 		} uus_ulock_wait_data;
+
+		struct _bsdthread_terminate {
+			user_addr_t      ulock_addr;
+			mach_port_name_t kport;
+		} uus_bsdthread_terminate;
 	} uu_save;
 
 	/* Persistent memory allocations across system calls */
@@ -200,13 +204,14 @@ struct uthread {
 	} uu_select;                    /* saved state for select() */
 
 	void * uu_userstate;
-	struct waitq_set *uu_wqset;             /* waitq state cached across select calls */
-	size_t uu_wqstate_sz;                   /* ...size of uu_wqset buffer */
+	struct select_set *uu_selset;            /* waitq state cached across select calls */
 	int uu_flag;
 	sigset_t uu_siglist;                            /* signals pending for the thread */
 	sigset_t uu_sigwait;                            /*  sigwait on this thread*/
 	sigset_t uu_sigmask;                            /* signal mask for the thread */
 	sigset_t uu_oldmask;                            /* signal mask saved before sigpause */
+	user_addr_t uu_sigreturn_token;                 /* random token used to validate sigreturn arguments */
+	int uu_pending_sigreturn;                       /* Pending sigreturn count */
 
 	TAILQ_ENTRY(uthread) uu_list;       /* List of uthreads in proc */
 

@@ -46,7 +46,7 @@ void AuthenticationManager::initializeConnection(IPC::Connection* connection)
         return;
     }
 
-    auto weakThis = makeWeakPtr(*this);
+    WeakPtr weakThis { *this };
     // The following xpc event handler overwrites the boostrap event handler and is only used
     // to capture client certificate credential.
     xpc_connection_set_event_handler(connection->xpcConnection(), ^(xpc_object_t event) {
@@ -98,7 +98,7 @@ void AuthenticationManager::initializeConnection(IPC::Connection* connection)
             if (persistence > static_cast<uint64_t>(NSURLCredentialPersistenceSynchronizable))
                 return;
 
-            weakThis->completeAuthenticationChallenge(challengeID, AuthenticationChallengeDisposition::UseCredential, WebCore::Credential(adoptNS([[NSURLCredential alloc] initWithIdentity:identity.get() certificates:certificates persistence:(NSURLCredentialPersistence)persistence]).get()));
+            weakThis->completeAuthenticationChallenge(makeObjectIdentifier<AuthenticationChallengeIdentifierType>(challengeID), AuthenticationChallengeDisposition::UseCredential, WebCore::Credential(adoptNS([[NSURLCredential alloc] initWithIdentity:identity.get() certificates:certificates persistence:(NSURLCredentialPersistence)persistence]).get()));
         });
     });
 }

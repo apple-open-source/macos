@@ -75,10 +75,18 @@ pas_segregated_size_directory* pas_segregated_size_directory_create(
                 pas_segregated_size_directory_local_allocator_size_for_config(*page_config));
     }
 
-    result = pas_immortal_heap_allocate(
-        sizeof(pas_segregated_size_directory),
-        "pas_segregated_size_directory",
-        pas_object_allocation);
+    if (page_config) {
+        result = pas_immortal_heap_allocate(
+            sizeof(pas_segregated_size_directory),
+            "pas_segregated_size_directory",
+            pas_object_allocation);
+    } else {
+        result = pas_immortal_heap_allocate_with_alignment(
+            sizeof(pas_segregated_size_directory) + sizeof(pas_bitfit_size_class),
+            PAS_MAX(alignof(pas_segregated_size_directory), alignof(pas_bitfit_size_class)),
+            "pas_segregated_size_directory+pas_bitfit_size_class",
+            pas_object_allocation);
+    }
 
     if (verbose) {
         pas_log("%d: Creating directory %p for %s with object_size = %u, alignment = %u\n",
@@ -97,27 +105,32 @@ pas_segregated_size_directory* pas_segregated_size_directory_create(
     PAS_ASSERT(pas_is_power_of_2(alignment));
     PAS_ASSERT(pas_is_aligned(object_size, alignment));
     result->alignment_shift = pas_log2(alignment);
+
+    if (page_config)
+        result->alignment_shift = pas_log2(alignment);
+    else {
+        PAS_ASSERT(PAS_SEGREGATED_SIZE_DIRECTORY_ALIGNMENT_SHIFT_BITS == 5);
+        result->alignment_shift = 31;
+    }
+
+    result->encoded_stuff =
+        pas_segregated_size_directory_encode_stuff(2 * PAS_NUM_BASELINE_ALLOCATORS, UINT_MAX);
     
-    result->baseline_allocator_index = 2 * PAS_NUM_BASELINE_ALLOCATORS;
     result->view_cache_index = (pas_allocator_index)UINT_MAX;
     
     pas_segregated_size_directory_data_ptr_store(&result->data, NULL);
 
-    if (page_config)
-        pas_compact_atomic_bitfit_size_class_ptr_store(&result->bitfit_size_class, NULL);
-    else {
+    if (!page_config) {
         pas_bitfit_heap* bitfit_heap;
         pas_bitfit_size_class* bitfit_size_class;
 
         bitfit_heap = pas_segregated_heap_get_bitfit(heap, heap_config, pas_lock_is_held);
         PAS_ASSERT(bitfit_heap);
         
-        bitfit_size_class =
-            pas_bitfit_heap_ensure_size_class(
-                bitfit_heap, result, heap_config, pas_lock_is_held);
+        bitfit_size_class = pas_segregated_size_directory_get_bitfit_size_class(result);
         
-        pas_compact_atomic_bitfit_size_class_ptr_store(
-            &result->bitfit_size_class, bitfit_size_class);
+        pas_bitfit_heap_construct_and_insert_size_class(
+            bitfit_heap, bitfit_size_class, object_size, heap_config);
     }
     
     pas_compact_atomic_segregated_size_directory_ptr_store(&result->next_for_heap, NULL);
@@ -191,7 +204,7 @@ pas_segregated_size_directory_data* pas_segregated_size_directory_ensure_data(
     data->offset_from_page_boundary_to_first_object = 0;
     data->offset_from_page_boundary_to_end_of_last_object = 0;
     data->full_num_non_empty_words = 0;
-    data->allocator_index = (pas_allocator_index)UINT_MAX;
+    data->allocator_index = 0;
     pas_compact_atomic_thread_local_cache_layout_node_store(&data->next_for_layout, NULL);
 
     pas_fence();
@@ -229,11 +242,14 @@ void pas_segregated_size_directory_create_tlc_allocator(
 
     data = pas_segregated_size_directory_ensure_data(directory, pas_lock_is_held);
 
-    if (data->allocator_index != (pas_allocator_index)UINT_MAX)
+    if (data->allocator_index) {
+        PAS_ASSERT(data->allocator_index != (pas_allocator_index)UINT_MAX);
         return;
+    }
     
     pas_thread_local_cache_layout_add(directory);
-    
+
+    PAS_ASSERT(data->allocator_index);
     PAS_ASSERT(data->allocator_index < (pas_allocator_index)UINT_MAX);
 }
 
@@ -256,7 +272,8 @@ void pas_segregated_size_directory_create_tlc_view_cache(
     PAS_ASSERT(directory->view_cache_index == (pas_allocator_index)UINT_MAX);
     
     pas_thread_local_cache_layout_add_view_cache(directory);
-    
+
+    PAS_ASSERT(directory->view_cache_index);
     PAS_ASSERT(directory->view_cache_index < (pas_allocator_index)UINT_MAX);
 
     for (index = pas_segregated_directory_size(&directory->base); index--;) {
@@ -383,7 +400,7 @@ void pas_segregated_size_directory_enable_exclusive_views(
             pas_object_allocation);
 
         initialize_result = pas_segregated_page_initialize_full_use_counts(
-            NULL, directory, full_use_counts, num_granules, page_config);
+            directory, full_use_counts, num_granules, page_config);
 
         /* This should have initialized all of the bits. */
         PAS_ASSERT(initialize_result);
@@ -421,13 +438,13 @@ pas_segregated_size_directory_select_allocator_slow(
         pas_baseline_allocator* selected_allocator;
         pas_segregated_size_directory* selected_directory;
 
-        selected_index = directory->baseline_allocator_index;
+        selected_index = pas_segregated_size_directory_baseline_allocator_index(directory);
         if (selected_index < PAS_NUM_BASELINE_ALLOCATORS) {
             selected_allocator = pas_baseline_allocator_table + selected_index;
 
             pas_lock_lock(&selected_allocator->lock);
 
-            if (directory->baseline_allocator_index != selected_index) {
+            if (pas_segregated_size_directory_baseline_allocator_index(directory) != selected_index) {
                 pas_lock_unlock(&selected_allocator->lock);
                 continue;
             }
@@ -458,15 +475,18 @@ pas_segregated_size_directory_select_allocator_slow(
                 a_view = a_allocator->u.allocator.view;
                 b_view = b_allocator->u.allocator.view;
 
+                PAS_UNUSED_PARAM(b_view);
+
                 if (!a_view)
                     selected_index = a_index;
                 else
                     selected_index = b_index;
             }
 
-            if (!pas_compare_and_swap_uint16_weak(&directory->baseline_allocator_index,
-                                                  2 * PAS_NUM_BASELINE_ALLOCATORS,
-                                                  PAS_NUM_BASELINE_ALLOCATORS + selected_index))
+            if (!pas_segregated_size_directory_compare_and_swap_baseline_allocator_index_weak(
+                    directory,
+                    2 * PAS_NUM_BASELINE_ALLOCATORS,
+                    PAS_NUM_BASELINE_ALLOCATORS + selected_index))
                 continue;
         }
     
@@ -474,10 +494,11 @@ pas_segregated_size_directory_select_allocator_slow(
     
         pas_lock_lock(&selected_allocator->lock);
 
-        if (directory->baseline_allocator_index == selected_index)
+        if (pas_segregated_size_directory_baseline_allocator_index(directory) == selected_index)
             return selected_allocator;
 
-        if (directory->baseline_allocator_index != PAS_NUM_BASELINE_ALLOCATORS + selected_index) {
+        if (pas_segregated_size_directory_baseline_allocator_index(directory)
+            != PAS_NUM_BASELINE_ALLOCATORS + selected_index) {
             pas_lock_unlock(&selected_allocator->lock);
             continue;
         }
@@ -486,13 +507,14 @@ pas_segregated_size_directory_select_allocator_slow(
             pas_num_baseline_allocator_evictions++;
             selected_directory = pas_segregated_view_get_size_directory(selected_allocator->u.allocator.view);
             pas_baseline_allocator_detach_directory(selected_allocator);
-            pas_fence();
-            selected_directory->baseline_allocator_index = 2 * PAS_NUM_BASELINE_ALLOCATORS;
+            /* We rely on the set function having a fence because it uses a CAS. */
+            pas_segregated_size_directory_set_baseline_allocator_index(
+                selected_directory, 2 * PAS_NUM_BASELINE_ALLOCATORS);
         }
 
         pas_baseline_allocator_attach_directory(selected_allocator, directory);
 
-        directory->baseline_allocator_index = selected_index;
+        pas_segregated_size_directory_set_baseline_allocator_index(directory, selected_index);
 
         return selected_allocator;
     }
@@ -595,6 +617,8 @@ take_last_empty_should_consider_view_parallel(
 
     data = config->arg;
 
+    PAS_UNUSED_PARAM(data);
+
     return segment.empty_bits;
 }
 
@@ -608,7 +632,6 @@ take_last_empty_consider_view(pas_segregated_directory_iterate_config* config)
 
     take_last_empty_data* data;
     pas_segregated_directory* directory;
-    pas_segregated_size_directory* size_directory;
     pas_deferred_decommit_log* decommit_log;
     pas_lock_hold_mode heap_lock_hold_mode;
     pas_segregated_page_config* my_page_config_ptr;
@@ -629,7 +652,6 @@ take_last_empty_consider_view(pas_segregated_directory_iterate_config* config)
     if (!did_take_bit)
         return false;
 
-    size_directory = (pas_segregated_size_directory*)directory;
     generic_view = pas_segregated_directory_get(directory, index);
     PAS_ASSERT(pas_segregated_view_is_exclusive(generic_view));
     view = pas_segregated_view_get_exclusive(generic_view);
@@ -878,8 +900,8 @@ pas_segregated_size_directory* pas_segregated_size_directory_for_object(
 pas_baseline_allocator_result
 pas_segregated_size_directory_get_allocator_from_tlc(
     pas_segregated_size_directory* directory,
-    size_t count,
-    pas_count_lookup_mode count_lookup_mode,
+    size_t size,
+    pas_size_lookup_mode size_lookup_mode,
     pas_heap_config* config,
     unsigned* cached_index)
 {
@@ -893,15 +915,15 @@ pas_segregated_size_directory_get_allocator_from_tlc(
     pas_segregated_heap_ensure_allocator_index(
         directory->heap,
         directory,
-        count,
-        count_lookup_mode,
+        size,
+        size_lookup_mode,
         config,
         cached_index);
     pas_heap_lock_unlock();
 
     /* Currently as soon as we switch to TLC allocators, we cannot possibly have a baseline
        allocator. But if we do, we should stop it now. */
-    baseline_allocator_index = directory->baseline_allocator_index;
+    baseline_allocator_index = pas_segregated_size_directory_baseline_allocator_index(directory);
     if (baseline_allocator_index < PAS_NUM_BASELINE_ALLOCATORS) {
         pas_baseline_allocator* baseline_allocator;
         
@@ -913,16 +935,17 @@ pas_segregated_size_directory_get_allocator_from_tlc(
            else. At worst, that race will mean that some baseline allocator will be used for
            allocation. There's not a whole lot we can do about that. At worst, it means letting the
            high watermark grow a bit in case of a weird race. */
-        if (directory->baseline_allocator_index == baseline_allocator_index) {
+        if (pas_segregated_size_directory_baseline_allocator_index(directory) == baseline_allocator_index) {
             pas_baseline_allocator_detach_directory(baseline_allocator);
-            pas_fence();
-            directory->baseline_allocator_index = 2 * PAS_NUM_BASELINE_ALLOCATORS;
+            /* We rely on the set function having a fence because it uses a CAS. */
+            pas_segregated_size_directory_set_baseline_allocator_index(
+                directory, 2 * PAS_NUM_BASELINE_ALLOCATORS);
         }
         
         pas_lock_unlock(&baseline_allocator->lock);
     }
     
-    tlc_result = pas_thread_local_cache_get_local_allocator(
+    tlc_result = pas_thread_local_cache_get_local_allocator_for_initialized_index(
         pas_thread_local_cache_get(config),
         pas_segregated_size_directory_data_ptr_load_non_null(&directory->data)->allocator_index,
         pas_lock_is_not_held);
@@ -1045,6 +1068,11 @@ pas_allocator_index pas_segregated_size_directory_num_allocator_indices(
 void pas_segregated_size_directory_dump_reference(
     pas_segregated_size_directory* directory, pas_stream* stream)
 {
+    if (!directory) {
+        pas_stream_printf(stream, "null");
+        return;
+    }
+    
     pas_stream_printf(
         stream,
         "%p(segregated_size_directory, %u, %p, %s)",

@@ -88,7 +88,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestConditionallyReadWritePrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestConditionallyReadWritePrototype* ptr = new (NotNull, JSC::allocateCell<JSTestConditionallyReadWritePrototype>(vm.heap)) JSTestConditionallyReadWritePrototype(vm, globalObject, structure);
+        JSTestConditionallyReadWritePrototype* ptr = new (NotNull, JSC::allocateCell<JSTestConditionallyReadWritePrototype>(vm)) JSTestConditionallyReadWritePrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -98,7 +98,7 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestConditionallyReadWritePrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
@@ -148,9 +148,11 @@ template<> JSValue JSTestConditionallyReadWriteDOMConstructor::prototypeForStruc
 
 template<> void JSTestConditionallyReadWriteDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    putDirect(vm, vm.propertyNames->prototype, JSTestConditionallyReadWrite::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestConditionallyReadWrite"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    JSString* nameString = jsNontrivialString(vm, "TestConditionallyReadWrite"_s);
+    m_originalName.set(vm, this, nameString);
+    putDirect(vm, vm.propertyNames->name, nameString, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->prototype, JSTestConditionallyReadWrite::prototype(vm, globalObject), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::DontDelete);
 }
 
 /* Hash table for prototype */
@@ -609,9 +611,9 @@ JSC::IsoSubspace* JSTestConditionallyReadWrite::subspaceForImpl(JSC::VM& vm)
         return space;
     static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestConditionallyReadWrite> || !JSTestConditionallyReadWrite::needsDestruction);
     if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestConditionallyReadWrite>)
-        spaces.m_subspaceForTestConditionallyReadWrite = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestConditionallyReadWrite);
+        spaces.m_subspaceForTestConditionallyReadWrite = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestConditionallyReadWrite);
     else
-        spaces.m_subspaceForTestConditionallyReadWrite = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestConditionallyReadWrite);
+        spaces.m_subspaceForTestConditionallyReadWrite = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestConditionallyReadWrite);
     auto* space = spaces.m_subspaceForTestConditionallyReadWrite.get();
 IGNORE_WARNINGS_BEGIN("unreachable-code")
 IGNORE_WARNINGS_BEGIN("tautological-compare")

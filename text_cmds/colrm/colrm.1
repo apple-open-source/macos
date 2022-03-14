@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)colrm.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/colrm/colrm.1,v 1.11 2005/01/17 07:44:14 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd August 4, 2004
+.Dd June 23, 2020
 .Dt COLRM 1
 .Os
 .Sh NAME
@@ -79,6 +75,26 @@ as described in
 .Xr environ 7 .
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Show columns below 3 (c) and above 5 (e):
+.Bd -literal -offset indent
+$ echo -e "abcdefgh\en12345678" | colrm 3 5
+abfgh
+12678
+.Ed
+.Pp
+Specifying a start column bigger than the number of columns in the file is
+allowed and shows all the columns:
+.Bd -literal -offset indent
+$ echo "abcdefgh" | colrm 100
+abcdefgh
+.Ed
+.Pp
+Using 1 as start column will show nothing:
+.Bd -literal -offset indent
+$ echo "abcdefgh" | colrm 1
+
+.Ed
 .Sh SEE ALSO
 .Xr awk 1 ,
 .Xr column 1 ,
@@ -87,5 +103,10 @@ as described in
 .Sh HISTORY
 The
 .Nm
-command appeared in
-.Bx 3.0 .
+utility first appeared in
+.Bx 1 .
+.Sh AUTHORS
+.An Jeff Schriebman
+wrote the original version of
+.Nm
+in November 1974.

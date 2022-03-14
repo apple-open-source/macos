@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -39,7 +39,7 @@
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
- *
+*
  * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
@@ -301,7 +301,7 @@ main(int argc, char *argv[])
 	vfslist = NULL;
 	vfstype = NULL;
 
-	while ((ch = getopt(argc, argv, "headfo:rwt:uvP:")) != EOF)
+	while ((ch = getopt(argc, argv, "headfko:rwt:uvP:")) != EOF)
 		switch (ch) {
 			case 'a':
 				all = 1;
@@ -321,6 +321,9 @@ main(int argc, char *argv[])
 				break;
 			case 'r':
 				init_flags |= MNT_RDONLY;
+				break;
+			case 'k':
+				init_flags |= MNT_NOFOLLOW;
 				break;
 			case 't':
 				if (vfslist != NULL)
@@ -597,9 +600,16 @@ main(int argc, char *argv[])
 				errx(errno_or_sysexit(ENAMETOOLONG, EX_DATAERR),
 					 "file system %s too long.", argv[1]);
 			}
-			if (realpath(argv[1], fs_file) == NULL) {
+
+			if (init_flags & MNT_NOFOLLOW) {
+				size_t sz = strlcpy (fs_file, argv[1], sizeof(fs_file));
+				if (sz >= MAXPATHLEN) {
+					errx(errno_or_sysexit(ENAMETOOLONG, EX_DATAERR),
+						 "file system %s too long.", argv[1]);
+				}
+			} else if (realpath(argv[1], fs_file) == NULL) {
 				errx(errno_or_sysexit(errno , -1),
-					 "%s: invalid file system.", argv[1]);
+					"%s: invalid file system.", argv[1]);
 			}
 
 			/*
@@ -767,31 +777,54 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 		_PATH_USRSBIN,
 		NULL
 	};
+	/*
+	 * NOTE: non-system content can now only live in _PATH_USRFSBNDL
+	 * as the system volume is sealed.
+	 */
 	static const char *bdirs[] = {
 		_PATH_FSBNDL,
 		_PATH_USRFSBNDL,
 		NULL
 	};
-	const char *argv[100], **edir, **bdir;
+
+	const char *argv[100];
+	const char **edir;
+	const char **bdir;
 	struct statfs sf;
 	pid_t pid;
-	int argc, i, status;
-	char *optbuf, execname[MAXPATHLEN + 1], mntpath[MAXPATHLEN];
+	int argc;
+	int i;
+	int status;
+	char *optbuf = NULL;
+	char *optbuf_userfs = NULL; // user-provided FSes
+	char execname[MAXPATHLEN + 1];
+	char mntpath[MAXPATHLEN];
+	bool prepared_userfs = false;
 
-	if (realpath(fs_file, mntpath) == NULL) {
-		/* Attempt to create missing mountpoints on Data volume */
-		if ((passno == NONROOT_PASSNO) &&
-			(!strncmp(mntpath, PLATFORM_DATA_VOLUME_MOUNT_POINT,
-					  MIN(strlen(mntpath), strlen(PLATFORM_DATA_VOLUME_MOUNT_POINT))))) {
-			if (mkdir(mntpath, S_IRWXU)) {
-				warn("mkdir %s", mntpath);
-				return (errno_or_sysexit(errno , -1));
-			}
-		} else {
-			warn("realpath %s", mntpath);
-			return (errno_or_sysexit(errno , -1));
+	if (flags & MNT_NOFOLLOW) {
+		size_t sz = strlcpy (mntpath, fs_file, MAXPATHLEN);
+		if (sz >= MAXPATHLEN) {
+			return EINVAL;
 		}
 	}
+	else {
+		char *realpathptr = realpath(fs_file, mntpath);
+		if (realpathptr == NULL) {
+			/* Attempt to create missing mountpoints on Data volume */
+			if ((passno == NONROOT_PASSNO) &&
+					(!strncmp(mntpath, PLATFORM_DATA_VOLUME_MOUNT_POINT,
+							  MIN(strlen(mntpath), strlen(PLATFORM_DATA_VOLUME_MOUNT_POINT))))) {
+				if (mkdir(mntpath, S_IRWXU)) {
+					warn("mkdir %s", mntpath);
+					return (errno_or_sysexit(errno , -1));
+				}
+			} else {
+				warn("realpath %s", mntpath);
+				return (errno_or_sysexit(errno , -1));
+			}
+		}
+	}
+
 	fs_file = mntpath;
 
 	if (mntopts == NULL)
@@ -818,6 +851,14 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 		optbuf = catopt(optbuf, "nobrowse");
 	if (flags & MNT_CPROTECT)
 		optbuf = catopt(optbuf, "protect");
+
+	//save aside arguments up to this point
+	optbuf_userfs = strndup(optbuf, MAXPATHLEN);
+
+	//support cannot be guaranteed on non-system content
+	if (flags & MNT_NOFOLLOW) {
+		optbuf = catopt(optbuf, "nofollow");
+	}
 
 	argc = 0;
 	argv[argc++] = vfstype;
@@ -863,6 +904,18 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 				execv(execname, (char * const *)argv);
 				if (errno != ENOENT)
 					warn("exec %s for %s", execname, fs_file);
+
+				if (!prepared_userfs) {
+					//re-mangle the args as we switch to the user volume
+					argc = 0;
+					argv[argc++] = vfstype;
+					mangle(optbuf_userfs, &argc, argv);
+					argv[argc++] = fs_spec;
+					argv[argc++] = fs_file;
+					argv[argc] = NULL;
+
+					prepared_userfs = true;
+				}
 			} while (*++bdir != NULL);
 
 			if (errno == ENOENT) {
@@ -873,6 +926,7 @@ mountfs(const char *vfstype, const char *fs_spec, const char *fs_file, int flags
 			/* NOTREACHED */
 		default:                /* Parent. */
 			free(optbuf);
+			free(optbuf_userfs);
 
 			if (waitpid(pid, &status, 0) < 0) {
 				warn("waitpid");
@@ -1016,9 +1070,9 @@ usage(void)
 {
 	fprintf(stderr,
 			"usage: mount %s %s\n       mount %s\n       mount %s\n",
-			"[-dfruvw] [-o options] [-t external_type]",
+			"[-dfrkuvw] [-o options] [-t external_type]",
 			"special mount_point",
-			"[-adfruvw] [-t external_type]",
-			"[-dfruvw] special | mount_point");
+			"[-adfrkuvw] [-t external_type]",
+			"[-dfrkuvw] special | mount_point");
 	exit(errno_or_sysexit(EINVAL, EX_USAGE));
 }

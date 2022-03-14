@@ -80,7 +80,7 @@ private:
     bool isCaptureSource() const final { return true; }
     void beginConfiguration() final { }
     void commitConfiguration() final { }
-    void applyConstraints(const WebCore::MediaConstraints&, ApplyConstraintsHandler&&);
+    void applyConstraints(const WebCore::MediaConstraints&, ApplyConstraintsHandler&&) final;
     void hasEnded() final;
     const WebCore::RealtimeMediaSourceSettings& settings() final { return m_settings; }
     const WebCore::RealtimeMediaSourceCapabilities& capabilities() final { return m_capabilities; }

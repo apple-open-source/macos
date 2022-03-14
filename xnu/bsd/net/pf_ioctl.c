@@ -258,7 +258,6 @@ static TAILQ_HEAD(pf_tags, pf_tagname)  pf_tags =
 #error PF_QNAME_SIZE must be equal to PF_TAG_NAME_SIZE
 #endif
 static u_int16_t         tagname2tag(struct pf_tags *, char *);
-static void              tag2tagname(struct pf_tags *, u_int16_t, char *);
 static void              tag_unref(struct pf_tags *, u_int16_t);
 static int               pf_rtlabel_add(struct pf_addr_wrap *);
 static void              pf_rtlabel_remove(struct pf_addr_wrap *);
@@ -284,19 +283,15 @@ struct {                                                                \
 	} _u;                                                           \
 } *s##_un = NULL                                                        \
 
-#define PFIOCX_STRUCT_BEGIN(a, s, _action) {                            \
+#define PFIOCX_STRUCT_BEGIN(a, s) {                                     \
 	VERIFY(s##_un == NULL);                                         \
-	s##_un = _MALLOC(sizeof (*s##_un), M_TEMP, M_WAITOK|M_ZERO);    \
-	if (s##_un == NULL) {                                           \
-	        _action                                                 \
-	} else {                                                        \
-	        if (p64)                                                \
-	                bcopy(a, &s##_un->_u._s##_64,                   \
-	                    sizeof (struct s##_64));                    \
-	        else                                                    \
-	                bcopy(a, &s##_un->_u._s##_32,                   \
-	                    sizeof (struct s##_32));                    \
-	}                                                               \
+	s##_un = kalloc_type(typeof(*s##_un), Z_WAITOK_ZERO_NOFAIL);    \
+	if (p64)                                                        \
+	        bcopy(a, &s##_un->_u._s##_64,                           \
+	            sizeof (struct s##_64));                            \
+	else                                                            \
+	        bcopy(a, &s##_un->_u._s##_32,                           \
+	            sizeof (struct s##_32));                            \
 }
 
 #define PFIOCX_STRUCT_END(s, a) {                                       \
@@ -305,8 +300,7 @@ struct {                                                                \
 	        bcopy(&s##_un->_u._s##_64, a, sizeof (struct s##_64));  \
 	else                                                            \
 	        bcopy(&s##_un->_u._s##_32, a, sizeof (struct s##_32));  \
-	_FREE(s##_un, M_TEMP);                                          \
-	s##_un = NULL;                                                  \
+	kfree_type(typeof(*s##_un), s##_un);                            \
 }
 
 #define PFIOCX_STRUCT_ADDR32(s)         (&s##_un->_u._s##_32)
@@ -315,21 +309,16 @@ struct {                                                                \
 /*
  * Helper macros for regular ioctl structures.
  */
-#define PFIOC_STRUCT_BEGIN(a, v, _action) {                             \
+#define PFIOC_STRUCT_BEGIN(a, v) {                                      \
 	VERIFY((v) == NULL);                                            \
-	(v) = _MALLOC(sizeof (*(v)), M_TEMP, M_WAITOK|M_ZERO);          \
-	if ((v) == NULL) {                                              \
-	        _action                                                 \
-	} else {                                                        \
-	        bcopy(a, v, sizeof (*(v)));                             \
-	}                                                               \
+	(v) = kalloc_type(typeof(*(v)), Z_WAITOK_ZERO_NOFAIL);          \
+	bcopy(a, v, sizeof (*(v)));                                     \
 }
 
 #define PFIOC_STRUCT_END(v, a) {                                        \
 	VERIFY((v) != NULL);                                            \
 	bcopy(v, a, sizeof (*(v)));                                     \
-	_FREE(v, M_TEMP);                                               \
-	(v) = NULL;                                                     \
+	kfree_type(typeof(*(v)), v);                                    \
 }
 
 #define PFIOC_STRUCT_ADDR32(s)          (&s##_un->_u._s##_32)
@@ -512,10 +501,10 @@ pfinit(void)
 		return;
 	}
 	(void) devfs_make_node(makedev(maj, PFDEV_PF), DEVFS_CHAR,
-	    UID_ROOT, GID_WHEEL, 0600, "pf", 0);
+	    UID_ROOT, GID_WHEEL, 0600, "pf");
 
 	(void) devfs_make_node(makedev(maj, PFDEV_PFM), DEVFS_CHAR,
-	    UID_ROOT, GID_WHEEL, 0600, "pfm", 0);
+	    UID_ROOT, GID_WHEEL, 0600, "pfm");
 
 	pf_attach_hooks();
 #if DUMMYNET
@@ -829,18 +818,6 @@ skip_dynamic_tag_alloc:
 }
 
 static void
-tag2tagname(struct pf_tags *head, u_int16_t tagid, char *p)
-{
-	struct pf_tagname       *tag;
-
-	TAILQ_FOREACH(tag, head, entries)
-	if (tag->tag == tagid) {
-		strlcpy(p, tag->name, PF_TAG_NAME_SIZE);
-		return;
-	}
-}
-
-static void
 tag_unref(struct pf_tags *head, u_int16_t tag)
 {
 	struct pf_tagname       *p, *next;
@@ -867,10 +844,17 @@ pf_tagname2tag(char *tagname)
 	return tagname2tag(&pf_tags, tagname);
 }
 
-void
-pf_tag2tagname(u_int16_t tagid, char *p)
+u_int16_t
+pf_tagname2tag_ext(char *tagname)
 {
-	tag2tagname(&pf_tags, tagid, p);
+	u_int16_t       tag;
+
+	lck_rw_lock_exclusive(&pf_perim_lock);
+	lck_mtx_lock(&pf_lock);
+	tag = pf_tagname2tag(tagname);
+	lck_mtx_unlock(&pf_lock);
+	lck_rw_done(&pf_perim_lock);
+	return tag;
 }
 
 void
@@ -1056,6 +1040,7 @@ pf_commit_rules(u_int32_t ticket, int rs_num, char *anchor)
 	struct pf_rulequeue     *old_rules;
 	int                      error;
 	u_int32_t                old_rcount;
+	u_int32_t                old_rsize;
 
 	LCK_MTX_ASSERT(&pf_lock, LCK_MTX_ASSERT_OWNED);
 
@@ -1079,6 +1064,7 @@ pf_commit_rules(u_int32_t ticket, int rs_num, char *anchor)
 	/* Swap rules, keep the old. */
 	old_rules = rs->rules[rs_num].active.ptr;
 	old_rcount = rs->rules[rs_num].active.rcount;
+	old_rsize  = rs->rules[rs_num].active.rsize;
 	old_array = rs->rules[rs_num].active.ptr_array;
 
 	if (old_rcount != 0) {
@@ -1096,11 +1082,14 @@ pf_commit_rules(u_int32_t ticket, int rs_num, char *anchor)
 	    rs->rules[rs_num].inactive.ptr;
 	rs->rules[rs_num].active.ptr_array =
 	    rs->rules[rs_num].inactive.ptr_array;
+	rs->rules[rs_num].active.rsize =
+	    rs->rules[rs_num].inactive.rsize;
 	rs->rules[rs_num].active.rcount =
 	    rs->rules[rs_num].inactive.rcount;
 	rs->rules[rs_num].inactive.ptr = old_rules;
 	rs->rules[rs_num].inactive.ptr_array = old_array;
 	rs->rules[rs_num].inactive.rcount = old_rcount;
+	rs->rules[rs_num].inactive.rsize = old_rsize;
 
 	rs->rules[rs_num].active.ticket =
 	    rs->rules[rs_num].inactive.ticket;
@@ -1111,11 +1100,11 @@ pf_commit_rules(u_int32_t ticket, int rs_num, char *anchor)
 	while ((rule = TAILQ_FIRST(old_rules)) != NULL) {
 		pf_rm_rule(old_rules, rule);
 	}
-	if (rs->rules[rs_num].inactive.ptr_array) {
-		_FREE(rs->rules[rs_num].inactive.ptr_array, M_TEMP);
-	}
+	kfree_type(struct pf_rule *, rs->rules[rs_num].inactive.rsize,
+	    rs->rules[rs_num].inactive.ptr_array);
 	rs->rules[rs_num].inactive.ptr_array = NULL;
 	rs->rules[rs_num].inactive.rcount = 0;
+	rs->rules[rs_num].inactive.rsize = 0;
 	rs->rules[rs_num].inactive.open = 0;
 	pf_remove_if_empty_ruleset(rs);
 	return 0;
@@ -1312,21 +1301,17 @@ pf_setup_pfsync_matching(struct pf_ruleset *rs)
 			continue;
 		}
 
-		if (rs->rules[rs_cnt].inactive.ptr_array) {
-			_FREE(rs->rules[rs_cnt].inactive.ptr_array, M_TEMP);
-		}
-		rs->rules[rs_cnt].inactive.ptr_array = NULL;
+		rs->rules[rs_cnt].inactive.ptr_array = krealloc_type(struct pf_rule *,
+		    rs->rules[rs_cnt].inactive.rsize, rs->rules[rs_cnt].inactive.rcount,
+		    rs->rules[rs_cnt].inactive.ptr_array, Z_WAITOK | Z_REALLOCF);
 
-		if (rs->rules[rs_cnt].inactive.rcount) {
-			rs->rules[rs_cnt].inactive.ptr_array =
-			    _MALLOC(sizeof(caddr_t) *
-			    rs->rules[rs_cnt].inactive.rcount,
-			    M_TEMP, M_WAITOK);
-
-			if (!rs->rules[rs_cnt].inactive.ptr_array) {
-				return ENOMEM;
-			}
+		if (rs->rules[rs_cnt].inactive.rcount &&
+		    !rs->rules[rs_cnt].inactive.ptr_array) {
+			rs->rules[rs_cnt].inactive.rsize = 0;
+			return ENOMEM;
 		}
+		rs->rules[rs_cnt].inactive.rsize =
+		    rs->rules[rs_cnt].inactive.rcount;
 
 		TAILQ_FOREACH(rule, rs->rules[rs_cnt].inactive.ptr,
 		    entries) {
@@ -1617,7 +1602,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCGETSTARTERS: {         /* struct pfioc_tokens */
 		PFIOCX_STRUCT_DECL(pfioc_tokens);
 
-		PFIOCX_STRUCT_BEGIN(addr, pfioc_tokens, error = ENOMEM; break; );
+		PFIOCX_STRUCT_BEGIN(addr, pfioc_tokens);
 		error = pfioctl_ioc_tokens(cmd,
 		    PFIOCX_STRUCT_ADDR32(pfioc_tokens),
 		    PFIOCX_STRUCT_ADDR64(pfioc_tokens), p);
@@ -1633,7 +1618,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCDELETERULE: {          /* struct pfioc_rule */
 		struct pfioc_rule *pr = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, pr, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, pr);
 		error = pfioctl_ioc_rule(cmd, minordev, pr, p);
 		PFIOC_STRUCT_END(pr, addr);
 		break;
@@ -1643,7 +1628,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCKILLSTATES: {          /* struct pfioc_state_kill */
 		struct pfioc_state_kill *psk = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, psk, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, psk);
 		error = pfioctl_ioc_state_kill(cmd, psk, p);
 		PFIOC_STRUCT_END(psk, addr);
 		break;
@@ -1653,7 +1638,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCGETSTATE: {            /* struct pfioc_state */
 		struct pfioc_state *ps = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, ps, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, ps);
 		error = pfioctl_ioc_state(cmd, ps, p);
 		PFIOC_STRUCT_END(ps, addr);
 		break;
@@ -1662,7 +1647,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCGETSTATES: {           /* struct pfioc_states */
 		PFIOCX_STRUCT_DECL(pfioc_states);
 
-		PFIOCX_STRUCT_BEGIN(addr, pfioc_states, error = ENOMEM; break; );
+		PFIOCX_STRUCT_BEGIN(addr, pfioc_states);
 		error = pfioctl_ioc_states(cmd,
 		    PFIOCX_STRUCT_ADDR32(pfioc_states),
 		    PFIOCX_STRUCT_ADDR64(pfioc_states), p);
@@ -1673,7 +1658,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCGETSTATUS: {           /* struct pf_status */
 		struct pf_status *s = NULL;
 
-		PFIOC_STRUCT_BEGIN(&pf_status, s, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(&pf_status, s);
 		pfi_update_status(s->ifname, s);
 		PFIOC_STRUCT_END(s, addr);
 		break;
@@ -1705,7 +1690,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCNATLOOK: {             /* struct pfioc_natlook */
 		struct pfioc_natlook *pnl = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, pnl, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, pnl);
 		error = pfioctl_ioc_natlook(cmd, pnl, p);
 		PFIOC_STRUCT_END(pnl, addr);
 		break;
@@ -1783,7 +1768,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCCHANGEADDR: {          /* struct pfioc_pooladdr */
 		struct pfioc_pooladdr *pp = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, pp, error = ENOMEM; break; )
+		PFIOC_STRUCT_BEGIN(addr, pp);
 		error = pfioctl_ioc_pooladdr(cmd, pp, p);
 		PFIOC_STRUCT_END(pp, addr);
 		break;
@@ -1793,7 +1778,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCGETRULESET: {          /* struct pfioc_ruleset */
 		struct pfioc_ruleset *pr = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, pr, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, pr);
 		error = pfioctl_ioc_ruleset(cmd, pr, p);
 		PFIOC_STRUCT_END(pr, addr);
 		break;
@@ -1817,7 +1802,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCRINADEFINE: {          /* struct pfioc_table */
 		PFIOCX_STRUCT_DECL(pfioc_table);
 
-		PFIOCX_STRUCT_BEGIN(addr, pfioc_table, error = ENOMEM; break; );
+		PFIOCX_STRUCT_BEGIN(addr, pfioc_table);
 		error = pfioctl_ioc_table(cmd,
 		    PFIOCX_STRUCT_ADDR32(pfioc_table),
 		    PFIOCX_STRUCT_ADDR64(pfioc_table), p);
@@ -1829,7 +1814,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCOSFPGET: {             /* struct pf_osfp_ioctl */
 		struct pf_osfp_ioctl *io = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, io, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, io);
 		if (cmd == DIOCOSFPADD) {
 			error = pf_osfp_add(io);
 		} else {
@@ -1845,7 +1830,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCXCOMMIT: {             /* struct pfioc_trans */
 		PFIOCX_STRUCT_DECL(pfioc_trans);
 
-		PFIOCX_STRUCT_BEGIN(addr, pfioc_trans, error = ENOMEM; break; );
+		PFIOCX_STRUCT_BEGIN(addr, pfioc_trans);
 		error = pfioctl_ioc_trans(cmd,
 		    PFIOCX_STRUCT_ADDR32(pfioc_trans),
 		    PFIOCX_STRUCT_ADDR64(pfioc_trans), p);
@@ -1856,8 +1841,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCGETSRCNODES: {         /* struct pfioc_src_nodes */
 		PFIOCX_STRUCT_DECL(pfioc_src_nodes);
 
-		PFIOCX_STRUCT_BEGIN(addr, pfioc_src_nodes,
-		    error = ENOMEM; break; );
+		PFIOCX_STRUCT_BEGIN(addr, pfioc_src_nodes);
 		error = pfioctl_ioc_src_nodes(cmd,
 		    PFIOCX_STRUCT_ADDR32(pfioc_src_nodes),
 		    PFIOCX_STRUCT_ADDR64(pfioc_src_nodes), p);
@@ -1885,7 +1869,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCKILLSRCNODES: {        /* struct pfioc_src_node_kill */
 		struct pfioc_src_node_kill *psnk = NULL;
 
-		PFIOC_STRUCT_BEGIN(addr, psnk, error = ENOMEM; break; );
+		PFIOC_STRUCT_BEGIN(addr, psnk);
 		error = pfioctl_ioc_src_node_kill(cmd, psnk, p);
 		PFIOC_STRUCT_END(psnk, addr);
 		break;
@@ -1913,7 +1897,7 @@ pfioctl(dev_t dev, u_long cmd, caddr_t addr, int flags, struct proc *p)
 	case DIOCCLRIFFLAG: {           /* struct pfioc_iface */
 		PFIOCX_STRUCT_DECL(pfioc_iface);
 
-		PFIOCX_STRUCT_BEGIN(addr, pfioc_iface, error = ENOMEM; break; );
+		PFIOCX_STRUCT_BEGIN(addr, pfioc_iface);
 		error = pfioctl_ioc_iface(cmd,
 		    PFIOCX_STRUCT_ADDR32(pfioc_iface),
 		    PFIOCX_STRUCT_ADDR64(pfioc_iface), p);

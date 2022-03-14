@@ -30,7 +30,7 @@
 #if defined(__clang__) || defined(__APPLE__) || (defined (__sun__) && defined(__svr4__))
 # define E(BASE, X)	.balign 8
 #else
-# define E(BASE, X)	.balign 8; .org BASE + X * 8
+# define E(BASE, X)	.balign 8; .org BASE + (X) * 8
 #endif
 
 	.text
@@ -107,7 +107,8 @@ E(0b, FFI_TYPE_FLOAT)
 E(0b, FFI_TYPE_DOUBLE)
 	movsd	%xmm0, (%r8)
 	epilogue
-E(0b, FFI_TYPE_LONGDOUBLE)
+// FFI_TYPE_LONGDOUBLE may be FFI_TYPE_DOUBLE but we need a different value here.
+E(0b, FFI_TYPE_DOUBLE + 1)
 	call	PLT(C(abort))
 E(0b, FFI_TYPE_UINT8)
 	movzbl	%al, %eax
@@ -230,6 +231,20 @@ C(ffi_closure_win64):
 
 	cfi_endproc
 	SEH(.seh_endproc)
+
+#if defined(FFI_EXEC_STATIC_TRAMP)
+	.align	8
+	.globl	C(ffi_closure_win64_alt)
+	FFI_HIDDEN(C(ffi_closure_win64_alt))
+
+	SEH(.seh_proc ffi_closure_win64_alt)
+C(ffi_closure_win64_alt):
+	_CET_ENDBR
+	movq	8(%rsp), %r10
+	addq	$16, %rsp
+	jmp	C(ffi_closure_win64)
+	SEH(.seh_endproc)
+#endif
 #endif /* __x86_64__ */
 
 #if defined __ELF__ && defined __linux__

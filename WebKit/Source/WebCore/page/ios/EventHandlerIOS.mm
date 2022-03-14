@@ -32,7 +32,6 @@
 #import "AutoscrollController.h"
 #import "Chrome.h"
 #import "ChromeClient.h"
-#import "ContentChangeObserver.h"
 #import "DataTransfer.h"
 #import "DragState.h"
 #import "EventNames.h"
@@ -53,6 +52,10 @@
 #import <wtf/NeverDestroyed.h>
 #import <wtf/Noncopyable.h>
 #import <wtf/SetForScope.h>
+
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+#import "ContentChangeObserver.h"
+#endif
 
 #if ENABLE(IOS_TOUCH_EVENTS)
 #import <WebKitAdditions/EventHandlerIOSTouch.cpp>
@@ -185,7 +188,7 @@ void EventHandler::focusDocumentView()
     if (!page)
         return;
 
-    if (auto frameView = makeRefPtr(m_frame.view())) {
+    if (RefPtr frameView = m_frame.view()) {
         if (NSView *documentView = frameView->documentView()) {
             page->chrome().focusNSView(documentView);
             // Check page() again because focusNSView can cause reentrancy.
@@ -195,7 +198,7 @@ void EventHandler::focusDocumentView()
     }
 
     RELEASE_ASSERT(page == m_frame.page());
-    page->focusController().setFocusedFrame(&m_frame);
+    CheckedRef(page->focusController())->setFocusedFrame(&m_frame);
 }
 
 bool EventHandler::passWidgetMouseDownEventToWidget(const MouseEventWithHitTestResults& event)
@@ -510,15 +513,19 @@ void EventHandler::mouseMoved(WebEvent *event)
     document.updateStyleIfNeeded();
     CurrentEventScope scope(event);
     {
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
         ContentChangeObserver::MouseMovedScope observingScope(document);
+#endif
         event.wasHandled = mouseMoved(currentPlatformMouseEvent());
         // Run style recalc to be able to capture content changes as the result of the mouse move event.
         document.updateStyleIfNeeded();
-        callOnMainThread([protectedFrame = makeRef(m_frame)] {
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+        callOnMainThread([protectedFrame = Ref { m_frame }] {
             // This is called by WebKitLegacy only.
             if (auto* document = protectedFrame->document())
                 document->contentChangeObserver().willNotProceedWithFixedObservationTimeWindow();
         });
+#endif
     }
 
     END_BLOCK_OBJC_EXCEPTIONS

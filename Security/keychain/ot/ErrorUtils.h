@@ -24,11 +24,15 @@
 #if OCTAGON
 
 #import <Foundation/Foundation.h>
+#import "keychain/ot/OTDefines.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
 @interface NSError (Octagon)
 - (bool)isRetryable;
+- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishErrorCode;
+- (NSTimeInterval)retryInterval;
++ (void)setDefaultRetryIntervalForTests:(NSTimeInterval)retryInterval;
 @end
 
 NS_ASSUME_NONNULL_END

@@ -2772,6 +2772,7 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 			subcode->initializeFromParent(*this);
 			// If there was an exact match but its nested code, then the ask is really to validate the
 			// main executable of the nested code.
+			subcode->setValidationFlags(flags);
 			subcode->staticValidateResource(subcode->mainExecutablePath(), flags, SecRequirement::required(req));
 		} else {
 			// For other resource types, just a single file resource validation with a ValidationContext that
@@ -2803,6 +2804,7 @@ void SecStaticCode::staticValidateResource(string resourcePath, SecCSFlags flags
 					// nested code and then validate the resource within that object.
 					SecPointer<SecStaticCode> subcode = new SecStaticCode(DiskRep::bestGuess(fullPath));
 					subcode->initializeFromParent(*this);
+					subcode->setValidationFlags(flags);
 					subcode->staticValidateResource(resourcePath, flags, SecRequirement::required(req));
 				} else if (seal.link()) {
 					// Symlinks are OK to walk through, so validate the symlink directly and then keep

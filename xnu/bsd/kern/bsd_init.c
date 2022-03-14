@@ -157,7 +157,8 @@
 #include <netinet/tcp_cc.h>                     /* for tcp_cc_init() */
 #include <netinet/mptcp_var.h>          /* for mptcp_control_register() */
 #include <net/nwk_wq.h>                 /* for nwk_wq_init */
-#include <net/restricted_in_port.h> /* for restricted_in_port_init() */
+#include <net/restricted_in_port.h>     /* for restricted_in_port_init() */
+#include <net/remote_vif.h>             /* for rvi_init() */
 #include <kern/assert.h>                /* for assert() */
 #include <sys/kern_overrides.h>         /* for init_system_override() */
 #include <sys/lockf.h>                  /* for lf_init() */
@@ -314,7 +315,6 @@ void bsd_utaskbootstrap(void);
 #if CONFIG_DEV_KMEM
 extern void dev_kmem_init(void);
 #endif
-extern void select_waitq_init(void);
 static void process_name(const char *, proc_t);
 
 static void setconf(void);
@@ -642,7 +642,7 @@ bsd_init(void)
 		ret = kmem_suballoc(kernel_map,
 		    &minimum,
 		    (vm_size_t)bsd_pageable_map_size,
-		    TRUE,
+		    VM_MAP_CREATE_PAGEABLE,
 		    VM_FLAGS_ANYWHERE,
 		    VM_MAP_KERNEL_FLAGS_NONE,
 		    VM_KERN_MEMORY_BSD,
@@ -715,8 +715,6 @@ bsd_init(void)
 	pshm_cache_init();
 	bsd_init_kprintf("calling psem_cache_init\n");
 	psem_cache_init();
-	bsd_init_kprintf("calling select_waitq_init\n");
-	select_waitq_init();
 
 	/*
 	 * Initialize protocols.  Block reception of incoming packets
@@ -827,6 +825,10 @@ bsd_init(void)
 #if MPTCP
 	mptcp_control_register();
 #endif /* MPTCP */
+
+#if REMOTE_VIF
+	rvi_init();
+#endif /* REMOTE_VIF */
 
 	/*
 	 * The the networking stack is now initialized so it is a good time to call
@@ -1202,13 +1204,11 @@ extern bool IOGetBootUUID(char *);
 extern bool IOGetApfsPrebootUUID(char *);
 
 
-// Get the UUID of the Preboot (and Recovery) folder associated with the
+// This function returns the UUID of the Preboot (and Recovery) folder associated with the
 // current boot volume, if applicable. The meaning of the UUID can be
 // filesystem-dependent and not all kinds of boots will have a UUID.
-// If available, the string will be returned. It does not need to be
-// deallocate. (Future: if we need to return the string as a copy that the
-// caller must free, we'll introduce a new functcion for that.)
-// NULL will be returned if the current boot has no applicable Preboot UUID.
+// On success, the UUID is copied into the past-in parameter and TRUE is returned.
+// In case the current boot has no applicable Preboot UUID, FALSE is returned.
 static bool
 get_preboot_uuid(uuid_string_t maybe_uuid_string)
 {

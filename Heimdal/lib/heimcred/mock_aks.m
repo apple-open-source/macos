@@ -37,6 +37,12 @@ encryptDataMock(NSData *plainText)
 }
 
 NSData *
+encryptDataNULLMock(NSData *plainText)
+{
+    return nil;
+}
+
+NSData *
 decryptDataMock(NSData * blob)
 {
     return [blob copy];

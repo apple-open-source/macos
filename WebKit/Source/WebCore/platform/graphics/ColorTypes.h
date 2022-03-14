@@ -42,15 +42,23 @@ template<typename> struct HSLA;
 template<typename> struct HWBA;
 template<typename> struct LCHA;
 template<typename> struct Lab;
-template<typename> struct Oklab;
-template<typename> struct Oklch;
+template<typename> struct OKLCHA;
+template<typename> struct OKLab;
 template<typename, WhitePoint> struct XYZA;
 
 // MARK: Make functions.
 
-template<typename ColorType, typename T> constexpr ColorType makeFromComponents(const ColorComponents<T, 4>& c)
+template<typename, typename = void> inline constexpr bool HasCanonicalTypeMember = false;
+template<typename T> inline constexpr bool HasCanonicalTypeMember<T, std::void_t<typename T::CanonicalType>> = true;
+
+template<typename ColorType, bool hasCononicalType> struct CanonicalColorTypeHelper { using type = ColorType; };
+template<typename ColorType> struct CanonicalColorTypeHelper<ColorType, true> { using type = typename ColorType::CanonicalType; };
+
+template<typename ColorType> using CanonicalColorType = typename CanonicalColorTypeHelper<ColorType, HasCanonicalTypeMember<ColorType>>::type;
+
+template<typename ColorType, typename T> constexpr auto makeFromComponents(const ColorComponents<T, 4>& c)
 {
-    return ColorType { c[0], c[1], c[2], c[3] };
+    return CanonicalColorType<ColorType> { c[0], c[1], c[2], c[3] };
 }
 
 template<typename ColorType, unsigned Index, typename T> constexpr auto clampedComponent(T c) -> typename ColorType::ComponentType
@@ -97,44 +105,48 @@ template<typename ColorType, typename T> constexpr ColorComponents<T, 4> clamped
     return { clampedComponent<ColorType, 0>(components), clampedComponent<ColorType, 1>(components), clampedComponent<ColorType, 2>(components), components[3] };
 }
 
-template<typename ColorType, typename T> constexpr ColorType makeFromComponentsClamping(const ColorComponents<T, 4>& components)
+template<typename ColorType, typename T> constexpr auto makeFromComponentsClamping(const ColorComponents<T, 4>& components)
 {
     return makeFromComponents<ColorType>(clampedComponents<ColorType>(components));
 }
 
-template<typename ColorType, typename T> constexpr ColorType makeFromComponentsClamping(T c1, T c2, T c3)
+template<typename ColorType, typename T> constexpr auto makeFromComponentsClamping(T c1, T c2, T c3)
 {
     return makeFromComponents<ColorType>(ColorComponents { clampedComponent<ColorType, 0>(c1), clampedComponent<ColorType, 1>(c2), clampedComponent<ColorType, 2>(c3), AlphaTraits<typename ColorType::ComponentType>::opaque });
 }
 
-template<typename ColorType, typename T> constexpr ColorType makeFromComponentsClamping(T c1, T c2, T c3, T alpha)
+template<typename ColorType, typename T> constexpr auto makeFromComponentsClamping(T c1, T c2, T c3, T alpha)
 {
     return makeFromComponents<ColorType>(ColorComponents { clampedComponent<ColorType, 0>(c1), clampedComponent<ColorType, 1>(c2), clampedComponent<ColorType, 2>(c3), clampedAlpha<T, typename ColorType::ComponentType>(alpha) });
 }
 
-template<typename ColorType, typename T> constexpr ColorType makeFromComponentsClampingExceptAlpha(const ColorComponents<T, 4>& components)
+template<typename ColorType, typename T> constexpr auto makeFromComponentsClampingExceptAlpha(const ColorComponents<T, 4>& components)
 {
     return makeFromComponents<ColorType>(clampedComponentsExceptAlpha<ColorType>(components));
 }
 
-template<typename ColorType, typename T, typename Alpha> constexpr ColorType makeFromComponentsClampingExceptAlpha(T c1, T c2, T c3, Alpha alpha)
+template<typename ColorType, typename T, typename Alpha> constexpr auto makeFromComponentsClampingExceptAlpha(T c1, T c2, T c3, Alpha alpha)
 {
     return makeFromComponents<ColorType>(ColorComponents { clampedComponent<ColorType, 0>(c1), clampedComponent<ColorType, 1>(c2), clampedComponent<ColorType, 2>(c3), alpha });
 }
 
 #if ASSERT_ENABLED
 
-template<typename T> constexpr void assertInRange(T color)
+template<typename ColorType, typename std::enable_if_t<std::is_same_v<typename ColorType::ComponentType, float>>* = nullptr>
+constexpr void assertInRange(ColorType color)
 {
-    if constexpr (std::is_same_v<typename T::ComponentType, float>) {
-        auto components = asColorComponents(color);
-        for (unsigned i = 0; i < 3; ++i) {
-            ASSERT_WITH_MESSAGE(components[i] >= T::Model::componentInfo[i].min, "Component at index %d is %f and is less than the allowed minimum %f", i,  components[i], T::Model::componentInfo[i].min);
-            ASSERT_WITH_MESSAGE(components[i] <= T::Model::componentInfo[i].max, "Component at index %d is %f and is greater than the allowed maximum %f", i,  components[i], T::Model::componentInfo[i].max);
-        }
-        ASSERT_WITH_MESSAGE(color.alpha >= AlphaTraits<typename T::ComponentType>::transparent, "Alpha is %f and is less than the allowed minimum (transparent) %f", color.alpha, AlphaTraits<typename T::ComponentType>::transparent);
-        ASSERT_WITH_MESSAGE(color.alpha <= AlphaTraits<typename T::ComponentType>::opaque, "Alpha is %f and is greater than the allowed maximum (opaque) %f", color.alpha, AlphaTraits<typename T::ComponentType>::opaque);
+    auto components = asColorComponents(color.unresolved());
+    for (unsigned i = 0; i < 3; ++i) {
+        ASSERT_WITH_MESSAGE(components[i] >= ColorType::Model::componentInfo[i].min, "Component at index %d is %f and is less than the allowed minimum %f", i,  components[i], ColorType::Model::componentInfo[i].min);
+        ASSERT_WITH_MESSAGE(components[i] <= ColorType::Model::componentInfo[i].max, "Component at index %d is %f and is greater than the allowed maximum %f", i,  components[i], ColorType::Model::componentInfo[i].max);
     }
+    ASSERT_WITH_MESSAGE(components[3] >= AlphaTraits<typename ColorType::ComponentType>::transparent, "Alpha is %f and is less than the allowed minimum (transparent) %f", components[3], AlphaTraits<typename ColorType::ComponentType>::transparent);
+    ASSERT_WITH_MESSAGE(components[3] <= AlphaTraits<typename ColorType::ComponentType>::opaque, "Alpha is %f and is greater than the allowed maximum (opaque) %f", components[3], AlphaTraits<typename ColorType::ComponentType>::opaque);
+}
+
+template<typename ColorType, typename std::enable_if_t<std::is_same_v<typename ColorType::ComponentType, uint8_t>>* = nullptr>
+constexpr void assertInRange(ColorType)
+{
 }
 
 #else
@@ -146,7 +158,7 @@ template<typename T> constexpr void assertInRange(T)
 #endif
 
 template<typename, typename = void> inline constexpr bool IsConvertibleToColorComponents = false;
-template<typename T> inline constexpr bool IsConvertibleToColorComponents<T, std::void_t<decltype(asColorComponents(std::declval<T>()))>> = true;
+template<typename T> inline constexpr bool IsConvertibleToColorComponents<T, std::void_t<decltype(asColorComponents(std::declval<T>().unresolved()))>> = true;
 
 template<typename, typename = void> inline constexpr bool HasComponentTypeMember = false;
 template<typename T> inline constexpr bool HasComponentTypeMember<T, std::void_t<typename T::ComponentType>> = true;
@@ -166,9 +178,9 @@ template<typename Parent> struct ColorWithAlphaHelper {
     // e.g. auto yellowWith50PercentAlpha = Color::yellow.colorWithAlphaByte(128);
     constexpr Parent colorWithAlphaByte(uint8_t overrideAlpha) const
     {
-        static_assert(std::is_same_v<decltype(std::declval<Parent>().alpha), uint8_t>, "Only uint8_t based color types are supported.");
+        static_assert(std::is_same_v<typename Parent::ComponentType, uint8_t>, "Only uint8_t based color types are supported.");
 
-        auto copy = *static_cast<const Parent*>(this);
+        auto copy = static_cast<const Parent*>(this)->unresolved();
         copy.alpha = overrideAlpha;
         return copy;
     }
@@ -178,7 +190,7 @@ template<typename Parent> struct ColorWithAlphaHelper {
 template<typename ColorType, typename std::enable_if_t<IsConvertibleToColorComponents<ColorType>>* = nullptr>
 constexpr bool operator==(const ColorType& a, const ColorType& b)
 {
-    return asColorComponents(a) == asColorComponents(b);
+    return asColorComponents(a.unresolved()) == asColorComponents(b.unresolved());
 }
 
 template<typename ColorType, typename std::enable_if_t<IsConvertibleToColorComponents<ColorType>>* = nullptr>
@@ -195,7 +207,7 @@ template<typename T, typename D, typename ColorType, typename M, typename TF> st
     using Model = M;
     using TransferFunction = TF;
     using Descriptor = D;
-    static constexpr WhitePoint whitePoint = D::whitePoint;
+    static constexpr auto whitePoint = D::whitePoint;
 
     constexpr RGBAType(T red, T green, T blue, T alpha = AlphaTraits<T>::opaque)
         : red { red }
@@ -203,7 +215,7 @@ template<typename T, typename D, typename ColorType, typename M, typename TF> st
         , blue { blue }
         , alpha { alpha }
     {
-        assertInRange(*this);
+        assertInRange(*static_cast<const ColorType*>(this));
     }
 
     constexpr RGBAType()
@@ -211,21 +223,19 @@ template<typename T, typename D, typename ColorType, typename M, typename TF> st
     {
     }
 
+    constexpr auto resolved() const { return resolvedColor(*static_cast<const ColorType*>(this)); }
+    constexpr auto unresolved() const { return unresolvedColor(*static_cast<const ColorType*>(this)); }
+
+protected:
     T red;
     T green;
     T blue;
     T alpha;
 };
 
-template<typename T, typename D, typename ColorType, typename M, typename TF> constexpr ColorComponents<T, 4> asColorComponents(const RGBAType<T, D, ColorType, M, TF>& c)
-{
-    return { c.red, c.green, c.blue, c.alpha };
-}
-
-
 template<typename T, typename D>
-struct BoundedGammaEncoded : RGBAType<T, D, BoundedGammaEncoded<T, D>, RGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>> {
-    using RGBAType<T, D, BoundedGammaEncoded<T, D>, RGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>>::RGBAType;
+struct BoundedGammaEncoded : RGBAType<T, D, BoundedGammaEncoded<T, D>, RGBModel<T, RGBBoundedness::Bounded>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>> {
+    using RGBAType<T, D, BoundedGammaEncoded<T, D>, RGBModel<T, RGBBoundedness::Bounded>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>>::RGBAType;
 
     using LinearCounterpart = BoundedLinearEncoded<T, D>;
     using ExtendedCounterpart = ExtendedGammaEncoded<T, D>;
@@ -234,8 +244,8 @@ struct BoundedGammaEncoded : RGBAType<T, D, BoundedGammaEncoded<T, D>, RGBModel<
 };
 
 template<typename T, typename D>
-struct BoundedLinearEncoded : RGBAType<T, D, BoundedLinearEncoded<T, D>, RGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>> {
-    using RGBAType<T, D, BoundedLinearEncoded<T, D>, RGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>>::RGBAType;
+struct BoundedLinearEncoded : RGBAType<T, D, BoundedLinearEncoded<T, D>, RGBModel<T, RGBBoundedness::Bounded>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>> {
+    using RGBAType<T, D, BoundedLinearEncoded<T, D>, RGBModel<T, RGBBoundedness::Bounded>, typename D::template TransferFunction<T, TransferFunctionMode::Clamped>>::RGBAType;
 
     static constexpr auto linearToXYZ = D::linearToXYZ;
     static constexpr auto xyzToLinear = D::xyzToLinear;
@@ -247,8 +257,8 @@ struct BoundedLinearEncoded : RGBAType<T, D, BoundedLinearEncoded<T, D>, RGBMode
 };
 
 template<typename T, typename D>
-struct ExtendedGammaEncoded : RGBAType<T, D, ExtendedGammaEncoded<T, D>, ExtendedRGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>> {
-    using RGBAType<T, D, ExtendedGammaEncoded<T, D>, ExtendedRGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>>::RGBAType;
+struct ExtendedGammaEncoded : RGBAType<T, D, ExtendedGammaEncoded<T, D>, RGBModel<T, RGBBoundedness::Extended>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>> {
+    using RGBAType<T, D, ExtendedGammaEncoded<T, D>, RGBModel<T, RGBBoundedness::Extended>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>>::RGBAType;
 
     using LinearCounterpart = ExtendedLinearEncoded<T, D>;
     using BoundedCounterpart = BoundedGammaEncoded<T, D>;
@@ -256,8 +266,8 @@ struct ExtendedGammaEncoded : RGBAType<T, D, ExtendedGammaEncoded<T, D>, Extende
 };
 
 template<typename T, typename D>
-struct ExtendedLinearEncoded : RGBAType<T, D, ExtendedLinearEncoded<T, D>, ExtendedRGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>> {
-    using RGBAType<T, D, ExtendedLinearEncoded<T, D>, ExtendedRGBModel<T>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>>::RGBAType;
+struct ExtendedLinearEncoded : RGBAType<T, D, ExtendedLinearEncoded<T, D>, RGBModel<T, RGBBoundedness::Extended>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>> {
+    using RGBAType<T, D, ExtendedLinearEncoded<T, D>, RGBModel<T, RGBBoundedness::Extended>, typename D::template TransferFunction<T, TransferFunctionMode::Unclamped>>::RGBAType;
 
     static constexpr auto linearToXYZ = D::linearToXYZ;
     static constexpr auto xyzToLinear = D::xyzToLinear;
@@ -299,7 +309,7 @@ template<typename ColorType1, typename ColorType2> inline constexpr bool IsSameR
 
 struct SRGBADescriptor {
     template<typename T, TransferFunctionMode Mode> using TransferFunction = SRGBTransferFunction<T, Mode>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D65;
+    static constexpr auto whitePoint = WhitePoint::D65;
 
     // https://drafts.csswg.org/css-color/#color-conversion-code
     static constexpr ColorMatrix<3, 3> xyzToLinear {
@@ -317,12 +327,12 @@ struct SRGBADescriptor {
 template<typename T> using SRGBA = BoundedGammaEncoded<T, SRGBADescriptor>;
 template<typename T> using LinearSRGBA = BoundedLinearEncoded<T, SRGBADescriptor>;
 template<typename T> using ExtendedSRGBA = ExtendedGammaEncoded<T, SRGBADescriptor>;
-template<typename T> using LinearExtendedSRGBA = ExtendedLinearEncoded<T, SRGBADescriptor>;
+template<typename T> using ExtendedLinearSRGBA = ExtendedLinearEncoded<T, SRGBADescriptor>;
 
 
 struct A98RGBDescriptor {
     template<typename T, TransferFunctionMode Mode> using TransferFunction = A98RGBTransferFunction<T, Mode>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D65;
+    static constexpr auto whitePoint = WhitePoint::D65;
 
     // https://drafts.csswg.org/css-color/#color-conversion-code
     static constexpr ColorMatrix<3, 3> xyzToLinear {
@@ -339,11 +349,13 @@ struct A98RGBDescriptor {
 
 template<typename T> using A98RGB = BoundedGammaEncoded<T, A98RGBDescriptor>;
 template<typename T> using LinearA98RGB = BoundedLinearEncoded<T, A98RGBDescriptor>;
+template<typename T> using ExtendedA98RGB = ExtendedGammaEncoded<T, A98RGBDescriptor>;
+template<typename T> using ExtendedLinearA98RGB = ExtendedLinearEncoded<T, A98RGBDescriptor>;
 
 
 struct DisplayP3Descriptor {
     template<typename T, TransferFunctionMode Mode> using TransferFunction = SRGBTransferFunction<T, Mode>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D65;
+    static constexpr auto whitePoint = WhitePoint::D65;
 
     // https://drafts.csswg.org/css-color/#color-conversion-code
     static constexpr ColorMatrix<3, 3> xyzToLinear {
@@ -360,11 +372,13 @@ struct DisplayP3Descriptor {
 
 template<typename T> using DisplayP3 = BoundedGammaEncoded<T, DisplayP3Descriptor>;
 template<typename T> using LinearDisplayP3 = BoundedLinearEncoded<T, DisplayP3Descriptor>;
+template<typename T> using ExtendedDisplayP3 = ExtendedGammaEncoded<T, DisplayP3Descriptor>;
+template<typename T> using ExtendedLinearDisplayP3 = ExtendedLinearEncoded<T, DisplayP3Descriptor>;
 
 
 struct ProPhotoRGBDescriptor {
     template<typename T, TransferFunctionMode Mode> using TransferFunction = ProPhotoRGBTransferFunction<T, Mode>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D50;
+    static constexpr auto whitePoint = WhitePoint::D50;
 
     // https://drafts.csswg.org/css-color/#color-conversion-code
     static constexpr ColorMatrix<3, 3> xyzToLinear {
@@ -381,11 +395,13 @@ struct ProPhotoRGBDescriptor {
 
 template<typename T> using ProPhotoRGB = BoundedGammaEncoded<T, ProPhotoRGBDescriptor>;
 template<typename T> using LinearProPhotoRGB = BoundedLinearEncoded<T, ProPhotoRGBDescriptor>;
+template<typename T> using ExtendedProPhotoRGB = ExtendedGammaEncoded<T, ProPhotoRGBDescriptor>;
+template<typename T> using ExtendedLinearProPhotoRGB = ExtendedLinearEncoded<T, ProPhotoRGBDescriptor>;
 
 
 struct Rec2020Descriptor {
     template<typename T, TransferFunctionMode Mode> using TransferFunction = Rec2020TransferFunction<T, Mode>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D65;
+    static constexpr auto whitePoint = WhitePoint::D65;
 
     // https://drafts.csswg.org/css-color/#color-conversion-code
     static constexpr ColorMatrix<3, 3> xyzToLinear {
@@ -402,6 +418,8 @@ struct Rec2020Descriptor {
 
 template<typename T> using Rec2020 = BoundedGammaEncoded<T, Rec2020Descriptor>;
 template<typename T> using LinearRec2020 = BoundedLinearEncoded<T, Rec2020Descriptor>;
+template<typename T> using ExtendedRec2020 = ExtendedGammaEncoded<T, Rec2020Descriptor>;
+template<typename T> using ExtendedLinearRec2020 = ExtendedLinearEncoded<T, Rec2020Descriptor>;
 
 
 // MARK: - Lab Color Type.
@@ -409,8 +427,8 @@ template<typename T> using LinearRec2020 = BoundedLinearEncoded<T, Rec2020Descri
 template<typename T> struct Lab : ColorWithAlphaHelper<Lab<T>> {
     using ComponentType = T;
     using Model = LabModel<T>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D50;
-    using Reference =  XYZA<T, whitePoint>;
+    static constexpr auto whitePoint = WhitePoint::D50;
+    using Reference = XYZA<T, whitePoint>;
 
     constexpr Lab(T lightness, T a, T b, T alpha = AlphaTraits<T>::opaque)
         : lightness { lightness }
@@ -426,16 +444,15 @@ template<typename T> struct Lab : ColorWithAlphaHelper<Lab<T>> {
     {
     }
 
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
     T lightness;
     T a;
     T b;
     T alpha;
 };
-
-template<typename T> constexpr ColorComponents<T, 4> asColorComponents(const Lab<T>& c)
-{
-    return { c.lightness, c.a, c.b, c.alpha };
-}
 
 template<typename ColorType> inline constexpr bool IsLab = std::is_same_v<Lab<typename ColorType::ComponentType>, ColorType>;
 
@@ -444,7 +461,7 @@ template<typename ColorType> inline constexpr bool IsLab = std::is_same_v<Lab<ty
 template<typename T> struct LCHA : ColorWithAlphaHelper<LCHA<T>> {
     using ComponentType = T;
     using Model = LCHModel<T>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D50;
+    static constexpr auto whitePoint = WhitePoint::D50;
     using Reference = Lab<T>;
 
     constexpr LCHA(T lightness, T chroma, T hue, T alpha = AlphaTraits<T>::opaque)
@@ -461,18 +478,85 @@ template<typename T> struct LCHA : ColorWithAlphaHelper<LCHA<T>> {
     {
     }
 
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
     T lightness;
     T chroma;
     T hue;
     T alpha;
 };
 
-template<typename T> constexpr ColorComponents<T, 4> asColorComponents(const LCHA<T>& c)
-{
-    return { c.lightness, c.chroma, c.hue, c.alpha };
-}
-
 template<typename ColorType> inline constexpr bool IsLCHA = std::is_same_v<LCHA<typename ColorType::ComponentType>, ColorType>;
+
+// MARK: - OKLab Color Type.
+
+template<typename T> struct OKLab : ColorWithAlphaHelper<OKLab<T>> {
+    using ComponentType = T;
+    using Model = LabModel<T>;
+    static constexpr auto whitePoint = WhitePoint::D65;
+    using Reference = XYZA<T, whitePoint>;
+
+    constexpr OKLab(T lightness, T a, T b, T alpha = AlphaTraits<T>::opaque)
+        : lightness { lightness }
+        , a { a }
+        , b { b }
+        , alpha { alpha }
+    {
+        assertInRange(*this);
+    }
+
+    constexpr OKLab()
+        : OKLab { 0, 0, 0, 0 }
+    {
+    }
+
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
+    T lightness;
+    T a;
+    T b;
+    T alpha;
+};
+
+template<typename ColorType> inline constexpr bool IsOKLab = std::is_same_v<OKLab<typename ColorType::ComponentType>, ColorType>;
+
+// MARK: - OKLCHA Color Type.
+
+template<typename T> struct OKLCHA : ColorWithAlphaHelper<OKLCHA<T>> {
+    using ComponentType = T;
+    using Model = LCHModel<T>;
+    static constexpr auto whitePoint = WhitePoint::D65;
+    using Reference = OKLab<T>;
+
+    constexpr OKLCHA(T lightness, T chroma, T hue, T alpha = AlphaTraits<T>::opaque)
+        : lightness { lightness }
+        , chroma { chroma }
+        , hue { hue }
+        , alpha { alpha }
+    {
+        assertInRange(*this);
+    }
+
+    constexpr OKLCHA()
+        : OKLCHA { 0, 0, 0, 0 }
+    {
+    }
+
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
+    T lightness;
+    T chroma;
+    T hue;
+    T alpha;
+};
+
+template<typename ColorType> inline constexpr bool IsOKLCHA = std::is_same_v<OKLCHA<typename ColorType::ComponentType>, ColorType>;
 
 
 // MARK: - HSLA Color Type.
@@ -480,7 +564,7 @@ template<typename ColorType> inline constexpr bool IsLCHA = std::is_same_v<LCHA<
 template<typename T> struct HSLA : ColorWithAlphaHelper<HSLA<T>> {
     using ComponentType = T;
     using Model = HSLModel<T>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D65;
+    static constexpr auto whitePoint = WhitePoint::D65;
     using Reference = SRGBA<T>;
 
     constexpr HSLA(T hue, T saturation, T lightness, T alpha = AlphaTraits<T>::opaque)
@@ -497,16 +581,15 @@ template<typename T> struct HSLA : ColorWithAlphaHelper<HSLA<T>> {
     {
     }
 
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
     T hue;
     T saturation;
     T lightness;
     T alpha;
 };
-
-template<typename T> constexpr ColorComponents<T, 4> asColorComponents(const HSLA<T>& c)
-{
-    return { c.hue, c.saturation, c.lightness, c.alpha };
-}
 
 template<typename ColorType> inline constexpr bool IsHSLA = std::is_same_v<HSLA<typename ColorType::ComponentType>, ColorType>;
 
@@ -515,7 +598,7 @@ template<typename ColorType> inline constexpr bool IsHSLA = std::is_same_v<HSLA<
 template<typename T> struct HWBA : ColorWithAlphaHelper<HWBA<T>> {
     using ComponentType = T;
     using Model = HWBModel<T>;
-    static constexpr WhitePoint whitePoint = WhitePoint::D65;
+    static constexpr auto whitePoint = WhitePoint::D65;
     using Reference = SRGBA<T>;
 
     constexpr HWBA(T hue, T whiteness, T blackness, T alpha = AlphaTraits<T>::opaque)
@@ -532,16 +615,15 @@ template<typename T> struct HWBA : ColorWithAlphaHelper<HWBA<T>> {
     {
     }
 
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
     T hue;
     T whiteness;
     T blackness;
     T alpha;
 };
-
-template<typename T> constexpr ColorComponents<T, 4> asColorComponents(const HWBA<T>& c)
-{
-    return { c.hue, c.whiteness, c.blackness, c.alpha };
-}
 
 template<typename ColorType> inline constexpr bool IsHWBA = std::is_same_v<HWBA<typename ColorType::ComponentType>, ColorType>;
 
@@ -551,7 +633,7 @@ template<typename T, WhitePoint W> struct XYZA : ColorWithAlphaHelper<XYZA<T, W>
     using ComponentType = T;
     using Model = XYZModel<T>;
     using ReferenceXYZ = XYZA<T, W>;
-    static constexpr WhitePoint whitePoint = W;
+    static constexpr auto whitePoint = W;
 
     constexpr XYZA(T x, T y, T z, T alpha = AlphaTraits<T>::opaque)
         : x { x }
@@ -567,16 +649,15 @@ template<typename T, WhitePoint W> struct XYZA : ColorWithAlphaHelper<XYZA<T, W>
     {
     }
 
+    constexpr auto resolved() const { return resolvedColor(*this); }
+    constexpr auto unresolved() const { return unresolvedColor(*this); }
+
+protected:
     T x;
     T y;
     T z;
     T alpha;
 };
-
-template<typename T, WhitePoint W> constexpr ColorComponents<T, 4> asColorComponents(const XYZA<T, W>& c)
-{
-    return { c.x, c.y, c.z, c.alpha };
-}
 
 template<typename ColorType> inline constexpr bool IsXYZA = std::is_same_v<XYZA<typename ColorType::ComponentType, ColorType::whitePoint>, ColorType>;
 
@@ -590,8 +671,13 @@ struct RGBA {
     {
     }
 
-    constexpr explicit RGBA(SRGBA<uint8_t> color)
+    constexpr explicit RGBA(ResolvedColorType<SRGBA<uint8_t>> color)
         : value { static_cast<uint32_t>(color.red << 24 | color.green << 16 | color.blue << 8 | color.alpha) }
+    {
+    }
+
+    constexpr explicit RGBA(SRGBA<uint8_t> color)
+        : RGBA { color.resolved() }
     {
     }
 
@@ -604,8 +690,13 @@ struct ARGB {
     {
     }
 
-    constexpr explicit ARGB(SRGBA<uint8_t> color)
+    constexpr explicit ARGB(ResolvedColorType<SRGBA<uint8_t>> color)
         : value { static_cast<uint32_t>(color.alpha << 24 | color.red << 16 | color.green << 8 | color.blue) }
+    {
+    }
+
+    constexpr explicit ARGB(SRGBA<uint8_t> color)
+        : ARGB { color.resolved() }
     {
     }
 

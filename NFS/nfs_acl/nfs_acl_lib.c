@@ -74,42 +74,42 @@ extern void usage(void);
 
 #ifdef __APPLE__
 static struct {
-	acl_perm_t	perm;
+	acl_perm_t      perm;
 	const char     *name;
-	int		flags;
-#define ACL_PERM_DIR	(1<<0)
-#define ACL_PERM_FILE	(1<<1)
+	int             flags;
+#define ACL_PERM_DIR    (1<<0)
+#define ACL_PERM_FILE   (1<<1)
 } acl_perms[] = {
-	{ACL_READ_DATA,		"read",		ACL_PERM_FILE},
-	{ACL_LIST_DIRECTORY,	"list",		ACL_PERM_DIR},
-	{ACL_WRITE_DATA,	"write",	ACL_PERM_FILE},
-	{ACL_ADD_FILE,		"add_file",	ACL_PERM_DIR},
-	{ACL_EXECUTE,		"execute",	ACL_PERM_FILE},
-	{ACL_SEARCH,		"search",	ACL_PERM_DIR},
-	{ACL_DELETE,		"delete",	ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_APPEND_DATA,	"append",	ACL_PERM_FILE},
-	{ACL_ADD_SUBDIRECTORY,	"add_subdirectory", ACL_PERM_DIR},
-	{ACL_DELETE_CHILD,	"delete_child",	ACL_PERM_DIR},
-	{ACL_READ_ATTRIBUTES,	"readattr",	ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_WRITE_ATTRIBUTES,	"writeattr",	ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_READ_EXTATTRIBUTES, "readextattr",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_READ_DATA, "read", ACL_PERM_FILE},
+	{ACL_LIST_DIRECTORY, "list", ACL_PERM_DIR},
+	{ACL_WRITE_DATA, "write", ACL_PERM_FILE},
+	{ACL_ADD_FILE, "add_file", ACL_PERM_DIR},
+	{ACL_EXECUTE, "execute", ACL_PERM_FILE},
+	{ACL_SEARCH, "search", ACL_PERM_DIR},
+	{ACL_DELETE, "delete", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_APPEND_DATA, "append", ACL_PERM_FILE},
+	{ACL_ADD_SUBDIRECTORY, "add_subdirectory", ACL_PERM_DIR},
+	{ACL_DELETE_CHILD, "delete_child", ACL_PERM_DIR},
+	{ACL_READ_ATTRIBUTES, "readattr", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_WRITE_ATTRIBUTES, "writeattr", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_READ_EXTATTRIBUTES, "readextattr", ACL_PERM_FILE | ACL_PERM_DIR},
 	{ACL_WRITE_EXTATTRIBUTES, "writeextattr", ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_READ_SECURITY,	"readsecurity",	ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_WRITE_SECURITY,	"writesecurity", ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_CHANGE_OWNER,	"chown",	ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_READ_SECURITY, "readsecurity", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_WRITE_SECURITY, "writesecurity", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_CHANGE_OWNER, "chown", ACL_PERM_FILE | ACL_PERM_DIR},
 	{0, NULL, 0}
 };
 
 static struct {
-	acl_flag_t	flag;
-	const char	*name;
-	int		flags;
+	acl_flag_t      flag;
+	const char      *name;
+	int             flags;
 } acl_flags[] = {
-	{ACL_ENTRY_INHERITED,		"inherited",		ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_ENTRY_FILE_INHERIT,	"file_inherit",		ACL_PERM_DIR},
-	{ACL_ENTRY_DIRECTORY_INHERIT,	"directory_inherit",	ACL_PERM_DIR},
-	{ACL_ENTRY_LIMIT_INHERIT,	"limit_inherit",	ACL_PERM_FILE | ACL_PERM_DIR},
-	{ACL_ENTRY_ONLY_INHERIT,	"only_inherit",		ACL_PERM_DIR},
+	{ACL_ENTRY_INHERITED, "inherited", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_ENTRY_FILE_INHERIT, "file_inherit", ACL_PERM_DIR},
+	{ACL_ENTRY_DIRECTORY_INHERIT, "directory_inherit", ACL_PERM_DIR},
+	{ACL_ENTRY_LIMIT_INHERIT, "limit_inherit", ACL_PERM_FILE | ACL_PERM_DIR},
+	{ACL_ENTRY_ONLY_INHERIT, "only_inherit", ACL_PERM_DIR},
 	{0, NULL, 0}
 };
 
@@ -126,7 +126,8 @@ static struct {
 /* Perform a name to uuid mapping - calls through to memberd */
 
 uuid_t *
-name_to_uuid(char *tok, int nametype) {
+name_to_uuid(char *tok, int nametype)
+{
 	uuid_t *entryg = NULL;
 	size_t len = strlen(tok);
 
@@ -178,14 +179,15 @@ errout:
 
 /* Convert an acl entry in string form to an acl_entry_t */
 int
-parse_entry(char *entrybuf, acl_entry_t newent) {
+parse_entry(char *entrybuf, acl_entry_t newent)
+{
 	char *tok;
 	char *pebuf;
 	uuid_t *entryg;
 
-	acl_tag_t	tag;
-	acl_permset_t	perms;
-	acl_flagset_t	flags;
+	acl_tag_t       tag;
+	acl_permset_t   perms;
+	acl_flagset_t   flags;
 	unsigned permcount = 0;
 	unsigned pindex = 0;
 	const char *delimiter = " ";
@@ -204,8 +206,9 @@ parse_entry(char *entrybuf, acl_entry_t newent) {
 		pebuf += 6;
 	}
 
-	if (strchr(pebuf, ':')) /* User/Group names can have spaces */
+	if (strchr(pebuf, ':')) { /* User/Group names can have spaces */
 		delimiter = ":";
+	}
 	tok = strsep(&pebuf, delimiter);
 
 	if ((tok == NULL) || *tok == '\0') {
@@ -250,8 +253,8 @@ parse_entry(char *entrybuf, acl_entry_t newent) {
 					goto found;
 				}
 			}
-			errx(1,"Invalid permission type '%s'", tok);
-		found:
+			errx(1, "Invalid permission type '%s'", tok);
+found:
 			continue;
 		}
 	}
@@ -264,12 +267,13 @@ parse_entry(char *entrybuf, acl_entry_t newent) {
 	acl_set_flagset_np(newent, flags);
 	free(entryg);
 
-	return(0);
+	return 0;
 }
 
 /* Convert one or more acl entries in string form to an acl_t */
 acl_t
-parse_acl_entries(const char *input) {
+parse_acl_entries(const char *input)
+{
 	acl_t acl_input;
 	acl_entry_t newent;
 	char *inbuf;
@@ -286,20 +290,23 @@ parse_acl_entries(const char *input) {
 #else
 	inbuf = malloc(MAX_ACL_TEXT_SIZE);
 
-	if (inbuf == NULL)
+	if (inbuf == NULL) {
 		err(1, "malloc() failed");
+	}
 	strncpy(inbuf, input, MAX_ACL_TEXT_SIZE);
 	inbuf[MAX_ACL_TEXT_SIZE - 1] = '\0';
 
-	if ((acl_input = acl_init(1)) == NULL)
+	if ((acl_input = acl_init(1)) == NULL) {
 		err(1, "acl_init() failed");
+	}
 
 	oinbuf = inbuf;
 
-	for (bufp = entryv; (*bufp = strsep(&oinbuf, "\n;")) != NULL;)
+	for (bufp = entryv; (*bufp = strsep(&oinbuf, "\n;")) != NULL;) {
 		if (**bufp != '\0') {
-			if (0 != acl_create_entry(&acl_input, &newent))
+			if (0 != acl_create_entry(&acl_input, &newent)) {
 				err(1, "acl_create_entry() failed");
+			}
 			if (0 != parse_entry(*bufp, newent)) {
 				errx(1, "Failed parsing entry '%s'", *bufp);
 			}
@@ -307,41 +314,46 @@ parse_acl_entries(const char *input) {
 				errx(1, "Too many entries");
 			}
 		}
+	}
 
 	free(inbuf);
 	return acl_input;
-#endif	/* #if 0 */
+#endif  /* #if 0 */
 }
 
 
 void
 printacl(acl_t acl, int isdir)
 {
-	acl_entry_t	entry = NULL;
-	int		index;
-	uuid_t		*applicable;
-	char		*name = NULL;
-	acl_tag_t	tag;
-	acl_flagset_t	flags;
-	acl_permset_t	perms;
-	const char	*type;
-	int		i, first;
+	acl_entry_t     entry = NULL;
+	int             index;
+	uuid_t          *applicable;
+	char            *name = NULL;
+	acl_tag_t       tag;
+	acl_flagset_t   flags;
+	acl_permset_t   perms;
+	const char      *type;
+	int             i, first;
 
 
 	for (index = 0;
-	     acl_get_entry(acl, entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0;
-	     index++) {
-		if (acl_get_tag_type(entry, &tag) != 0)
+	    acl_get_entry(acl, entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0;
+	    index++) {
+		if (acl_get_tag_type(entry, &tag) != 0) {
 			continue;
-		if (acl_get_flagset_np(entry, &flags) != 0)
+		}
+		if (acl_get_flagset_np(entry, &flags) != 0) {
 			continue;
-		if (acl_get_permset(entry, &perms) != 0)
+		}
+		if (acl_get_permset(entry, &perms) != 0) {
 			continue;
-		if ((applicable = (uuid_t *) acl_get_qualifier(entry)) == NULL)
+		}
+		if ((applicable = (uuid_t *) acl_get_qualifier(entry)) == NULL) {
 			continue;
+		}
 		name = uuid_to_name(applicable);
 		acl_free(applicable);
-		switch(tag) {
+		switch (tag) {
 		case ACL_EXTENDED_ALLOW:
 			type = "allow";
 			break;
@@ -358,32 +370,37 @@ printacl(acl_t acl, int isdir)
 		    acl_get_flag_np(flags, ACL_ENTRY_INHERITED) ? " inherited" : "",
 		    type);
 
-		if (name)
+		if (name) {
 			free(name);
+		}
 
 		for (i = 0, first = 0; acl_perms[i].name != NULL; i++) {
-			if (acl_get_perm_np(perms, acl_perms[i].perm) == 0)
+			if (acl_get_perm_np(perms, acl_perms[i].perm) == 0) {
 				continue;
-			if (!(acl_perms[i].flags & (isdir ? ACL_PERM_DIR : ACL_PERM_FILE)))
+			}
+			if (!(acl_perms[i].flags & (isdir ? ACL_PERM_DIR : ACL_PERM_FILE))) {
 				continue;
+			}
 			(void)printf("%s%s", first++ ? "," : "", acl_perms[i].name);
 		}
 		for (i = 0; acl_flags[i].name != NULL; i++) {
-			if (acl_get_flag_np(flags, acl_flags[i].flag) == 0)
+			if (acl_get_flag_np(flags, acl_flags[i].flag) == 0) {
 				continue;
-			if (!(acl_flags[i].flags & (isdir ? ACL_PERM_DIR : ACL_PERM_FILE)))
+			}
+			if (!(acl_flags[i].flags & (isdir ? ACL_PERM_DIR : ACL_PERM_FILE))) {
 				continue;
+			}
 			(void)printf("%s%s", first++ ? "," : "", acl_flags[i].name);
 		}
 
 		(void)putchar('\n');
 	}
-
 }
 
 /* XXX No Libc support for inherited entries and generation determination yet */
 unsigned
-get_inheritance_level(acl_entry_t entry __unused) {
+get_inheritance_level(acl_entry_t entry __unused)
+{
 /* XXX to be implemented */
 	return 1;
 }
@@ -394,27 +411,29 @@ get_inheritance_level(acl_entry_t entry __unused) {
  */
 
 int
-score_acl_entry(acl_entry_t entry) {
-
-	acl_tag_t	tag;
-	acl_flagset_t	flags;
-	acl_permset_t	perms;
+score_acl_entry(acl_entry_t entry)
+{
+	acl_tag_t       tag;
+	acl_flagset_t   flags;
+	acl_permset_t   perms;
 
 	int score = 0;
 
-	if (entry == NULL)
-		return (MINIMUM_TIER);
+	if (entry == NULL) {
+		return MINIMUM_TIER;
+	}
 
 	if (acl_get_tag_type(entry, &tag) != 0) {
 		err(1, "Malformed ACL entry, no tag present");
 	}
-	if (acl_get_flagset_np(entry, &flags) != 0){
+	if (acl_get_flagset_np(entry, &flags) != 0) {
 		err(1, "Unable to obtain flagset");
 	}
-	if (acl_get_permset(entry, &perms) != 0)
+	if (acl_get_permset(entry, &perms) != 0) {
 		err(1, "Malformed ACL entry, no permset present");
+	}
 
-	switch(tag) {
+	switch (tag) {
 	case ACL_EXTENDED_ALLOW:
 		break;
 	case ACL_EXTENDED_DENY:
@@ -425,14 +444,16 @@ score_acl_entry(acl_entry_t entry) {
 		/* NOTREACHED */
 	}
 
-	if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED))
+	if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED)) {
 		score += get_inheritance_level(entry) * INHERITANCE_TIER;
+	}
 
 	return score;
 }
 
 int
-compare_acl_qualifiers(uuid_t *qa, uuid_t *qb) {
+compare_acl_qualifiers(uuid_t *qa, uuid_t *qb)
+{
 	return bcmp(qa, qb, sizeof(uuid_t));
 }
 
@@ -452,8 +473,9 @@ compare_acl_permsets(acl_permset_t aperms, acl_permset_t bperms)
 /* TBD Implement other match levels as needed */
 	for (i = 0; acl_perms[i].name != NULL; i++) {
 		if (acl_get_perm_np(aperms, acl_perms[i].perm) !=
-		    acl_get_perm_np(bperms, acl_perms[i].perm))
+		    acl_get_perm_np(bperms, acl_perms[i].perm)) {
 			return MATCH_NONE;
+		}
 	}
 	return MATCH_EXACT;
 }
@@ -465,8 +487,9 @@ compare_acl_flagsets(acl_flagset_t aflags, acl_flagset_t bflags)
 /* TBD Implement other match levels as needed */
 	for (i = 0; acl_flags[i].name != NULL; i++) {
 		if (acl_get_flag_np(aflags, acl_flags[i].flag) !=
-		    acl_get_flag_np(bflags, acl_flags[i].flag))
+		    acl_get_flag_np(bflags, acl_flags[i].flag)) {
 			return MATCH_NONE;
+		}
 	}
 	return MATCH_EXACT;
 }
@@ -488,30 +511,36 @@ compare_acl_entries(acl_entry_t a, acl_entry_t b)
 	acl_free(aqual);
 	acl_free(bqual);
 
-	if (compare != 0)
+	if (compare != 0) {
 		return MATCH_NONE;
+	}
 
-	if (0 != acl_get_tag_type(a, &atag))
+	if (0 != acl_get_tag_type(a, &atag)) {
 		err(1, "No tag type present in entry");
-	if (0!= acl_get_tag_type(b, &btag))
+	}
+	if (0 != acl_get_tag_type(b, &btag)) {
 		err(1, "No tag type present in entry");
+	}
 
-	if (atag != btag)
+	if (atag != btag) {
 		return MATCH_NONE;
+	}
 
 	if ((acl_get_permset(a, &aperms) != 0) ||
 	    (acl_get_flagset_np(a, &aflags) != 0) ||
 	    (acl_get_permset(b, &bperms) != 0) ||
-	    (acl_get_flagset_np(b, &bflags) != 0))
+	    (acl_get_flagset_np(b, &bflags) != 0)) {
 		err(1, "error fetching permissions");
+	}
 
 	pcmp = compare_acl_permsets(aperms, bperms);
 	fcmp = compare_acl_flagsets(aflags, bflags);
 
-	if ((pcmp == MATCH_NONE) || (fcmp == MATCH_NONE))
-		return(MATCH_PARTIAL);
-	else
-		return(MATCH_EXACT);
+	if ((pcmp == MATCH_NONE) || (fcmp == MATCH_NONE)) {
+		return MATCH_PARTIAL;
+	} else {
+		return MATCH_EXACT;
+	}
 }
 
 
@@ -544,39 +573,47 @@ match_acl_entry(acl_entry_t ace, acl_entry_t pat_ace, int inherited)
 	acl_free(qual);
 	acl_free(pqual);
 
-	if (compare != 0)
+	if (compare != 0) {
 		return MATCH_NONE;
+	}
 
-	if (acl_get_tag_type(ace, &tag) != 0)
+	if (acl_get_tag_type(ace, &tag) != 0) {
 		err(1, "No tag type present in entry");
-	if (acl_get_tag_type(pat_ace, &ptag) != 0)
+	}
+	if (acl_get_tag_type(pat_ace, &ptag) != 0) {
 		err(1, "No tag type present in entry");
+	}
 
-	if (tag != ptag)
+	if (tag != ptag) {
 		return MATCH_NONE;
+	}
 
 	if ((acl_get_permset_mask_np(ace, &perms) != 0) ||
 	    (acl_get_flagset_np(ace, &flags) != 0) ||
 	    (acl_get_permset_mask_np(pat_ace, &pperms) != 0) ||
-	    (acl_get_flagset_np(pat_ace, &pflags) != 0))
+	    (acl_get_flagset_np(pat_ace, &pflags) != 0)) {
 		err(1, "error fetching permissions");
+	}
 
 	if (inherited) {
 		flag = ((acl_get_flag_np(pflags, ACL_ENTRY_FILE_INHERIT) ||
-			 acl_get_flag_np(pflags, ACL_ENTRY_DIRECTORY_INHERIT)) ? 1 : 0);
+		    acl_get_flag_np(pflags, ACL_ENTRY_DIRECTORY_INHERIT)) ? 1 : 0);
 
-		if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED) != flag)
+		if (acl_get_flag_np(flags, ACL_ENTRY_INHERITED) != flag) {
 			return MATCH_NONE;
+		}
 	} else {
-		if (compare_acl_flagsets(flags, pflags) == MATCH_NONE)
+		if (compare_acl_flagsets(flags, pflags) == MATCH_NONE) {
 			return MATCH_NONE;
+		}
 	}
 
 	/* pperms should be a subset of perms */
-	if ((pperms & perms) != pperms)
+	if ((pperms & perms) != pperms) {
 		return MATCH_NONE;
+	}
 
-	return(MATCH_EXACT);
+	return MATCH_EXACT;
 }
 
 int
@@ -586,12 +623,13 @@ find_pattern_matching_entry(acl_t a, acl_entry_t p, int inherited)
 	int next_entry;
 
 	for (next_entry = ACL_FIRST_ENTRY;
-	     acl_get_entry(a, next_entry, &ae) == 0;
-	     next_entry = ACL_NEXT_ENTRY) {
-		if (match_acl_entry(ae, p, inherited))
-			return (1);
+	    acl_get_entry(a, next_entry, &ae) == 0;
+	    next_entry = ACL_NEXT_ENTRY) {
+		if (match_acl_entry(ae, p, inherited)) {
+			return 1;
+		}
 	}
-	return (0);
+	return 0;
 }
 
 int
@@ -603,12 +641,13 @@ acl_matches(acl_t acl, acl_t pattern, int inherited)
 	/* Empty pattern acl always matches */
 
 	for (next_entry = ACL_FIRST_ENTRY;
-	     acl_get_entry(pattern, next_entry, &ae) == 0;
-	     next_entry = ACL_NEXT_ENTRY) {
-		if (!find_pattern_matching_entry(acl, ae, inherited))
-			return (0);
+	    acl_get_entry(pattern, next_entry, &ae) == 0;
+	    next_entry = ACL_NEXT_ENTRY) {
+		if (!find_pattern_matching_entry(acl, ae, inherited)) {
+			return 0;
+		}
 	}
-	return (1);
+	return 1;
 }
 
 /* Verify that an ACL is in canonical order. Currently, the canonical
@@ -622,22 +661,24 @@ acl_matches(acl_t acl, acl_t pattern, int inherited)
  * ...
  */
 unsigned int
-is_canonical(acl_t acl) {
-
+is_canonical(acl_t acl)
+{
 	unsigned aindex;
 	acl_entry_t entry;
 	int score = 0, next_score = 0;
 
 /* XXX - is a zero entry ACL in canonical form? */
-	if (0 != acl_get_entry(acl, ACL_FIRST_ENTRY, &entry))
+	if (0 != acl_get_entry(acl, ACL_FIRST_ENTRY, &entry)) {
 		return 1;
+	}
 
 	score = score_acl_entry(entry);
 
 	for (aindex = 0; acl_get_entry(acl, ACL_NEXT_ENTRY, &entry) == 0;
-	     aindex++)	{
-		if (score < (next_score = score_acl_entry(entry)))
+	    aindex++) {
+		if (score < (next_score = score_acl_entry(entry))) {
 			return 0;
+		}
 		score = next_score;
 	}
 	return 1;
@@ -648,8 +689,8 @@ is_canonical(acl_t acl) {
  * specified entry
  */
 unsigned int
-find_canonical_position(acl_t acl, acl_entry_t modifier) {
-
+find_canonical_position(acl_t acl, acl_entry_t modifier)
+{
 	acl_entry_t entry;
 	int mscore = 0;
 	unsigned mpos = 0;
@@ -659,19 +700,19 @@ find_canonical_position(acl_t acl, acl_entry_t modifier) {
 	 * for the score.
 	 */
 
-	if (0 != acl_get_entry(acl, ACL_FIRST_ENTRY, &entry))
+	if (0 != acl_get_entry(acl, ACL_FIRST_ENTRY, &entry)) {
 		return 0;
+	}
 
 	mscore = score_acl_entry(modifier);
 
 	while (mscore < score_acl_entry(entry)) {
-
 		mpos++;
 
-	       if (0 != acl_get_entry(acl, ACL_NEXT_ENTRY, &entry))
-		       break;
-
-	       }
+		if (0 != acl_get_entry(acl, ACL_NEXT_ENTRY, &entry)) {
+			break;
+		}
+	}
 	return mpos;
 }
 
@@ -682,41 +723,43 @@ int canonicalize_acl_entries(acl_t acl);
  */
 
 int
-find_matching_entry (acl_t acl, acl_entry_t modifier, acl_entry_t *rentryp,
-		     unsigned match_inherited) {
-
+find_matching_entry(acl_t acl, acl_entry_t modifier, acl_entry_t *rentryp,
+    unsigned match_inherited)
+{
 	acl_entry_t entry = NULL;
 
 	unsigned aindex;
 	int cmp, fcmp = MATCH_NONE;
 
 	for (aindex = 0;
-	     acl_get_entry(acl, entry == NULL ? ACL_FIRST_ENTRY :
-			   ACL_NEXT_ENTRY, &entry) == 0;
-	     aindex++)	{
+	    acl_get_entry(acl, entry == NULL ? ACL_FIRST_ENTRY :
+	    ACL_NEXT_ENTRY, &entry) == 0;
+	    aindex++) {
 		cmp = compare_acl_entries(entry, modifier);
 		if ((cmp == MATCH_EXACT) || (cmp == MATCH_PARTIAL)) {
 			if (match_inherited) {
 				acl_flagset_t eflags, mflags;
 
-				if (0 != acl_get_flagset_np(modifier, &mflags))
+				if (0 != acl_get_flagset_np(modifier, &mflags)) {
 					err(1, "Unable to get flagset");
+				}
 
-				if (0 != acl_get_flagset_np(entry, &eflags))
+				if (0 != acl_get_flagset_np(entry, &eflags)) {
 					err(1, "Unable to get flagset");
+				}
 
 				if (compare_acl_flagsets(mflags, eflags) == MATCH_EXACT) {
 					*rentryp = entry;
 					fcmp = cmp;
 				}
-			}
-			else {
+			} else {
 				*rentryp = entry;
 				fcmp = cmp;
 			}
 		}
-		if (fcmp == MATCH_EXACT)
+		if (fcmp == MATCH_EXACT) {
 			break;
+		}
 	}
 	return fcmp;
 }
@@ -727,25 +770,29 @@ subtract_from_entry(acl_entry_t rentry, acl_entry_t  modifier, int* valid_perms)
 {
 	acl_permset_t rperms, mperms;
 	acl_flagset_t rflags, mflags;
-	if (valid_perms)
+	if (valid_perms) {
 		*valid_perms = 0;
+	}
 	int i;
 
 	if ((acl_get_permset(rentry, &rperms) != 0) ||
 	    (acl_get_flagset_np(rentry, &rflags) != 0) ||
 	    (acl_get_permset(modifier, &mperms) != 0) ||
-	    (acl_get_flagset_np(modifier, &mflags) != 0))
+	    (acl_get_flagset_np(modifier, &mflags) != 0)) {
 		err(1, "error computing ACL modification");
+	}
 
 	for (i = 0; acl_perms[i].name != NULL; i++) {
-		if (acl_get_perm_np(mperms, acl_perms[i].perm))
+		if (acl_get_perm_np(mperms, acl_perms[i].perm)) {
 			acl_delete_perm(rperms, acl_perms[i].perm);
-		else if (valid_perms && acl_get_perm_np(rperms, acl_perms[i].perm))
+		} else if (valid_perms && acl_get_perm_np(rperms, acl_perms[i].perm)) {
 			(*valid_perms)++;
+		}
 	}
 	for (i = 0; acl_flags[i].name != NULL; i++) {
-		if (acl_get_flag_np(mflags, acl_flags[i].flag))
+		if (acl_get_flag_np(mflags, acl_flags[i].flag)) {
 			acl_delete_flag_np(rflags, acl_flags[i].flag);
+		}
 	}
 	acl_set_permset(rentry, rperms);
 	acl_set_flagset_np(rentry, rflags);
@@ -762,16 +809,19 @@ merge_entry_perms(acl_entry_t rentry, acl_entry_t  modifier)
 	if ((acl_get_permset(rentry, &rperms) != 0) ||
 	    (acl_get_flagset_np(rentry, &rflags) != 0) ||
 	    (acl_get_permset(modifier, &mperms) != 0) ||
-	    (acl_get_flagset_np(modifier, &mflags) != 0))
+	    (acl_get_flagset_np(modifier, &mflags) != 0)) {
 		err(1, "error computing ACL modification");
+	}
 
 	for (i = 0; acl_perms[i].name != NULL; i++) {
-		if (acl_get_perm_np(mperms, acl_perms[i].perm))
+		if (acl_get_perm_np(mperms, acl_perms[i].perm)) {
 			acl_add_perm(rperms, acl_perms[i].perm);
+		}
 	}
 	for (i = 0; acl_flags[i].name != NULL; i++) {
-		if (acl_get_flag_np(mflags, acl_flags[i].flag))
+		if (acl_get_flag_np(mflags, acl_flags[i].flag)) {
 			acl_add_flag_np(rflags, acl_flags[i].flag);
+		}
 	}
 	acl_set_permset(rentry, rperms);
 	acl_set_flagset_np(rentry, rflags);
@@ -780,9 +830,9 @@ merge_entry_perms(acl_entry_t rentry, acl_entry_t  modifier)
 
 int
 modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
-	   int position, int inheritance_level __unused,
-	   unsigned flag_new_acl, const char* path) {
-
+    int position, int inheritance_level __unused,
+    unsigned flag_new_acl, const char* path)
+{
 	unsigned cpos = 0;
 	acl_entry_t newent = NULL;
 	int dmatch = 0;
@@ -801,8 +851,9 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 
 	if (optflags & ACL_SET_FLAG) {
 		if (position != -1) {
-			if (0 != acl_create_entry_np(&oacl, &newent, position))
+			if (0 != acl_create_entry_np(&oacl, &newent, position)) {
 				err(1, "acl_create_entry() failed");
+			}
 			acl_copy_entry(newent, modifier);
 		} else {
 /* If an entry exists, add the new permissions to it, else add an
@@ -813,9 +864,10 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 			dmatch = find_matching_entry(oacl, modifier, &rentry, 1);
 
 			if (dmatch != MATCH_NONE) {
-				if (dmatch == MATCH_EXACT)
+				if (dmatch == MATCH_EXACT) {
 /* Nothing to be done */
 					goto ma_exit;
+				}
 
 				if (dmatch == MATCH_PARTIAL) {
 					merge_entry_perms(rentry, modifier);
@@ -824,15 +876,16 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 			}
 /* Insert the entry in canonical order */
 			cpos = find_canonical_position(oacl, modifier);
-			if (0!= acl_create_entry_np(&oacl, &newent, cpos))
+			if (0 != acl_create_entry_np(&oacl, &newent, cpos)) {
 				err(1, "acl_create_entry() failed");
+			}
 			acl_copy_entry(newent, modifier);
 		}
 	} else if (optflags & ACL_DELETE_FLAG) {
 		if (flag_new_acl) {
 			warnx("No ACL present '%s'", path);
 			retval = 1;
-		} else if (position != -1 ) {
+		} else if (position != -1) {
 			if (0 != acl_get_entry(oacl, position, &rentry)) {
 				warnx("Invalid entry number '%s'", path);
 				retval = 1;
@@ -842,30 +895,31 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 		} else {
 			unsigned match_found = 0, aindex;
 			for (aindex = 0;
-			     acl_get_entry(oacl, rentry == NULL ?
-					   ACL_FIRST_ENTRY :
-					   ACL_NEXT_ENTRY, &rentry) == 0;
-			     aindex++)	{
+			    acl_get_entry(oacl, rentry == NULL ?
+			    ACL_FIRST_ENTRY :
+			    ACL_NEXT_ENTRY, &rentry) == 0;
+			    aindex++) {
 				unsigned cmp;
 				cmp = compare_acl_entries(rentry, modifier);
 				if ((cmp == MATCH_EXACT) ||
 				    (cmp == MATCH_PARTIAL)) {
 					match_found++;
-					if (cmp == MATCH_EXACT)
+					if (cmp == MATCH_EXACT) {
 						acl_delete_entry(oacl, rentry);
-					else {
+					} else {
 						int valid_perms;
 /* In the event of a partial match, remove the specified perms from the
  * entry */
 						subtract_from_entry(rentry, modifier, &valid_perms);
 						/* if no perms survived then delete the entry */
-						if (valid_perms == 0)
+						if (valid_perms == 0) {
 							acl_delete_entry(oacl, rentry);
+						}
 					}
 				}
 			}
 			if (0 == match_found) {
-				warnx("Entry not found when attempting delete '%s'",path);
+				warnx("Entry not found when attempting delete '%s'", path);
 				retval = 1;
 			}
 		}
@@ -877,14 +931,17 @@ modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags,
 		}
 		if (0 == flag_new_acl) {
 			if (0 != acl_get_entry(oacl, position,
-					       &rentry))
+			    &rentry)) {
 				err(1, "Invalid entry number '%s'", path);
+			}
 
-			if (0 != acl_delete_entry(oacl, rentry))
+			if (0 != acl_delete_entry(oacl, rentry)) {
 				err(1, "Unable to delete entry '%s'", path);
+			}
 		}
-		if (0!= acl_create_entry_np(&oacl, &newent, position))
+		if (0 != acl_create_entry_np(&oacl, &newent, position)) {
 			err(1, "acl_create_entry() failed");
+		}
 		acl_copy_entry(newent, modifier);
 	}
 ma_exit:
@@ -893,8 +950,8 @@ ma_exit:
 }
 
 int
-modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int position, int inheritance_level, int follow) {
-
+modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int position, int inheritance_level, int follow)
+{
 	acl_t oacl = NULL;
 	unsigned aindex  = 0, flag_new_acl = 0;
 	acl_entry_t newent = NULL;
@@ -917,8 +974,9 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
  * a zero-entry ACL for a delete or check canonicity operation?
  */
 
-	if (path == NULL)
+	if (path == NULL) {
 		usage();
+	}
 
 	if (optflags & ACL_CLEAR_FLAG) {
 		filesec_t fsec = filesec_init();
@@ -953,7 +1011,7 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 			}
 		}
 		filesec_free(fsec);
-		return (retval);
+		return retval;
 	}
 
 	if (optflags & ACL_FROM_STDIN) {
@@ -969,23 +1027,25 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 			}
 		}
 		if ((oacl == NULL) ||
-		    (acl_get_entry(oacl,ACL_FIRST_ENTRY, &newent) != 0)) {
-			if ((oacl = acl_init(1)) == NULL)
+		    (acl_get_entry(oacl, ACL_FIRST_ENTRY, &newent) != 0)) {
+			if ((oacl = acl_init(1)) == NULL) {
 				err(1, "acl_init() failed");
+			}
 			flag_new_acl = 1;
 			position = 0;
 		}
 
 		if ((0 == flag_new_acl) && (optflags & (ACL_REMOVE_INHERIT_FLAG |
-							ACL_REMOVE_INHERITED_ENTRIES))) {
+		    ACL_REMOVE_INHERITED_ENTRIES))) {
 			acl_t facl = NULL;
-			if ((facl = acl_init(1)) == NULL)
+			if ((facl = acl_init(1)) == NULL) {
 				err(1, "acl_init() failed");
+			}
 			for (aindex = 0;
-			     acl_get_entry(oacl,
-					   (entry == NULL ? ACL_FIRST_ENTRY :
-					    ACL_NEXT_ENTRY), &entry) == 0;
-			     aindex++) {
+			    acl_get_entry(oacl,
+			    (entry == NULL ? ACL_FIRST_ENTRY :
+			    ACL_NEXT_ENTRY), &entry) == 0;
+			    aindex++) {
 				acl_flagset_t eflags;
 				acl_entry_t fent = NULL;
 				if (acl_get_flagset_np(entry, &eflags) != 0) {
@@ -999,14 +1059,14 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 						acl_create_entry(&facl, &fent);
 						acl_copy_entry(fent, entry);
 					}
-				}
-				else {
+				} else {
 					acl_create_entry(&facl, &fent);
 					acl_copy_entry(fent, entry);
 				}
 			}
-			if (oacl)
+			if (oacl) {
 				acl_free(oacl);
+			}
 			oacl = facl;
 		} else if (optflags & ACL_TO_STDOUT) {
 			ssize_t len; /* need to get printacl() from ls(1) */
@@ -1025,8 +1085,8 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 		} else if (((optflags & ACL_DELETE_FLAG) && (position != -1))
 		    || (optflags & ACL_CHECK_CANONICITY)) {
 			retval = modify_acl(&oacl, NULL, optflags, position,
-					    inheritance_level, flag_new_acl, path);
-		} else if ((optflags & (ACL_REMOVE_INHERIT_FLAG|ACL_REMOVE_INHERITED_ENTRIES)) && flag_new_acl) {
+			    inheritance_level, flag_new_acl, path);
+		} else if ((optflags & (ACL_REMOVE_INHERIT_FLAG | ACL_REMOVE_INHERITED_ENTRIES)) && flag_new_acl) {
 			warnx("No ACL currently associated with file '%s'", path);
 			retval = 1;
 		} else {
@@ -1034,14 +1094,13 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 				errx(1, "Internal error: modifier should not be NULL");
 			}
 			for (aindex = 0;
-			     acl_get_entry(modifier,
-					   (entry == NULL ? ACL_FIRST_ENTRY :
-					    ACL_NEXT_ENTRY), &entry) == 0;
-			     aindex++) {
-
+			    acl_get_entry(modifier,
+			    (entry == NULL ? ACL_FIRST_ENTRY :
+			    ACL_NEXT_ENTRY), &entry) == 0;
+			    aindex++) {
 				retval += modify_acl(&oacl, entry, optflags,
-						     position, inheritance_level,
-						     flag_new_acl, path);
+				    position, inheritance_level,
+				    flag_new_acl, path);
 			}
 		}
 	}
@@ -1054,7 +1113,7 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
  * "changeset" mechanism, common locking  strategy, or kernel
  * supplied reservation mechanism to prevent this race.
  */
-	if (!(optflags & (ACL_TO_STDOUT|ACL_CHECK_CANONICITY))) {
+	if (!(optflags & (ACL_TO_STDOUT | ACL_CHECK_CANONICITY))) {
 		int status = -1;
 		if (follow) {
 			status = acl_set_file(path, ACL_TYPE_EXTENDED, oacl);
@@ -1062,19 +1121,21 @@ modify_file_acl(unsigned int optflags, const char *path, acl_t modifier, int pos
 			int fd = open(path, O_SYMLINK);
 			if (fd != -1) {
 				status = acl_set_fd_np(fd, oacl,
-							ACL_TYPE_EXTENDED);
+				    ACL_TYPE_EXTENDED);
 				close(fd);
 			}
 		}
 		if (status != 0) {
-			if (!fflag)
+			if (!fflag) {
 				warn("Failed to set ACL on file '%s'", path);
+			}
 			retval = 1;
 		}
 	}
 
-	if (oacl)
+	if (oacl) {
 		acl_free(oacl);
+	}
 
 	return retval;
 }

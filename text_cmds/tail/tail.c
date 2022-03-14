@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -48,36 +46,62 @@ static const char copyright[] =
 static const char sccsid[] = "@(#)tail.c	8.1 (Berkeley) 6/6/93";
 #endif
 
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
 #include <err.h>
 #include <errno.h>
+#include <getopt.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
+#ifndef __APPLE__
+#include <libcasper.h>
+#include <casper/cap_fileargs.h>
+#endif
+
 #include "extern.h"
 
 int Fflag, fflag, qflag, rflag, rval, no_files;
-const char *fname;
+#ifndef __APPLE__
+fileargs_t *fa;
+#endif
 
-file_info_t *files;
+static file_info_t *files;
 
 static void obsolete(char **);
 static void usage(void);
+
+static const struct option long_opts[] =
+{
+	{"blocks",	required_argument,	NULL, 'b'},
+	{"bytes",	required_argument,	NULL, 'c'},
+	{"lines",	required_argument,	NULL, 'n'},
+	{NULL,		no_argument,		NULL, 0}
+};
 
 int
 main(int argc, char *argv[])
 {
 	struct stat sb;
+	const char *fn;
 	FILE *fp;
 	off_t off;
 	enum STYLE style;
 	int i, ch, first;
 	file_info_t *file;
 	char *p;
+#ifndef __APPLE__
+	cap_rights_t rights;
+#endif
 
 	/*
 	 * Tail's options are weird.  First, -n10 is the same as -n-10, not
@@ -114,7 +138,9 @@ main(int argc, char *argv[])
 
 	obsolete(argv);
 	style = NOTSET;
-	while ((ch = getopt(argc, argv, "Fb:c:fn:qr")) != -1)
+	off = 0;
+	while ((ch = getopt_long(argc, argv, "+Fb:c:fn:qr", long_opts, NULL)) !=
+	    -1)
 		switch(ch) {
 		case 'F':	/* -F is superset of (and implies) -f */
 			Fflag = fflag = 1;
@@ -146,6 +172,24 @@ main(int argc, char *argv[])
 
 	no_files = argc ? argc : 1;
 
+#ifndef __APPLE__
+	cap_rights_init(&rights, CAP_FSTAT, CAP_FSTATFS, CAP_FCNTL,
+	    CAP_MMAP_R);
+	if (fflag)
+		cap_rights_set(&rights, CAP_EVENT);
+	if (caph_rights_limit(STDIN_FILENO, &rights) < 0 ||
+	    caph_limit_stderr() < 0 || caph_limit_stdout() < 0)
+		err(1, "can't limit stdio rights");
+
+	fa = fileargs_init(argc, argv, O_RDONLY, 0, &rights, FA_OPEN);
+	if (fa == NULL)
+		err(1, "unable to init casper");
+
+	caph_cache_catpages();
+	if (caph_enter_casper() < 0)
+		err(1, "unable to enter capability mode");
+#endif
+
 	/*
 	 * If displaying in reverse, don't permit follow option, and convert
 	 * style values.
@@ -173,37 +217,30 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (fflag && !argc) {
-		/*
-		 * Determine if input is a pipe.  4.4BSD will set the SOCKET
-		 * bit in the st_mode field for pipes.  Fix this then.
-		 */
-		if (lseek(fileno(stdin), (off_t)0, SEEK_CUR) == -1 &&
-		    errno == ESPIPE) {
-			errno = 0;
-			fflag = 0;		/* POSIX.2 requires this. */
-		}
-	}
-
-	if (fflag) {
-		files = (struct file_info *) malloc(no_files * sizeof(struct file_info));
-		if (! files)
+	if (*argv && fflag) {
+		files = (struct file_info *) malloc(no_files *
+		    sizeof(struct file_info));
+		if (!files)
 			err(1, "Couldn't malloc space for file descriptors.");
 
-		for (file = files; (fname = argc ? *argv++ : "stdin"); file++) {
-			file->file_name = malloc(strlen(fname)+1);
+		for (file = files; (fn = *argv++); file++) {
+			file->file_name = strdup(fn);
 			if (! file->file_name)
 				errx(1, "Couldn't malloc space for file name.");
-			strncpy(file->file_name, fname, strlen(fname)+1);
-			file->fp = argc ? fopen(file->file_name, "r") : stdin;
+#ifndef __APPLE__
+			file->fp = fileargs_fopen(fa, file->file_name, "r");
+#else
+			file->fp = fopen(file->file_name, "r");
+#endif
 			if (file->fp == NULL ||
 			    fstat(fileno(file->fp), &file->st)) {
-				file->fp = NULL;
-				ierr();
-				continue;
+				if (file->fp != NULL) {
+					fclose(file->fp);
+					file->fp = NULL;
+				}
+				if (!Fflag || errno != ENOENT)
+					ierr(file->file_name);
 			}
-			if (!argc)
-				break;
 		}
 		follow(files, style, off);
 		for (i = 0, file = files; i < no_files; i++, file++) {
@@ -211,17 +248,19 @@ main(int argc, char *argv[])
 		}
 		free(files);
 	} else if (*argv) {
-		for (first = 1; (fname = *argv++);) {
-			if ((fp = fopen(fname, "r")) == NULL ||
+		for (first = 1; (fn = *argv++);) {
+#ifndef __APPLE__
+			if ((fp = fileargs_fopen(fa, fn, "r")) == NULL ||
+#else
+			if ((fp = fopen(fn, "r")) == NULL ||
+#endif
 			    fstat(fileno(fp), &sb)) {
-				ierr();
+				ierr(fn);
 				continue;
 			}
 			if (argc > 1 && !qflag) {
-				(void)printf("%s==> %s <==\n",
-				    first ? "" : "\n", fname);
+				printfn(fn, !first);
 				first = 0;
-				(void)fflush(stdout);
 			}
 
 #ifdef __APPLE__
@@ -231,23 +270,45 @@ main(int argc, char *argv[])
 #endif
 
 			if (rflag)
-				reverse(fp, style, off, &sb);
+				reverse(fp, fn, style, off, &sb);
 			else
-				forward(fp, style, off, &sb);
+				forward(fp, fn, style, off, &sb);
 		}
 	} else {
-		fname = "stdin";
+		fn = "stdin";
 
 		if (fstat(fileno(stdin), &sb)) {
-			ierr();
+			ierr(fn);
 			exit(1);
 		}
 
+		/*
+		 * Determine if input is a pipe.  4.4BSD will set the SOCKET
+		 * bit in the st_mode field for pipes.  Fix this then.
+		 */
+		if (lseek(fileno(stdin), (off_t)0, SEEK_CUR) == -1 &&
+		    errno == ESPIPE) {
+			errno = 0;
+			fflag = 0;		/* POSIX.2 requires this. */
+		}
+
 		if (rflag)
-			reverse(stdin, style, off, &sb);
-		else
-			forward(stdin, style, off, &sb);
+			reverse(stdin, fn, style, off, &sb);
+        else {
+			forward(stdin, fn, style, off, &sb);
+			if (fflag) {
+				file = (struct file_info *) malloc(sizeof(struct file_info));
+				file->file_name = strdup(fn);
+				file->fp = stdin;
+				follow(file, style, off);
+				free(file->file_name);
+				free(file);
+            }
+        }
 	}
+#ifndef __APPLE__
+	fileargs_free(fa);
+#endif
 	exit(rval);
 }
 

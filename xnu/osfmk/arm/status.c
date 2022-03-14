@@ -75,7 +75,8 @@ machine_thread_state_convert_to_user(
 	__unused thread_t thread,
 	__unused thread_flavor_t flavor,
 	__unused thread_state_t tstate,
-	__unused mach_msg_type_number_t *count)
+	__unused mach_msg_type_number_t *count,
+	__unused thread_set_status_flags_t tssf_flags)
 {
 	// No conversion to userspace representation on this platform
 	return KERN_SUCCESS;
@@ -86,7 +87,10 @@ machine_thread_state_convert_from_user(
 	__unused thread_t thread,
 	__unused thread_flavor_t flavor,
 	__unused thread_state_t tstate,
-	__unused mach_msg_type_number_t count)
+	__unused mach_msg_type_number_t count,
+	__unused thread_state_t old_tstate,
+	__unused mach_msg_type_number_t old_count,
+	__unused thread_set_status_flags_t tssf_flags)
 {
 	// No conversion from userspace representation on this platform
 	return KERN_SUCCESS;

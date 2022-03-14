@@ -108,6 +108,7 @@ enum class MappedFileMode {
 
 WTF_EXPORT_PRIVATE bool fileExists(const String&);
 WTF_EXPORT_PRIVATE bool deleteFile(const String&);
+WTF_EXPORT_PRIVATE void deleteAllFilesModifiedSince(const String&, WallTime);
 WTF_EXPORT_PRIVATE bool deleteEmptyDirectory(const String&);
 WTF_EXPORT_PRIVATE bool moveFile(const String& oldPath, const String& newPath);
 WTF_EXPORT_PRIVATE std::optional<uint64_t> fileSize(const String&); // Follows symlinks.
@@ -133,9 +134,7 @@ WTF_EXPORT_PRIVATE std::optional<FileType> fileType(const String&);
 WTF_EXPORT_PRIVATE std::optional<FileType> fileTypeFollowingSymlinks(const String&);
 
 WTF_EXPORT_PRIVATE void setMetadataURL(const String& path, const String& urlString, const String& referrer = { });
-
-bool canExcludeFromBackup(); // Returns true if any file can ever be excluded from backup.
-bool excludeFromBackup(const String&); // Returns true if successful.
+WTF_EXPORT_PRIVATE bool excludeFromBackup(const String&); // Returns true if successful.
 
 WTF_EXPORT_PRIVATE Vector<String> listDirectory(const String& path); // Returns file names, not full paths.
 
@@ -146,6 +145,8 @@ inline bool isHandleValid(const PlatformFileHandle& handle) { return handle != i
 
 using Salt = std::array<uint8_t, 8>;
 WTF_EXPORT_PRIVATE std::optional<Salt> readOrMakeSalt(const String& path);
+WTF_EXPORT_PRIVATE std::optional<Vector<uint8_t>> readEntireFile(PlatformFileHandle);
+WTF_EXPORT_PRIVATE std::optional<Vector<uint8_t>> readEntireFile(const String& path);
 
 // Prefix is what the filename should be prefixed with, not the full path.
 WTF_EXPORT_PRIVATE String openTemporaryFile(const String& prefix, PlatformFileHandle&, const String& suffix = { });
@@ -189,6 +190,8 @@ WTF_EXPORT_PRIVATE RetainPtr<CFURLRef> pathAsURL(const String&);
 
 #if USE(GLIB)
 WTF_EXPORT_PRIVATE String filenameForDisplay(const String&);
+WTF_EXPORT_PRIVATE CString currentExecutablePath();
+WTF_EXPORT_PRIVATE CString currentExecutableName();
 #endif
 
 #if OS(WINDOWS)

@@ -101,9 +101,6 @@ public:
     void setServerTimingEnabled(bool isEnabled) { m_isServerTimingEnabled = isEnabled; }
     bool serverTimingEnabled() const { return m_isServerTimingEnabled; }
 
-    void setExperimentalPlugInSandboxProfilesEnabled(bool isEnabled) { m_experimentalPlugInSandboxProfilesEnabled = isEnabled; }
-    bool experimentalPlugInSandboxProfilesEnabled() const { return m_experimentalPlugInSandboxProfilesEnabled; }
-
     void setAttrStyleEnabled(bool isEnabled) { m_attrStyleEnabled = isEnabled; }
     bool attrStyleEnabled() const { return m_attrStyleEnabled; }
 
@@ -131,9 +128,6 @@ public:
     void setWebSQLEnabled(bool isEnabled) { m_webSQLEnabled = isEnabled; }
     bool webSQLEnabled() const { return m_webSQLEnabled; }
 
-    void setDialogElementEnabled(bool isEnabled) { m_dialogElementEnabled = isEnabled; }
-    bool dialogElementEnabled() const { return m_dialogElementEnabled; }
-
     void setKeygenElementEnabled(bool isEnabled) { m_keygenElementEnabled = isEnabled; }
     bool keygenElementEnabled() const { return m_keygenElementEnabled; }
 
@@ -151,12 +145,6 @@ public:
 #if ENABLE(WEB_RTC)
     bool webRTCDTMFEnabled() const { return m_isWebRTCDTMFEnabled; }
     void setWebRTCDTMFEnabled(bool isEnabled) { m_isWebRTCDTMFEnabled = isEnabled; }
-    bool webRTCH265CodecEnabled() const { return m_isWebRTCH265CodecEnabled; }
-    void setWebRTCH265CodecEnabled(bool isEnabled) { m_isWebRTCH265CodecEnabled = isEnabled; }
-    bool webRTCVP9Profile0CodecEnabled() const { return m_isWebRTCVP9Profile0CodecEnabled; }
-    void setWebRTCVP9Profile0CodecEnabled(bool isEnabled) { m_isWebRTCVP9Profile0CodecEnabled = isEnabled; }
-    bool webRTCVP9Profile2CodecEnabled() const { return m_isWebRTCVP9Profile2CodecEnabled; }
-    void setWebRTCVP9Profile2CodecEnabled(bool isEnabled) { m_isWebRTCVP9Profile2CodecEnabled = isEnabled; }
     bool webRTCH264LowLatencyEncoderEnabled() const { return m_isWebRTCH264LowLatencyEncoderEnabled; }
     void setWebRTCH264LowLatencyEncoderEnabled(bool isEnabled) { m_isWebRTCH264LowLatencyEncoderEnabled = isEnabled; }
     bool webRTCMDNSICECandidatesEnabled() const { return m_isWebRTCMDNSICECandidatesEnabled; }
@@ -176,12 +164,10 @@ public:
 
     void setReadableByteStreamAPIEnabled(bool isEnabled) { m_isReadableByteStreamAPIEnabled = isEnabled; }
     bool readableByteStreamAPIEnabled() const { return m_isReadableByteStreamAPIEnabled; }
-    void setWritableStreamAPIEnabled(bool isEnabled) { m_isWritableStreamAPIEnabled = isEnabled; }
-    bool writableStreamAPIEnabled() const { return m_isWritableStreamAPIEnabled; }
-    void setTransformStreamAPIEnabled(bool isEnabled) { m_isTransformStreamAPIEnabled = isEnabled; }
-    bool transformStreamAPIEnabled() const { return m_isTransformStreamAPIEnabled; }
 
 #if ENABLE(SERVICE_WORKER)
+    bool pushAPIEnabled() const { return m_pushAPIEnabled; }
+    void setPushAPIEnabled(bool isEnabled) { m_pushAPIEnabled = isEnabled; }
     bool serviceWorkerEnabled() const { return m_serviceWorkerEnabled; }
     void setServiceWorkerEnabled(bool isEnabled) { m_serviceWorkerEnabled = isEnabled; }
 #endif
@@ -235,8 +221,6 @@ public:
 #if ENABLE(MEDIA_SOURCE)
     void setWebMParserEnabled(bool isEnabled) { m_webMParserEnabled = isEnabled; }
     bool webMParserEnabled() const { return m_webMParserEnabled; }
-    void setWebMWebAudioEnabled(bool isEnabled) { m_webMWebAudioEnabled = isEnabled; }
-    bool webMWebAudioEnabled() const { return m_webMWebAudioEnabled; }
 #endif
 
 #if HAVE(CELESTIAL)
@@ -257,6 +241,26 @@ public:
 #if ENABLE(WEB_AUTHN)
     void setWebAuthenticationModernEnabled(bool areEnabled) { m_areWebAuthenticationModernEnabled = areEnabled; }
     bool webAuthenticationModernEnabled() const { return m_areWebAuthenticationModernEnabled; }
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
+    WEBCORE_EXPORT void setMediaSourceInlinePaintingEnabled(bool);
+    bool mediaSourceInlinePaintingEnabled() const { return m_mediaSourceInlinePaintingEnabled; }
+#endif
+
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    void setBuiltInNotificationsEnabled(bool isEnabled) { m_builtInNotificationsEnabled = isEnabled; }
+    bool builtInNotificationsEnabled() const { return m_builtInNotificationsEnabled; }
+#endif
+
+#if ENABLE(NOTIFICATION_EVENT)
+    void setNotificationEventEnabled(bool isEnabled) { m_notificationEventEnabled = isEnabled; }
+    bool notificationEventEnabled() const { return m_notificationEventEnabled; }
+#endif
+
+#if ENABLE(MODEL_ELEMENT)
+    void setModelDocumentEnabled(bool isEnabled) { m_modelDocumentEnabled = isEnabled; }
+    bool modelDocumentEnabled() const { return m_modelDocumentEnabled; }
 #endif
 
 private:
@@ -286,11 +290,9 @@ private:
     bool m_itpDebugMode { false };
     bool m_isRestrictedHTTPResponseAccess { true };
     bool m_isServerTimingEnabled { false };
-    bool m_experimentalPlugInSandboxProfilesEnabled { false };
     bool m_attrStyleEnabled { false };
     bool m_webAPIStatisticsEnabled { false };
     bool m_syntheticEditingCommandsEnabled { true };
-    bool m_dialogElementEnabled { false };
     bool m_webSQLEnabled { false };
     bool m_keygenElementEnabled { false };
     bool m_pageAtRuleSupportEnabled { false };
@@ -319,9 +321,6 @@ private:
     bool m_isWebRTCDTMFEnabled { true };
     bool m_isWebRTCH264SimulcastEnabled { true };
     bool m_isWebRTCMDNSICECandidatesEnabled { false };
-    bool m_isWebRTCH265CodecEnabled { false };
-    bool m_isWebRTCVP9Profile0CodecEnabled { false };
-    bool m_isWebRTCVP9Profile2CodecEnabled { false };
     bool m_isWebRTCH264LowLatencyEncoderEnabled { false };
     bool m_isWebRTCPlatformTCPSocketsEnabled { false };
     bool m_isWebRTCPlatformUDPSocketsEnabled { false };
@@ -332,10 +331,9 @@ private:
 #endif
 
     bool m_isReadableByteStreamAPIEnabled { false };
-    bool m_isWritableStreamAPIEnabled { false };
-    bool m_isTransformStreamAPIEnabled { false };
 
 #if ENABLE(SERVICE_WORKER)
+    bool m_pushAPIEnabled { false };
     bool m_serviceWorkerEnabled { false };
 #endif
 
@@ -377,7 +375,6 @@ private:
 
 #if ENABLE(MEDIA_SOURCE)
     bool m_webMParserEnabled { false };
-    bool m_webMWebAudioEnabled { false };
 #endif
 
 #if HAVE(CELESTIAL)
@@ -396,7 +393,23 @@ private:
     bool m_areWebAuthenticationModernEnabled { false };
 #endif
 
-    friend class WTF::NeverDestroyed<RuntimeEnabledFeatures>;
+#if ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
+    bool m_mediaSourceInlinePaintingEnabled { false };
+#endif
+
+#if ENABLE(BUILT_IN_NOTIFICATIONS)
+    bool m_builtInNotificationsEnabled { false };
+#endif
+
+#if ENABLE(NOTIFICATION_EVENT)
+    bool m_notificationEventEnabled { false };
+#endif
+
+#if ENABLE(MODEL_ELEMENT)
+    bool m_modelDocumentEnabled { false };
+#endif
+
+    friend class NeverDestroyed<RuntimeEnabledFeatures>;
 };
 
 } // namespace WebCore

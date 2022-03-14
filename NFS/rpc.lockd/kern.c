@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*-
@@ -89,7 +89,7 @@
 #include "lockd.h"
 #include "lockd_lock.h"
 
-#define nfslockdans(_v, _ansp)	\
+#define nfslockdans(_v, _ansp)  \
 	((_ansp)->la_version = (_v), \
 	nfsclnt(NFSCLNT_LOCKDANS, (_ansp)))
 
@@ -100,7 +100,7 @@ union MaxMsgSize {
 	union __ReplyUnion__lockd_mach_subsystem rep;
 };
 
-#define	MAX_LOCKD_MSG_SIZE	(sizeof (union MaxMsgSize) + MAX_TRAILER_SIZE)
+#define MAX_LOCKD_MSG_SIZE      (sizeof (union MaxMsgSize) + MAX_TRAILER_SIZE)
 
 #define BOOTSTRAP_NAME "com.apple.lockd"
 
@@ -108,35 +108,36 @@ union MaxMsgSize {
 
 /* Lock request owner. */
 typedef struct __owner {
-	pid_t	 pid;				/* Process ID. */
-	time_t	 tod;				/* Time-of-day. */
+	pid_t    pid;                           /* Process ID. */
+	time_t   tod;                           /* Time-of-day. */
 } OWNER;
 static OWNER owner;
 
-static char hostname[MAXHOSTNAMELEN + 1];	/* Hostname. */
+static char hostname[MAXHOSTNAMELEN + 1];       /* Hostname. */
 
 static time_t shutdown_time_client = 0;
 static time_t shutdown_time_server = 0;
 
-static void	set_auth(CLIENT *cl, struct xucred *ucred);
-int	lock_request(LOCKD_MSG *);
-int	cancel_request(LOCKD_MSG *);
-int	test_request(LOCKD_MSG *);
-void	show(LOCKD_MSG *);
-int	unlock_request(LOCKD_MSG *);
+static void     set_auth(CLIENT *cl, struct xucred *ucred);
+int     lock_request(LOCKD_MSG *);
+int     cancel_request(LOCKD_MSG *);
+int     test_request(LOCKD_MSG *);
+void    show(LOCKD_MSG *);
+int     unlock_request(LOCKD_MSG *);
 
 #define d_calls (config.verbose > 1)
 #define d_args (config.verbose > 2)
 
 static const char *
 from_addr(saddr)
-	struct sockaddr *saddr;
+struct sockaddr *saddr;
 {
 	static char inet_buf[INET6_ADDRSTRLEN];
 
 	if (getnameinfo(saddr, saddr->sa_len, inet_buf, sizeof(inet_buf),
-			NULL, 0, NI_NUMERICHOST) == 0)
+	    NULL, 0, NI_NUMERICHOST) == 0) {
 		return inet_buf;
+	}
 	return "???";
 }
 
@@ -150,14 +151,17 @@ get_client_and_server_state(int *mounts, int *servers, int *maxservers)
 	int rv = 0;
 
 	*mounts = *servers = *maxservers = 0;
-	if (sysctlbyname("vfs.generic.nfs.client.lockd_mounts", mounts, &size, NULL, 0))
+	if (sysctlbyname("vfs.generic.nfs.client.lockd_mounts", mounts, &size, NULL, 0)) {
 		rv++;
-	if (sysctlbyname("vfs.generic.nfs.server.nfsd_thread_count", servers, &size, NULL, 0))
+	}
+	if (sysctlbyname("vfs.generic.nfs.server.nfsd_thread_count", servers, &size, NULL, 0)) {
 		rv++;
-	if (sysctlbyname("vfs.generic.nfs.server.nfsd_thread_max", maxservers, &size, NULL, 0))
+	}
+	if (sysctlbyname("vfs.generic.nfs.server.nfsd_thread_max", maxservers, &size, NULL, 0)) {
 		rv++;
+	}
 
-	return (rv);
+	return rv;
 }
 
 /*
@@ -174,8 +178,8 @@ shutdown_timer(void)
 			int mounts, servers, maxservers;
 			get_client_and_server_state(&mounts, &servers, &maxservers);
 			syslog(LOG_DEBUG, "shutdown_timer: %ld %ld, mounts %d servers %d %d\n",
-				shutdown_time_client, shutdown_time_server,
-				mounts, servers, maxservers);
+			    shutdown_time_client, shutdown_time_server,
+			    mounts, servers, maxservers);
 		}
 		return;
 	}
@@ -217,8 +221,9 @@ svc_lockd_request(
 	 * lock request. Otherwise we risk getting
 	 * an initial ".local" name.
 	 */
-	if (hostname[0] == '\0')
+	if (hostname[0] == '\0') {
 		(void)gethostname(hostname, sizeof(hostname) - 1);
+	}
 
 	/* Marshal mach arguments back into a LOCKD_MSG */
 	msg.lm_version = vers;
@@ -234,34 +239,36 @@ svc_lockd_request(
 	bcopy(cred, &msg.lm_cred, sizeof(struct xucred));
 	bcopy(fh, msg.lm_fh, NFSV3_MAX_FH_SIZE);
 
-	if (d_args)
+	if (d_args) {
 		show(&msg);
+	}
 
 	if (msg.lm_version != LOCKD_MSG_VERSION) {
-		syslog(LOG_ERR,	"unknown msg type: %d", msg.lm_version);
+		syslog(LOG_ERR, "unknown msg type: %d", msg.lm_version);
 	}
 	/*
 	 * Send it to the NLM server and don't grant the lock
 	 * if we fail for any reason.
 	 */
-	 switch (msg.lm_fl.l_type) {
-	 case F_RDLCK:
-	 case F_WRLCK:
-		 if (msg.lm_flags & LOCKD_MSG_TEST)
-			 ret = test_request(&msg);
-		 else if (msg.lm_flags & LOCKD_MSG_CANCEL)
-			 ret = cancel_request(&msg);
-		 else
-			 ret = lock_request(&msg);
-		 break;
-	 case F_UNLCK:
-		 ret = unlock_request(&msg);
-		 break;
-	 default:
-		 ret = 1;
-		 syslog(LOG_ERR,	 "unknown lock type: %d", msg.lm_fl.l_type);
-		 break;
-	 }
+	switch (msg.lm_fl.l_type) {
+	case F_RDLCK:
+	case F_WRLCK:
+		if (msg.lm_flags & LOCKD_MSG_TEST) {
+			ret = test_request(&msg);
+		} else if (msg.lm_flags & LOCKD_MSG_CANCEL) {
+			ret = cancel_request(&msg);
+		} else {
+			ret = lock_request(&msg);
+		}
+		break;
+	case F_UNLCK:
+		ret = unlock_request(&msg);
+		break;
+	default:
+		ret = 1;
+		syslog(LOG_ERR, "unknown lock type: %d", msg.lm_fl.l_type);
+		break;
+	}
 	if (ret) {
 		struct lockd_ans ans;
 
@@ -273,7 +280,7 @@ svc_lockd_request(
 			syslog(LOG_DEBUG, "process %d: %m", msg.lm_fl.l_pid);
 		}
 	}
-	return (KERN_SUCCESS);
+	return KERN_SUCCESS;
 }
 
 /*
@@ -288,7 +295,7 @@ svc_lockd_ping(mach_port_t mp __attribute__((unused)))
 		alarm(0);
 	}
 
-	return (KERN_SUCCESS);
+	return KERN_SUCCESS;
 }
 
 /*
@@ -307,7 +314,7 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 
 	if (get_client_and_server_state(&mounts, &servers, &maxservers)) {
 		syslog(LOG_ERR, "lockd_shutdown: sysctl failed");
-		return (KERN_FAILURE);
+		return KERN_FAILURE;
 	}
 
 	gettimeofday(&now, NULL);
@@ -330,35 +337,35 @@ svc_lockd_shutdown(mach_port_t mp __attribute__((unused)))
 		 * running, so we don't want to shut down yet.
 		 */
 		alarm(0);
-		return (KERN_SUCCESS);
+		return KERN_SUCCESS;
 	}
 
 	/* figure out when the timer should go off */
 	shutdown_time = MAX(shutdown_time_client, shutdown_time_server);
 	delay = shutdown_time - now.tv_sec;
-    syslog(LOG_DEBUG, "lockd_shutdown: arm timer, delay %ld", delay);
+	syslog(LOG_DEBUG, "lockd_shutdown: arm timer, delay %ld", delay);
 
-    /* we can't set the alarm higher than ALARM_MAX seconds */
-    if (delay > ALARM_MAX) {
-        delay = ALARM_MAX;
-    }
-    
+	/* we can't set the alarm higher than ALARM_MAX seconds */
+	if (delay > ALARM_MAX) {
+		delay = ALARM_MAX;
+	}
+
 	/* arm the timer */
 	alarm((unsigned int) delay);
 
-	return (KERN_SUCCESS);
+	return KERN_SUCCESS;
 }
 
 static void *
 client_request_thread(void *arg __attribute__((unused)))
 {
-	mach_msg_server(lockd_mach_server,  MAX_LOCKD_MSG_SIZE,
-			lockd_receive_right,
-			MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) |
-			MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
+	mach_msg_server(lockd_mach_server, MAX_LOCKD_MSG_SIZE,
+	    lockd_receive_right,
+	    MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT) |
+	    MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0));
 
 	/* Should never return */
-	return (NULL);
+	return NULL;
 }
 
 void
@@ -383,10 +390,10 @@ client_mach_request(void)
 	 * this should always succeed.
 	 */
 	kr = bootstrap_check_in(bootstrap_port,
-			BOOTSTRAP_NAME, &lockd_receive_right);
+	    BOOTSTRAP_NAME, &lockd_receive_right);
 	if (kr != BOOTSTRAP_SUCCESS) {
 		syslog(LOG_ERR, "Could not checkin for receive right %s\n",
-			bootstrap_strerror(kr));
+		    bootstrap_strerror(kr));
 		return;
 	}
 
@@ -406,8 +413,9 @@ client_mach_request(void)
 	/* Check the current status of the NFS server and NFS mounts */
 	gettimeofday(&now, NULL);
 	mounts = servers = maxservers = 0;
-	if (get_client_and_server_state(&mounts, &servers, &maxservers))
+	if (get_client_and_server_state(&mounts, &servers, &maxservers)) {
 		syslog(LOG_ERR, "lockd setup: sysctl failed");
+	}
 
 	if (!servers || !maxservers) {
 		/* nfsd is not running, set server shutdown time */
@@ -427,7 +435,7 @@ client_mach_request(void)
 		/* Figure out when the timer should go off. */
 		shutdown_time = MAX(shutdown_time_client, shutdown_time_server);
 		delay = shutdown_time - now.tv_sec;
-        syslog(LOG_DEBUG, "lockd setup: no client or server, arm timer, delay %ld", delay);
+		syslog(LOG_DEBUG, "lockd setup: no client or server, arm timer, delay %ld", delay);
 		/* arm the timer */
 		alarm((unsigned int) delay);
 	}
@@ -439,7 +447,7 @@ client_mach_request(void)
 	error = pthread_create(&request_thr, attr, client_request_thread, NULL);
 	if (error) {
 		syslog(LOG_ERR, "unable to create request thread: %s",
-			strerror(error));
+		    strerror(error));
 		return;
 	}
 #endif
@@ -449,16 +457,17 @@ client_mach_request(void)
 
 void
 set_auth(cl, xucred)
-	CLIENT *cl;
-	struct xucred *xucred;
+CLIENT *cl;
+struct xucred *xucred;
 {
-        if (cl->cl_auth != NULL)
-                cl->cl_auth->ah_ops->ah_destroy(cl->cl_auth);
-        cl->cl_auth = authunix_create(hostname,
-                        xucred->cr_uid,
-                        xucred->cr_groups[0],
-                        xucred->cr_ngroups - 1,
-                        (gid_t *)&xucred->cr_groups[1]);
+	if (cl->cl_auth != NULL) {
+		cl->cl_auth->ah_ops->ah_destroy(cl->cl_auth);
+	}
+	cl->cl_auth = authunix_create(hostname,
+	    xucred->cr_uid,
+	    xucred->cr_groups[0],
+	    xucred->cr_ngroups - 1,
+	    (gid_t *)&xucred->cr_groups[1]);
 }
 
 
@@ -470,14 +479,15 @@ int
 test_request(LOCKD_MSG *msg)
 {
 	CLIENT *cli;
-	struct timeval timeout = {0, 0};	/* No timeout, no response. */
+	struct timeval timeout = {0, 0};        /* No timeout, no response. */
 	char dummy;
 
-	if (d_calls)
+	if (d_calls) {
 		syslog(LOG_DEBUG, "test request: %s: %s to %s",
 		    (msg->lm_flags & LOCKD_MSG_NFSV3) ? "V4" : "V1/3",
 		    msg->lm_fl.l_type == F_WRLCK ? "write" : "read",
 		    from_addr((struct sockaddr *)&msg->lm_addr));
+	}
 
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
 		struct nlm4_testargs arg4;
@@ -494,8 +504,9 @@ test_request(LOCKD_MSG *msg)
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM4_TEST_MSG,
@@ -515,14 +526,15 @@ test_request(LOCKD_MSG *msg)
 		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
 		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM_TEST_MSG,
 		    (xdrproc_t)xdr_nlm_testargs, &arg, (xdrproc_t)xdr_void, &dummy, timeout);
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -535,15 +547,16 @@ lock_request(LOCKD_MSG *msg)
 	CLIENT *cli;
 	struct nlm4_lockargs arg4;
 	struct nlm_lockargs arg;
-	struct timeval timeout = {0, 0};	/* No timeout, no response. */
+	struct timeval timeout = {0, 0};        /* No timeout, no response. */
 	char dummy;
 
-	if (d_calls)
+	if (d_calls) {
 		syslog(LOG_DEBUG, "lock request: %s %s: %s to %s",
 		    (msg->lm_flags & LOCKD_MSG_RECLAIM) ? "RECLAIM" : "",
 		    (msg->lm_flags & LOCKD_MSG_NFSV3) ? "V4" : "V1/3",
 		    msg->lm_fl.l_type == F_WRLCK ? "write" : "read",
 		    from_addr((struct sockaddr *)&msg->lm_addr));
+	}
 
 	monitor_lock_host_by_addr((struct sockaddr *)&msg->lm_addr);
 
@@ -563,8 +576,9 @@ lock_request(LOCKD_MSG *msg)
 		arg4.reclaim = (msg->lm_flags & LOCKD_MSG_RECLAIM) ? 1 : 0;
 		arg4.state = nsm_state;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1+arg4.reclaim, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1 + arg4.reclaim, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM4_LOCK_MSG,
@@ -585,14 +599,15 @@ lock_request(LOCKD_MSG *msg)
 		arg.reclaim = (msg->lm_flags & LOCKD_MSG_RECLAIM) ? 1 : 0;
 		arg.state = nsm_state;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1+arg.reclaim, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1 + arg.reclaim, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM_LOCK_MSG,
 		    (xdrproc_t)xdr_nlm_lockargs, &arg, (xdrproc_t)xdr_void, &dummy, timeout);
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -605,14 +620,15 @@ cancel_request(LOCKD_MSG *msg)
 	CLIENT *cli;
 	struct nlm4_cancargs arg4;
 	struct nlm_cancargs arg;
-	struct timeval timeout = {0, 0};	/* No timeout, no response. */
+	struct timeval timeout = {0, 0};        /* No timeout, no response. */
 	char dummy;
 
-	if (d_calls)
+	if (d_calls) {
 		syslog(LOG_DEBUG, "cancel request: %s: %s to %s",
 		    (msg->lm_flags & LOCKD_MSG_NFSV3) ? "V4" : "V1/3",
 		    msg->lm_fl.l_type == F_WRLCK ? "write" : "read",
 		    from_addr((struct sockaddr *)&msg->lm_addr));
+	}
 
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
 		arg4.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
@@ -628,8 +644,9 @@ cancel_request(LOCKD_MSG *msg)
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM4_CANCEL_MSG,
@@ -648,14 +665,15 @@ cancel_request(LOCKD_MSG *msg)
 		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
 		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM_CANCEL_MSG,
 		    (xdrproc_t)xdr_nlm_cancargs, &arg, (xdrproc_t)xdr_void, &dummy, timeout);
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -668,13 +686,14 @@ unlock_request(LOCKD_MSG *msg)
 	CLIENT *cli;
 	struct nlm4_unlockargs arg4;
 	struct nlm_unlockargs arg;
-	struct timeval timeout = {0, 0};	/* No timeout, no response. */
+	struct timeval timeout = {0, 0};        /* No timeout, no response. */
 	char dummy;
 
-	if (d_calls)
+	if (d_calls) {
 		syslog(LOG_DEBUG, "unlock request: %s: to %s",
 		    (msg->lm_flags & LOCKD_MSG_NFSV3) ? "V4" : "V1/3",
 		    from_addr((struct sockaddr *)&msg->lm_addr));
+	}
 
 	if (msg->lm_flags & LOCKD_MSG_NFSV3) {
 		arg4.cookie.n_bytes = (uint8_t *)&msg->lm_xid;
@@ -688,8 +707,9 @@ unlock_request(LOCKD_MSG *msg)
 		arg4.alock.l_offset = msg->lm_fl.l_start;
 		arg4.alock.l_len = msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS4, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM4_UNLOCK_MSG,
@@ -706,15 +726,16 @@ unlock_request(LOCKD_MSG *msg)
 		arg.alock.l_offset = (u_int) msg->lm_fl.l_start;
 		arg.alock.l_len = (u_int) msg->lm_fl.l_len;
 
-		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL)
-			return (1);
+		if ((cli = get_client((struct sockaddr *)&msg->lm_addr, NLM_VERS, 1, (msg->lm_flags & LOCKD_MSG_TCP))) == NULL) {
+			return 1;
+		}
 
 		set_auth(cli, &msg->lm_cred);
 		(void)clnt_call(cli, NLM_UNLOCK_MSG,
 		    (xdrproc_t)xdr_nlm_unlockargs, &arg, (xdrproc_t)xdr_void, &dummy, timeout);
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -725,11 +746,12 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 	ans.la_flags = 0;
 	ans.la_pid = 0;
 
-	if (flags & LOCK_ANSWER_GRANTED)
+	if (flags & LOCK_ANSWER_GRANTED) {
 		ans.la_flags |= LOCKD_ANS_GRANTED;
+	}
 
 	if (netcookie->n_len != sizeof(ans.la_xid)) {
-		if (lock == NULL) {	/* we're screwed */
+		if (lock == NULL) {     /* we're screwed */
 			syslog(LOG_ERR, "inedible nlm cookie");
 			return -1;
 		}
@@ -746,18 +768,20 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 		ans.la_start = lock->l_offset;
 		ans.la_len = lock->l_len;
 		ans.la_flags |= LOCKD_ANS_LOCK_INFO;
-		if (flags & LOCK_ANSWER_LOCK_EXCL)
+		if (flags & LOCK_ANSWER_LOCK_EXCL) {
 			ans.la_flags |= LOCKD_ANS_LOCK_EXCL;
+		}
 	} else {
 		memcpy(&ans.la_xid, netcookie->n_bytes, sizeof(ans.la_xid));
 		ans.la_fh_len = 0;
 	}
 
-	if (d_calls)
+	if (d_calls) {
 		syslog(LOG_DEBUG, "lock answer: pid %d: %s %d", ans.la_pid,
 		    version == NLM_VERS4 ? "nlmv4" : "nlmv3", result);
+	}
 
-	if (version == NLM_VERS4)
+	if (version == NLM_VERS4) {
 		switch (result) {
 		case nlm4_granted:
 			ans.la_errno = 0;
@@ -774,24 +798,26 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 				ans.la_start = lock->l_offset;
 				ans.la_len = lock->l_len;
 				ans.la_flags |= LOCKD_ANS_LOCK_INFO;
-				if (flags & LOCK_ANSWER_LOCK_EXCL)
+				if (flags & LOCK_ANSWER_LOCK_EXCL) {
 					ans.la_flags |= LOCKD_ANS_LOCK_EXCL;
+				}
 			}
 			break;
 		default:
 			ans.la_errno = EACCES;
 			break;
 		case nlm4_denied:
-			if (lock == NULL)
+			if (lock == NULL) {
 				ans.la_errno = EAGAIN;
-			else {
+			} else {
 				/* this is an answer to a nlm_test msg */
 				ans.la_pid = lock->svid;
 				ans.la_start = lock->l_offset;
 				ans.la_len = lock->l_len;
 				ans.la_flags |= LOCKD_ANS_LOCK_INFO;
-				if (flags & LOCK_ANSWER_LOCK_EXCL)
+				if (flags & LOCK_ANSWER_LOCK_EXCL) {
 					ans.la_flags |= LOCKD_ANS_LOCK_EXCL;
+				}
 				ans.la_errno = 0;
 			}
 			break;
@@ -821,7 +847,7 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 			ans.la_errno = EACCES;
 			break;
 		}
-	else
+	} else {
 		switch (result) {
 		case nlm_granted:
 			ans.la_errno = 0;
@@ -838,24 +864,26 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 				ans.la_start = lock->l_offset;
 				ans.la_len = lock->l_len;
 				ans.la_flags |= LOCKD_ANS_LOCK_INFO;
-				if (flags & LOCK_ANSWER_LOCK_EXCL)
+				if (flags & LOCK_ANSWER_LOCK_EXCL) {
 					ans.la_flags |= LOCKD_ANS_LOCK_EXCL;
+				}
 			}
 			break;
 		default:
 			ans.la_errno = EACCES;
 			break;
 		case nlm_denied:
-			if (lock == NULL)
+			if (lock == NULL) {
 				ans.la_errno = EAGAIN;
-			else {
+			} else {
 				/* this is an answer to a nlm_test msg */
 				ans.la_pid = lock->svid;
 				ans.la_start = lock->l_offset;
 				ans.la_len = lock->l_len;
 				ans.la_flags |= LOCKD_ANS_LOCK_INFO;
-				if (flags & LOCK_ANSWER_LOCK_EXCL)
+				if (flags & LOCK_ANSWER_LOCK_EXCL) {
 					ans.la_flags |= LOCKD_ANS_LOCK_EXCL;
+				}
 				ans.la_errno = 0;
 			}
 			break;
@@ -873,10 +901,11 @@ lock_answer(int version, netobj *netcookie, nlm4_lock *lock, int flags, int resu
 			ans.la_errno = EDEADLK;
 			break;
 		}
+	}
 
 	if (nfslockdans(LOCKD_ANS_VERSION, &ans)) {
 		syslog(LOG_DEBUG, "lock_answer(%d): process %d: %m",
-			result, ans.la_pid);
+		    result, ans.la_pid);
 		return -1;
 	}
 	return 0;
@@ -891,7 +920,7 @@ show(LOCKD_MSG *mp)
 {
 	static char hex[] = "0123456789abcdef";
 	size_t len;
-	u_int8_t *p, *t, buf[NFS_SMALLFH*3+1];
+	u_int8_t *p, *t, buf[NFS_SMALLFH * 3 + 1];
 
 	syslog(LOG_DEBUG, "process ID: %d\n", mp->lm_fl.l_pid);
 

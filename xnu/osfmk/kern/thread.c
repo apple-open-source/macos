@@ -174,7 +174,7 @@
 LCK_GRP_DECLARE(thread_lck_grp, "thread");
 
 static SECURITY_READ_ONLY_LATE(zone_t) thread_zone;
-SECURITY_READ_ONLY_LATE(zone_t) thread_ro_zone;
+ZONE_DEFINE_ID(ZONE_ID_THREAD_RO, "threads_ro", struct thread_ro, ZC_READONLY);
 
 static void thread_port_with_flavor_no_senders(ipc_port_t, mach_port_mscount_t);
 
@@ -224,13 +224,10 @@ thread_zone_startup(void)
 	size_t size = sizeof(struct thread);
 
 #ifdef MACH_BSD
-	size += uthread_size;
+	size += roundup(uthread_size, _Alignof(struct thread));
 #endif
 	thread_zone = zone_create_ext("threads", size,
 	    ZC_ZFREE_CLEARMEM, ZONE_ID_THREAD, NULL);
-
-	thread_ro_zone = zone_create_ext("threads_ro", sizeof(struct thread_ro),
-	    ZC_READONLY, ZONE_ID_THREAD_RO, NULL);
 }
 STARTUP(ZALLOC, STARTUP_RANK_MIDDLE, thread_zone_startup);
 
@@ -993,6 +990,34 @@ thread_terminate_queue_invoke(mpsc_queue_chain_t e,
 	terminated_threads_count++;
 	lck_mtx_unlock(&tasks_threads_lock);
 
+#if MACH_BSD
+	/*
+	 * The thread no longer counts against the task's thread count,
+	 * we can now wake up any pending joiner.
+	 *
+	 * Note that the inheritor will be set to `thread` which is
+	 * incorrect once it is on the termination queue, however
+	 * the termination queue runs at MINPRI_KERNEL which is higher
+	 * than any user thread, so this isn't a priority inversion.
+	 */
+	if (thread_get_tag(thread) & THREAD_TAG_USER_JOIN) {
+		struct uthread *uth = get_bsdthread_info(thread);
+		mach_port_name_t kport = uthread_joiner_port(uth);
+
+		/*
+		 * Clear the port low two bits to tell pthread that thread is gone.
+		 */
+#ifndef NO_PORT_GEN
+		kport &= ~MACH_PORT_MAKE(0, IE_BITS_GEN_MASK + IE_BITS_GEN_ONE);
+#else
+		kport |= MACH_PORT_MAKE(0, ~(IE_BITS_GEN_MASK + IE_BITS_GEN_ONE));
+#endif
+		(void)copyoutmap_atomic32(task->map, kport,
+		    uthread_joiner_address(uth));
+		uthread_joiner_wake(task, uth);
+	}
+#endif
+
 	thread_deallocate(thread);
 }
 
@@ -1133,14 +1158,14 @@ thread_daemon_init(void)
 
 	result = mpsc_daemon_queue_init_with_thread(&thread_stack_queue,
 	    thread_stack_queue_invoke, BASEPRI_PREEMPT_HIGH,
-	    "daemon.thread-stack");
+	    "daemon.thread-stack", MPSC_DAEMON_INIT_NONE);
 	if (result != KERN_SUCCESS) {
 		panic("thread_daemon_init: thread_stack_daemon");
 	}
 
 	result = mpsc_daemon_queue_init_with_thread(&thread_exception_queue,
 	    thread_exception_queue_invoke, MINPRI_KERNEL,
-	    "daemon.thread-exception");
+	    "daemon.thread-exception", MPSC_DAEMON_INIT_NONE);
 	if (result != KERN_SUCCESS) {
 		panic("thread_daemon_init: thread_exception_daemon");
 	}
@@ -1150,8 +1175,7 @@ __options_decl(thread_create_internal_options_t, uint32_t, {
 	TH_OPTION_NONE          = 0x00,
 	TH_OPTION_NOSUSP        = 0x02,
 	TH_OPTION_WORKQ         = 0x04,
-	TH_OPTION_IMMOVABLE     = 0x08,
-	TH_OPTION_PINNED        = 0x10,
+	TH_OPTION_MAINTHREAD    = 0x08,
 });
 
 void
@@ -1214,12 +1238,8 @@ thread_create_internal(
 		init_thread_from_template(new_thread);
 	}
 
-	if (options & TH_OPTION_PINNED) {
-		init_options |= IPC_THREAD_INIT_PINNED;
-	}
-
-	if (options & TH_OPTION_IMMOVABLE) {
-		init_options |= IPC_THREAD_INIT_IMMOVABLE;
+	if (options & TH_OPTION_MAINTHREAD) {
+		init_options |= IPC_THREAD_INIT_MAINTHREAD;
 	}
 
 	os_ref_init_count_raw(&new_thread->ref_count, &thread_refgrp, 2);
@@ -1249,6 +1269,7 @@ thread_create_internal(
 	new_thread->continuation = continuation;
 	new_thread->parameter = parameter;
 	new_thread->inheritor_flags = TURNSTILE_UPDATE_FLAGS_NONE;
+	new_thread->requested_policy = default_thread_requested_policy;
 	priority_queue_init(&new_thread->sched_inheritor_queue);
 	priority_queue_init(&new_thread->base_inheritor_queue);
 #if CONFIG_SCHED_CLUTCH
@@ -1522,28 +1543,13 @@ thread_create_with_options_internal(
 	return KERN_SUCCESS;
 }
 
-/* No prototype, since task_server.h has the _from_user version if KERNEL_SERVER */
-kern_return_t
-thread_create(
-	task_t                          task,
-	thread_t                        *new_thread);
-
-kern_return_t
-thread_create(
-	task_t                          task,
-	thread_t                        *new_thread)
-{
-	return thread_create_with_options_internal(task, new_thread, FALSE, TH_OPTION_NONE,
-	           (thread_continue_t)thread_bootstrap_return);
-}
-
 kern_return_t
 thread_create_immovable(
 	task_t                          task,
 	thread_t                        *new_thread)
 {
 	return thread_create_with_options_internal(task, new_thread, FALSE,
-	           TH_OPTION_IMMOVABLE, (thread_continue_t)thread_bootstrap_return);
+	           TH_OPTION_NONE, (thread_continue_t)thread_bootstrap_return);
 }
 
 kern_return_t
@@ -1551,6 +1557,7 @@ thread_create_from_user(
 	task_t                          task,
 	thread_t                        *new_thread)
 {
+	/* All thread ports are created immovable by default */
 	return thread_create_with_options_internal(task, new_thread, TRUE, TH_OPTION_NONE,
 	           (thread_continue_t)thread_bootstrap_return);
 }
@@ -1573,7 +1580,7 @@ thread_create_waiting_internal(
 	thread_continue_t       continuation,
 	event_t                 event,
 	block_hint_t            block_hint,
-	int                     options,
+	thread_create_internal_options_t options,
 	thread_t                *new_thread)
 {
 	kern_return_t result;
@@ -1613,25 +1620,14 @@ thread_create_waiting_internal(
 }
 
 kern_return_t
-thread_create_waiting(
+main_thread_create_waiting(
 	task_t                          task,
 	thread_continue_t               continuation,
 	event_t                         event,
-	th_create_waiting_options_t     options,
 	thread_t                        *new_thread)
 {
-	thread_create_internal_options_t ci_options = TH_OPTION_NONE;
-
-	assert((options & ~TH_CREATE_WAITING_OPTION_MASK) == 0);
-	if (options & TH_CREATE_WAITING_OPTION_PINNED) {
-		ci_options |= TH_OPTION_PINNED;
-	}
-	if (options & TH_CREATE_WAITING_OPTION_IMMOVABLE) {
-		ci_options |= TH_OPTION_IMMOVABLE;
-	}
-
 	return thread_create_waiting_internal(task, continuation, event,
-	           kThreadWaitNone, ci_options, new_thread);
+	           kThreadWaitNone, TH_OPTION_MAINTHREAD, new_thread);
 }
 
 
@@ -1671,7 +1667,7 @@ thread_create_running_internal2(
 
 	if (from_user) {
 		result = machine_thread_state_convert_from_user(thread, flavor,
-		    new_state, new_state_count);
+		    new_state, new_state_count, NULL, 0, TSSF_FLAGS_NONE);
 	}
 	if (result == KERN_SUCCESS) {
 		result = machine_thread_set_state(thread, flavor, new_state,
@@ -1746,10 +1742,10 @@ thread_create_workq_waiting(
 	/*
 	 * Create thread, but don't pin control port just yet, in case someone calls
 	 * task_threads() and deallocates pinned port before kernel copyout happens,
-	 * which will result in pinned port guard exception. Instead, pin and make
-	 * it immovable atomically at copyout during workq_setup_and_run().
+	 * which will result in pinned port guard exception. Instead, pin and copyout
+	 * atomically during workq_setup_and_run().
 	 */
-	int options = TH_OPTION_NOSUSP | TH_OPTION_WORKQ | TH_OPTION_IMMOVABLE;
+	int options = TH_OPTION_NOSUSP | TH_OPTION_WORKQ;
 	return thread_create_waiting_internal(task, continuation, NULL,
 	           kThreadWaitParkedWorkQueue, options, new_thread);
 }
@@ -2246,6 +2242,11 @@ thread_wire(
 	return thread_wire_internal(host_priv, thread, wired, NULL);
 }
 
+boolean_t
+is_external_pageout_thread(void)
+{
+	return current_thread() == vm_pageout_state.vm_pageout_external_iothread;
+}
 
 boolean_t
 is_vm_privileged(void)
@@ -3353,7 +3354,7 @@ thread_swap_mach_voucher(
 	 * a call to release it has been added here.
 	 */
 	ipc_voucher_release(*in_out_old_voucher);
-	return KERN_NOT_SUPPORTED;
+	OS_ANALYZER_SUPPRESS("81787115") return KERN_NOT_SUPPORTED;
 }
 
 /*
@@ -3614,6 +3615,25 @@ thread_enable_send_importance(thread_t thread, boolean_t enable)
 	} else {
 		thread->options &= ~TH_OPT_SEND_IMPORTANCE;
 	}
+}
+
+kern_return_t
+thread_get_ipc_propagate_attr(thread_t thread, struct thread_attr_for_ipc_propagation *attr)
+{
+	int iotier;
+	int qos;
+
+	if (thread == NULL || attr == NULL) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	iotier = proc_get_effective_thread_policy(thread, TASK_POLICY_IO);
+	qos = proc_get_effective_thread_policy(thread, TASK_POLICY_QOS);
+
+	attr->tafip_iotier = iotier;
+	attr->tafip_qos = qos;
+
+	return KERN_SUCCESS;
 }
 
 /*

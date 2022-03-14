@@ -26,7 +26,10 @@
 #import "config.h"
 #import "CVUtilities.h"
 
+#import "ColorSpaceCG.h"
+#import "IOSurface.h"
 #import <wtf/StdLibExtras.h>
+#import <wtf/cf/TypeCastsCF.h>
 #import "CoreVideoSoftLink.h"
 
 namespace WebCore {
@@ -105,6 +108,36 @@ Expected<RetainPtr<CVPixelBufferRef>, CVReturn> createCVPixelBuffer(IOSurfaceRef
     if (status != kCVReturnSuccess || !pixelBuffer)
         return makeUnexpected(status);
     return adoptCF(pixelBuffer);
+}
+
+RetainPtr<CGColorSpaceRef> createCGColorSpaceForCVPixelBuffer(CVPixelBufferRef buffer)
+{
+    if (CGColorSpaceRef colorSpace = dynamic_cf_cast<CGColorSpaceRef>(CVBufferGetAttachment(buffer, kCVImageBufferCGColorSpaceKey, nullptr)))
+        return colorSpace;
+
+    RetainPtr<CFDictionaryRef> attachments;
+#if HAVE(CVBUFFERCOPYATTACHMENTS)
+    attachments = adoptCF(CVBufferCopyAttachments(buffer, kCVAttachmentMode_ShouldPropagate));
+#else
+    attachments = CVBufferGetAttachments(buffer, kCVAttachmentMode_ShouldPropagate);
+#endif
+    if (auto colorSpace = adoptCF(CVImageBufferCreateColorSpaceFromAttachments(attachments.get())))
+        return colorSpace;
+
+    // We should only get here with content that has a broken embedded ICC
+    // profile; in all other cases VideoToolbox should have put either known
+    // accurate or guessed color space attachments on the pixel buffer. Content
+    // that requires an embedded ICC profile is unlikely to be presented
+    // correctly with any particular fallback color space we choose, so we
+    // choose sRGB for ease.
+    return sRGBColorSpaceRef();
+}
+
+void setOwnershipIdentityForCVPixelBuffer(CVPixelBufferRef pixelBuffer, const ProcessIdentity& owner)
+{
+    auto surface = CVPixelBufferGetIOSurface(pixelBuffer);
+    ASSERT(surface);
+    IOSurface::setOwnershipIdentity(surface, owner);
 }
 
 }

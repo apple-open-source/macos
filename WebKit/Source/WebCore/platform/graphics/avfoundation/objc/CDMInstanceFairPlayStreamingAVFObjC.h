@@ -73,7 +73,7 @@ public:
     virtual ~CDMInstanceFairPlayStreamingAVFObjC() = default;
 
 #if !RELEASE_LOG_DISABLED
-    void setLogger(WTF::Logger&, const void* logIdentifier);
+    void setLogger(Logger&, const void* logIdentifier);
 #endif
 
     static bool supportsPersistableState();
@@ -84,7 +84,7 @@ public:
     ImplementationType implementationType() const final { return ImplementationType::FairPlayStreaming; }
 
     void initializeWithConfiguration(const CDMKeySystemConfiguration&, AllowDistinctiveIdentifiers, AllowPersistentState, SuccessCallback&&) final;
-    void setServerCertificate(Ref<SharedBuffer>&&, SuccessCallback&&) final;
+    void setServerCertificate(Ref<FragmentedSharedBuffer>&&, SuccessCallback&&) final;
     void setStorageDirectory(const String&) final;
     RefPtr<CDMInstanceSession> createSession() final;
     void setClient(WeakPtr<CDMInstanceClient>&&) final;
@@ -94,10 +94,10 @@ public:
 
     NSURL *storageURL() const { return m_storageURL.get(); }
     bool persistentStateAllowed() const { return m_persistentStateAllowed; }
-    SharedBuffer* serverCertificate() const { return m_serverCertificate.get(); }
+    FragmentedSharedBuffer* serverCertificate() const { return m_serverCertificate.get(); }
     AVContentKeySession* contentKeySession();
 
-    RetainPtr<AVContentKeyRequest> takeUnexpectedKeyRequestForInitializationData(const AtomString& initDataType, SharedBuffer& initData);
+    RetainPtr<AVContentKeyRequest> takeUnexpectedKeyRequestForInitializationData(const AtomString& initDataType, FragmentedSharedBuffer& initData);
 
     // AVContentKeySessionDelegateClient
     void didProvideRequest(AVContentKeyRequest*) final;
@@ -112,7 +112,7 @@ public:
     void outputObscuredDueToInsufficientExternalProtectionChanged(bool) final;
     void externalProtectionStatusDidChangeForContentKeyRequest(AVContentKeyRequest*) final;
 
-    using Keys = Vector<Ref<SharedBuffer>>;
+    using Keys = Vector<Ref<FragmentedSharedBuffer>>;
     CDMInstanceSessionFairPlayStreamingAVFObjC* sessionForKeyIDs(const Keys&) const;
     CDMInstanceSessionFairPlayStreamingAVFObjC* sessionForGroup(AVContentKeyReportGroup*) const;
     CDMInstanceSessionFairPlayStreamingAVFObjC* sessionForRequest(AVContentKeyRequest*) const;
@@ -121,7 +121,7 @@ private:
     void handleUnexpectedRequests(Vector<RetainPtr<AVContentKeyRequest>>&&);
 
 #if !RELEASE_LOG_DISABLED
-    WTF::Logger* loggerPtr() const { return m_logger.get(); };
+    Logger* loggerPtr() const { return m_logger.get(); };
     const void* logIdentifier() const { return m_logIdentifier; }
     const char* logClassName() const { return "CDMInstanceFairPlayStreamingAVFObjC"; }
 #endif
@@ -129,13 +129,13 @@ private:
     WeakPtr<CDMInstanceClient> m_client;
     RetainPtr<AVContentKeySession> m_session;
     RetainPtr<WebCoreFPSContentKeySessionDelegate> m_delegate;
-    RefPtr<SharedBuffer> m_serverCertificate;
+    RefPtr<FragmentedSharedBuffer> m_serverCertificate;
     bool m_persistentStateAllowed { true };
     RetainPtr<NSURL> m_storageURL;
     Vector<WeakPtr<CDMInstanceSessionFairPlayStreamingAVFObjC>> m_sessions;
     HashSet<RetainPtr<AVContentKeyRequest>> m_unexpectedKeyRequests;
 #if !RELEASE_LOG_DISABLED
-    RefPtr<WTF::Logger> m_logger;
+    RefPtr<Logger> m_logger;
     const void* m_logIdentifier { nullptr };
 #endif
 };
@@ -146,12 +146,12 @@ public:
     virtual ~CDMInstanceSessionFairPlayStreamingAVFObjC();
 
 #if !RELEASE_LOG_DISABLED
-    void setLogger(WTF::Logger&, const void* logIdentifier);
+    void setLogger(Logger&, const void* logIdentifier);
 #endif
 
     // CDMInstanceSession
-    void requestLicense(LicenseType, const AtomString& initDataType, Ref<SharedBuffer>&& initData, LicenseCallback&&) final;
-    void updateLicense(const String&, LicenseType, Ref<SharedBuffer>&&, LicenseUpdateCallback&&) final;
+    void requestLicense(LicenseType, const AtomString& initDataType, Ref<FragmentedSharedBuffer>&& initData, LicenseCallback&&) final;
+    void updateLicense(const String&, LicenseType, Ref<FragmentedSharedBuffer>&&, LicenseUpdateCallback&&) final;
     void loadSession(LicenseType, const String&, const String&, LoadSessionCallback&&) final;
     void closeSession(const String&, CloseSessionCallback&&) final;
     void removeSessionData(const String&, LicenseType, RemoveSessionDataCallback&&) final;
@@ -197,7 +197,7 @@ private:
     std::optional<CDMKeyStatus> protectionStatusForDisplayID(AVContentKeyRequest *, std::optional<PlatformDisplayID>) const;
 
 #if !RELEASE_LOG_DISABLED
-    WTF::Logger* loggerPtr() const { return m_logger.get(); };
+    Logger* loggerPtr() const { return m_logger.get(); };
     const void* logIdentifier() const { return m_logIdentifier; }
     const char* logClassName() const { return "CDMInstanceSessionFairPlayStreamingAVFObjC"; }
 #endif
@@ -226,7 +226,7 @@ private:
     RemoveSessionDataCallback m_removeSessionDataCallback;
 
 #if !RELEASE_LOG_DISABLED
-    RefPtr<WTF::Logger> m_logger;
+    RefPtr<Logger> m_logger;
     const void* m_logIdentifier { nullptr };
 #endif
 };

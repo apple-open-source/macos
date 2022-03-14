@@ -1317,6 +1317,9 @@ void SOSCircleForEachApplicant(SOSCircleRef circle, void (^action)(SOSPeerInfoRe
     CFSetForEach(circle->applicants, ^(const void*value) { action((SOSPeerInfoRef) value); } );
 }
 
+void SOSCircleForEachRejectedApplicant(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer)) {
+    CFSetForEach(circle->rejected_applicants, ^(const void*value) { action((SOSPeerInfoRef) value); } );
+}
 
 bool SOSCircleHasPeerWithID(SOSCircleRef circle, CFStringRef peerid, CFErrorRef *error) {
     SOSCircleAssertStable(circle);
@@ -1527,6 +1530,14 @@ bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenC
 
  */
 
+CFStringRef SOSCirclePeerInfoCopyStateString(SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID, SOSPeerInfoRef peer) {
+    char sigchr = 'v';
+    if (SOSCircleVerifyPeerSignatureExists(circle, peer)) {
+        sigchr = 'V';
+    }
+    return SOSPeerInfoCopyStateString(peer, pubKey, myPID, sigchr);
+}
+
 static inline void logPeerInfo(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID, SOSPeerInfoRef peer) {
     char sigchr = 'v';
     if (SOSCircleVerifyPeerSignatureExists(circle, peer)) {
@@ -1535,14 +1546,24 @@ static inline void logPeerInfo(char *category, SOSCircleRef circle, SecKeyRef pu
     SOSPeerInfoLogState(category, peer, pubKey, myPID, sigchr);
 }
 
-void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID) {
-    if(!circle) return;
+CFStringRef SOSCircleCopyStateString(SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID) {
+    if(!circle) return NULL;
     CFStringRef genString = SOSGenerationCountCopyDescription(SOSCircleGetGeneration(circle));
     char sigchr = 'v';
     if(pubKey && SOSCircleVerifySignatureExists(circle, pubKey, NULL)) {
         sigchr = 'V';
     }
-    secnotice(category, "CIRCLE:    [%20@] UserSigned: %c", genString, sigchr);
+    CFStringRef circleString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("CIRCLE:    [%20@] UserSigned: %c"), genString, sigchr);
+    CFReleaseNull(genString);
+    return circleString;
+}
+
+void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID) {
+    if(!circle) return;
+    CFStringRef headerString = SOSCircleCopyStateString(circle, pubKey, myPID);
+    secnotice(category, "CIRCLE:    %@", headerString);
+    CFReleaseNull(headerString);
+    
     if(CFSetGetCount(circle->peers) == 0 )
         secnotice(category, "Peers In Circle: None");
     else{
@@ -1579,8 +1600,9 @@ void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CF
             SOSPeerInfoLogState(category, peer, pubKey, myPID, 'v');
         });
     }
-    CFReleaseNull(genString);
 }
+
+
 
 bool SOSCircleIsLegacy(SOSCircleRef circle, SecKeyRef userPubKey) {
     __block bool retval = false;

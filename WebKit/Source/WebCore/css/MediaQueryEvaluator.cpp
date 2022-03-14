@@ -35,6 +35,7 @@
 #include "CSSValueKeywords.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "Logging.h"
@@ -49,6 +50,7 @@
 #include "RenderStyle.h"
 #include "RenderView.h"
 #include "Settings.h"
+#include "StyleFontSizeFunctions.h"
 #include "Theme.h"
 #include <wtf/HashMap.h>
 #include <wtf/text/StringConcatenateNumbers.h>
@@ -110,6 +112,12 @@ static bool isAppearanceDependent(const AtomString& mediaFeature)
     ;
 }
 
+MediaQueryViewportState mediaQueryViewportStateForDocument(const Document& document)
+{
+    // These things affect evaluation of viewport dependent media queries.
+    return { document.view()->layoutSize(), document.frame()->pageZoomFactor(), document.printing() };
+}
+
 MediaQueryEvaluator::MediaQueryEvaluator(bool mediaFeatureResult)
     : m_fallbackResult(mediaFeatureResult)
 {
@@ -123,7 +131,7 @@ MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, bool m
 
 MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, const Document& document, const RenderStyle* style)
     : m_mediaType(acceptedMediaType)
-    , m_document(makeWeakPtr(document))
+    , m_document(document)
     , m_style(style)
 {
 }
@@ -440,14 +448,10 @@ static bool devicePixelRatioEvaluate(CSSValue* value, const CSSToLengthConversio
 
 static bool resolutionEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix op)
 {
-#if ENABLE(RESOLUTION_MEDIA_QUERY)
+    if (!frame.settings().resolutionMediaFeatureEnabled())
+        return false;
+
     return (!value || (is<CSSPrimitiveValue>(*value) && downcast<CSSPrimitiveValue>(*value).isResolution())) && evaluateResolution(value, frame, op);
-#else
-    UNUSED_PARAM(value);
-    UNUSED_PARAM(frame);
-    UNUSED_PARAM(op);
-    return false;
-#endif
 }
 
 static bool dynamicRangeEvaluate(CSSValue* value, const CSSToLengthConversionData&, Frame& frame, MediaFeaturePrefix)
@@ -804,7 +808,15 @@ static bool prefersColorSchemeEvaluate(CSSValue* value, const CSSToLengthConvers
         return false;
 
     auto keyword = downcast<CSSPrimitiveValue>(*value).valueID();
-    bool useDarkAppearance = frame.page()->useDarkAppearance();
+    bool useDarkAppearance = [&] () -> auto {
+        if (frame.document()->loader()) {
+            auto colorSchemePreference = frame.document()->loader()->colorSchemePreference();
+            if (colorSchemePreference != ColorSchemePreference::NoPreference)
+                return colorSchemePreference == ColorSchemePreference::Dark;
+        }
+
+        return frame.page()->useDarkAppearance();
+    }();
 
     switch (keyword) {
     case CSSValueDark:
@@ -924,9 +936,17 @@ bool MediaQueryEvaluator::evaluate(const MediaQueryExpression& expression) const
 
     if (!document.documentElement())
         return false;
+
+    auto defaultStyle = RenderStyle::create();
+    auto fontDescription = defaultStyle.fontDescription();
+    auto size = Style::fontSizeForKeyword(CSSValueMedium, false, document);
+    fontDescription.setComputedSize(size);
+    fontDescription.setSpecifiedSize(size);
+    defaultStyle.setFontDescription(WTFMove(fontDescription));
+    defaultStyle.fontCascade().update();
     
     // Pass `nullptr` for `parentStyle` because we are in the context of a media query.
-    return function(expression.value(), { m_style, document.documentElement()->renderStyle(), nullptr, document.renderView(), 1, std::nullopt }, *frame, NoPrefix);
+    return function(expression.value(), { m_style, &defaultStyle, nullptr, document.renderView(), 1, std::nullopt }, *frame, NoPrefix);
 }
 
 bool MediaQueryEvaluator::mediaAttributeMatches(Document& document, const String& attributeValue)

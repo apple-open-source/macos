@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 42;
+	objectVersion = 45;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -279,6 +279,7 @@
 				7DDEC04E064B0D6C001B4C4A /* ShellScript */,
 				7DDEC04F064B0D6C001B4C4A /* CopyFiles */,
 				7DDEC058064B0D6C001B4C4A /* Headers */,
+				6A81C11324B9521800E50D01 /* ShellScript */,
 				7DDEC061064B0D6C001B4C4A /* Resources */,
 				7DDEC062064B0D6C001B4C4A /* Sources */,
 				7DDEC06B064B0D6C001B4C4A /* Frameworks */,
@@ -302,6 +303,7 @@
 				7DDEC072064B0D6D001B4C4A /* Headers */,
 				7DDEC078064B0D6D001B4C4A /* CopyFiles */,
 				7DDEC07B064B0D6D001B4C4A /* Resources */,
+				6A81C11424B952D300E50D01 /* ShellScript */,
 				7DDEC07C064B0D6D001B4C4A /* Sources */,
 				7DDEC080064B0D6D001B4C4A /* Frameworks */,
 				7DDEC083064B0D6D001B4C4A /* Rez */,
@@ -377,6 +379,40 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		6A81C11324B9521800E50D01 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SRCROOT}/config/generate-symbols-plist.sh\";\nif [ -x \"$script\" ]; then\n    . \"$script\" ${SYMROOT}/symbolsets.plist ${SRCROOT}/Info-IOFireWireAVC.plist ${SRCROOT}/config/IOFireWireAVC.exports\nfi\n";
+		};
+		6A81C11424B952D300E50D01 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "script=\"${SRCROOT}/config/generate-symbols-plist.sh\";\nif [ -x \"$script\" ]; then\n    . \"$script\" ${SYMROOT}/symbolsets.plist ${SRCROOT}/Info-IOFireWireAVCLib.plist ${SRCROOT}/config/IOFireWireAVC.exports\nfi\n\n";
+		};
 		7DDEC04E064B0D6C001B4C4A /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -384,7 +420,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPreprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n";
 		};
 		7DDEC06D064B0D6C001B4C4A /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -396,7 +432,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n\nif [ $FIRELOG ]; then\n\techo \"$PROJECT_DIR/$INFOPLIST_FILE\"\n\techo \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\n\tgrep -v \"FIRELOG_COMMENT\" \"$PROJECT_DIR/$INFOPLIST_FILE\" > \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nfi";
+			shellScript = "script=\"${SYSTEM_DEVELOPER_DIR}/ProjectBuilder Extras/Kernel Extension Support/KEXTPostprocess\";\nif [ -x \"$script\" ]; then\n    . \"$script\"\nfi\n\nif [ $FIRELOG ]; then\n\techo \"$PROJECT_DIR/$INFOPLIST_FILE\"\n\techo \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\n\n\tgrep -v \"FIRELOG_COMMENT\" \"$PROJECT_DIR/$INFOPLIST_FILE\" > \"$TARGET_BUILD_DIR/$INFOPLIST_PATH\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -449,6 +485,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
@@ -476,6 +513,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
@@ -503,6 +541,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
@@ -528,6 +567,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				INFOPLIST_FILE = "Info-IOFireWireAVCLib.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions/IOFireWireAVC.kext/Contents/PlugIns/";
@@ -559,6 +599,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireAVC.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -567,9 +608,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.8;
+				MODULE_VERSION = 4.2.9;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
@@ -592,6 +637,7 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireAVC.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -600,9 +646,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.8;
+				MODULE_VERSION = 4.2.9;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
@@ -626,6 +676,7 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireAVC.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -634,9 +685,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.8;
+				MODULE_VERSION = 4.2.9;
 				OTHER_CFLAGS = "-DFIRELOG=1";
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;
@@ -657,6 +712,7 @@
 				ARCHS = "$(ARCHS_STANDARD_64_BIT)";
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = FIREWIREPRIVATE;
+				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				HEADER_SEARCH_PATHS = "";
 				INFOPLIST_FILE = "Info-IOFireWireAVC.plist";
 				INSTALLHDRS_COPY_PHASE = YES;
@@ -665,9 +721,13 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireAVC;
-				MODULE_VERSION = 4.2.8;
+				MODULE_VERSION = 4.2.9;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
+				"OTHER_LDFLAGS[sdk=macosx*]" = (
+					"-Wl,-sectcreate,__LINKINFO,__symbolsets,$(SYMROOT)/symbolsets.plist",
+					"-Wl,-segprot,__LINKINFO,r--,r--",
+				);
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = IOFireWireAVC;

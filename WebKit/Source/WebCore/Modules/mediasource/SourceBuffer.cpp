@@ -34,7 +34,9 @@
 
 #if ENABLE(MEDIA_SOURCE)
 
+#include "AudioTrack.h"
 #include "AudioTrackList.h"
+#include "AudioTrackPrivate.h"
 #include "BufferSource.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -49,7 +51,9 @@
 #include "SourceBufferPrivate.h"
 #include "TextTrackList.h"
 #include "TimeRanges.h"
+#include "VideoTrack.h"
 #include "VideoTrackList.h"
+#include "VideoTrackPrivate.h"
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/VM.h>
@@ -75,6 +79,7 @@ SourceBuffer::SourceBuffer(Ref<SourceBufferPrivate>&& sourceBufferPrivate, Media
     : ActiveDOMObject(source->scriptExecutionContext())
     , m_private(WTFMove(sourceBufferPrivate))
     , m_source(source)
+    , m_opaqueRootProvider([this] { return opaqueRoot(); })
     , m_appendBufferTimer(*this, &SourceBuffer::appendBufferTimerFired)
     , m_appendWindowStart(MediaTime::zeroTime())
     , m_appendWindowEnd(MediaTime::positiveInfiniteTime())
@@ -602,7 +607,7 @@ void SourceBuffer::removeTimerFired()
 
     // 6. Run the coded frame removal algorithm with start and end as the start and end of the removal range.
 
-    m_private->removeCodedFrames(m_pendingRemoveStart, m_pendingRemoveEnd, m_source->currentTime(), m_source->isEnded(), [this, protectedThis = makeRef(*this)] {
+    m_private->removeCodedFrames(m_pendingRemoveStart, m_pendingRemoveEnd, m_source->currentTime(), m_source->isEnded(), [this, protectedThis = Ref { *this }] {
         // 7. Set the updating attribute to false.
         m_updating = false;
         m_pendingRemoveStart = MediaTime::invalidTime();
@@ -625,27 +630,37 @@ uint64_t SourceBuffer::maximumBufferSize() const
     if (!element)
         return 0;
 
+    size_t platformMaximumBufferSize = m_private->platformMaximumBufferSize();
+    if (platformMaximumBufferSize)
+        return platformMaximumBufferSize;
+
     return element->maximumSourceBufferSize(*this);
 }
 
 VideoTrackList& SourceBuffer::videoTracks()
 {
-    if (!m_videoTracks)
-        m_videoTracks = VideoTrackList::create(makeWeakPtr((isRemoved() ? nullptr : m_source->mediaElement())), scriptExecutionContext());
+    if (!m_videoTracks) {
+        m_videoTracks = VideoTrackList::create(scriptExecutionContext());
+        m_videoTracks->setOpaqueRootObserver(m_opaqueRootProvider);
+    }
     return *m_videoTracks;
 }
 
 AudioTrackList& SourceBuffer::audioTracks()
 {
-    if (!m_audioTracks)
-        m_audioTracks = AudioTrackList::create(makeWeakPtr((isRemoved() ? nullptr : m_source->mediaElement())), scriptExecutionContext());
+    if (!m_audioTracks) {
+        m_audioTracks = AudioTrackList::create(scriptExecutionContext());
+        m_audioTracks->setOpaqueRootObserver(m_opaqueRootProvider);
+    }
     return *m_audioTracks;
 }
 
 TextTrackList& SourceBuffer::textTracks()
 {
-    if (!m_textTracks)
-        m_textTracks = TextTrackList::create(makeWeakPtr((isRemoved() ? nullptr : m_source->mediaElement())), scriptExecutionContext());
+    if (!m_textTracks) {
+        m_textTracks = TextTrackList::create(scriptExecutionContext());
+        m_textTracks->setOpaqueRootObserver(m_opaqueRootProvider);
+    }
     return *m_textTracks;
 }
 
@@ -777,7 +792,8 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(Initializa
             // FIXME: Implement steps 5.2.1-5.2.8.1 as per Editor's Draft 09 January 2015, and reorder this
             // 5.2.1 Let new audio track be a new AudioTrack object.
             // 5.2.2 Generate a unique ID and assign it to the id property on new video track.
-            auto newAudioTrack = AudioTrack::create(*this, *audioTrackInfo.track);
+            auto newAudioTrack = AudioTrack::create(scriptExecutionContext(), *audioTrackInfo.track);
+            newAudioTrack->addClient(*this);
             newAudioTrack->setSourceBuffer(this);
 
             // 5.2.3 If audioTracks.length equals 0, then run the following steps:
@@ -799,7 +815,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(Initializa
             // 5.2.7 Queue a task to fire a trusted event named addtrack, that does not bubble and is
             // not cancelable, and that uses the TrackEvent interface, at the AudioTrackList object
             // referenced by the audioTracks attribute on the HTMLMediaElement.
-            m_source->mediaElement()->ensureAudioTracks().append(newAudioTrack.copyRef());
+            m_source->mediaElement()->addAudioTrack(newAudioTrack.copyRef());
 
             m_audioCodecs.append(audioTrackInfo.description->codec());
 
@@ -812,7 +828,8 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(Initializa
             // FIXME: Implement steps 5.3.1-5.3.8.1 as per Editor's Draft 09 January 2015, and reorder this
             // 5.3.1 Let new video track be a new VideoTrack object.
             // 5.3.2 Generate a unique ID and assign it to the id property on new video track.
-            auto newVideoTrack = VideoTrack::create(*this, *videoTrackInfo.track);
+            auto newVideoTrack = VideoTrack::create(scriptExecutionContext(), *videoTrackInfo.track);
+            newVideoTrack->addClient(*this);
             newVideoTrack->setSourceBuffer(this);
 
             // 5.3.3 If videoTracks.length equals 0, then run the following steps:
@@ -834,7 +851,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(Initializa
             // 5.3.7 Queue a task to fire a trusted event named addtrack, that does not bubble and is
             // not cancelable, and that uses the TrackEvent interface, at the VideoTrackList object
             // referenced by the videoTracks attribute on the HTMLMediaElement.
-            m_source->mediaElement()->ensureVideoTracks().append(newVideoTrack.copyRef());
+            m_source->mediaElement()->addVideoTrack(newVideoTrack.copyRef());
 
             m_videoCodecs.append(videoTrackInfo.description->codec());
 
@@ -849,7 +866,8 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(Initializa
             // FIXME: Implement steps 5.4.1-5.4.8.1 as per Editor's Draft 09 January 2015, and reorder this
             // 5.4.1 Let new text track be a new TextTrack object with its properties populated with the
             // appropriate information from the initialization segment.
-            auto newTextTrack = InbandTextTrack::create(document(), *this, textTrackPrivate);
+            auto newTextTrack = InbandTextTrack::create(document(), textTrackPrivate);
+            newTextTrack->addClient(*this);
 
             // 5.4.2 If the mode property on new text track equals "showing" or "hidden", then set active
             // track flag to true.
@@ -866,7 +884,7 @@ void SourceBuffer::sourceBufferPrivateDidReceiveInitializationSegment(Initializa
             // 5.4.6 Queue a task to fire a trusted event named addtrack, that does not bubble and is
             // not cancelable, and that uses the TrackEvent interface, at the TextTrackList object
             // referenced by the textTracks attribute on the HTMLMediaElement.
-            m_source->mediaElement()->ensureTextTracks().append(newTextTrack.copyRef());
+            m_source->mediaElement()->addTextTrack(newTextTrack.copyRef());
 
             m_textCodecs.append(textTrackInfo.description->codec());
 
@@ -1021,9 +1039,24 @@ void SourceBuffer::videoTrackSelectedChanged(VideoTrack& track)
 
     if (m_videoTracks && m_videoTracks->contains(track))
         m_videoTracks->scheduleChangeEvent();
+}
 
-    if (!isRemoved())
-        m_source->mediaElement()->videoTrackSelectedChanged(track);
+void SourceBuffer::videoTrackKindChanged(VideoTrack& track)
+{
+    if (m_videoTracks && m_videoTracks->contains(track))
+        m_videoTracks->scheduleChangeEvent();
+}
+
+void SourceBuffer::videoTrackLabelChanged(VideoTrack& track)
+{
+    if (m_videoTracks && m_videoTracks->contains(track))
+        m_videoTracks->scheduleChangeEvent();
+}
+
+void SourceBuffer::videoTrackLanguageChanged(VideoTrack& track)
+{
+    if (m_videoTracks && m_videoTracks->contains(track))
+        m_videoTracks->scheduleChangeEvent();
 }
 
 void SourceBuffer::audioTrackEnabledChanged(AudioTrack& track)
@@ -1048,9 +1081,24 @@ void SourceBuffer::audioTrackEnabledChanged(AudioTrack& track)
 
     if (m_audioTracks && m_audioTracks->contains(track))
         m_audioTracks->scheduleChangeEvent();
+}
 
-    if (!isRemoved())
-        m_source->mediaElement()->audioTrackEnabledChanged(track);
+void SourceBuffer::audioTrackKindChanged(AudioTrack& track)
+{
+    if (m_audioTracks && m_audioTracks->contains(track))
+        m_audioTracks->scheduleChangeEvent();
+}
+
+void SourceBuffer::audioTrackLabelChanged(AudioTrack& track)
+{
+    if (m_audioTracks && m_audioTracks->contains(track))
+        m_audioTracks->scheduleChangeEvent();
+}
+
+void SourceBuffer::audioTrackLanguageChanged(AudioTrack& track)
+{
+    if (m_audioTracks && m_audioTracks->contains(track))
+        m_audioTracks->scheduleChangeEvent();
 }
 
 void SourceBuffer::textTrackModeChanged(TextTrack& track)
@@ -1075,39 +1123,18 @@ void SourceBuffer::textTrackModeChanged(TextTrack& track)
 
     if (m_textTracks && m_textTracks->contains(track))
         m_textTracks->scheduleChangeEvent();
-
-    if (!isRemoved())
-        m_source->mediaElement()->textTrackModeChanged(track);
-}
-
-void SourceBuffer::textTrackAddCue(TextTrack& track, TextTrackCue& cue)
-{
-    if (!isRemoved())
-        m_source->mediaElement()->textTrackAddCue(track, cue);
-}
-
-void SourceBuffer::textTrackAddCues(TextTrack& track, const TextTrackCueList& cueList)
-{
-    if (!isRemoved())
-        m_source->mediaElement()->textTrackAddCues(track, cueList);
-}
-
-void SourceBuffer::textTrackRemoveCue(TextTrack& track, TextTrackCue& cue)
-{
-    if (!isRemoved())
-        m_source->mediaElement()->textTrackRemoveCue(track, cue);
-}
-
-void SourceBuffer::textTrackRemoveCues(TextTrack& track, const TextTrackCueList& cueList)
-{
-    if (!isRemoved())
-        m_source->mediaElement()->textTrackRemoveCues(track, cueList);
 }
 
 void SourceBuffer::textTrackKindChanged(TextTrack& track)
 {
-    if (!isRemoved())
-        m_source->mediaElement()->textTrackKindChanged(track);
+    if (m_textTracks && m_textTracks->contains(track))
+        m_textTracks->scheduleChangeEvent();
+}
+
+void SourceBuffer::textTrackLanguageChanged(TextTrack& track)
+{
+    if (m_textTracks && m_textTracks->contains(track))
+        m_textTracks->scheduleChangeEvent();
 }
 
 void SourceBuffer::sourceBufferPrivateDidParseSample(double frameDuration)
@@ -1117,8 +1144,12 @@ void SourceBuffer::sourceBufferPrivateDidParseSample(double frameDuration)
 
 void SourceBuffer::sourceBufferPrivateDurationChanged(const MediaTime& duration)
 {
-    if (!isRemoved())
-        m_source->setDurationInternal(duration);
+    if (isRemoved())
+        return;
+
+    m_source->setDurationInternal(duration);
+    if (m_textTracks)
+        m_textTracks->setDuration(duration);
 }
 
 void SourceBuffer::sourceBufferPrivateHighestPresentationTimestampChanged(const MediaTime& timestamp)
@@ -1238,7 +1269,7 @@ ExceptionOr<void> SourceBuffer::setMode(AppendMode newMode)
     // 1. Let new mode equal the new value being assigned to this attribute.
     // 2. If generate timestamps flag equals true and new mode equals "segments", then throw an InvalidAccessError exception and abort these steps.
     if (m_shouldGenerateTimestamps && newMode == AppendMode::Segments)
-        return Exception { InvalidAccessError };
+        return Exception { TypeError };
 
     // 3. If this object has been removed from the sourceBuffers attribute of the parent media source, then throw an InvalidStateError exception and abort these steps.
     // 4. If the updating attribute equals true, then throw an InvalidStateError exception and abort these steps.

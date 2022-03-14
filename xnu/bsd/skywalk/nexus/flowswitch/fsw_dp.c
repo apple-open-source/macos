@@ -585,6 +585,7 @@ copy_packet_from_dev(struct nx_flowswitch *fsw, struct __kern_packet *spkt,
 	return 0;
 }
 
+SK_NO_INLINE_ATTRIBUTE
 static struct __kern_packet *
 rx_process_ip_frag(struct nx_flowswitch *fsw, struct __kern_packet *pkt)
 {
@@ -738,11 +739,6 @@ rx_lookup_flow(struct nx_flowswitch *fsw, struct __kern_packet *pkt,
 		flow_entry_release(&fe);
 		fe = flow_mgr_get_host_fe(fsw->fsw_flow_mgr);
 	}
-
-	SK_LOG_VAR(char febuf[FLOWENTRY_DBGBUF_SIZE]);
-	SK_DF(SK_VERB_FSW_DP | SK_VERB_LOOKUP | SK_VERB_RX,
-	    "fe 0x%llx \"%s\"",
-	    SK_KVA(fe), fe_as_string(fe, febuf, sizeof(febuf)));
 
 	return fe;
 }
@@ -2678,11 +2674,6 @@ tx_lookup_flow(struct nx_flowswitch *fsw, struct __kern_packet *pkt,
 		flow_entry_release(&fe);
 		goto done;
 	}
-
-	SK_LOG_VAR(char febuf[FLOWENTRY_DBGBUF_SIZE]);
-	SK_DF(SK_VERB_FSW_DP | SK_VERB_LOOKUP | SK_VERB_TX,
-	    "fe 0x%llx \"%s\"",
-	    SK_KVA(fe), fe_as_string(fe, febuf, sizeof(febuf)));
 
 	_FSW_INJECT_ERROR(34, pkt->pkt_flow_id[0], fe->fe_uuid[0] + 1,
 	    null_func);

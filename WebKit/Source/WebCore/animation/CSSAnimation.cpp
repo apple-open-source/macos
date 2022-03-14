@@ -36,10 +36,10 @@ namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(CSSAnimation);
 
-Ref<CSSAnimation> CSSAnimation::create(const Styleable& owningElement, const Animation& backingAnimation, const RenderStyle* oldStyle, const RenderStyle& newStyle, const RenderStyle* parentElementStyle)
+Ref<CSSAnimation> CSSAnimation::create(const Styleable& owningElement, const Animation& backingAnimation, const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext& resolutionContext)
 {
     auto result = adoptRef(*new CSSAnimation(owningElement, backingAnimation));
-    result->initialize(oldStyle, newStyle, parentElementStyle);
+    result->initialize(oldStyle, newStyle, resolutionContext);
 
     InspectorInstrumentation::didCreateWebAnimation(result.get());
 
@@ -237,7 +237,31 @@ void CSSAnimation::effectKeyframesWereSetUsingBindings()
     // After a successful call to setKeyframes() on the KeyframeEffect associated with a CSSAnimation, any subsequent change to
     // matching @keyframes rules or the resolved value of the animation-timing-function property for the target element will not
     // be reflected in that animation.
+    m_overriddenProperties.add(Property::Keyframes);
     m_overriddenProperties.add(Property::TimingFunction);
+}
+
+void CSSAnimation::keyframesRuleDidChange()
+{
+    if (m_overriddenProperties.contains(Property::Keyframes) || !is<KeyframeEffect>(effect()))
+        return;
+
+    auto owningElement = this->owningElement();
+    if (!owningElement)
+        return;
+
+    downcast<KeyframeEffect>(*effect()).keyframesRuleDidChange();
+    owningElement->keyframesRuleDidChange();
+}
+
+void CSSAnimation::updateKeyframesIfNeeded(const RenderStyle* oldStyle, const RenderStyle& newStyle, const Style::ResolutionContext& resolutionContext)
+{
+    if (m_overriddenProperties.contains(Property::Keyframes) || !is<KeyframeEffect>(effect()))
+        return;
+
+    auto& keyframeEffect = downcast<KeyframeEffect>(*effect());
+    if (keyframeEffect.blendingKeyframes().isEmpty())
+        keyframeEffect.computeDeclarativeAnimationBlendingKeyframes(oldStyle, newStyle, resolutionContext);
 }
 
 Ref<AnimationEventBase> CSSAnimation::createEvent(const AtomString& eventType, double elapsedTime, const String& pseudoId, std::optional<Seconds> timelineTime)

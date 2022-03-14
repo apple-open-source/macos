@@ -26,6 +26,7 @@
 #include "config.h"
 #include "WasmStreamingCompiler.h"
 
+#include "JSBigInt.h"
 #include "JSWebAssembly.h"
 #include "JSWebAssemblyCompileError.h"
 #include "JSWebAssemblyHelpers.h"
@@ -82,7 +83,7 @@ bool StreamingCompiler::didReceiveFunctionData(unsigned functionIndex, const Was
     }
 
     if (m_threadedCompilationStarted) {
-        Ref<Plan> plan = adoptRef(*new StreamingPlan(&m_vm.wasmContext, m_info.copyRef(), *m_plan, functionIndex, createSharedTask<Plan::CallbackType>([compiler = makeRef(*this)](Plan& plan) {
+        Ref<Plan> plan = adoptRef(*new StreamingPlan(&m_vm.wasmContext, m_info.copyRef(), *m_plan, functionIndex, createSharedTask<Plan::CallbackType>([compiler = Ref { *this }](Plan& plan) {
             compiler->didCompileFunction(static_cast<StreamingPlan&>(plan));
         })));
         ensureWorklist().enqueue(WTFMove(plan));

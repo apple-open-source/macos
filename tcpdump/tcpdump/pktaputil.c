@@ -132,10 +132,12 @@ pktap_filter_packet(netdissect_options *ndo, struct pcap_if_info *if_info,
 		pmd.svc = svc2str(pktp_hdr->pth_svc);
 		pmd.dir = (pktp_hdr->pth_flags & PTH_FLAG_DIR_IN) ? "in" :
 			(pktp_hdr->pth_flags & PTH_FLAG_DIR_OUT) ? "out" : "";
+		pmd.flowid = pktp_hdr->pth_flowid;
 		
 		match = evaluate_expression(pkt_meta_data_expression, &pmd);
-		if (match == 0)
+		if (match == 0) {
 			packets_mtdt_fltr_drop++;
+		}
 	}
 	
 	return (match);

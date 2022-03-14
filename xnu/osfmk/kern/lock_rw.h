@@ -40,7 +40,6 @@
 __BEGIN_DECLS
 
 #ifdef  MACH_KERNEL_PRIVATE
-extern uint32_t LcksOpts;
 
 typedef union {
 	struct {
@@ -572,15 +571,6 @@ extern boolean_t        lck_rw_lock_yield_shared(
 #endif /* XNU_KERNEL_PRIVATE */
 
 #if MACH_KERNEL_PRIVATE
-#ifdef DEBUG_RW
-/*!
- * @function rw_lock_init
- *
- * @abstract
- * Initialize the rw_lock subsystem
- */
-extern void rw_lock_init(void);
-#endif /* DEBUG_RW */
 
 /*!
  * @function lck_rw_clear_promotion

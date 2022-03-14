@@ -34,12 +34,8 @@
 
 namespace WebCore {
 
-RenderGeometryMap::RenderGeometryMap(MapCoordinatesFlags flags)
-    : m_insertionPosition(notFound)
-    , m_nonUniformStepsCount(0)
-    , m_transformedStepsCount(0)
-    , m_fixedStepsCount(0)
-    , m_mapCoordinatesFlags(flags)
+RenderGeometryMap::RenderGeometryMap(OptionSet<MapCoordinatesMode> flags)
+    : m_mapCoordinatesFlags(flags)
 {
 }
 
@@ -160,7 +156,7 @@ static bool canMapBetweenRenderersViaLayers(const RenderLayerModelObject& render
         if (current->isRenderFragmentedFlow())
             return false;
 
-        if (current->isSVGRoot())
+        if (current->isLegacySVGRoot())
             return false;
 
         if (current == &ancestor)
@@ -172,8 +168,11 @@ static bool canMapBetweenRenderersViaLayers(const RenderLayerModelObject& render
 
 void RenderGeometryMap::pushMappingsToAncestor(const RenderLayer* layer, const RenderLayer* ancestorLayer, bool respectTransforms)
 {
-    MapCoordinatesFlags newFlags = respectTransforms ? m_mapCoordinatesFlags : m_mapCoordinatesFlags & ~UseTransforms;
-    SetForScope<MapCoordinatesFlags> flagsChange(m_mapCoordinatesFlags, newFlags);
+    OptionSet<MapCoordinatesMode> newFlags = m_mapCoordinatesFlags;
+    if (!respectTransforms)
+        newFlags.remove(UseTransforms);
+
+    SetForScope<OptionSet<MapCoordinatesMode>> flagsChange(m_mapCoordinatesFlags, newFlags);
 
     const RenderLayerModelObject& renderer = layer->renderer();
 

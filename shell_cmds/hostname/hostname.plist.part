@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>hostname</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-09-25</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/hostname?id=33c1e7271ac21a626829289780b88071ae46ec65</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-25</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>hostname.1: update persistent hostname information (6100216)</string>
+			<string>hostname.1: remove reference to rc.conf (3332109)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

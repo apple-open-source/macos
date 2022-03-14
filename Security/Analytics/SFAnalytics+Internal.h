@@ -28,10 +28,17 @@
 
 #import "SFAnalytics.h"
 
+@class SFAnalyticsSQLiteStore;
+
 @interface SFAnalytics (Internal)
 
 - (void)logMetric:(NSNumber*)metric withName:(NSString*)metricName oncePerReport:(BOOL)once;
 + (NSString*)hwModelID;
+
+- (void)drainLogQueue;
+
+@property (nonatomic) SFAnalyticsSQLiteStore* database;
+@property (nonatomic) dispatch_queue_t queue;
 
 @end
 

@@ -407,19 +407,6 @@ static void displayMessage(CFTypeRef key, CFTypeRef value)
         printmsg(CFSTR("%@: %@\n"), key, value);
 }
 
-static void printEverything(CFTypeRef objects)
-{
-    CFDictionaryForEach(objects, ^(const void *key, const void *value) {
-        if (isData(value))
-        {
-            printmsg(CFSTR("%@: %@\n\n"), key, printFullDataString(value));
-        }
-        else
-            printmsg(CFSTR("%@: %@\n"), key, value);
-    });
-    
-}
-
 static void decodeForKeyType(CFTypeRef key, CFTypeRef value, SOSKVSKeyType type){
     switch (type) {
         case kCircleKey:
@@ -480,8 +467,6 @@ bool SOSCCDumpCircleKVSInformation(char *itemName) {
     CFReleaseSafe(keysToGet);
     if (objects)
     {
-        fprintf(outFile, "All keys and values straight from KVS\n");
-        printEverything(objects);
         fprintf(outFile, "\nAll values in decoded form...\n");
         decodeAllTheValues(objects);
     }

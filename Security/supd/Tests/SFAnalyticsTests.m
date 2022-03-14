@@ -148,9 +148,19 @@ static NSString* modelID = nil;
     [result doubleAtIndex:1];
     NSDictionary* rowdata = [NSPropertyListSerialization propertyListWithData:[result dataAtIndex:2] options:NSPropertyListImmutable format:nil error:&error];
     XCTAssertNotNil(rowdata, @"able to deserialize db data, %@", error);
+    [self assertIsProperRecord:rowdata eventType:eventType class:class timestampBucket:bucket];
+}
+
+- (void)assertIsProperRecord:(NSDictionary*)rowdata eventType:(NSString*)eventType class:(SFAnalyticsEventClass)class timestampBucket:(SFAnalyticsTimestampBucket)bucket
+{
     NSNumber *timestamp = rowdata[SFAnalyticsEventTime];
     XCTAssert([timestamp isKindOfClass:[NSNumber class]], @"Timestamp is an NSNumber");
-    [self recentTimeStamp:([timestamp doubleValue] / 1000) timestampBucket:bucket]; // We need to convert to seconds, as its stored in milliseconds
+    [self recentTimeStamp:([timestamp doubleValue] / 1000) timestampBucket:bucket]; // We need to convert to seconds, as it's stored in milliseconds
+    [self assertIsProperRecord:rowdata eventType:eventType class:class];
+}
+
+- (void)assertIsProperRecord:(NSDictionary*)rowdata eventType:(NSString*)eventType class:(SFAnalyticsEventClass)class
+{
     XCTAssertTrue([rowdata[SFAnalyticsEventType] isKindOfClass:[NSString class]] && [rowdata[SFAnalyticsEventType] isEqualToString:eventType], @"found eventType \"%@\" in db", eventType);
     XCTAssertTrue([rowdata[SFAnalyticsEventClassKey] isKindOfClass:[NSNumber class]] && [rowdata[SFAnalyticsEventClassKey] intValue] == class, @"eventClass is %ld", (long)class);
     XCTAssertTrue([rowdata[@"build"] isEqualToString:build], @"event row includes build");
@@ -172,6 +182,9 @@ static NSString* modelID = nil;
 
 - (void)checkSamples:(NSArray*)samples name:(NSString*)samplerName totalSamples:(NSUInteger)total accuracy:(double)accuracy
 {
+    // before checking the database for log entries, make sure they made it to the disk
+    [_analytics drainLogQueue];
+
     NSUInteger samplescount = 0, targetcount = 0;
     NSMutableArray* samplesfound = [NSMutableArray array];
     PQLResultSet* result = [_db fetch:@"select * from samples"];
@@ -331,6 +344,13 @@ static NSString* modelID = nil;
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure timestampBucket:bucket];
     [self assertNoNotes];
     [self assertNoHardFailures];
+
+    NSArray *allEvents = _analytics.database.allEvents;
+    XCTAssertEqual(allEvents.count, 1, @"Store should contain one event");
+    [self assertIsProperRecord:allEvents.firstObject eventType:@"unittestevent" class:SFAnalyticsEventClassSoftFailure timestampBucket:bucket];
+    NSArray *softFailures = _analytics.database.softFailures;
+    XCTAssertEqualObjects(allEvents, softFailures, @"Store should contain one soft failure");
+    XCTAssertEqual(_analytics.database.hardFailures.count, 0, @"Store should not contain any hard failures");
 }
 
 - (void)testLogRecoverableFailure
@@ -376,6 +396,13 @@ static NSString* modelID = nil;
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassHardFailure];
     [self assertNoNotes];
     [self assertNoSoftFailures];
+
+    NSArray *allEvents = _analytics.database.allEvents;
+    XCTAssertEqual(allEvents.count, 1, @"Store should contain one event");
+    [self assertIsProperRecord:allEvents.firstObject eventType:@"unittestevent" class:SFAnalyticsEventClassHardFailure];
+    NSArray *hardFailures = _analytics.database.hardFailures;
+    XCTAssertEqualObjects(allEvents, hardFailures, @"Store should contain one hard failure");
+    XCTAssertEqual(_analytics.database.softFailures.count, 0, @"Store should not contain any soft failures");
 }
 
 - (void)testLogUnrecoverableFailureWithAttributes
@@ -424,6 +451,10 @@ static NSString* modelID = nil;
 
     PQLResultSet* result = [_db fetch:@"select * from notes"];
     [self properEventLogged:result eventType:@"unittestevent" class:SFAnalyticsEventClassNote];
+
+    NSArray *allEvents = _analytics.database.allEvents;
+    XCTAssertEqual(allEvents.count, 1, @"Store should contain one event");
+    [self assertIsProperRecord:allEvents.firstObject eventType:@"unittestevent" class:SFAnalyticsEventClassNote];
 }
 
 // MARK: SFAnalyticsSampler Tests

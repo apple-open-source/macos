@@ -179,39 +179,6 @@ public:
         intptr_t offset;
     };
 
-    // ImplicitAddress:
-    //
-    // This class is used for explicit 'load' and 'store' operations
-    // (as opposed to situations in which a memory operand is provided
-    // to a generic operation, such as an integer arithmetic instruction).
-    //
-    // In the case of a load (or store) operation we want to permit
-    // addresses to be implicitly constructed, e.g. the two calls:
-    //
-    //     load32(Address(addrReg), destReg);
-    //     load32(addrReg, destReg);
-    //
-    // Are equivalent, and the explicit wrapping of the Address in the former
-    // is unnecessary.
-    struct ImplicitAddress {
-        ImplicitAddress(RegisterID base)
-            : base(base)
-            , offset(0)
-        {
-            ASSERT(base != RegisterID::InvalidGPRReg);
-        }
-
-        ImplicitAddress(Address address)
-            : base(address.base)
-            , offset(address.offset)
-        {
-            ASSERT(base != RegisterID::InvalidGPRReg);
-        }
-
-        RegisterID base;
-        int32_t offset;
-    };
-
     // BaseIndex:
     //
     // Describes a complex addressing mode.
@@ -397,7 +364,7 @@ public:
         {
         }
 
-#if CPU(X86_64) || CPU(ARM64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
         explicit constexpr TrustedImm64(TrustedImmPtr ptr)
             : m_value(ptr.asIntptr())
         {
@@ -413,7 +380,7 @@ public:
             : TrustedImm64(value)
         {
         }
-#if CPU(X86_64) || CPU(ARM64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
         explicit constexpr Imm64(TrustedImmPtr ptr)
             : TrustedImm64(ptr)
         {
@@ -932,12 +899,6 @@ public:
         AssemblerType::relinkJump(jump.dataLocation(), destination.dataLocation());
     }
     
-    template<PtrTag jumpTag>
-    static void repatchJumpToNop(CodeLocationJump<jumpTag> jump)
-    {
-        AssemblerType::relinkJumpToNop(jump.dataLocation());
-    }
-
     template<PtrTag callTag, PtrTag destTag>
     static void repatchNearCall(CodeLocationNearCall<callTag> nearCall, CodeLocationLabel<destTag> destination)
     {

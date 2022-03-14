@@ -21,6 +21,9 @@ func Test_compiler()
   call assert_equal('perl', b:current_compiler)
   call assert_fails('let g:current_compiler', 'E121:')
 
+  let verbose_efm = execute('verbose set efm')
+  call assert_match('Last set from .*[/\\]compiler[/\\]perl.vim ', verbose_efm)
+
   call setline(1, ['#!/usr/bin/perl -w', 'use strict;', 'my $foo=1'])
   w!
   call feedkeys(":make\<CR>\<CR>", 'tx')
@@ -69,10 +72,10 @@ func Test_compiler_completion()
   call assert_match('^"compiler ' .. clist .. '$', @:)
 
   call feedkeys(":compiler p\<C-A>\<C-B>\"\<CR>", 'tx')
-  call assert_equal('"compiler pbx perl php pylint pyunit', @:)
+  call assert_match('"compiler pbx perl\( p[a-z]\+\)\+ pylint pyunit', @:)
 
   call feedkeys(":compiler! p\<C-A>\<C-B>\"\<CR>", 'tx')
-  call assert_equal('"compiler! pbx perl php pylint pyunit', @:)
+  call assert_match('"compiler! pbx perl\( p[a-z]\+\)\+ pylint pyunit', @:)
 endfunc
 
 func Test_compiler_error()

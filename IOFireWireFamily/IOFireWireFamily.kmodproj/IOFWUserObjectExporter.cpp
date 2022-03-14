@@ -445,8 +445,8 @@ IOFWUserObjectExporter::removeAllObjects ()
 
 	if ( fObjects )
 	{		
-		objects = (const OSObject **)IOMalloc( sizeof(const OSObject *) * capacity ) ;
-		cleanupFunctions = (CleanupFunctionWithExporter*)IOMalloc( sizeof( CleanupFunctionWithExporter ) * capacity ) ;
+		objects = IONew( const OSObject *, capacity ) ;
+		cleanupFunctions = IONew( CleanupFunctionWithExporter, capacity ) ;
 	
 		if ( objects )
 			bcopy( fObjects, objects, sizeof( const OSObject * ) * capacity ) ;
@@ -487,8 +487,8 @@ IOFWUserObjectExporter::removeAllObjects ()
 			}
 		}
 
-		IOFree( objects, sizeof(const OSObject *) * capacity ) ;
-		IOFree( cleanupFunctions, sizeof( CleanupFunction ) * capacity ) ;
+		IODelete( objects, const OSObject *, capacity ) ;
+		IODelete( cleanupFunctions, CleanupFunctionWithExporter, capacity ) ;
 	}
 }
 

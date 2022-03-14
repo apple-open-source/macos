@@ -2,7 +2,10 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 nqo{
-    ExemplarCharacters{"[ߊ ߋ ߌ ߍ ߎ ߏ ߐ ߒ ߓ ߔ ߕ ߖ ߗ ߘ ߙ ߚ ߛ ߜ ߝ ߞ ߟ ߠ ߡ ߢ ߣ ߤ ߥ ߦ ߧ]"}
+    ExemplarCharacters{
+        "[\u07EB \u07EC \u07ED \u07EE \u07EF \u07F0 \u07F1 \u07F3 ߊ ߋ ߌ ߍ ߎ ߏ ߐ ߑ ߒ ߓ"
+        " ߔ ߕ ߖ ߗ ߘ ߙ ߚ ߛ ߜ ߝ ߞ ߟ ߠ ߡ ߢ ߣ ߤ ߥ ߦ ߧ ߴ ߵ]"
+    }
     ExemplarCharactersPunctuation{"[߸ ߹ ߷]"}
     NumberElements{
         default{"latn"}

@@ -1,0 +1,12 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>rmdir</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-11-20</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/rmdir?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-23</string>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

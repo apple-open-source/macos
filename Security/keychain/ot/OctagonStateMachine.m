@@ -599,13 +599,18 @@ format,                                                                         
 - (void)registerMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
 {
     dispatch_sync(self.queue, ^{
-        if([watcher.states containsObject:self.currentState]) {
-            [watcher onqueueEnterState:self.currentState];
-        } else {
-            [self.stateMachineWatchers addObject:watcher];
-            [self _onqueuePokeStateMachine];
-        }
+        [self _onqueueRegisterMultiStateArrivalWatcher:watcher];
     });
+}
+
+- (void)_onqueueRegisterMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher
+{
+    if([watcher.states containsObject:self.currentState]) {
+        [watcher onqueueEnterState:self.currentState];
+    } else {
+        [self.stateMachineWatchers addObject:watcher];
+        [self _onqueuePokeStateMachine];
+    }
 }
 
 #pragma mark - RPC Helpers

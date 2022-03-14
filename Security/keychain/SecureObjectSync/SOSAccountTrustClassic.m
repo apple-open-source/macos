@@ -188,6 +188,37 @@ errOut:
     return retval;
 }
 
+
+-(bool) matchOTUserViewSettings: (SOSAccount*)account userViewsEnabled: (bool) otHasUserViewsEnabled err:(CFErrorRef *)error
+{
+    bool changeMade = false;
+    __block bool atLeastOneViewDisabled = false;
+    __block bool atLeastOneViewEnabled = false;
+    CFSetRef userViews = SOSViewsGetUserVisibleSet();
+    
+    if([account isInCircle:error]) {
+        CFSetForEach(userViews, ^(const void *value) {
+            if(SOSPeerInfoViewStatus(account.peerInfo, (CFStringRef) value, error) != kSOSCCViewMember) {
+                atLeastOneViewDisabled = true;
+            } else {
+                atLeastOneViewEnabled = true;
+            }
+        });
+    }
+    
+    if(otHasUserViewsEnabled && atLeastOneViewDisabled) {
+        // enable V0 Views
+        secnotice("circleChange", "Enabling User Visible Views to match OT Settings");
+        changeMade = [self updateViewSets:account enabled:userViews disabled:NULL];
+    } else if(!otHasUserViewsEnabled && atLeastOneViewEnabled) {
+        // disable V0 Views
+        secnotice("circleChange", "Disabling User Visible Views to match OT Settings");
+        changeMade = [self updateViewSets:account enabled: NULL disabled:userViews];
+    }
+    return changeMade;
+}
+
+
 static void dumpViewSet(CFStringRef label, CFSetRef views) {
     if(views) {
         CFStringSetPerformWithDescription(views, ^(CFStringRef description) {
@@ -250,16 +281,9 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
     require_action_quiet(SOSAccountScreenViewListForValidV0(account, enabledViews, kSOSCCViewEnable), errOut, secnotice("viewChange", "Bad view change (enable) with kSOSViewKeychainV0"));
     require_action_quiet(SOSAccountScreenViewListForValidV0(account, disabledViews, kSOSCCViewDisable), errOut, secnotice("viewChange", "Bad view change (disable) with kSOSViewKeychainV0"));
 
-    if(SOSAccountHasCompletedInitialSync(account)) {
-        if(enabledViews) updateCircle |= SOSViewSetEnable(pi, enabledViews);
-        if(disabledViews) updateCircle |= SOSViewSetDisable(pi, disabledViews);
-        retval = true;
-    } else {
-        //hold on to the views and enable them later
-        if(enabledViews) [self pendEnableViewSet:enabledViews];
-        if(disabledViews) SOSAccountPendDisableViewSet(account, disabledViews);
-        retval = true;
-    }
+    if(enabledViews) updateCircle |= SOSViewSetEnable(pi, enabledViews);
+    if(disabledViews) updateCircle |= SOSViewSetDisable(pi, disabledViews);
+    retval = true;
 
     if(updateCircle) {
         /* UPDATE FULLPEERINFO VIEWS */

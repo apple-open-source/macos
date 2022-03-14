@@ -1585,9 +1585,11 @@ IOInterruptDispatchSource::CheckForWork_Impl(
 		}
 		willWait = (synchronous && (waitResult == THREAD_WAITING));
 		if (willWait && (kIOInterruptTypeLevel & ivars->interruptType) && ivars->enable) {
+			IOSimpleLockUnlockEnableInterrupt(ivars->lock, is);
 			ivars->provider->enableInterrupt(ivars->intIndex);
+		} else {
+			IOSimpleLockUnlockEnableInterrupt(ivars->lock, is);
 		}
-		IOSimpleLockUnlockEnableInterrupt(ivars->lock, is);
 		if (willWait) {
 			waitResult = thread_block(THREAD_CONTINUE_NULL);
 			if (THREAD_INTERRUPTED == waitResult) {
@@ -2028,9 +2030,11 @@ IOUserServer::waitInterruptTrap(void * p1, void * p2, void * p3, void * p4, void
 			}
 			willWait = (waitResult == THREAD_WAITING);
 			if (willWait && (kIOInterruptTypeLevel & ivars->interruptType) && ivars->enable) {
+				IOSimpleLockUnlockEnableInterrupt(ivars->lock, is);
 				ivars->provider->enableInterrupt(ivars->intIndex);
+			} else {
+				IOSimpleLockUnlockEnableInterrupt(ivars->lock, is);
 			}
-			IOSimpleLockUnlockEnableInterrupt(ivars->lock, is);
 			if (willWait) {
 				waitResult = thread_block(THREAD_CONTINUE_NULL);
 				if (THREAD_INTERRUPTED == waitResult) {
@@ -2389,7 +2393,7 @@ IOUserServer::setDriverKitUUID(OSKext *kext)
 	}
 
 	uuid_unparse(p_uuid, uuid_string);
-	new_uuid = OSData::withBytes(p_uuid, sizeof(p_uuid));
+	new_uuid = OSData::withValue(p_uuid);
 	kext->setDriverKitUUID(new_uuid);
 }
 
@@ -3687,7 +3691,7 @@ IOUserServer::copyInObjects(IORPCMessageMach * mach, IORPCMessage * message,
 
 	while (idx--) {
 		object = (OSObject *) message->objects[idx];
-		object->release();
+		OSSafeReleaseNULL(object);
 		message->objects[idx] = 0;
 	}
 
@@ -3793,21 +3797,34 @@ IOUserClient * IOUserServer::withTask(task_t owningTask)
 		inst = NULL;
 		return inst;
 	}
-	inst->PMinit();
+	OS_ANALYZER_SUPPRESS("82033761") inst->PMinit();
 
 	inst->fOwningTask = current_task();
 	inst->fEntitlements = IOUserClient::copyClientEntitlements(inst->fOwningTask);
 
 	if (!(kIODKDisableEntitlementChecking & gIODKDebug)) {
-		if (!IOCurrentTaskHasEntitlement(gIODriverKitEntitlementKey->getCStringNoCopy())) {
-			proc_t p;
-			pid_t  pid;
+		proc_t p;
+		pid_t  pid;
+		const char * name;
+		p = (proc_t)get_bsdtask_info(inst->fOwningTask);
+		if (p) {
+			name = proc_best_name(p);
+			pid = proc_pid(p);
+		} else {
+			name = "unknown";
+			pid = 0;
+		}
 
-			p = (proc_t)get_bsdtask_info(inst->fOwningTask);
-			if (p) {
-				pid = proc_pid(p);
-				IOLog(kIODriverKitEntitlementKey " entitlement check failed for %s[%d]\n", proc_best_name(p), pid);
-			}
+		if (inst->fEntitlements == NULL) {
+#if DEVELOPMENT || DEBUG
+			panic("entitlements are missing for %s[%d]\n", name, pid);
+#else
+			DKLOG("entitlements are missing for %s[%d]\n", name, pid);
+#endif /* DEVELOPMENT || DEBUG */
+		}
+
+		if (!IOCurrentTaskHasEntitlement(gIODriverKitEntitlementKey->getCStringNoCopy())) {
+			IOLog(kIODriverKitEntitlementKey " entitlement check failed for %s[%d]\n", name, pid);
 			inst->release();
 			inst = NULL;
 			return inst;
@@ -4225,7 +4242,7 @@ IOUserServer::serviceNewUserClient(IOService * service, task_t owningTask, void 
 	}
 	userUC = OSDynamicCast(IOUserUserClient, uc);
 	if (!userUC) {
-		uc->terminate();
+		uc->terminate(kIOServiceTerminateNeedWillTerminate);
 		OSSafeReleaseNULL(uc);
 		OSSafeReleaseNULL(entitlements);
 		return kIOReturnUnsupported;
@@ -4266,7 +4283,7 @@ IOUserServer::serviceNewUserClient(IOService * service, task_t owningTask, void 
 
 		if (!ok) {
 			DKLOG(DKS ":UC entitlements check failed\n", DKN(userUC));
-			uc->terminate();
+			uc->terminate(kIOServiceTerminateNeedWillTerminate);
 			OSSafeReleaseNULL(uc);
 			OSSafeReleaseNULL(entitlements);
 			return kIOReturnNotPermitted;
@@ -5310,6 +5327,9 @@ IOUserUserClient::eventlinkConfigurationTrap(void * p1, void * p2, void * p3, vo
 
 	IOLockLock(fLock);
 	eventLink = OSDynamicCast(IOEventLink, fEventLinks->getObject(eventlinkNameStr));
+	if (eventLink) {
+		eventLink->retain();
+	}
 	IOLockUnlock(fLock);
 
 	if (eventLink == NULL) {
@@ -5343,6 +5363,7 @@ finish:
 	}
 
 	OSSafeReleaseNULL(eventlinkNameStr);
+	OSSafeReleaseNULL(eventLink);
 
 	return ret;
 }
@@ -5379,6 +5400,9 @@ IOUserUserClient::workgroupConfigurationTrap(void * p1, void * p2, void * p3, vo
 
 	IOLockLock(fLock);
 	workgroup = OSDynamicCast(IOWorkGroup, fWorkGroups->getObject(workgroupNameStr));
+	if (workgroup) {
+		workgroup->retain();
+	}
 	IOLockUnlock(fLock);
 
 	if (workgroup == NULL) {
@@ -5413,6 +5437,7 @@ finish:
 	}
 
 	OSSafeReleaseNULL(workgroupNameStr);
+	OSSafeReleaseNULL(workgroup);
 
 	return ret;
 }

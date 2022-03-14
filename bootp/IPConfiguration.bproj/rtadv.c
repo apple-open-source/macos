@@ -223,6 +223,7 @@ rtadv_set_clat46_address(ServiceRef service_p)
 		   "RTADV %s: failed to enable CLAT46",
 		   if_name(if_p));
 	    (void)inet_difaddr(s, if_name(if_p), addr);
+	    ServiceDetachIPv4(service_p);
 	}
 	flush_routes(if_link_index(if_p), G_ip_zeroes, addr);
     }
@@ -269,6 +270,7 @@ rtadv_remove_clat46_address(ServiceRef service_p)
     }
     close(s);
     service_clat46_set_active(service_p, false);
+    ServiceDetachIPv4(service_p);
     return;
 }
 

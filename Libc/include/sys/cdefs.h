@@ -105,13 +105,10 @@
 
 extern int pthread_key_init_np(int, void (*)(void *));
 
+// Not needed anymore by this header, but other headers rely on this include being here.
 #include <TargetConditionals.h>
-#if TARGET_OS_SIMULATOR
-/* Simulator keys are offset by 200 */
-#define	__LIBC_PTHREAD_KEY(x)		(210 + (x))
-#else
+
 #define	__LIBC_PTHREAD_KEY(x)		(10 + (x))
-#endif
 
 /*
  * Libc pthread key assignments

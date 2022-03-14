@@ -25,6 +25,7 @@
 #import <AuthKit/AKError.h>
 #import <os/feature_private.h>
 
+
 @interface OTSOSUpgradeOperation ()
 @property OTOperationDependencies* deps;
 @property OTDeviceInformation* deviceInfo;
@@ -146,7 +147,7 @@
 
         if(self.error) {
             if ([self.error isRetryable]) {
-                NSTimeInterval delay = [self.error overallCuttlefishRetry];
+                NSTimeInterval delay = [self.error retryInterval];
                 secnotice("octagon-sos", "SOS upgrade error is not fatal: requesting retry in %0.2fs: %@", delay, self.error);
                 [self.deps.flagHandler handlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptSOSUpgrade
                                                                                    delayInSeconds:delay]];
@@ -170,7 +171,19 @@
     }
 
     TPPBSecureElementIdentity* existingSecureElementIdentity = [account parsedSecureElementIdentity];
-
+   
+    OTAccountSettings* settings = nil;
+    
+    if (account.hasSettings) {
+        settings = [[OTAccountSettings alloc]init];
+        
+        if ([account.settings hasW]) {
+            OTTag1* w = [[OTTag1 alloc]init];
+            w.enabled = account.settings.w ? YES : NO;
+            settings.tag1 = w;
+        }
+    }
+    
     secnotice("octagon-sos", "Fetching trusted peers from SOS");
 
     NSError* sosPreapprovalError = nil;
@@ -204,7 +217,6 @@
 
     secnotice("octagon-sos", "Safari view is: %@", safariViewEnabled ? @"enabled" : @"disabled");
 
-
     [self.deps.cuttlefishXPCWrapper prepareWithContainer:self.deps.containerName
                                                  context:self.deps.contextID
                                                    epoch:self.deviceInfo.epoch
@@ -221,6 +233,7 @@
                                                             TPPBPeerStableInfoUserControllableViewStatus_ENABLED :
                                                             TPPBPeerStableInfoUserControllableViewStatus_DISABLED
                                    secureElementIdentity:existingSecureElementIdentity
+                                                 setting:settings
                              signingPrivKeyPersistentRef:signingKeyPersistRef
                                  encPrivKeyPersistentRef:encryptionKeyPersistRef
                                                    reply:^(NSString * _Nullable peerID,

@@ -46,7 +46,7 @@ OSErr ReplaceBTreeRecord(FileReference refNum, const void* key, u_int32_t hint, 
 	BTreeControlBlock	*btcb;
 	OSStatus			result;
 
-	iterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	fcb = GetFileControlBlock(refNum);
 	btcb = (BTreeControlBlock*) fcb->fcbBTCBPtr;
@@ -75,7 +75,7 @@ OSErr ReplaceBTreeRecord(FileReference refNum, const void* key, u_int32_t hint, 
 
 ErrorExit:
 
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	return result;
 }
 

@@ -30,28 +30,34 @@
 
 #include "CachedResourceLoader.h"
 #include "DOMPromiseProxy.h"
+#include "Document.h"
 #include "ElementChildIterator.h"
+#include "ElementInlines.h"
+#include "EventHandler.h"
+#include "EventNames.h"
+#include "GraphicsLayer.h"
+#include "GraphicsLayerCA.h"
+#include "HTMLModelElementCamera.h"
 #include "HTMLNames.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSourceElement.h"
+#include "JSDOMPromiseDeferred.h"
 #include "JSEventTarget.h"
 #include "JSHTMLModelElement.h"
+#include "JSHTMLModelElementCamera.h"
 #include "Model.h"
+#include "ModelPlayer.h"
+#include "ModelPlayerProvider.h"
+#include "MouseEvent.h"
+#include "Page.h"
+#include "PlatformMouseEvent.h"
+#include "RenderLayer.h"
+#include "RenderLayerBacking.h"
 #include "RenderLayerModelObject.h"
 #include "RenderModel.h"
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/Seconds.h>
 #include <wtf/URL.h>
-
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
-#include "Chrome.h"
-#include "ChromeClient.h"
-#include "Document.h"
-#include "GraphicsLayer.h"
-#include "GraphicsLayerCA.h"
-#include "Page.h"
-#include "RenderLayer.h"
-#include "RenderLayerBacking.h"
-#endif
 
 namespace WebCore {
 
@@ -69,23 +75,11 @@ HTMLModelElement::~HTMLModelElement()
         m_resource->removeClient(*this);
         m_resource = nullptr;
     }
-
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
-    clearFile();
-#endif
 }
 
 Ref<HTMLModelElement> HTMLModelElement::create(const QualifiedName& tagName, Document& document)
 {
     return adoptRef(*new HTMLModelElement(tagName, document));
-}
-
-RefPtr<SharedBuffer> HTMLModelElement::modelData() const
-{
-    if (!m_dataComplete)
-        return nullptr;
-
-    return m_data;
 }
 
 RefPtr<Model> HTMLModelElement::model() const
@@ -122,7 +116,7 @@ void HTMLModelElement::setSourceURL(const URL& url)
 
     m_sourceURL = url;
 
-    m_data = nullptr;
+    m_data.reset();
     m_dataComplete = false;
 
     if (m_resource) {
@@ -130,17 +124,16 @@ void HTMLModelElement::setSourceURL(const URL& url)
         m_resource = nullptr;
     }
 
+    if (m_modelPlayer)
+        m_modelPlayer = nullptr;
+
     if (!m_readyPromise->isFulfilled())
         m_readyPromise->reject(Exception { AbortError });
 
     m_readyPromise = makeUniqueRef<ReadyPromise>(*this, &HTMLModelElement::readyPromiseResolve);
 
-    if (m_sourceURL.isEmpty()) {
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
-        clearFile();
-#endif
+    if (m_sourceURL.isEmpty())
         return;
-    }
 
     ResourceLoaderOptions options = CachedResourceLoader::defaultCachedResourceOptions();
     options.destination = FetchOptions::Destination::Model;
@@ -156,7 +149,7 @@ void HTMLModelElement::setSourceURL(const URL& url)
         return;
     }
 
-    m_data = SharedBuffer::create();
+    m_data.empty();
 
     m_resource = resource.value();
     m_resource->addClient(*this);
@@ -166,24 +159,6 @@ HTMLModelElement& HTMLModelElement::readyPromiseResolve()
 {
     return *this;
 }
-
-#if HAVE(ARKIT_INLINE_PREVIEW)
-static String& sharedModelElementCacheDirectory()
-{
-    static NeverDestroyed<String> sharedModelElementCacheDirectory;
-    return sharedModelElementCacheDirectory;
-}
-
-void HTMLModelElement::setModelElementCacheDirectory(const String& path)
-{
-    sharedModelElementCacheDirectory() = path;
-}
-
-const String& HTMLModelElement::modelElementCacheDirectory()
-{
-    return sharedModelElementCacheDirectory();
-}
-#endif
 
 // MARK: - DOM overrides.
 
@@ -202,11 +177,10 @@ RenderPtr<RenderElement> HTMLModelElement::createElementRenderer(RenderStyle&& s
 
 // MARK: - CachedRawResourceClient
 
-void HTMLModelElement::dataReceived(CachedResource& resource, const uint8_t* data, int dataLength)
+void HTMLModelElement::dataReceived(CachedResource& resource, const SharedBuffer& buffer)
 {
     ASSERT_UNUSED(resource, &resource == m_resource);
-    ASSERT(m_data);
-    m_data->append(data, dataLength);
+    m_data.append(buffer);
 }
 
 void HTMLModelElement::notifyFinished(CachedResource& resource, const NetworkLoadMetrics&)
@@ -220,7 +194,7 @@ void HTMLModelElement::notifyFinished(CachedResource& resource, const NetworkLoa
     };
 
     if (resource.loadFailedOrCanceled()) {
-        m_data = nullptr;
+        m_data.reset();
 
         invalidateResourceHandleAndUpdateRenderer();
 
@@ -229,39 +203,362 @@ void HTMLModelElement::notifyFinished(CachedResource& resource, const NetworkLoa
     }
 
     m_dataComplete = true;
-    m_model = Model::create(*m_data);
+    m_model = Model::create(m_data.takeAsContiguous().get(), resource.mimeType(), resource.url());
 
     invalidateResourceHandleAndUpdateRenderer();
 
     m_readyPromise->resolve(*this);
 
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
     modelDidChange();
-#endif
 }
 
-void HTMLModelElement::enterFullscreen()
+// MARK: - ModelPlayer support
+
+void HTMLModelElement::modelDidChange()
 {
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
-    auto* page = document().page();
+    // FIXME: For the early returns here, we should probably inform the page that things have
+    // failed to render. For the case of no-renderer, we should probably also build the model
+    // when/if a renderer is created.
+
+    auto page = document().page();
     if (!page)
         return;
 
-    if (!is<RenderLayerModelObject>(this->renderer()))
+    auto* renderer = this->renderer();
+    if (!renderer)
         return;
+
+    m_modelPlayer = page->modelPlayerProvider().createModelPlayer(*this);
+    if (!m_modelPlayer)
+        return;
+
+    // FIXME: We need to tell the player if the size changes as well, so passing this
+    // in with load probably doesn't make sense.
+    auto size = renderer->absoluteBoundingBoxRect(false).size();
+    m_modelPlayer->load(*m_model, size);
+}
+
+bool HTMLModelElement::usesPlatformLayer() const
+{
+    return m_modelPlayer && m_modelPlayer->layer();
+}
+
+PlatformLayer* HTMLModelElement::platformLayer() const
+{
+    return m_modelPlayer->layer();
+}
+
+void HTMLModelElement::didFinishLoading(ModelPlayer& modelPlayer)
+{
+    ASSERT_UNUSED(modelPlayer, &modelPlayer == m_modelPlayer);
+
+    if (auto* renderer = this->renderer())
+        renderer->updateFromElement();
+}
+
+void HTMLModelElement::didFailLoading(ModelPlayer& modelPlayer, const ResourceError&)
+{
+    ASSERT_UNUSED(modelPlayer, &modelPlayer == m_modelPlayer);
+}
+
+GraphicsLayer::PlatformLayerID HTMLModelElement::platformLayerID()
+{
+    auto* page = document().page();
+    if (!page)
+        return 0;
+
+    if (!is<RenderLayerModelObject>(this->renderer()))
+        return 0;
 
     auto& renderLayerModelObject = downcast<RenderLayerModelObject>(*this->renderer());
     if (!renderLayerModelObject.isComposited() || !renderLayerModelObject.layer() || !renderLayerModelObject.layer()->backing())
-        return;
+        return 0;
 
     auto* graphicsLayer = renderLayerModelObject.layer()->backing()->graphicsLayer();
     if (!graphicsLayer)
+        return 0;
+
+    return graphicsLayer->contentsLayerIDForModel();
+}
+
+// MARK: - Fullscreen support.
+
+void HTMLModelElement::enterFullscreen()
+{
+    m_modelPlayer->enterFullscreen();
+}
+
+// MARK: - Interaction support.
+
+void HTMLModelElement::defaultEventHandler(Event& event)
+{
+    if (!m_modelPlayer || !m_modelPlayer->supportsMouseInteraction())
         return;
 
-    if (auto contentLayerId = graphicsLayer->contentsLayerIDForModel())
-        page->chrome().client().takeModelElementFullscreen(contentLayerId);
-#endif
+    auto type = event.type();
+    if (type != eventNames().mousedownEvent && type != eventNames().mousemoveEvent && type != eventNames().mouseupEvent)
+        return;
+
+    ASSERT(is<MouseEvent>(event));
+    auto& mouseEvent = downcast<MouseEvent>(event);
+
+    if (mouseEvent.button() != LeftButton)
+        return;
+
+    if (type == eventNames().mousedownEvent && !m_isDragging && !event.defaultPrevented())
+        dragDidStart(mouseEvent);
+    else if (type == eventNames().mousemoveEvent && m_isDragging)
+        dragDidChange(mouseEvent);
+    else if (type == eventNames().mouseupEvent && m_isDragging)
+        dragDidEnd(mouseEvent);
 }
+
+void HTMLModelElement::dragDidStart(MouseEvent& event)
+{
+    ASSERT(!m_isDragging);
+
+    RefPtr frame = document().frame();
+    if (!frame)
+        return;
+
+    frame->eventHandler().setCapturingMouseEventsElement(this);
+    event.setDefaultHandled();
+    m_isDragging = true;
+
+    if (m_modelPlayer)
+        m_modelPlayer->handleMouseDown(event.pageLocation(), event.timeStamp());
+}
+
+void HTMLModelElement::dragDidChange(MouseEvent& event)
+{
+    ASSERT(m_isDragging);
+
+    event.setDefaultHandled();
+
+    if (m_modelPlayer)
+        m_modelPlayer->handleMouseMove(event.pageLocation(), event.timeStamp());
+}
+
+void HTMLModelElement::dragDidEnd(MouseEvent& event)
+{
+    ASSERT(m_isDragging);
+
+    RefPtr frame = document().frame();
+    if (!frame)
+        return;
+
+    frame->eventHandler().setCapturingMouseEventsElement(nullptr);
+    event.setDefaultHandled();
+    m_isDragging = false;
+
+    if (m_modelPlayer)
+        m_modelPlayer->handleMouseUp(event.pageLocation(), event.timeStamp());
+}
+
+// MARK: - Camera support.
+
+void HTMLModelElement::getCamera(CameraPromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->getCamera([promise = WTFMove(promise)] (std::optional<HTMLModelElementCamera> camera) mutable {
+        if (!camera)
+            promise.reject();
+        else
+            promise.resolve(*camera);
+    });
+}
+
+void HTMLModelElement::setCamera(HTMLModelElementCamera camera, DOMPromiseDeferred<void>&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->setCamera(camera, [promise = WTFMove(promise)] (bool success) mutable {
+        if (success)
+            promise.resolve();
+        else
+            promise.reject();
+    });
+}
+
+// MARK: - Animations support.
+
+void HTMLModelElement::isPlayingAnimation(IsPlayingAnimationPromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->isPlayingAnimation([promise = WTFMove(promise)] (std::optional<bool> isPlaying) mutable {
+        if (!isPlaying)
+            promise.reject();
+        else
+            promise.resolve(*isPlaying);
+    });
+}
+
+void HTMLModelElement::setAnimationIsPlaying(bool isPlaying, DOMPromiseDeferred<void>&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->setAnimationIsPlaying(isPlaying, [promise = WTFMove(promise)] (bool success) mutable {
+        if (success)
+            promise.resolve();
+        else
+            promise.reject();
+    });
+}
+
+void HTMLModelElement::playAnimation(DOMPromiseDeferred<void>&& promise)
+{
+    setAnimationIsPlaying(true, WTFMove(promise));
+}
+
+void HTMLModelElement::pauseAnimation(DOMPromiseDeferred<void>&& promise)
+{
+    setAnimationIsPlaying(false, WTFMove(promise));
+}
+
+void HTMLModelElement::isLoopingAnimation(IsLoopingAnimationPromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->isLoopingAnimation([promise = WTFMove(promise)] (std::optional<bool> isLooping) mutable {
+        if (!isLooping)
+            promise.reject();
+        else
+            promise.resolve(*isLooping);
+    });
+}
+
+void HTMLModelElement::setIsLoopingAnimation(bool isLooping, DOMPromiseDeferred<void>&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->setIsLoopingAnimation(isLooping, [promise = WTFMove(promise)] (bool success) mutable {
+        if (success)
+            promise.resolve();
+        else
+            promise.reject();
+    });
+}
+
+void HTMLModelElement::animationDuration(DurationPromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->animationDuration([promise = WTFMove(promise)] (std::optional<Seconds> duration) mutable {
+        if (!duration)
+            promise.reject();
+        else
+            promise.resolve(duration->seconds());
+    });
+}
+
+void HTMLModelElement::animationCurrentTime(CurrentTimePromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->animationCurrentTime([promise = WTFMove(promise)] (std::optional<Seconds> currentTime) mutable {
+        if (!currentTime)
+            promise.reject();
+        else
+            promise.resolve(currentTime->seconds());
+    });
+}
+
+void HTMLModelElement::setAnimationCurrentTime(double currentTime, DOMPromiseDeferred<void>&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->setAnimationCurrentTime(Seconds(currentTime), [promise = WTFMove(promise)] (bool success) mutable {
+        if (success)
+            promise.resolve();
+        else
+            promise.reject();
+    });
+}
+
+// MARK: - Audio support.
+
+void HTMLModelElement::hasAudio(HasAudioPromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->isPlayingAnimation([promise = WTFMove(promise)] (std::optional<bool> hasAudio) mutable {
+        if (!hasAudio)
+            promise.reject();
+        else
+            promise.resolve(*hasAudio);
+    });
+}
+
+void HTMLModelElement::isMuted(IsMutedPromise&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->isPlayingAnimation([promise = WTFMove(promise)] (std::optional<bool> isMuted) mutable {
+        if (!isMuted)
+            promise.reject();
+        else
+            promise.resolve(*isMuted);
+    });
+}
+
+void HTMLModelElement::setIsMuted(bool isMuted, DOMPromiseDeferred<void>&& promise)
+{
+    if (!m_modelPlayer) {
+        promise.reject();
+        return;
+    }
+
+    m_modelPlayer->setIsMuted(isMuted, [promise = WTFMove(promise)] (bool success) mutable {
+        if (success)
+            promise.resolve();
+        else
+            promise.reject();
+    });
+}
+
+#if PLATFORM(COCOA)
+Vector<RetainPtr<id>> HTMLModelElement::accessibilityChildren()
+{
+    if (!m_modelPlayer)
+        return { };
+    return m_modelPlayer->accessibilityChildren();
+}
+#endif
 
 }
 

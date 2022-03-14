@@ -131,7 +131,8 @@ void InternalSettings::Backup::restoreTo(Settings& settings)
 #endif
 
     RenderTheme::singleton().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
-    FontCache::singleton().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
+    // FIXME: Call setShouldMockBoldSystemFontForAccessibility() on all workers.
+    FontCache::forCurrentThread().setShouldMockBoldSystemFontForAccessibility(m_shouldMockBoldSystemFontForAccessibility);
 
 #if ENABLE(WEB_AUDIO)
     AudioContext::setDefaultSampleRateForTesting(std::nullopt);
@@ -438,6 +439,15 @@ bool InternalSettings::vp9DecoderEnabled() const
 #endif
 }
 
+bool InternalSettings::mediaSourceInlinePaintingEnabled() const
+{
+#if ENABLE(MEDIA_SOURCE) && (HAVE(AVSAMPLEBUFFERVIDEOOUTPUT) || USE(GSTREAMER))
+    return RuntimeEnabledFeatures::sharedFeatures().mediaSourceInlinePaintingEnabled();
+#else
+    return false;
+#endif
+}
+
 ExceptionOr<void> InternalSettings::setCustomPasteboardDataEnabled(bool enabled)
 {
     if (!m_page)
@@ -556,12 +566,13 @@ ExceptionOr<void>  InternalSettings::setShouldDeactivateAudioSession(bool should
     return { };
 }
 
-ExceptionOr<void> InternalSettings::setShouldMockBoldSystemFontForAccessibility(bool requires)
+ExceptionOr<void> InternalSettings::setShouldMockBoldSystemFontForAccessibility(bool should)
 {
     if (!m_page)
         return Exception { InvalidAccessError };
-    RenderTheme::singleton().setShouldMockBoldSystemFontForAccessibility(requires);
-    FontCache::singleton().setShouldMockBoldSystemFontForAccessibility(requires);
+    RenderTheme::singleton().setShouldMockBoldSystemFontForAccessibility(should);
+    // FIXME: Call setShouldMockBoldSystemFontForAccessibility() on all workers.
+    FontCache::forCurrentThread().setShouldMockBoldSystemFontForAccessibility(should);
     return { };
 }
 

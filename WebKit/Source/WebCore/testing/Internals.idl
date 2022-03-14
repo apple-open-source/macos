@@ -180,13 +180,21 @@ enum AutoplayPolicy {
     double right;
 };
 
+enum HEVCParameterCodec {
+    "hev1",
+    "hvc1"
+};
+
 [
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
     JSGenerateToJSObject,
 ] dictionary HEVCParameterSet {
+    HEVCParameterCodec codec;
     unsigned short generalProfileSpace;
     unsigned short generalProfileIDC;
     unsigned long generalProfileCompatibilityFlags;
+    octet generalTierFlag;
+    required FrozenArray<octet> generalConstraintIndicatorFlags;
     unsigned short generalLevelIDC;
 };
 
@@ -288,6 +296,19 @@ enum AutoplayPolicy {
 
 [
     ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
+    JSGenerateToJSObject,
+] dictionary ImageOverlayBlock {
+    required DOMString text;
+    required DOMPointReadOnly topLeft;
+    required DOMPointReadOnly topRight;
+    required DOMPointReadOnly bottomRight;
+    required DOMPointReadOnly bottomLeft;
+};
+
+typedef (FetchRequest or FetchResponse) FetchObject;
+
+[
+    ExportMacro=WEBCORE_TESTSUPPORT_EXPORT,
     LegacyNoInterfaceObject,
 ] interface Internals {
     DOMString address(Node node);
@@ -317,6 +338,8 @@ enum AutoplayPolicy {
     undefined setOverrideCachePolicy(CachePolicy policy);
     undefined setOverrideResourceLoadPriority(ResourceLoadPriority priority);
     undefined setStrictRawResourceValidationPolicyDisabled(boolean disabled);
+
+    boolean isFetchObjectContextStopped(FetchObject object);
 
     undefined clearBackForwardCache();
     unsigned long backForwardCacheSize();
@@ -373,6 +396,7 @@ enum AutoplayPolicy {
 
     unsigned long inspectorGridOverlayCount();
     DOMRectList inspectorHighlightRects();
+    unsigned long inspectorPaintRectCount();
 
     unsigned long markerCountForNode(Node node, DOMString markerType);
     Range? markerRangeForNode(Node node, DOMString markerType, unsigned long index);
@@ -408,6 +432,7 @@ enum AutoplayPolicy {
     boolean elementShouldAutoComplete(HTMLInputElement inputElement);
     undefined setAutofilled(HTMLInputElement inputElement, boolean enabled);
     undefined setAutoFilledAndViewable(HTMLInputElement inputElement, boolean enabled);
+    undefined setAutoFilledAndObscured(HTMLInputElement inputElement, boolean enabled);
     undefined setShowAutoFillButton(HTMLInputElement inputElement, AutoFillButtonType autoFillButtonType);
     AutoFillButtonType autoFillButtonType(HTMLInputElement inputElement);
     AutoFillButtonType lastAutoFillButtonType(HTMLInputElement inputElement);
@@ -497,6 +522,7 @@ enum AutoplayPolicy {
     undefined setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement element, boolean enabled);
     unsigned long imageDecodeCount(HTMLImageElement element);
     unsigned long pdfDocumentCachingCount(HTMLImageElement element);
+    unsigned long remoteImagesCountForTesting();
     undefined setLargeImageAsyncDecodingEnabledForTesting(HTMLImageElement element, boolean enabled);
     undefined setForceUpdateImageDataEnabledForTesting(HTMLImageElement element, boolean enabled);
 
@@ -569,8 +595,8 @@ enum AutoplayPolicy {
     unsigned long numberOfLiveNodes();
     unsigned long numberOfLiveDocuments();
     unsigned long referencingNodeCount(Document document);
-    [Conditional=INTERSECTION_OBSERVER] unsigned long numberOfIntersectionObservers(Document document);
-    [Conditional = RESIZE_OBSERVER] unsigned long numberOfResizeObservers(Document document);
+    unsigned long numberOfIntersectionObservers(Document document);
+    unsigned long numberOfResizeObservers(Document document);
     WindowProxy? openDummyInspectorFrontend(DOMString url);
     undefined closeDummyInspectorFrontend();
     undefined setInspectorIsUnderTest(boolean isUnderTest);
@@ -686,7 +712,6 @@ enum AutoplayPolicy {
     any evaluateInWorldIgnoringException(DOMString name, DOMString source);
 
     undefined setUsesOverlayScrollbars(boolean enabled);
-    undefined setUsesMockScrollAnimator(boolean enabled);
 
     undefined forceReload(boolean endToEnd);
     undefined reloadExpiredOnly();
@@ -860,6 +885,7 @@ enum AutoplayPolicy {
     [Conditional=WEBGL] boolean platformSupportsMetal(boolean isWebGL2);
 
     undefined setPageVisibility(boolean isVisible);
+    undefined setPageIsFocused(boolean isFocused);
     undefined setPageIsFocusedAndActive(boolean isFocused);
     undefined setPageIsInWindow(boolean isInWindow);
     boolean isPageActive();
@@ -915,6 +941,9 @@ enum AutoplayPolicy {
     undefined setResponseSizeWithPadding(FetchResponse response, unsigned long long size);
     unsigned long long responseSizeWithPadding(FetchResponse response);
 
+    DOMString blobInternalURL(Blob blob);
+    Promise<boolean> isBlobInternalURLRegistered(DOMString url);
+
     undefined updateQuotaBasedOnSpaceUsage();
 
     undefined setConsoleMessageListener(StringCallback callback);
@@ -934,8 +963,9 @@ enum AutoplayPolicy {
     boolean isSystemPreviewLink(Element element);
     boolean isSystemPreviewImage(Element element);
 
-    undefined requestTextRecognition(Element element, VoidCallback callback);
-    undefined installImageOverlay(Element element, sequence<ImageOverlayLine> lines);
+    [Conditional=IMAGE_ANALYSIS] readonly attribute Element? textRecognitionCandidate;
+    [Conditional=IMAGE_ANALYSIS] undefined requestTextRecognition(Element element, VoidCallback callback);
+    undefined installImageOverlay(Element element, sequence<ImageOverlayLine> lines, optional sequence<ImageOverlayBlock> blocks = []);
 
     boolean usingAppleInternalSDK();
     boolean usingGStreamer();
@@ -960,6 +990,7 @@ enum AutoplayPolicy {
     [Conditional=VIDEO] MediaUsageState mediaUsageState(HTMLMediaElement element);
     [Conditional=VIDEO] boolean elementShouldDisplayPosterImage(HTMLVideoElement element);
     [Conditional=VIDEO] readonly attribute unsigned long mediaElementCount;
+    [Conditional=VIDEO] undefined setMediaElementVolumeLocked(HTMLMediaElement element, boolean volumeLocked);
 
     DOMString ongoingLoadsDescriptions();
     undefined setCaptureExtraNetworkLoadMetricsEnabled(boolean value);
@@ -977,7 +1008,9 @@ enum AutoplayPolicy {
     boolean capsLockIsOn();
 
     HEVCParameterSet? parseHEVCCodecParameters(DOMString codecParameters);
+    DOMString createHEVCCodecParametersString(HEVCParameterSet parameters);
     DoViParameterSet? parseDoViCodecParameters(DOMString codecParameters);
+    DOMString createDoViCodecParametersString(DoViParameterSet parameters);
     VPCodecConfigurationRecord? parseVPCodecParameters(DOMString codecParameters);
 
     sequence<CookieData> getCookies();
@@ -1043,6 +1076,7 @@ enum AutoplayPolicy {
     undefined setContentSizeCategory(ContentSizeCategory category);
 
     [Conditional=ATTACHMENT_ELEMENT] AttachmentThumbnailInfo attachmentThumbnailInfo(HTMLAttachmentElement element);
+    [Conditional=ATTACHMENT_ELEMENT, Conditional=SERVICE_CONTROLS] boolean hasImageControls(HTMLImageElement element);
 
     [Conditional=MEDIA_SESSION] double currentMediaSessionPosition(MediaSession session);
     [Conditional=MEDIA_SESSION] undefined sendMediaSessionAction(MediaSession session, MediaSessionActionDetails actionDetails);
@@ -1065,4 +1099,10 @@ enum AutoplayPolicy {
     DOMString dumpStyleResolvers();
 
     undefined setDocumentAutoplayPolicy(Document document, AutoplayPolicy policy);
+
+    undefined retainTextIteratorForDocumentContent();
+
+    [Conditional=SERVICE_WORKER] PushSubscription createPushSubscription(USVString endpoint, EpochTimeStamp? expirationTime, ArrayBuffer serverVAPIDPublicKey, ArrayBuffer clientECDHPublicKey, ArrayBuffer auth);
+
+    undefined overrideModalContainerSearchTermForTesting(DOMString term);
 };

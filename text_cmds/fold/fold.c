@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -47,7 +45,7 @@ static char sccsid[] = "@(#)fold.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/fold/fold.c,v 1.13 2004/06/24 15:12:29 tjr Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <err.h>
 #include <limits.h>
@@ -65,20 +63,20 @@ void fold(int);
 static int newpos(int, wint_t);
 static void usage(void);
 
-int bflag;			/* Count bytes, not columns */
-int sflag;			/* Split on word boundaries */
+static int bflag;		/* Count bytes, not columns */
+static int sflag;		/* Split on word boundaries */
 
 int
 main(int argc, char **argv)
 {
-	int ch;
+	int ch, previous_ch;
 	int rval, width;
-	char *p;
 
 	(void) setlocale(LC_CTYPE, "");
 
 	width = -1;
-	while ((ch = getopt(argc, argv, "0123456789bsw:")) != -1)
+	previous_ch = 0;
+	while ((ch = getopt(argc, argv, "0123456789bsw:")) != -1) {
 		switch (ch) {
 		case 'b':
 			bflag = 1;
@@ -93,17 +91,33 @@ main(int argc, char **argv)
 			break;
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
-			if (width == -1) {
-				p = argv[optind - 1];
-				if (p[0] == '-' && p[1] == ch && !p[2])
-					width = atoi(++p);
-				else
-					width = atoi(argv[optind] + 1);
+			/* Accept a width as eg. -30. Note that a width
+			 * specified using the -w option is always used prior
+			 * to this undocumented option. */
+			switch (previous_ch) {
+			case '0': case '1': case '2': case '3': case '4':
+			case '5': case '6': case '7': case '8': case '9':
+				/* The width is a number with multiple digits:
+				 * add the last one. */
+				width = width * 10 + (ch - '0');
+				break;
+			default:
+				/* Set the width, unless it was previously
+				 * set. For instance, the following options
+				 * would all give a width of 5 and not 10:
+				 *   -10 -w5
+				 *   -5b10
+				 *   -5 -10b */
+				if (width == -1)
+					width = ch - '0';
+				break;
 			}
 			break;
 		default:
 			usage();
 		}
+		previous_ch = ch;
+	}
 	argv += optind;
 	argc -= optind;
 
@@ -182,11 +196,6 @@ fold(int width)
 				err(1, "realloc()");
 		}
 		buf[indx++] = ch;
-	}
-
-	if (ferror(stdin)) {
-		fprintf(stderr, "Input error\n");
-		exit(EXIT_FAILURE);
 	}
 
 	if (indx != 0)

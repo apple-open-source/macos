@@ -34,9 +34,10 @@
 #include <ffi_common.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <tramp.h>
 #include "internal.h"
 
-#if defined(_MSC_VER) && defined(_M_ARM)
+#if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
@@ -48,11 +49,19 @@
 #endif
 
 #else
-#ifndef _M_ARM
+#ifndef _WIN32
 extern unsigned int ffi_arm_trampoline[2] FFI_HIDDEN;
 #else
-extern unsigned int ffi_arm_trampoline[3] FFI_HIDDEN;
+// Declare this as an array of char, instead of array of int,
+// otherwise Clang optimizes out the "& 0xFFFFFFFE" for clearing
+// the thumb bit.
+extern unsigned char ffi_arm_trampoline[12] FFI_HIDDEN;
 #endif
+#endif
+
+#if defined(__FreeBSD__) && defined(__arm__)
+#include <sys/types.h>
+#include <machine/sysarch.h>
 #endif
 
 /* Forward declares. */
@@ -98,13 +107,13 @@ ffi_put_arg (ffi_type *ty, void *src, void *dst)
     case FFI_TYPE_SINT32:
     case FFI_TYPE_UINT32:
     case FFI_TYPE_POINTER:
-#ifndef _MSC_VER
+#ifndef _WIN32
     case FFI_TYPE_FLOAT:
 #endif
       *(UINT32 *)dst = *(UINT32 *)src;
       break;
 
-#ifdef _MSC_VER
+#ifdef _WIN32
     // casting a float* to a UINT32* doesn't work on Windows
     case FFI_TYPE_FLOAT:
         *(uintptr_t *)dst = 0;
@@ -568,6 +577,10 @@ ffi_closure_inner_VFP (ffi_cif *cif,
 
 void ffi_closure_SYSV (void) FFI_HIDDEN;
 void ffi_closure_VFP (void) FFI_HIDDEN;
+#if defined(FFI_EXEC_STATIC_TRAMP)
+void ffi_closure_SYSV_alt (void) FFI_HIDDEN;
+void ffi_closure_VFP_alt (void) FFI_HIDDEN;
+#endif
 
 #ifdef FFI_GO_CLOSURES
 void ffi_go_closure_SYSV (void) FFI_HIDDEN;
@@ -575,6 +588,16 @@ void ffi_go_closure_VFP (void) FFI_HIDDEN;
 #endif
 
 /* the cif must already be prep'ed */
+
+#if defined(__FreeBSD__) && defined(__arm__)
+#define __clear_cache(start, end) do { \
+		struct arm_sync_icache_args ua; 		\
+								\
+		ua.addr = (uintptr_t)(start);			\
+		ua.len = (char *)(end) - (char *)start;		\
+		sysarch(ARM_SYNC_ICACHE, &ua);			\
+	} while (0);
+#endif
 
 ffi_status
 ffi_prep_closure_loc (ffi_closure * closure,
@@ -599,7 +622,21 @@ ffi_prep_closure_loc (ffi_closure * closure,
   config[1] = closure_func;
 #else
 
-#ifndef _M_ARM
+#if defined(FFI_EXEC_STATIC_TRAMP)
+  if (ffi_tramp_is_present(closure))
+    {
+      /* Initialize the static trampoline's parameters. */
+      if (closure_func == ffi_closure_SYSV)
+        closure_func = ffi_closure_SYSV_alt;
+      else
+        closure_func = ffi_closure_VFP_alt;
+      ffi_tramp_set_parms (closure->ftramp, closure_func, closure);
+      goto out;
+    }
+#endif
+
+  /* Initialize the dynamic trampoline. */
+#ifndef _WIN32
   memcpy(closure->tramp, ffi_arm_trampoline, 8);
 #else
   // cast away function type so MSVC doesn't set the lower bit of the function pointer
@@ -609,17 +646,18 @@ ffi_prep_closure_loc (ffi_closure * closure,
 #if defined (__QNX__)
   msync(closure->tramp, 8, 0x1000000);	/* clear data map */
   msync(codeloc, 8, 0x1000000);	/* clear insn map */
-#elif defined(_MSC_VER)
+#elif defined(_WIN32)
   FlushInstructionCache(GetCurrentProcess(), closure->tramp, FFI_TRAMPOLINE_SIZE);
 #else
   __clear_cache(closure->tramp, closure->tramp + 8);	/* clear data map */
   __clear_cache(codeloc, codeloc + 8);			/* clear insn map */
 #endif
-#ifdef _M_ARM
+#ifdef _WIN32
   *(void(**)(void))(closure->tramp + FFI_TRAMPOLINE_CLOSURE_FUNCTION) = closure_func;
 #else
   *(void (**)(void))(closure->tramp + 8) = closure_func;
 #endif
+out:
 #endif
 
   closure->cif = cif;
@@ -861,5 +899,17 @@ layout_vfp_args (ffi_cif * cif)
 	break;
     }
 }
+
+#if defined(FFI_EXEC_STATIC_TRAMP)
+void *
+ffi_tramp_arch (size_t *tramp_size, size_t *map_size)
+{
+  extern void *trampoline_code_table;
+
+  *tramp_size = ARM_TRAMP_SIZE;
+  *map_size = ARM_TRAMP_MAP_SIZE;
+  return &trampoline_code_table;
+}
+#endif
 
 #endif /* __arm__ or _M_ARM */

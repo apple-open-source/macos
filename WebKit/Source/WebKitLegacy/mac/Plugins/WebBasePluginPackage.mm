@@ -30,7 +30,6 @@
 
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
-#import "WebNetscapePluginPackage.h"
 #import "WebPluginPackage.h"
 #import <JavaScriptCore/InitializeThreading.h>
 #import <WebCore/WebCoreJITOperations.h>
@@ -67,18 +66,7 @@
 
 + (WebBasePluginPackage *)pluginWithPath:(NSString *)pluginPath
 {
-    
-    auto pluginPackage = adoptNS([[WebPluginPackage alloc] initWithPath:pluginPath]);
-
-    if (!pluginPackage) {
-#if ENABLE(NETSCAPE_PLUGIN_API)
-        pluginPackage = adoptNS([[WebNetscapePluginPackage alloc] initWithPath:pluginPath]);
-#else
-        return nil;
-#endif
-    }
-
-    return pluginPackage.autorelease();
+    return adoptNS([[WebPluginPackage alloc] initWithPath:pluginPath]).autorelease();
 }
 
 - (id)initWithPath:(NSString *)pluginPath
@@ -377,15 +365,11 @@ static inline void swapIntsInHeader(uint32_t* rawData, size_t length)
 
 - (String)bundleVersion
 {
-    CFDictionaryRef infoDictionary = CFBundleGetInfoDictionary(cfBundle.get());
+    auto infoDictionary = CFBundleGetInfoDictionary(cfBundle.get());
     if (!infoDictionary)
         return String();
 
-    CFTypeRef bundleVersionString = CFDictionaryGetValue(infoDictionary, kCFBundleVersionKey);
-    if (!bundleVersionString || CFGetTypeID(bundleVersionString) != CFStringGetTypeID())
-        return String();
-
-    return reinterpret_cast<CFStringRef>(bundleVersionString);
+    return dynamic_cf_cast<CFStringRef>(CFDictionaryGetValue(infoDictionary, kCFBundleVersionKey));
 }
 
 @end

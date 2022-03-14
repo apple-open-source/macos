@@ -95,7 +95,7 @@
 #define VM_KERN_MEMORY_KALLOC_TYPE 31
 #endif
 #ifndef KALLOC_SIZECLASSES
-#define KALLOC_SIZECLASSES 32
+#define KALLOC_SIZECLASSES 36
 /*
  * Type of kalloc zone
  */

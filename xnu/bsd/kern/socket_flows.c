@@ -1084,27 +1084,7 @@ soflow_nstat_provider_request_extensions(nstat_provider_context ctx,
 	case NSTAT_EXTENDED_UPDATE_TYPE_DOMAIN:
 
 		domain_info = (struct nstat_domain_info *)buf;
-
-		domain_info->is_tracker = !!(so->so_flags1 & SOF1_KNOWN_TRACKER);
-		domain_info->is_non_app_initiated = !!(so->so_flags1 & SOF1_TRACKER_NON_APP_INITIATED);
-
-		if (domain_info->is_tracker && inp->inp_necp_attributes.inp_tracker_domain != NULL) {
-			strlcpy(domain_info->domain_name, inp->inp_necp_attributes.inp_tracker_domain,
-			    sizeof(domain_info->domain_name));
-		} else if (inp->inp_necp_attributes.inp_domain != NULL) {
-			strlcpy(domain_info->domain_name, inp->inp_necp_attributes.inp_domain,
-			    sizeof(domain_info->domain_name));
-		}
-
-		if (inp->inp_necp_attributes.inp_domain_owner != NULL) {
-			strlcpy(domain_info->domain_owner, inp->inp_necp_attributes.inp_domain_owner,
-			    sizeof(domain_info->domain_owner));
-		}
-
-		if (inp->inp_necp_attributes.inp_domain_context != NULL) {
-			strlcpy(domain_info->domain_tracker_ctxt, inp->inp_necp_attributes.inp_domain_context,
-			    sizeof(domain_info->domain_tracker_ctxt));
-		}
+		necp_copy_inp_domain_info(inp, so, domain_info);
 
 		if (hash_entry->soflow_debug) {
 			SOFLOW_LOG(LOG_DEBUG, so, hash_entry->soflow_debug, "Collected NSTAT domain_info:pid %d domain <%s> owner <%s> "
@@ -1229,7 +1209,6 @@ soflow_get_flow(struct socket *so, struct sockaddr *local, struct sockaddr *remo
 #if defined(NSTAT_EXTENSION_FILTER_DOMAIN_INFO)
 		// Take refcount of entry before handing it to nstat. Abort if fail.
 		if (os_ref_retain_try(&hash_entry->soflow_ref_count) == false) {
-			soflow_db_remove_entry(so->so_flow_db, hash_entry);
 			return NULL;
 		}
 		uuid_generate_random(hash_entry->soflow_uuid);

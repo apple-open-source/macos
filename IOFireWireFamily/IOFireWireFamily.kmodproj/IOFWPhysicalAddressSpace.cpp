@@ -793,7 +793,6 @@ IOReturn IOFWPhysicalAddressSpaceAux::getSegments( UInt64 * offset, FWSegment * 
 	IOReturn status = kIOReturnSuccess;
 	
 	IODMACommand::Segment64	* vm_segments = NULL;
-	UInt32 vm_segments_size = 0;
 	
 	if( (offset == NULL) || (fw_segments == NULL) || (num_segments == NULL) )
 	{
@@ -802,8 +801,7 @@ IOReturn IOFWPhysicalAddressSpaceAux::getSegments( UInt64 * offset, FWSegment * 
 	
 	if( status == kIOReturnSuccess )
 	{
-		vm_segments_size = sizeof(IODMACommand::Segment64) * (*num_segments);
-		vm_segments = (IODMACommand::Segment64*)IOMalloc( vm_segments_size );
+		vm_segments = IONew( IODMACommand::Segment64, *num_segments );
 		if( vm_segments == NULL )
 			status = kIOReturnNoMemory;
 	}
@@ -827,7 +825,7 @@ IOReturn IOFWPhysicalAddressSpaceAux::getSegments( UInt64 * offset, FWSegment * 
 	
 	if( fw_segments != NULL )
 	{
-		IOFree( vm_segments, vm_segments_size );
+		IODelete( vm_segments, IODMACommand::Segment64, *num_segments );
 		vm_segments = NULL;
 	}
 	

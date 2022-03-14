@@ -466,11 +466,8 @@ bool AppleRAIDSet::resizeSet(UInt32 newMemberCount)
 	oldMembers = arMembers;
     }
     
-    arMembers = IONew(AppleRAIDMember *, newMemberCount);
+    arMembers = IONewZero(AppleRAIDMember *, newMemberCount);
     if (!arMembers) return false;
-            
-    // Clear the new arrays.
-    bzero(arMembers, sizeof(AppleRAIDMember *) * newMemberCount);
 
     // copy the old into the new, if needed
     if (arLastAllocCount) {

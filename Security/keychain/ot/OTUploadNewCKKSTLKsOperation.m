@@ -16,6 +16,7 @@
 
 #import "keychain/TrustedPeersHelper/TrustedPeersHelperProtocol.h"
 #import "keychain/ot/ObjCImprovements.h"
+#import "keychain/ot/ErrorUtils.h"
 
 @interface OTUploadNewCKKSTLKsOperation ()
 @property OTOperationDependencies* deps;

@@ -205,7 +205,7 @@ DAReturn _DADiskRefresh( DADiskRef disk )
 
                         DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path );
 
-                        DALogDebug( " volume path changed for %@", disk);
+                        DALogInfo( "volume path changed for %@", disk);
 
                         CFArrayAppendValue( keys, kDADiskDescriptionVolumePathKey );
                     }
@@ -217,10 +217,15 @@ DAReturn _DADiskRefresh( DADiskRef disk )
 
                             if ( name )
                             {
-                                if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
+                                struct statfs fs     = { 0 };
+                                int sts = ___statfs( mountList[mountListIndex].f_mntonname, &fs, MNT_NOWAIT );
+                                
+                                if ( ( sts == 0 ) &&
+                                    ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) ) &&
+                                    ( strcmp( _DAVolumeGetID( &fs ), DADiskGetID( disk ) ) == 0 ) )
                                 {
-                                    DALogDebug( " volume name changed for %@", disk);
-
+                                    DALogInfo( "volume name changed for %@ to name %@.", disk, name);
+                                    
                                     DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
 
                                     CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
@@ -264,9 +269,8 @@ DAReturn _DADiskRefresh( DADiskRef disk )
 
                 if ( CFArrayGetCount( keys ) )
                 {
-                    DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
 
-                    DALogDebug( "  updated disk, id = %@.", disk );
+                    DALogInfo( "updated disk, id = %@.", disk );
 
                     if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
                     {
@@ -297,9 +301,8 @@ DAReturn _DADiskRefresh( DADiskRef disk )
             }
             else
             {
-                DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
 
-                DALogDebug( "  removed disk, id = %@.", disk );
+                DALogInfo( "removed disk, id = %@.", disk );
 
                 DADiskDisappearedCallback( disk );
 
@@ -343,6 +346,8 @@ DAReturn _DADiskRefresh( DADiskRef disk )
             if ( path )
             {
                 DADiskSetBypath( disk, path );
+                
+                DALogInfo( "updated volumepath for disk , id = %@.", disk );
 
                 DADiskSetDescription( disk, kDADiskDescriptionVolumePathKey, path );
 

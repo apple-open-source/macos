@@ -156,7 +156,7 @@ $(OBJROOT)/$(PROJECT):
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-support-sealed-system-volume.patch)
 	(cd $(PROJECT) && patch -p1 < $(FIX)/python-CVE-2021-23336.patch)
 
-install: installpython installpythonwrapper
+install: installpython #installpythonwrapper
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/email/test/data/audiotest.au
 	install $(FIX)/audiotest.au $(DSTROOT)$(LIBPYTHONVERS)/test/audiotest.au
 

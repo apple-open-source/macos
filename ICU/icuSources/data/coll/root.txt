@@ -3,7 +3,7 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 root{
     UCARules:process(uca_rules){"../unidata/UCARules.txt"}
-    Version{"38.1"}
+    Version{"40"}
     collations{
         default{"standard"}
         emoji{
@@ -410,7 +410,7 @@ root{
                 "& 👨 << 🧔 <<🧔‍♂ <<🧔🏻‍♂ <<🧔🏼‍♂ <<🧔🏽‍♂ <<🧔🏾‍♂ <<🧔🏿‍♂ <<👱‍♂ <<👱🏻‍♂ <<👱🏼‍♂ <<👱🏽‍♂ <<👱🏾‍♂ <<👱🏿‍♂"
                 "& 👩 << 🧔‍♀ << 🧔🏻‍♀ << 🧔🏼‍♀ << 🧔🏽‍♀ << 🧔🏾‍♀ << 🧔🏿‍♀ << 👱‍♀ << 👱🏻‍♀ << 👱🏼‍♀ << 👱🏽‍♀ << 👱🏾‍♀ << 👱🏿‍♀"
             }
-            Version{"38.1"}
+            Version{"40"}
         }
         eor{
             Sequence{
@@ -954,7 +954,7 @@ root{
                 "< 🏴󠁧󠁢󠁳󠁣󠁴󠁿"
                 "< 🏴󠁧󠁢󠁷󠁬󠁳󠁿"
             }
-            Version{"38.1"}
+            Version{"40"}
         }
         private-unihan{
             Sequence{
@@ -1197,7 +1197,7 @@ root{
                 "&龟=\uFDD0龟"
                 "&龠=\uFDD0龠"
             }
-            Version{"38.1"}
+            Version{"40"}
         }
         search{
             Sequence{
@@ -1350,7 +1350,7 @@ root{
                 "< 🏴󠁧󠁢󠁳󠁣󠁴󠁿"
                 "< 🏴󠁧󠁢󠁷󠁬󠁳󠁿"
             }
-            Version{"38.1"}
+            Version{"40"}
         }
         standard{
             Sequence{
@@ -1359,7 +1359,7 @@ root{
                 "< 🏴󠁧󠁢󠁳󠁣󠁴󠁿"
                 "< 🏴󠁧󠁢󠁷󠁬󠁳󠁿"
             }
-            Version{"38.1"}
+            Version{"40"}
         }
     }
     depends:process(dependency){"ucadata.icu"}

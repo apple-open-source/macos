@@ -103,8 +103,8 @@ errno_t ntfs_attr_map_runlist(ntfs_inode *ni)
 	}
 	lck_rw_lock_exclusive(&ni->rl.lock);
 	/* Verify that the runlist is not mapped yet. */
-	if (ni->rl.alloc && ni->rl.elements)
-		panic("%s(): ni->rl.alloc && ni->rl.elements\n", __FUNCTION__);
+	if (ni->rl.alloc_count && ni->rl.elements)
+		panic("%s(): ni->rl.alloc_count && ni->rl.elements\n", __FUNCTION__);
 	base_ni = ni;
 	if (NInoAttr(ni))
 		base_ni = ni->base_ni;
@@ -706,8 +706,7 @@ ntfs_attr_search_ctx *ntfs_attr_search_ctx_get(ntfs_inode *ni, MFT_RECORD *m)
 {
 	ntfs_attr_search_ctx *ctx;
 
-    // Cannot use IOMallocType here - the ntfs_attr_search_ctx uses union with a pointer inside
-	ctx = IOMalloc(sizeof(ntfs_attr_search_ctx));
+	ctx = IOMallocType(ntfs_attr_search_ctx);
 	if (ctx)
 		ntfs_attr_search_ctx_init(ctx, ni, m);
 	return ctx;
@@ -724,7 +723,7 @@ void ntfs_attr_search_ctx_put(ntfs_attr_search_ctx *ctx)
 {
 	if (ctx->base_ni && ctx->ni != ctx->base_ni)
 		ntfs_extent_mft_record_unmap(ctx->ni);
-	IOFree(ctx, sizeof(ntfs_attr_search_ctx));
+	IOFreeType(ctx, ntfs_attr_search_ctx);
 }
 
 /**
@@ -6338,10 +6337,10 @@ do_non_resident_extend:
 	 * the very first allocation, i.e. the file has zero clusters allocated
 	 * at the moment.
 	 */
-	if ((ni->rl.elements + 2) * sizeof(*rl) > ni->rl.alloc) {
+	if (ni->rl.elements + 2 > ni->rl.alloc_count) {
 		ntfs_rl_element *rl2;
 
-		rl2 = IOMallocData(ni->rl.alloc + NTFS_ALLOC_BLOCK);
+		rl2 = IONewData(ntfs_rl_element, ni->rl.alloc_count + NTFS_ALLOC_BLOCK / sizeof(ntfs_rl_element));
 		if (!rl2) {
 			err = ENOMEM;
 			goto err_out;
@@ -6351,10 +6350,10 @@ do_non_resident_extend:
 			/* Seek to the end of the runlist. */
 			rl = &rl2[ni->rl.elements - 1];
 		}
-		if (ni->rl.alloc)
-			IOFreeData(ni->rl.rl, ni->rl.alloc);
+		if (ni->rl.alloc_count)
+			IODeleteData(ni->rl.rl, ntfs_rl_element, ni->rl.alloc_count);
 		ni->rl.rl = rl2;
-		ni->rl.alloc += NTFS_ALLOC_BLOCK;
+		ni->rl.alloc_count += NTFS_ALLOC_BLOCK / sizeof (ntfs_rl_element);
 	}
 	if (ni->rl.elements) {
 		/* Sanity check that this is the end element. */
@@ -6435,7 +6434,7 @@ skip_sparse:
 	// FIXME: When we implement partial allocations we need to only allow
 	// them to happen when @atomic is false.
 	runlist.rl = NULL;
-	runlist.alloc = runlist.elements = 0;
+	runlist.alloc_count = runlist.elements = 0;
 	nr_allocated = (new_alloc_size - alloc_start) >>
 			vol->cluster_size_shift;
 	err = ntfs_cluster_alloc(vol, alloc_start >> vol->cluster_size_shift,
@@ -6474,7 +6473,7 @@ skip_sparse:
 					"space.", err2);
 			NVolSetErrors(vol);
 		}
-		IOFreeData(runlist.rl, runlist.alloc);
+		IODeleteData(runlist.rl, ntfs_rl_element, runlist.alloc_count);
 		nr_allocated = 0;
 		goto trunc_err_out;
 	}

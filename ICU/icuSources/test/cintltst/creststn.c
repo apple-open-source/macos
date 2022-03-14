@@ -250,7 +250,6 @@ void addNEWResourceBundleTest(TestNode** root)
     addTest(root, &TestGetKeywordValues,      "tsutil/creststn/TestGetKeywordValues"); 
     addTest(root, &TestGetFunctionalEquivalent,"tsutil/creststn/TestGetFunctionalEquivalent");
     addTest(root, &TestJB3763,                "tsutil/creststn/TestJB3763");
-    addTest(root, &TestStackReuse,            "tsutil/creststn/TestStackReuse");
 }
 
 
@@ -267,8 +266,8 @@ static const char* norwayNames[] = {
 
 static const char* norwayLocales[] = {
     "nn_NO",
-    "nb_NO",
-    "nb",
+    "no",
+    "no",
     "nn_NO",
     "nn",
     "nb_NO",
@@ -519,7 +518,7 @@ static void TestNewTypes() {
     /* if everything is working correctly, the size of this string */
     /* should be 7. Everything else is a wrong answer, esp. 3 and 6*/
 
-    strcpy(action, "getting and testing of string with embeded zero");
+    strcpy(action, "getting and testing of string with embedded zero");
     res = ures_getByKey(theBundle, "zerotest", res, &status);
     CONFIRM_ErrorCode(status, U_ZERO_ERROR);
     CONFIRM_INT_EQ(ures_getType(res), URES_STRING);
@@ -2181,7 +2180,7 @@ static void TestFallback()
         UResourceBundle* myResB = ures_open(NULL,"no_NO_NY",&err);
         UResourceBundle* resLocID = ures_getByKey(myResB, "Version", NULL, &err);
         const UChar* version = NULL;
-        static const UChar versionStr[] = u"38.1"; // 38.1 in nn_NO or in a parent bundle/root
+        static const UChar versionStr[] = u"40"; // 40 in nn_NO or in a parent bundle/root
 
         if(U_FAILURE(err)) {
             log_data_err("Expected success when trying to test no_NO_NY aliased to nn_NO for Version "
@@ -2360,7 +2359,7 @@ static void TestResourceLevelAliasing(void) {
                 }
                 uBufferLen = u_unescape(strings[i], uBuffer, 256);
                 if(result==NULL || resultLen != uBufferLen || u_strncmp(result, uBuffer, resultLen) != 0) {
-                  log_err("(2) Didn't get correct string while accesing alias table by index (%s)\n", strings[i]);
+                  log_err("(2) Didn't get correct string while accessing alias table by index (%s)\n", strings[i]);
                 }
             }
             for(i = 0; i < UPRV_LENGTHOF(strings); i++) {
@@ -2387,7 +2386,7 @@ static void TestResourceLevelAliasing(void) {
                 }
                 uBufferLen = u_unescape(strings[i], uBuffer, 256);
                 if(result==NULL || resultLen != uBufferLen || u_strncmp(result, uBuffer, resultLen) != 0) {
-                  log_err("Didn't get correct string while accesing alias by index in an array (%s)\n", strings[i]);
+                  log_err("Didn't get correct string while accessing alias by index in an array (%s)\n", strings[i]);
                 }
             }
             for(i = 0; i < UPRV_LENGTHOF(strings); i++) {
@@ -2713,7 +2712,7 @@ static void TestGetFunctionalEquivalent(void) {
         "f",    "yue_Hans@collation=pinyin",      "zh",
         "f",    "yue_Hans@collation=stroke",      "zh@collation=stroke",
         "f",    "mo",                             "mo", /* ? */
-        "f",    "no",                             "no", /* ? */
+        "t",    "no",                             "no", /* ? */
         "f",    "ars",                            "ar", /* ? */
         "f",    "wuu",                            "wuu", /* ? */
         /* Additions to test locales without resources */
@@ -2908,23 +2907,6 @@ static void TestFallbackCodes(void) {
   ures_close(fall);
   ures_close(r);
   ures_close(res);
-}
-
-/* This test will crash if this doesn't work. Results don't need testing. */
-static void TestStackReuse(void) {
-    UResourceBundle table;
-    UErrorCode errorCode = U_ZERO_ERROR;
-    UResourceBundle *rb = ures_open(NULL, "en_US", &errorCode);
-
-    if(U_FAILURE(errorCode)) {
-        log_data_err("Could not load en_US locale. status=%s\n",myErrorName(errorCode));
-        return;
-    }
-    ures_initStackObject(&table);
-    ures_getByKeyWithFallback(rb, "Types", &table, &errorCode);
-    ures_getByKeyWithFallback(&table, "collation", &table, &errorCode);
-    ures_close(rb);
-    ures_close(&table);
 }
 
 /* Test ures_getUTF8StringXYZ() --------------------------------------------- */

@@ -9,6 +9,10 @@
 /* Begin PBXBuildFile section */
 		08F68BBF217048C700E21C99 /* trampoline.S in Sources */ = {isa = PBXBuildFile; fileRef = 08F68BBD217048BE00E21C99 /* trampoline.S */; };
 		3F019B23216AA009005A24AF /* module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 3F019B1B216A9E16005A24AF /* module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
+		3F05B40D26898C950030C85F /* tramp.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F05B40C26898C8B0030C85F /* tramp.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		3F05B40E26898C9B0030C85F /* fficonfig_arm64e.h in Headers */ = {isa = PBXBuildFile; fileRef = 3F05B40B26898C8B0030C85F /* fficonfig_arm64e.h */; };
+		3F1289A326899BB1008B6A83 /* tramp.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F1289A226899BB1008B6A83 /* tramp.c */; };
+		3F1289A426899BB1008B6A83 /* tramp.c in Sources */ = {isa = PBXBuildFile; fileRef = 3F1289A226899BB1008B6A83 /* tramp.c */; };
 		3F673C2D2150F583002171E1 /* java_raw_api.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE757432150DBA60090CC13 /* java_raw_api.c */; };
 		3F673C2E2150F583002171E1 /* java_raw_api.c in Sources */ = {isa = PBXBuildFile; fileRef = 3FE757432150DBA60090CC13 /* java_raw_api.c */; };
 		3F673C2F2150FAF3002171E1 /* sysv.S in Sources */ = {isa = PBXBuildFile; fileRef = 3FE757272150DBA60090CC13 /* sysv.S */; };
@@ -96,6 +100,9 @@
 		08F68BBC2170489100E21C99 /* libffi-trampolines.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = "libffi-trampolines.dylib"; sourceTree = BUILT_PRODUCTS_DIR; };
 		08F68BBD217048BE00E21C99 /* trampoline.S */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = trampoline.S; sourceTree = "<group>"; };
 		3F019B1B216A9E16005A24AF /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		3F05B40B26898C8B0030C85F /* fficonfig_arm64e.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = fficonfig_arm64e.h; sourceTree = "<group>"; };
+		3F05B40C26898C8B0030C85F /* tramp.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = tramp.h; sourceTree = "<group>"; };
+		3F1289A226899BB1008B6A83 /* tramp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tramp.c; path = src/tramp.c; sourceTree = SOURCE_ROOT; };
 		3FE756782150D7A20090CC13 /* ffi_call.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = ffi_call.3; sourceTree = "<group>"; };
 		3FE756792150D7A20090CC13 /* ffi_prep_cif_var.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = ffi_prep_cif_var.3; sourceTree = "<group>"; };
 		3FE7567A2150D7A20090CC13 /* ffi_prep_cif.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = ffi_prep_cif.3; sourceTree = "<group>"; };
@@ -306,6 +313,7 @@
 				3FE757022150DBA60090CC13 /* sh64 */,
 				3FE7573C2150DBA60090CC13 /* sparc */,
 				3FE756EA2150DBA60090CC13 /* tile */,
+				3F1289A226899BB1008B6A83 /* tramp.c */,
 				3FE7571F2150DBA60090CC13 /* types.c */,
 				3FE757442150DBA60090CC13 /* vax */,
 				3FE757132150DBA60090CC13 /* x86 */,
@@ -671,6 +679,7 @@
 				3FE756852150D9230090CC13 /* ffi.h */,
 				3FE756862150D9230090CC13 /* fficonfig.h */,
 				DBFA7162187F1D9B00A76262 /* fficonfig_arm64.h */,
+				3F05B40B26898C8B0030C85F /* fficonfig_arm64e.h */,
 				DBFA7163187F1D9B00A76262 /* fficonfig_armv7.h */,
 				DBFA7164187F1D9B00A76262 /* fficonfig_i386.h */,
 				DBFA7165187F1D9B00A76262 /* fficonfig_x86_64.h */,
@@ -678,6 +687,7 @@
 				DBFA7166187F1D9B00A76262 /* ffitarget_arm64.h */,
 				DBFA7167187F1D9B00A76262 /* ffitarget_armv7.h */,
 				DBFA7168187F1D9B00A76262 /* ffitarget_x86.h */,
+				3F05B40C26898C8B0030C85F /* tramp.h */,
 			);
 			path = include;
 			sourceTree = "<group>";
@@ -698,8 +708,10 @@
 				3FE756892150D9240090CC13 /* fficonfig.h in Headers */,
 				3FE757722150E1000090CC13 /* fficonfig_i386.h in Headers */,
 				3FE757742150E1000090CC13 /* ffitarget_arm64.h in Headers */,
+				3F05B40E26898C9B0030C85F /* fficonfig_arm64e.h in Headers */,
 				3FE757752150E1000090CC13 /* ffitarget_armv7.h in Headers */,
 				3FE757702150E1000090CC13 /* fficonfig_arm64.h in Headers */,
+				3F05B40D26898C950030C85F /* tramp.h in Headers */,
 				3FE7568B2150D9440090CC13 /* ffi_common.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -769,10 +781,11 @@
 			};
 			buildConfigurationList = DB13B15F1849DEB70010F42D /* Build configuration list for PBXProject "libffi" */;
 			compatibilityVersion = "Xcode 3.2";
-			developmentRegion = English;
+			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				Base,
 			);
 			mainGroup = DB13B15B1849DEB70010F42D;
 			productRefGroup = DB13B1671849DF1E0010F42D /* Products */;
@@ -833,6 +846,7 @@
 				3FE757512150DCAD0090CC13 /* closures.c in Sources */,
 				3F673C2F2150FAF3002171E1 /* sysv.S in Sources */,
 				3FE7575A2150DE650090CC13 /* ffi.c in Sources */,
+				3F1289A326899BB1008B6A83 /* tramp.c in Sources */,
 				3F673C302150FAF3002171E1 /* ffi.c in Sources */,
 				3FA2E4B02150ED8300B267FF /* ffiw64.c in Sources */,
 				3FA2E4B22150ED9B00B267FF /* win64.S in Sources */,
@@ -855,6 +869,7 @@
 				3FE757552150DCAD0090CC13 /* closures.c in Sources */,
 				3F673C312150FAF3002171E1 /* sysv.S in Sources */,
 				3FE7575C2150DE650090CC13 /* ffi.c in Sources */,
+				3F1289A426899BB1008B6A83 /* tramp.c in Sources */,
 				3F673C322150FAF3002171E1 /* ffi.c in Sources */,
 				3FA2E4B12150ED8400B267FF /* ffiw64.c in Sources */,
 				3FA2E4B32150ED9B00B267FF /* win64.S in Sources */,
@@ -1005,6 +1020,7 @@
 					include,
 				);
 				RC_ProjectSourceVersion = 1;
+				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
 			};
@@ -1045,6 +1061,7 @@
 					include,
 				);
 				RC_ProjectSourceVersion = 1;
+				SDKROOT = macosx.internal;
 				VERSIONING_SYSTEM = "apple-generic";
 				VERSION_INFO_PREFIX = "__attribute__((visibility(\"hidden\")))";
 			};

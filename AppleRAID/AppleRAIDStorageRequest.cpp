@@ -29,8 +29,8 @@ void AppleRAIDStorageRequest::free(void)
 {
     UInt32	index;
 
-    if (srRequestStatus != 0) IODelete(srRequestStatus, IOReturn, srRequestsAllocated);
-    if (srRequestByteCounts != 0) IODelete(srRequestByteCounts, UInt64, srRequestsAllocated);
+    if (srRequestStatus != 0) IODeleteData(srRequestStatus, IOReturn, srRequestsAllocated);
+    if (srRequestByteCounts != 0) IODeleteData(srRequestByteCounts, UInt64, srRequestsAllocated);
     if (srActiveMembers != 0) IODelete(srActiveMembers, AppleRAIDMember *, srMemberCount);
     
     if (srMemoryDescriptors != 0) {
@@ -81,10 +81,10 @@ bool AppleRAIDStorageRequest::initWithAppleRAIDSet(AppleRAIDSet *set)
     srRequestsAllocated = set->getMaxRequestCount();
     srMemberBaseOffset	= set->getBase();
     
-    srRequestStatus = IONew(IOReturn, srRequestsAllocated);
+    srRequestStatus = IONewZeroData(IOReturn, srRequestsAllocated);
     if (srRequestStatus == 0) return false;
     
-    srRequestByteCounts = IONew(UInt64, srRequestsAllocated);
+    srRequestByteCounts = IONewZeroData(UInt64, srRequestsAllocated);
     if (srRequestByteCounts == 0) return false;
     
     srActiveMembers = IONew(AppleRAIDMember *, srMemberCount);

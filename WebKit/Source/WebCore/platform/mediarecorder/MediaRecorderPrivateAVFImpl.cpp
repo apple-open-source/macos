@@ -26,7 +26,7 @@
 #include "config.h"
 #include "MediaRecorderPrivateAVFImpl.h"
 
-#if ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
+#if ENABLE(MEDIA_STREAM)
 
 #include "AudioStreamDescription.h"
 #include "CAAudioStreamDescription.h"
@@ -79,11 +79,10 @@ MediaRecorderPrivateAVFImpl::~MediaRecorderPrivateAVFImpl()
 void MediaRecorderPrivateAVFImpl::startRecording(StartRecordingCallback&& callback)
 {
     // FIMXE: In case of of audio recording, we should wait for the audio compression to start to give back the exact bit rate.
-    // FIXME: Add support to options.bitsPerSecond as well.
     callback(String(m_writer->mimeType()), m_writer->audioBitRate(), m_writer->videoBitRate());
 }
 
-void MediaRecorderPrivateAVFImpl::videoSampleAvailable(MediaSample& sampleBuffer)
+void MediaRecorderPrivateAVFImpl::videoSampleAvailable(MediaSample& sampleBuffer, VideoSampleMetadata)
 {
     if (shouldMuteVideo()) {
         if (!m_blackFrame) {
@@ -119,7 +118,7 @@ void MediaRecorderPrivateAVFImpl::videoSampleAvailable(MediaSample& sampleBuffer
     m_writer->appendVideoSampleBuffer(sampleBuffer);
 }
 
-void MediaRecorderPrivateAVFImpl::audioSamplesAvailable(const WTF::MediaTime& mediaTime, const PlatformAudioData& data, const AudioStreamDescription& description, size_t sampleCount)
+void MediaRecorderPrivateAVFImpl::audioSamplesAvailable(const MediaTime& mediaTime, const PlatformAudioData& data, const AudioStreamDescription& description, size_t sampleCount)
 {
     ASSERT(is<WebAudioBufferList>(data));
     ASSERT(description.platformDescription().type == PlatformDescription::CAAudioStreamBasicType);
@@ -170,4 +169,4 @@ const String& MediaRecorderPrivateAVFImpl::mimeType() const
 
 } // namespace WebCore
 
-#endif // ENABLE(MEDIA_STREAM) && HAVE(AVASSETWRITERDELEGATE)
+#endif // ENABLE(MEDIA_STREAM)

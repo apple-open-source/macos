@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,7 +32,7 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#include <sys/cdefs.h> /* __used */
 #ifndef lint
 __used static const char copyright[] =
 "@(#) Copyright (c) 1991, 1993\n\
@@ -48,13 +46,12 @@ static char sccsid[] = "@(#)cksum.c	8.2 (Berkeley) 4/28/95";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/cksum/cksum.c,v 1.17 2003/03/13 23:32:28 robert Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
 #include <err.h>
 #include <fcntl.h>
-#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -72,23 +69,17 @@ main(int argc, char **argv)
 	off_t len;
 	char *fn, *p;
 	int (*cfncn)(int, uint32_t *, off_t *);
-	void (*pfncn)(char *, u_int32_t, off_t);
-	
-	cfncn=NULL;
+	void (*pfncn)(char *, uint32_t, off_t);
 
-	if(*argv) {
-	  if ((p = rindex(argv[0], '/')) == NULL)
-	    p = argv[0];
-	  else
-	    ++p;
-	  if (!strcmp(p, "sum")) {
-	    cfncn = csum1;
-	    pfncn = psum1;
-	    ++argv;
-	  }
-	} 
-	
-	if(!cfncn) {
+	if ((p = strrchr(argv[0], '/')) == NULL)
+		p = argv[0];
+	else
+		++p;
+	if (!strcmp(p, "sum")) {
+		cfncn = csum1;
+		pfncn = psum1;
+		++argv;
+	} else {
 		cfncn = crc;
 		pfncn = pcrc;
 
@@ -113,7 +104,7 @@ main(int argc, char **argv)
 			default:
 				usage();
 			}
-//		argc -= optind;
+		argc -= optind;
 		argv += optind;
 	}
 

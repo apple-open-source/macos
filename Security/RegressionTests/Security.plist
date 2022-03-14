@@ -39,37 +39,13 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>keychainnetworkextensionsharing-1</string>
+			<string>keychainnetworkextensionsharing</string>
 			<key>Command</key>
 			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionstest</string>
+				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionstest.sh</string>
 			</array>
 			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_1</string>
-			<key>MayRunConcurrently</key>
-			<false/>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>keychainnetworkextensionsharing-2</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionsystemdaemontest</string>
-			</array>
-			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_2</string>
-			<key>MayRunConcurrently</key>
-			<false/>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>keychainnetworkextensionsharing-3</string>
-			<key>Command</key>
-			<array>
-				<string>/AppleInternal/CoreOS/tests/Security/seckeychainnetworkextensionunauthorizedaccesstest</string>
-			</array>
-			<key>Disabled</key>
-			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing_3</string>
+			<string>BATS_UTD_Disabled_keychainnetworkextensionsharing</string>
 			<key>MayRunConcurrently</key>
 			<false/>
 		</dict>

@@ -1726,7 +1726,7 @@ out:
 /*
  * Set the data of an extended attribute.
  */
-static int
+static int __attribute__((noinline))
 default_setxattr(vnode_t vp, const char *name, uio_t uio, int options, vfs_context_t context)
 {
 	vnode_t xvp = NULL;

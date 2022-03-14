@@ -299,8 +299,8 @@ static OSErr  MoveExtents( ExtendedVCB *vcb, u_int32_t srcFileID, u_int32_t dest
 	int16_t				i, j;
 	OSErr				err;
 	
-	btIterator = hfs_mallocz(sizeof(struct BTreeIterator));
-	tmpIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	btIterator = hfs_malloc_type(struct BTreeIterator);
+	tmpIterator = hfs_malloc_type(struct BTreeIterator);
 
 	fcb = GetFileControlBlock(vcb->extentsRefNum);
 	
@@ -330,8 +330,8 @@ static OSErr  MoveExtents( ExtendedVCB *vcb, u_int32_t srcFileID, u_int32_t dest
 		extentKeyPtr->hfsPlus.fileID	 = srcFileID;
 		extentKeyPtr->hfsPlus.startBlock = 0;
 	} else {
-		hfs_free(tmpIterator, sizeof(*tmpIterator));
-		hfs_free(btIterator, sizeof(*btIterator));
+		hfs_free_type(tmpIterator, struct BTreeIterator);
+		hfs_free_type(btIterator, struct BTreeIterator);
 		return cmBadNews;
     }
 
@@ -362,8 +362,8 @@ static OSErr  MoveExtents( ExtendedVCB *vcb, u_int32_t srcFileID, u_int32_t dest
 		if (err == noErr)			//	If we found such a bogus extent record, then the tree is really messed up
 			err = cmBadNews;		//	so return an error that conveys the disk is hosed.
 		
-		hfs_free(tmpIterator, sizeof(*tmpIterator));
-		hfs_free(btIterator, sizeof(*btIterator));
+		hfs_free_type(tmpIterator, struct BTreeIterator);
+		hfs_free_type(btIterator, struct BTreeIterator);
 		return err;
 	}
 
@@ -380,8 +380,8 @@ static OSErr  MoveExtents( ExtendedVCB *vcb, u_int32_t srcFileID, u_int32_t dest
 			if ( err == btNotFound )		//	Did we run out of extent records in the extents tree?
 				break;						//	if xkrFNum(A0) is cleared on this error, then this test is bogus!
 			else if ( err != noErr ) {
-				hfs_free(btIterator, sizeof(*btIterator));
-				hfs_free(tmpIterator, sizeof(*tmpIterator));
+				hfs_free_type(tmpIterator, struct BTreeIterator);
+				hfs_free_type(btIterator, struct BTreeIterator);
 				return( err );				//	must be ioError
 			}
             if (isHFSPlus) {
@@ -423,8 +423,8 @@ static OSErr  MoveExtents( ExtendedVCB *vcb, u_int32_t srcFileID, u_int32_t dest
 			err = BTInsertRecord(fcb, tmpIterator, &btRecord, btRecordSize);
 			if ( err != noErr ) {								
 				/* Parse the error and free iterators */
-				hfs_free(btIterator, sizeof(*btIterator));
-				hfs_free(tmpIterator, sizeof(*tmpIterator));
+				hfs_free_type(tmpIterator, struct BTreeIterator);
+				hfs_free_type(btIterator, struct BTreeIterator);
 				if ( err == btExists )
 				{
 					hfs_debug("hfs: can't insert record -- already exists\n");
@@ -448,8 +448,8 @@ static OSErr  MoveExtents( ExtendedVCB *vcb, u_int32_t srcFileID, u_int32_t dest
 		}
 	} while ( true );
 	
-	hfs_free(tmpIterator, sizeof(*tmpIterator));
-	hfs_free(btIterator, sizeof(*btIterator));
+	hfs_free_type(tmpIterator, struct BTreeIterator);
+	hfs_free_type(btIterator, struct BTreeIterator);
 
 	return( err );
 }
@@ -474,8 +474,8 @@ static OSErr  DeleteExtents( ExtendedVCB *vcb, u_int32_t fileID, int quitEarly, 
 	u_int16_t			btRecordSize;
 	OSErr				err;
 
-	btIterator = hfs_mallocz(sizeof(struct BTreeIterator));
-	tmpIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	btIterator = hfs_malloc_type(struct BTreeIterator);
+	tmpIterator = hfs_malloc_type(struct BTreeIterator);
 
 	fcb = GetFileControlBlock(vcb->extentsRefNum);
 
@@ -545,8 +545,8 @@ static OSErr  DeleteExtents( ExtendedVCB *vcb, u_int32_t fileID, int quitEarly, 
 
 exit:
 	
-	hfs_free(tmpIterator, sizeof(*tmpIterator));
-	hfs_free(btIterator, sizeof(*btIterator));
+	hfs_free_type(tmpIterator, struct BTreeIterator);
+	hfs_free_type(btIterator, struct BTreeIterator);
 
 	return( err );
 }

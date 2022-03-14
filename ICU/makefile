@@ -688,8 +688,8 @@ endif
 # The ICU version/subversion should reflect the actual ICU version.
 
 LIB_NAME = icucore
-ICU_VERS = 68
-ICU_SUBVERS = 2
+ICU_VERS = 70
+ICU_SUBVERS = 1
 CORE_VERS = A
 
 ifeq "$(WINDOWS)" "YES"

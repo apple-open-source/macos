@@ -222,14 +222,6 @@ errOut:
     SecPolicyRef eapPolicy = SecPolicyCreateEAP(true, (__bridge CFArrayRef)@[@"example.com"]);
     XCTAssertTrue([self runTrust:certs anchors:anchor policy:eapPolicy verifyDate:verifyDate], "anchor trusted 1024-bit cert failed for EAP");
     CFReleaseNull(eapPolicy);
-
-    SecPolicyRef legacyPolicy = SecPolicyCreateLegacySSL(true, CFSTR("example.com"));
-    XCTAssertTrue([self runTrust:certs anchors:anchor policy:legacyPolicy verifyDate:verifyDate], "anchor trusted 1024-bit cert failed for legacy SSL policy");
-    CFReleaseNull(legacyPolicy);
-
-    SecPolicyRef legacyClientPolicy = SecPolicyCreateLegacySSL(false, NULL);
-    XCTAssertTrue([self runTrust:certs anchors:anchor policy:legacyClientPolicy verifyDate:verifyDate], "anchor trusted 1024-bit cert failed for legacy SSL client policy");
-    CFReleaseNull(legacyClientPolicy);
 }
 
 - (void)test1024_trustSettingsOnRoot_TestLeaf {

@@ -204,9 +204,9 @@ static TUNABLE(bool, inm_debug, "ifa_debug", false); /* debugging (disabled) */
 #define INM_ZONE_NAME           "in_multi"      /* zone name */
 static struct zone *inm_zone;                   /* zone for in_multi */
 
-static ZONE_DECLARE(ipms_zone, "ip_msource", sizeof(struct ip_msource),
+static ZONE_DEFINE_TYPE(ipms_zone, "ip_msource", struct ip_msource,
     ZC_ZFREE_CLEARMEM);
-static ZONE_DECLARE(inms_zone, "in_msource", sizeof(struct in_msource),
+static ZONE_DEFINE_TYPE(inms_zone, "in_msource", struct in_msource,
     ZC_ZFREE_CLEARMEM);
 
 static LCK_RW_DECLARE_ATTR(in_multihead_lock, &in_multihead_lock_grp,
@@ -289,17 +289,15 @@ imo_grow(struct ip_moptions *imo, uint16_t newmax)
 		return ETOOMANYREFS;
 	}
 
-	if ((nmships = (struct in_multi **)_REALLOC(omships,
-	    sizeof(struct in_multi *) * newmax, M_IPMOPTS,
-	    M_WAITOK | M_ZERO)) == NULL) {
+	if ((nmships = krealloc_type(struct in_multi *, oldmax, newmax,
+	    omships, Z_WAITOK | Z_ZERO)) == NULL) {
 		return ENOMEM;
 	}
 
 	imo->imo_membership = nmships;
 
-	if ((nmfilters = (struct in_mfilter *)_REALLOC(omfilters,
-	    sizeof(struct in_mfilter) * newmax, M_INMFILTER,
-	    M_WAITOK | M_ZERO)) == NULL) {
+	if ((nmfilters = krealloc_type(struct in_mfilter, oldmax, newmax,
+	    omfilters, Z_WAITOK | Z_ZERO)) == NULL) {
 		return ENOMEM;
 	}
 
@@ -1683,20 +1681,10 @@ inp_findmoptions(struct inpcb *inp)
 		return NULL;
 	}
 
-	immp = _MALLOC(sizeof(*immp) * IP_MIN_MEMBERSHIPS, M_IPMOPTS,
-	    M_WAITOK | M_ZERO);
-	if (immp == NULL) {
-		IMO_REMREF(imo);
-		return NULL;
-	}
-
-	imfp = _MALLOC(sizeof(struct in_mfilter) * IP_MIN_MEMBERSHIPS,
-	    M_INMFILTER, M_WAITOK | M_ZERO);
-	if (imfp == NULL) {
-		_FREE(immp, M_IPMOPTS);
-		IMO_REMREF(imo);
-		return NULL;
-	}
+	immp = kalloc_type(struct in_multi *, IP_MIN_MEMBERSHIPS,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
+	imfp = kalloc_type(struct in_mfilter, IP_MIN_MEMBERSHIPS,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	imo->imo_multicast_ifp = NULL;
 	imo->imo_multicast_addr.s_addr = INADDR_ANY;

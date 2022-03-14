@@ -3372,9 +3372,8 @@ filt_ttyattach(struct knote *kn, __unused struct kevent_qos_s *kev)
 	uthread_t uth = current_uthread();
 	vfs_context_t ctx = vfs_context_current();
 	vnode_t vp = (vnode_t)fp_get_data(kn->kn_fp);
-	struct waitq_set *old_wqs;
+	struct select_set *old_wqs;
 	int selres;
-
 
 	/*
 	 * This function should be called from spec_kqfilter (spec_vnops.c),
@@ -3408,10 +3407,10 @@ filt_ttyattach(struct knote *kn, __unused struct kevent_qos_s *kev)
 		KNOTE_ATTACH(&si->si_note, kn);
 	};
 
-	old_wqs = uth->uu_wqset;
-	uth->uu_wqset = SELSPEC_RECORD_MARKER;
+	old_wqs = uth->uu_selset;
+	uth->uu_selset = SELSPEC_RECORD_MARKER;
 	selres = VNOP_SELECT(vp, knote_get_seltype(kn) | FMARK, 0, block, ctx);
-	uth->uu_wqset = old_wqs;
+	uth->uu_selset = old_wqs;
 
 	if (kn->kn_hook == NULL) {
 		/*

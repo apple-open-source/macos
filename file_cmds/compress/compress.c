@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -29,9 +31,9 @@
 
 #include <sys/cdefs.h>
 #ifndef lint
-__used static const char copyright[] =
+__COPYRIGHT(
 "@(#) Copyright (c) 1992, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
+	The Regents of the University of California.  All rights reserved.\n");
 #endif
 
 #if 0
@@ -40,16 +42,15 @@ static char sccsid[] = "@(#)compress.c	8.2 (Berkeley) 1/7/94";
 #endif
 #endif
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/compress/compress.c,v 1.23 2010/12/11 08:32:16 joel Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/stat.h>
 #include <sys/time.h>
-#include <sys/attr.h>
 
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -57,17 +58,22 @@ __FBSDID("$FreeBSD: src/usr.bin/compress/compress.c,v 1.23 2010/12/11 08:32:16 j
 #include <unistd.h>
 #include <locale.h>
 
+#ifdef __APPLE__
+#define st_atim	st_atimespec
+#define st_mtim	st_mtimespec
+#endif
+
 #include "zopen.h"
 
-void	compress(const char *, const char *, int);
-void	cwarn(const char *, ...) __printflike(1, 2);
-void	cwarnx(const char *, ...) __printflike(1, 2);
-void	decompress(const char *, const char *, int);
-int	permission(const char *);
-void	setfile(const char *, struct stat *);
-void	usage(int);
+static void	compress(const char *, const char *, int);
+static void	cwarn(const char *, ...) __printflike(1, 2);
+static void	cwarnx(const char *, ...) __printflike(1, 2);
+static void	decompress(const char *, const char *, int);
+static int	permission(const char *);
+static void	setfile(const char *, struct stat *);
+static void	usage(int);
 
-int eval, force, verbose, cat;
+static int eval, force, verbose, cat;
 
 int
 main(int argc, char *argv[])
@@ -77,10 +83,8 @@ main(int argc, char *argv[])
 	int bits, ch;
 	char *p, newname[MAXPATHLEN];
 
-	if (argc < 1)
-		usage(1);
 	cat = 0;
-	if ((p = rindex(argv[0], '/')) == NULL)
+	if ((p = strrchr(argv[0], '/')) == NULL)
 		p = argv[0];
 	else
 		++p;
@@ -134,9 +138,11 @@ main(int argc, char *argv[])
 		exit (eval);
 	}
 
-    /*
-     * The UNIX standard requires that `uncompress -c` be able to have multiple file parameters given.
-     */
+	/*
+	 * The UNIX standard requires that `uncompress -c` be able to have multiple file parameters given.
+	 */
+	if (cat == 1 && style == COMPRESS && argc > 1)
+		errx(1, "the -c option permits only a single file argument");
 
 	for (; *argv; ++argv)
 		switch(style) {
@@ -149,7 +155,7 @@ main(int argc, char *argv[])
 				compress(*argv, "/dev/stdout", bits);
 				break;
 			}
-			if ((p = rindex(*argv, '.')) != NULL &&
+			if ((p = strrchr(*argv, '.')) != NULL &&
 			    !strcmp(p, ".Z")) {
 				cwarnx("%s: name already has trailing .Z",
 				    *argv);
@@ -173,7 +179,7 @@ main(int argc, char *argv[])
 				break;
 			}
 			len = strlen(*argv);
-			if ((p = rindex(*argv, '.')) == NULL ||
+			if ((p = strrchr(*argv, '.')) == NULL ||
 			    strcmp(p, ".Z")) {
 				if (len > sizeof(newname) - 3) {
 					cwarnx("%s: name too long", *argv);
@@ -200,12 +206,12 @@ main(int argc, char *argv[])
 	exit (eval);
 }
 
-void
+static void
 compress(const char *in, const char *out, int bits)
 {
 	size_t nr;
 	struct stat isb, sb;
-	FILE *ifp = NULL, *ofp = NULL;
+	FILE *ifp, *ofp;
 	int exists, isreg, oreg;
 	u_char buf[1024];
 
@@ -216,6 +222,7 @@ compress(const char *in, const char *out, int bits)
 	}
 	isreg = oreg = !exists || S_ISREG(sb.st_mode);
 
+	ifp = ofp = NULL;
 	if ((ifp = fopen(in, "r")) == NULL) {
 		cwarn("%s", in);
 		return;
@@ -291,7 +298,7 @@ err:	if (ofp) {
 		(void)fclose(ifp);
 }
 
-void
+static void
 decompress(const char *in, const char *out, int bits)
 {
 	size_t nr;
@@ -307,7 +314,7 @@ decompress(const char *in, const char *out, int bits)
 	}
 	isreg = oreg = !exists || S_ISREG(sb.st_mode);
 
-	ofp = NULL;
+	ifp = ofp = NULL;
 	if ((ifp = zopen(in, "r", bits)) == NULL) {
 		cwarn("%s", in);
 		return;
@@ -331,6 +338,8 @@ decompress(const char *in, const char *out, int bits)
 	if ((ofp = fopen(out, "w")) == NULL ||
 	    (nr != 0 && fwrite(buf, 1, nr, ofp) != nr)) {
 		cwarn("%s", out);
+		if (ofp)
+			(void)fclose(ofp);
 		(void)fclose(ifp);
 		return;
 	}
@@ -380,24 +389,17 @@ err:	if (ofp) {
 		(void)fclose(ifp);
 }
 
-void
+static void
 setfile(const char *name, struct stat *fs)
 {
-	struct attrlist ts_req = {};
-	struct {
-		struct timespec mtime;
-		struct timespec atime;
-	} set_ts;
+	static struct timespec tspec[2];
 
 	fs->st_mode &= S_ISUID|S_ISGID|S_IRWXU|S_IRWXG|S_IRWXO;
 
-	ts_req.bitmapcount = ATTR_BIT_MAP_COUNT;
-	ts_req.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
-	set_ts.mtime = fs->st_mtimespec;
-	set_ts.atime = fs->st_atimespec;
-
-	if (setattrlist(name, &ts_req, &set_ts, sizeof(set_ts), 0))
-		cwarn("setattrlist: %s", name);
+	tspec[0] = fs->st_atim;
+	tspec[1] = fs->st_mtim;
+	if (utimensat(AT_FDCWD, name, tspec, 0))
+		cwarn("utimensat: %s", name);
 
 	/*
 	 * Changing the ownership probably won't succeed, unless we're root
@@ -410,14 +412,14 @@ setfile(const char *name, struct stat *fs)
 			cwarn("chown: %s", name);
 		fs->st_mode &= ~(S_ISUID|S_ISGID);
 	}
-	if (chmod(name, fs->st_mode) && errno != ENOTSUP)
+	if (chmod(name, fs->st_mode) && errno != EOPNOTSUPP)
 		cwarn("chmod: %s", name);
 
-	if (chflags(name, fs->st_flags) && errno != ENOTSUP)
+	if (chflags(name, fs->st_flags) && errno != EOPNOTSUPP)
 		cwarn("chflags: %s", name);
 }
 
-int
+static int
 permission(const char *fname)
 {
 	int ch, first;
@@ -440,7 +442,7 @@ permission(const char *fname)
 	return (rpmatch(resp) == 1);
 }
 
-void
+static void
 usage(int iscompress)
 {
 	if (iscompress)
@@ -448,11 +450,11 @@ usage(int iscompress)
 		    "usage: compress [-cfv] [-b bits] [file ...]\n");
 	else
 		(void)fprintf(stderr,
-		    "usage: uncompress [-cfv] [file ...]\n");
+		    "usage: uncompress [-cfv] [-b bits] [file ...]\n");
 	exit(1);
 }
 
-void
+static void
 cwarnx(const char *fmt, ...)
 {
 	va_list ap;
@@ -463,7 +465,7 @@ cwarnx(const char *fmt, ...)
 	eval = 1;
 }
 
-void
+static void
 cwarn(const char *fmt, ...)
 {
 	va_list ap;

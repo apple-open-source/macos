@@ -42,9 +42,9 @@ tabstop_set(char_u *var, int **array)
 	    if (strtol((char *)cp, (char **)&end, 10) <= 0)
 	    {
 		if (cp != end)
-		    emsg(_(e_positive));
+		    emsg(_(e_argument_must_be_positive));
 		else
-		    semsg(_(e_invarg2), cp);
+		    semsg(_(e_invalid_argument_str), cp);
 		return FAIL;
 	    }
 	}
@@ -56,7 +56,7 @@ tabstop_set(char_u *var, int **array)
 	    ++valcount;
 	    continue;
 	}
-	semsg(_(e_invarg2), var);
+	semsg(_(e_invalid_argument_str), var);
 	return FAIL;
     }
 
@@ -70,9 +70,12 @@ tabstop_set(char_u *var, int **array)
     {
 	int n = atoi((char *)cp);
 
+	// Catch negative values, overflow and ridiculous big values.
 	if (n < 0 || n > 9999)
 	{
-	    semsg(_(e_invarg2), cp);
+	    semsg(_(e_invalid_argument_str), cp);
+	    vim_free(*array);
+	    *array = NULL;
 	    return FAIL;
 	}
 	(*array)[t++] = n;
@@ -862,6 +865,7 @@ briopt_check(win_T *wp)
     int		bri_shift = 0;
     long	bri_min = 20;
     int		bri_sbr = FALSE;
+    int		bri_list = 0;
 
     p = wp->w_p_briopt;
     while (*p != NUL)
@@ -882,6 +886,11 @@ briopt_check(win_T *wp)
 	    p += 3;
 	    bri_sbr = TRUE;
 	}
+	else if (STRNCMP(p, "list:", 5) == 0)
+	{
+	    p += 5;
+	    bri_list = getdigits(&p);
+	}
 	if (*p != ',' && *p != NUL)
 	    return FAIL;
 	if (*p == ',')
@@ -891,6 +900,7 @@ briopt_check(win_T *wp)
     wp->w_briopt_shift = bri_shift;
     wp->w_briopt_min   = bri_min;
     wp->w_briopt_sbr   = bri_sbr;
+    wp->w_briopt_list  = bri_list;
 
     return OK;
 }
@@ -905,13 +915,17 @@ get_breakindent_win(
     win_T	*wp,
     char_u	*line) // start of the line
 {
-    static int	    prev_indent = 0;  // cached indent value
-    static long	    prev_ts     = 0L; // cached tabstop value
-    static char_u   *prev_line = NULL; // cached pointer to line
+    static int	    prev_indent = 0;	// cached indent value
+    static long	    prev_ts     = 0L;	// cached tabstop value
+    static char_u   *prev_line = NULL;	// cached pointer to line
     static varnumber_T prev_tick = 0;   // changedtick of cached value
 # ifdef FEAT_VARTABS
-    static int      *prev_vts = NULL;    // cached vartabs values
+    static int      *prev_vts = NULL;   // cached vartabs values
 # endif
+    static int      prev_list = 0;	// cached list value
+    static int      prev_listopt = 0;	// cached w_p_briopt_list value
+    // cached formatlistpat value
+    static char_u   *prev_flp = NULL;
     int		    bri = 0;
     // window width minus window margin space, i.e. what rests for text
     const int	    eff_wwidth = wp->w_width
@@ -919,9 +933,16 @@ get_breakindent_win(
 				&& (vim_strchr(p_cpo, CPO_NUMCOL) == NULL)
 						? number_width(wp) + 1 : 0);
 
-    // used cached indent, unless pointer or 'tabstop' changed
+    // used cached indent, unless
+    // - line pointer changed
+    // - 'tabstop' changed
+    // - 'briopt_list changed' changed or
+    // - 'formatlistpattern' changed
     if (prev_line != line || prev_ts != wp->w_buffer->b_p_ts
 	    || prev_tick != CHANGEDTICK(wp->w_buffer)
+	    || prev_listopt != wp->w_briopt_list
+	    || (prev_flp == NULL
+		|| (STRCMP(prev_flp, get_flp_value(wp->w_buffer)) != 0))
 # ifdef FEAT_VARTABS
 	    || prev_vts != wp->w_buffer->b_p_vts_array
 # endif
@@ -939,19 +960,55 @@ get_breakindent_win(
 	prev_indent = get_indent_str(line,
 				     (int)wp->w_buffer->b_p_ts, wp->w_p_list);
 # endif
+	prev_listopt = wp->w_briopt_list;
+	prev_list = 0;
+	vim_free(prev_flp);
+	prev_flp = vim_strsave(get_flp_value(wp->w_buffer));
+	// add additional indent for numbered lists
+	if (wp->w_briopt_list != 0)
+	{
+	    regmatch_T	    regmatch;
+
+	    regmatch.regprog = vim_regcomp(prev_flp,
+				   RE_MAGIC + RE_STRING + RE_AUTO + RE_STRICT);
+
+	    if (regmatch.regprog != NULL)
+	    {
+		regmatch.rm_ic = FALSE;
+		if (vim_regexec(&regmatch, line, 0))
+		{
+		    if (wp->w_briopt_list > 0)
+			prev_list = wp->w_briopt_list;
+		    else
+			prev_list = (*regmatch.endp - *regmatch.startp);
+		}
+		vim_regfree(regmatch.regprog);
+	    }
+	}
     }
     bri = prev_indent + wp->w_briopt_shift;
+
+    // Add offset for number column, if 'n' is in 'cpoptions'
+    bri += win_col_off2(wp);
+
+    // add additional indent for numbered lists
+    if (wp->w_briopt_list != 0)
+    {
+	if (wp->w_briopt_list > 0)
+	    bri += prev_list;
+	else
+	    bri = prev_list;
+    }
 
     // indent minus the length of the showbreak string
     if (wp->w_briopt_sbr)
 	bri -= vim_strsize(get_showbreak_value(wp));
 
-    // Add offset for number column, if 'n' is in 'cpoptions'
-    bri += win_col_off2(wp);
 
     // never indent past left window margin
     if (bri < 0)
 	bri = 0;
+
     // always leave at least bri_min characters on the left,
     // if text width is sufficient
     else if (bri > eff_wwidth - wp->w_briopt_min)
@@ -999,7 +1056,7 @@ op_reindent(oparg_T *oap, int (*how)(void))
     // Don't even try when 'modifiable' is off.
     if (!curbuf->b_p_ma)
     {
-	emsg(_(e_modifiable));
+	emsg(_(e_cannot_make_changes_modifiable_is_off));
 	return;
     }
 
@@ -1585,10 +1642,16 @@ ex_retab(exarg_T *eap)
     else
 	new_ts_str = vim_strnsave(new_ts_str, eap->arg - new_ts_str);
 #else
-    new_ts = getdigits(&(eap->arg));
-    if (new_ts < 0)
+    ptr = eap->arg;
+    new_ts = getdigits(&ptr);
+    if (new_ts < 0 && *eap->arg == '-')
     {
-	emsg(_(e_positive));
+	emsg(_(e_argument_must_be_positive));
+	return;
+    }
+    if (new_ts < 0 || new_ts > 9999)
+    {
+	semsg(_(e_invalid_argument_str), eap->arg);
 	return;
     }
     if (new_ts == 0)
@@ -1697,7 +1760,7 @@ ex_retab(exarg_T *eap)
 	line_breakcheck();
     }
     if (got_int)
-	emsg(_(e_interr));
+	emsg(_(e_interrupted));
 
 #ifdef FEAT_VARTABS
     // If a single value was given then it can be considered equal to
@@ -1800,6 +1863,13 @@ get_expr_indent(void)
     curwin->w_set_curswant = save_set_curswant;
     check_cursor();
     State = save_State;
+
+    // Reset did_throw, unless 'debug' has "throw" and inside a try/catch.
+    if (did_throw && (vim_strchr(p_debug, 't') == NULL || trylevel == 0))
+    {
+	handle_did_throw();
+	did_throw = FALSE;
+    }
 
     // If there is an error, just keep the current indent.
     if (indent < 0)
@@ -2049,6 +2119,9 @@ fixthisline(int (*get_the_indent)(void))
     }
 }
 
+/*
+ * Fix indent for 'lisp' and 'cindent'.
+ */
     void
 fix_indent(void)
 {
@@ -2077,11 +2150,18 @@ f_indent(typval_T *argvars, typval_T *rettv)
 {
     linenr_T	lnum;
 
+    if (in_vim9script() && check_for_lnum_arg(argvars, 0) == FAIL)
+	return;
+
     lnum = tv_get_lnum(argvars);
     if (lnum >= 1 && lnum <= curbuf->b_ml.ml_line_count)
 	rettv->vval.v_number = get_indent_lnum(lnum);
     else
+    {
+	if (in_vim9script())
+	    semsg(_(e_invalid_line_number_nr), lnum);
 	rettv->vval.v_number = -1;
+    }
 }
 
 /*
@@ -2094,6 +2174,9 @@ f_lispindent(typval_T *argvars UNUSED, typval_T *rettv)
     pos_T	pos;
     linenr_T	lnum;
 
+    if (in_vim9script() && check_for_lnum_arg(argvars, 0) == FAIL)
+	return;
+
     pos = curwin->w_cursor;
     lnum = tv_get_lnum(argvars);
     if (lnum >= 1 && lnum <= curbuf->b_ml.ml_line_count)
@@ -2102,6 +2185,8 @@ f_lispindent(typval_T *argvars UNUSED, typval_T *rettv)
 	rettv->vval.v_number = get_lisp_indent();
 	curwin->w_cursor = pos;
     }
+    else if (in_vim9script())
+	semsg(_(e_invalid_line_number_nr), lnum);
     else
 #endif
 	rettv->vval.v_number = -1;

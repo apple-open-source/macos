@@ -56,6 +56,8 @@ OBJC_CLASS NSArray;
 typedef struct HBITMAP__* HBITMAP;
 #endif
 
+typedef const struct OpaqueJSContext* JSContextRef;
+
 namespace JSC { namespace Yarr {
 class RegularExpression;
 } }
@@ -113,22 +115,6 @@ enum OverflowScrollAction { DoNotPerformOverflowScroll, PerformOverflowScroll };
 using NodeQualifier = Function<Node* (const HitTestResult&, Node* terminationNode, IntRect* nodeBounds)>;
 #endif
 
-enum {
-    LayerTreeFlagsIncludeDebugInfo              = 1 << 0,
-    LayerTreeFlagsIncludeVisibleRects           = 1 << 1,
-    LayerTreeFlagsIncludeTileCaches             = 1 << 2,
-    LayerTreeFlagsIncludeRepaintRects           = 1 << 3,
-    LayerTreeFlagsIncludePaintingPhases         = 1 << 4,
-    LayerTreeFlagsIncludeContentLayers          = 1 << 5,
-    LayerTreeFlagsIncludeAcceleratesDrawing     = 1 << 6,
-    LayerTreeFlagsIncludeClipping               = 1 << 7,
-    LayerTreeFlagsIncludeBackingStoreAttached   = 1 << 8,
-    LayerTreeFlagsIncludeRootLayerProperties    = 1 << 9,
-    LayerTreeFlagsIncludeEventRegion            = 1 << 10,
-    LayerTreeFlagsIncludeDeepColor              = 1 << 11,
-};
-typedef unsigned LayerTreeFlags;
-
 // FIXME: Rename Frame to LocalFrame and AbstractFrame to Frame.
 class Frame final : public AbstractFrame {
 public:
@@ -142,8 +128,8 @@ public:
     WEBCORE_EXPORT void setView(RefPtr<FrameView>&&);
     WEBCORE_EXPORT void createView(const IntSize&, const std::optional<Color>& backgroundColor,
         const IntSize& fixedLayoutSize, const IntRect& fixedVisibleContentRect,
-        bool useFixedLayout = false, ScrollbarMode = ScrollbarAuto, bool horizontalLock = false,
-        ScrollbarMode = ScrollbarAuto, bool verticalLock = false);
+        bool useFixedLayout = false, ScrollbarMode = ScrollbarMode::Auto, bool horizontalLock = false,
+        ScrollbarMode = ScrollbarMode::Auto, bool verticalLock = false);
 
     WEBCORE_EXPORT ~Frame();
 
@@ -190,9 +176,11 @@ public:
     bool hasHadUserInteraction() const { return m_hasHadUserInteraction; }
     void setHasHadUserInteraction() { m_hasHadUserInteraction = true; }
 
-    bool requestDOMPasteAccess();
+    bool requestDOMPasteAccess(DOMPasteAccessCategory = DOMPasteAccessCategory::General);
 
     String debugDescription() const;
+
+    WEBCORE_EXPORT static Frame* fromJSContext(JSContextRef);
 
 // ======== All public functions below this point are candidates to move out of Frame into another class. ========
 

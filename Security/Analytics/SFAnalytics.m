@@ -143,11 +143,6 @@ NSString* const SFAnalyticsEventModelID = @"modelid";
 NSString* const SFAnalyticsEventInternal = @"internal";
 const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
 
-@interface SFAnalytics ()
-@property (nonatomic) SFAnalyticsSQLiteStore* database;
-@property (nonatomic) dispatch_queue_t queue;
-@end
-
 @implementation SFAnalytics {
     SFAnalyticsSQLiteStore* _database;
     dispatch_queue_t _queue;
@@ -859,6 +854,15 @@ const NSTimeInterval SFAnalyticsSamplerIntervalOncePerReport = -1.0;
         (void)transaction;
         transaction = nil;
     });
+}
+
+// Flush the pending databases from - logMetrics:withName:oncePerReport:
+//
+// Since the log entries are pushed to the database in the serial queue `_queue`,
+// provide a way to for tests to flush all pending transactions before checking
+// the state of the database.
+- (void)drainLogQueue {
+    dispatch_sync(_queue, ^{});
 }
 
 @end

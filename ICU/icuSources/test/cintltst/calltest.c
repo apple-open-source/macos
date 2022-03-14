@@ -45,6 +45,7 @@ void addUSpoofTest(TestNode** root);
 #if !UCONFIG_NO_FORMATTING
 void addGendInfoForTest(TestNode** root);
 #endif
+void addDataDumper(TestNode** root); // Apple addition
 
 void addAllTests(TestNode** root)
 {
@@ -89,4 +90,5 @@ void addAllTests(TestNode** root)
 #if !UCONFIG_NO_FORMATTING
     addGendInfoForTest(root);
 #endif
+    addDataDumper(root);
 }

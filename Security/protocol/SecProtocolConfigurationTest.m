@@ -395,7 +395,7 @@ isLocalTLD(NSString *host)
 #undef STRING_FOR_KEY
 #undef BOOLEAN_FOR_KEY
 
-                SSLProtocol minimum_protocol_version = SSLProtocolFromVersionCodepoint(sec_protocol_configuration_protocol_string_to_version([minimum_tls cStringUsingEncoding:NSUTF8StringEncoding]));
+                tls_protocol_version_t minimum_protocol_version = (sec_protocol_configuration_protocol_string_to_version([minimum_tls cStringUsingEncoding:NSUTF8StringEncoding]));
 
                 sec_protocol_options_t options = [self create_sec_protocol_options];
                 sec_protocol_options_t transformed = sec_protocol_configuration_copy_transformed_options_for_host(configuration, options, [domain cStringUsingEncoding:NSUTF8StringEncoding]);

@@ -642,13 +642,13 @@ IOReturn IOConfigDirectory::getIndexValue(int index, OSString *&value)
 		{
 			// strings aren't required to have null terminators
 			// add one just in case
-			char * temp_string = (char *)IOMalloc( len+1 );
+			char * temp_string = (char *)IOMallocData( len+1 );
 			if( temp_string )
 			{
 				bcopy( text, temp_string, len );
 				temp_string[len] = '\0';
 				value = OSString::withCString(temp_string);
-				IOFree( temp_string, len+1 );
+				IOFreeData( temp_string, len+1 );
 			}
 		}
 		else

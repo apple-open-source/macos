@@ -1,6 +1,6 @@
 .\"	$NetBSD: pkill.1,v 1.8 2003/02/14 15:59:18 grant Exp $
 .\"
-.\" $FreeBSD: src/bin/pkill/pkill.1,v 1.8 2010/07/12 01:58:46 brian Exp $
+.\" $FreeBSD$
 .\"
 .\" Copyright (c) 2002 The NetBSD Foundation, Inc.
 .\" All rights reserved.
@@ -29,7 +29,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd February 11, 2010
+.Dd October 5, 2020
 .Dt PKILL 1
 .Os
 .Sh NAME
@@ -37,13 +37,19 @@
 .Nd find or signal processes by name
 .Sh SYNOPSIS
 .Nm pgrep
+.\" .Op Fl LSafilnoqvx
 .Op Fl Lafilnoqvx
 .Op Fl F Ar pidfile
 .Op Fl G Ar gid
+.\" .Op Fl M Ar core
+.\" .Op Fl N Ar system
 .Op Fl P Ar ppid
 .Op Fl U Ar uid
+.\" .Op Fl c Ar class
 .Op Fl d Ar delim
 .Op Fl g Ar pgrp
+.\" .Op Fl j Ar jail
+.\" .Op Fl s Ar sid
 .Op Fl t Ar tty
 .Op Fl u Ar euid
 .Ar pattern ...
@@ -52,9 +58,14 @@
 .Op Fl ILafilnovx
 .Op Fl F Ar pidfile
 .Op Fl G Ar gid
+.\" .Op Fl M Ar core
+.\" .Op Fl N Ar system
 .Op Fl P Ar ppid
 .Op Fl U Ar uid
+.\" .Op Fl c Ar class
 .Op Fl g Ar pgrp
+.\" .Op Fl j Ar jail
+.\" .Op Fl s Ar sid
 .Op Fl t Ar tty
 .Op Fl u Ar euid
 .Ar pattern ...
@@ -91,10 +102,18 @@ option must be locked with the
 .Xr flock 2
 syscall or created with
 .Xr pidfile 3 .
+.\" .It Fl M Ar core
+.\" Extract values associated with the name list from the specified core
+.\" instead of the currently running system.
+.\" .It Fl N Ar system
+.\" Extract the name list from the specified system instead of the default,
+.\" which is the kernel image the system has booted from.
 .It Fl P Ar ppid
 Restrict matches to processes with a parent process ID in the
 comma-separated list
 .Ar ppid .
+.It Fl S
+Search also in system processes (kernel threads).
 .It Fl U Ar uid
 Restrict matches to processes with a real user ID in the comma-separated
 list
@@ -114,6 +133,9 @@ or
 process and all of its ancestors are excluded (unless
 .Fl v
 is used).
+.\" .It Fl c Ar class
+.\" Restrict matches to processes running with specified login class
+.\" .Ar class .
 .It Fl f
 Match against full argument lists.
 The default is to match against process names.
@@ -128,6 +150,16 @@ or
 command.
 .It Fl i
 Ignore case distinctions in both the process table and the supplied pattern.
+.\" .It Fl j Ar jail
+.\" Restrict matches to processes inside the specified jails.
+.\" The argument
+.\" .Ar jail
+.\" may be
+.\" .Dq Li any
+.\" to match processes in any jail,
+.\" .Dq Li none
+.\" to match processes not in jail,
+.\" or a comma-separated list of jail IDs or names.
 .It Fl l
 Long output.
 For
@@ -145,7 +177,18 @@ Select only the newest (most recently started) of the matching processes.
 .It Fl o
 Select only the oldest (least recently started) of the matching processes.
 .It Fl q
+For
+.Nm pgrep ,
 Do not write anything to standard output.
+.\" .It Fl s Ar sid
+.\" Restrict matches to processes with a session ID in the comma-separated
+.\" list
+.\" .Ar sid .
+.\" The value zero is taken to mean the session ID of the running
+.\" .Nm pgrep
+.\" or
+.\" .Nm pkill
+.\" command.
 .It Fl t Ar tty
 Restrict matches to processes associated with a terminal in the
 comma-separated list
@@ -179,15 +222,39 @@ This option is valid only when given as the first argument to
 .Pp
 If any
 .Ar pattern
-operands are specified, they are used as regular expressions to match
+operands are specified, they are used as extended regular expressions to match
 the command name or full argument list of each process.
+.\" If the
+.\" .Fl f
+.\" option is not specified, then the
+.\" .Ar pattern
+.\" will attempt to match the command name.
+.\" However, presently
+.\" .Fx
+.\" will only keep track of the first 19 characters of the command
+.\" name for each process.
+.\" Attempts to match any characters after the first 19 of a command name
+.\" will quietly fail.
 .Pp
 Note that a running
 .Nm pgrep
 or
 .Nm pkill
+.\" process will never consider itself nor system processes (kernel threads) as
 process will never consider itself as
 a potential match.
+.\" .Sh IMPLEMENTATION NOTES
+.\" The Sun Solaris implementation utilised procfs to obtain process information.
+.\" This implementation utilises
+.\" .Xr kvm 3
+.\" instead.
+.\" On a live system,
+.\" .Xr kvm 3
+.\" uses
+.\" .Va kern.proc
+.\" MIB to obtain the list of processes, kernel memory through
+.\" .Pa /dev/kmem
+.\" is not accessed.
 .Sh EXIT STATUS
 The
 .Nm pgrep
@@ -205,6 +272,123 @@ Invalid options were specified on the command line.
 .It 3
 An internal error occurred.
 .El
+.Sh EXAMPLES
+Show the pid of the process holding the
+.Pa /tmp/.X0-lock
+pid file:
+.Bd -literal -offset indent
+$ pgrep -F /tmp/.X0-lock
+1211
+.Ed
+.Pp
+Show the pid and the name of the process including kernel threads in the
+search:
+.Bd -literal -offset indent
+$ pgrep -lS vnlru
+37 vnlru
+.Ed
+.Pp
+Search for processes including kernel threads that match the extended regular
+expression pattern:
+.Bd -literal -offset indent
+$ pgrep -S 'crypto.*[2-3]'
+20
+19
+6
+5
+.Ed
+.Pp
+Show long output for firefox processes:
+.Bd -literal -offset indent
+$ pgrep -l firefox
+1312 firefox
+1309 firefox
+1288 firefox
+1280 firefox
+1279 firefox
+1278 firefox
+1277 firefox
+1264 firefox
+.Ed
+.Pp
+Same as above but just showing the pid of the most recent process:
+.Bd -literal -offset indent
+$ pgrep -n firefox
+1312
+.Ed
+.Pp
+Look for vim processes.
+Match against the full argument list:
+.Bd -literal -offset indent
+$ pgrep -f vim
+44968
+30790
+.Ed
+.Pp
+Same as above but matching against the
+.Ql list
+word and showing the full argument list:
+.Bd -literal -offset indent
+$ pgrep -f -l list
+30790 vim list.txt
+.Ed
+.Pp
+Send
+.Va SIGSTOP
+signal to processes that are an exact match:
+.Bd -literal -offset indent
+$ pkill -SIGSTOP -f -x "vim list.txt"
+.Ed
+.Pp
+Without
+.Fl f
+names over 19 characters will silently fail:
+.Bd -literal -offset indent
+$ vim this_is_a_very_long_file_name &
+[1] 36689
+$
+
+[1]+  Stopped                 vim this_is_a_very_long_file_name
+$ pgrep "vim this"
+$
+.Ed
+.Pp
+Same as above using the
+.Fl f
+flag:
+.Bd -literal -offset indent
+$ pgrep -f "vim this"
+36689
+.Ed
+.\" .Pp
+.\" Find the
+.\" .Xr top 1
+.\" command running in any jail:
+.\" .Bd -literal -offset indent
+.\" $ pgrep -j any top
+.\" 34498
+.\" .Ed
+.\" .Pp
+.\" Show all processes running in jail ID 58:
+.\" .Bd -literal -offset indent
+.\" $ pgrep -l -j58 '.*'
+.\" 28397 pkg-static
+.\" 28396 pkg-static
+.\" 28255 sh
+.\" 28254 make
+.\" .Ed
+.\" .Sh COMPATIBILITY
+.\" Historically the option
+.\" .Dq Fl j Li 0
+.\" means any jail, although in other utilities such as
+.\" .Xr ps 1
+.\" jail ID
+.\" .Li 0
+.\" has the opposite meaning, not in jail.
+.\" Therefore
+.\" .Dq Fl j Li 0
+.\" is deprecated, and its use is discouraged in favor of
+.\" .Dq Fl j Li any .
 .Sh SEE ALSO
 .Xr kill 1 ,
 .Xr killall 1 ,
@@ -212,9 +396,10 @@ An internal error occurred.
 .Xr flock 2 ,
 .Xr kill 2 ,
 .Xr sigaction 2 ,
+.\" .Xr kvm 3 ,
 .Xr pidfile 3 ,
 .Xr re_format 7
-.\" Xr signal 7
+.\" .Xr signal 7
 .Sh HISTORY
 The
 .Nm pkill
@@ -228,5 +413,4 @@ Solaris 7.
 They made their first appearance in
 .Fx 5.3 .
 .Sh AUTHORS
-.An Andrew Doran
-.Aq ad@NetBSD.org
+.An Andrew Doran Aq Mt ad@NetBSD.org

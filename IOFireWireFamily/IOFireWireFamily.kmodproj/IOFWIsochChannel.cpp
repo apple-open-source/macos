@@ -954,7 +954,7 @@ void IOFWIsochChannel::handleBusReset()
 	// setup thread info and spawn a thread
 	//
 	
-	ChannelThreadInfo * threadInfo = (ChannelThreadInfo *)IOMalloc( sizeof(ChannelThreadInfo) );
+	ChannelThreadInfo * threadInfo = IOMallocType( ChannelThreadInfo );
 	if( threadInfo )
 	{
 		threadInfo->fGeneration = fControl->getGeneration();
@@ -993,7 +993,7 @@ void IOFWIsochChannel::threadFunc( void * arg )
 	// clean up thread info
 	//
 	
-	IOFree( threadInfo, sizeof(ChannelThreadInfo) );
+	IOFreeType( threadInfo, ChannelThreadInfo );
 	channel->release();		// retain occurred in handleBusReset
 }
 

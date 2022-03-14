@@ -161,10 +161,10 @@ SYSCTL_QUAD(_kern_skywalk_channel, OID_AUTO, mit_ival,
     CTLFLAG_RW | CTLFLAG_LOCKED, &ch_mit_ival, "");
 #endif /* !DEVELOPMENT && !DEBUG */
 
-static ZONE_DECLARE(ch_zone, SKMEM_ZONE_PREFIX ".ch",
+static ZONE_DEFINE(ch_zone, SKMEM_ZONE_PREFIX ".ch",
     sizeof(struct kern_channel), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(ch_info_zone, SKMEM_ZONE_PREFIX ".ch.info",
+static ZONE_DEFINE(ch_info_zone, SKMEM_ZONE_PREFIX ".ch.info",
     sizeof(struct ch_info), ZC_ZFREE_CLEARMEM);
 
 static int __ch_inited = 0;

@@ -23,8 +23,6 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#pragma once
-
 #include "config.h"
 #include "PerformanceNavigationTiming.h"
 
@@ -144,8 +142,6 @@ double PerformanceNavigationTiming::duration() const
 void PerformanceNavigationTiming::navigationFinished(const NetworkLoadMetrics& metrics)
 {
     m_documentLoadTiming.markEndTime();
-
-    ASSERT(!m_resourceTiming.networkLoadMetrics().responseEnd);
     m_resourceTiming.networkLoadMetrics() = metrics;
 }
 

@@ -179,19 +179,4 @@ OctagonState* const OctagonStateMachineHalted = (OctagonState*) @"halted";
 
 @end
 
-@implementation NSError (OctagonRetry)
-
-- (NSTimeInterval)overallCuttlefishRetry {
-    NSTimeInterval baseDelay = SecCKKSTestsEnabled() ? 2 : 30;
-    NSTimeInterval ckDelay = CKRetryAfterSecondsForError(self);
-    NSTimeInterval cuttlefishDelay = [self cuttlefishRetryAfter];
-    NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
-    if (delay == 0) {
-        delay = baseDelay;
-    }
-    return delay;
-}
-
-@end
-
 #endif // OCTAGON

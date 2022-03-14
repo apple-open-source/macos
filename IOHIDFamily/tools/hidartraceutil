@@ -1,8 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys, getopt, collections, subprocess, argparse, math
 from operator import itemgetter
 import json 
+from six.moves import range
 
 # colors
 
@@ -19,7 +22,7 @@ class color:
    END = '\033[0m'
 
 def print_bold (s):
-    print color.BOLD + s + color.END
+    print(color.BOLD + s + color.END)
 
 def to_bold (s):
     return color.BOLD + s + color.END
@@ -121,12 +124,12 @@ def  process_trace (trace):
         else:
             timestamp = int (probe["args"][0])
             event = []
-            if timestamp in events.keys():
+            if timestamp in list(events.keys()):
                 event = events[timestamp]
             event.append(probe)
             events[timestamp] = event
     for  timestamp in events.keys():
-        if timestamp in reports.keys():
+        if timestamp in list(reports.keys()):
             events[timestamp].append(reports[timestamp])
 
     return events   
@@ -193,7 +196,7 @@ class Event(object):
                 self.service = int(probe["args"][1])
             elif probe["debugid"] == kHID_ES_ClientsEnqueueEnd:
                 self.finalTime = int(probe["timestampns"]) 
-            elif probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe.keys():
+            elif probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in list(probe.keys()):
                 self.clients.append(probe["execname"])
 
         if self.userTime:
@@ -229,7 +232,7 @@ class Event(object):
 
     def timeDeltaToClient(self, client):
         for probe in self.probes:
-            if probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in probe.keys(): 
+            if probe["debugid"] == kHID_ES_Client_QueueCallback and "execname" in list(probe.keys()): 
                 if client == probe['execname'] :
                    return (int(probe["timestampns"]) - self.startTime) / 1000 
 
@@ -258,13 +261,13 @@ def process_interval_stats (entervals):
     for i in range (0, min(5,len(entervals))):
         minStr +=  "%8.1f " % (entervals[i])
 
-    print minStr
+    print(minStr)
 
     maxStr = "  max(us): " 
     for i in range (len(entervals) - min(len(entervals),5), len(entervals)):
         maxStr += "%8.1f " % (entervals[i])
 
-    print maxStr
+    print(maxStr)
 
     averageStr = "  average: " 
 
@@ -282,7 +285,7 @@ def process_interval_stats (entervals):
         for i in range (0,(len(entervals) * 50) / 100):
             average += entervals[i]
         averageStr += "50%%: %0.1f " % (average / ((len(entervals) * 50) / 100))
-    print averageStr
+    print(averageStr)
 
 
 def process_client_event_stats (events, filter, client):
@@ -299,7 +302,7 @@ def process_client_event_stats (events, filter, client):
             continue
         # determine all event type
         count = 1
-        if event.type in eventTypes.keys():
+        if event.type in list(eventTypes.keys()):
             count = eventTypes[event.type] + 1;
         eventTypes[event.type] = count
 
@@ -309,7 +312,7 @@ def process_client_event_stats (events, filter, client):
     print_bold ("\nProcess: %s" % client)
     print ("Events:")
     for key in eventTypes.keys():
-        print "  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key]) 
+        print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key])) 
     print("Time interval (Kernel to Client):")
     process_interval_stats(total)
 
@@ -329,7 +332,7 @@ def process_event_stats (events, filter):
 
         # determine all event type
         count = 1
-        if event.type in eventTypes.keys():
+        if event.type in list(eventTypes.keys()):
             count = eventTypes[event.type] + 1;
         eventTypes[event.type] = count
 
@@ -343,7 +346,7 @@ def process_event_stats (events, filter):
     print_bold("Events System Host Process:")
     print("Events:")
     for key in eventTypes.keys():
-        print "  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key]) 
+        print("  type: %2d count: %8d (%s)" % (key, eventTypes[key], HIDEventTypeToStr[key])) 
     
     print("Time interval (Kernel to User):")
     process_interval_stats(touser)
@@ -376,33 +379,33 @@ def  main (argv):
         if opt in ("-f", "--filter"):
             filter = arg
         if opt in ("-h", "--help"):
-            print "Extract HID events info from  artrace/tailspin/ktrace"
-            print "Usage:"
-            print "     hidartraceutil [-e event_timestamp] [-c client_process_name,...] [-h] [-r]\n"
-            print "Flags:"
-            print "     -e,--extract  extract IOHID trace probes"
-            print "     -c,--client   print time of event delivery to specific client process"
-            print "     -s,--stats    print summary of event types/count/latencies"
-            print "     -f,--filter   filter out predciate\n"
-            print "Examples:"
-            print "     hidartraceutil /tmp/trace001.artrace"
-            print "     hidartraceutil -s /tmp/trace001.artrace"
-            print "     hidartraceutil -e /tmp/trace001.artrace > /tmp/trace001.ndson"
-            print "     cat /tmp/trace001.ndson | hidartraceutil"
-            print "     cat /tmp/trace001.ndson | hidartraceutil -s"
-            print "     cat /tmp/trace001.ndson | hidartraceutil -f \'event.type != 0x3\'"
-            print "     cat /tmp/trace001.ndson | hidartraceutil -f \'event.timeDeltaToClient(client) < 1000\'"
-            print "Filter predicate:"
-            print "     Filter predicate is an expression that determine if event should be included in results."
-            print "     if filter predicate return True - event filtered out, if Flase - included in results"
-            print "     Filter predicate usually evaluate \"event\" object"
-            print "     event.type                       numeric value of IOHIDEventType"
-            print "     event.typeAsString               String representation of event type"
-            print "     event.timestamp                  event timestamp"
-            print "     event.clients                    list of the client processes to which event was delivered"
-            print "     event.timeDeltaToClient(client)  event time delivery to the \"client\"  in us"
-            print "Other:"
-            print "     artrace  --trace-ktrace-class 5 (collect HID trace point used by hidartraceutil)"
+            print("Extract HID events info from  artrace/tailspin/ktrace")
+            print("Usage:")
+            print("     hidartraceutil [-e event_timestamp] [-c client_process_name,...] [-h] [-r]\n")
+            print("Flags:")
+            print("     -e,--extract  extract IOHID trace probes")
+            print("     -c,--client   print time of event delivery to specific client process")
+            print("     -s,--stats    print summary of event types/count/latencies")
+            print("     -f,--filter   filter out predciate\n")
+            print("Examples:")
+            print("     hidartraceutil /tmp/trace001.artrace")
+            print("     hidartraceutil -s /tmp/trace001.artrace")
+            print("     hidartraceutil -e /tmp/trace001.artrace > /tmp/trace001.ndson")
+            print("     cat /tmp/trace001.ndson | hidartraceutil")
+            print("     cat /tmp/trace001.ndson | hidartraceutil -s")
+            print("     cat /tmp/trace001.ndson | hidartraceutil -f \'event.type != 0x3\'")
+            print("     cat /tmp/trace001.ndson | hidartraceutil -f \'event.timeDeltaToClient(client) < 1000\'")
+            print("Filter predicate:")
+            print("     Filter predicate is an expression that determine if event should be included in results.")
+            print("     if filter predicate return True - event filtered out, if Flase - included in results")
+            print("     Filter predicate usually evaluate \"event\" object")
+            print("     event.type                       numeric value of IOHIDEventType")
+            print("     event.typeAsString               String representation of event type")
+            print("     event.timestamp                  event timestamp")
+            print("     event.clients                    list of the client processes to which event was delivered")
+            print("     event.timeDeltaToClient(client)  event time delivery to the \"client\"  in us")
+            print("Other:")
+            print("     artrace  --trace-ktrace-class 5 (collect HID trace point used by hidartraceutil)")
 
             return
 
@@ -421,7 +424,7 @@ def  main (argv):
         hidTrace = extract_trace (traceData);
         log ("Print trace (lenght:%d)" % len(hidTrace))
         for probe in hidTrace:
-            print json.dumps(probe);
+            print(json.dumps(probe));
         return
 
     hidTrace = extract_trace (traceData);
@@ -446,7 +449,7 @@ def  main (argv):
                 event.timeDelta('touser'), event.timeDelta('inuser'), event.timeDelta('total'))
             if client and client in event.clients:
                 eventStr +="  %-8d" % event.timeDeltaToClient(client) 
-            print eventStr
+            print(eventStr)
 
 
 if __name__ == "__main__":

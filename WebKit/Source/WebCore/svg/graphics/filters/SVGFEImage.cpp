@@ -3,6 +3,7 @@
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2010 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2021 Apple Inc.  All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,132 +24,110 @@
 #include "config.h"
 #include "SVGFEImage.h"
 
-#include "AffineTransform.h"
 #include "Filter.h"
+#include "FilterEffectApplier.h"
 #include "GraphicsContext.h"
-#include "RenderElement.h"
-#include "RenderTreeAsText.h"
-#include "SVGElement.h"
-#include "SVGRenderingContext.h"
-#include "SVGURIReference.h"
 #include <wtf/text/TextStream.h>
 
 namespace WebCore {
 
-FEImage::FEImage(Filter& filter, RefPtr<Image> image, const SVGPreserveAspectRatioValue& preserveAspectRatio)
-    : FilterEffect(filter, Type::Image)
-    , m_image(image)
+Ref<FEImage> FEImage::create(Ref<Image>&& image, const SVGPreserveAspectRatioValue& preserveAspectRatio)
+{
+    auto imageRect = FloatRect { { }, image->size() };
+    return create(WTFMove(image), imageRect, preserveAspectRatio);
+}
+
+Ref<FEImage> FEImage::create(SourceImage&& sourceImage, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue& preserveAspectRatio)
+{
+    return adoptRef(*new FEImage(WTFMove(sourceImage), sourceImageRect, preserveAspectRatio));
+}
+
+FEImage::FEImage(SourceImage&& sourceImage, const FloatRect& sourceImageRect, const SVGPreserveAspectRatioValue& preserveAspectRatio)
+    : FilterEffect(Type::FEImage)
+    , m_sourceImage(WTFMove(sourceImage))
+    , m_sourceImageRect(sourceImageRect)
     , m_preserveAspectRatio(preserveAspectRatio)
 {
 }
 
-FEImage::FEImage(Filter& filter, TreeScope& treeScope, const String& href, const SVGPreserveAspectRatioValue& preserveAspectRatio)
-    : FilterEffect(filter, Type::Image)
-    , m_treeScope(&treeScope)
-    , m_href(href)
-    , m_preserveAspectRatio(preserveAspectRatio)
+FloatRect FEImage::calculateImageRect(const Filter& filter, const FilterImageVector&, const FloatRect& primitiveSubregion) const
 {
+    auto imageRect = WTF::switchOn(m_sourceImage,
+        [&] (const Ref<Image>&) {
+            auto imageRect = primitiveSubregion;
+            auto srcRect = m_sourceImageRect;
+            m_preserveAspectRatio.transformRect(imageRect, srcRect);
+            return imageRect;
+        },
+        [&] (const Ref<ImageBuffer>&) {
+            return primitiveSubregion;
+        },
+        [&] (RenderingResourceIdentifier) {
+            ASSERT_NOT_REACHED();
+            return FloatRect();
+        }
+    );
+    return filter.clipToMaxEffectRect(imageRect, primitiveSubregion);
 }
 
-Ref<FEImage> FEImage::createWithImage(Filter& filter, RefPtr<Image> image, const SVGPreserveAspectRatioValue& preserveAspectRatio)
+// FIXME: Move the class FEImageSoftwareApplier to separate source and header files.
+class FEImageSoftwareApplier : public FilterEffectConcreteApplier<FEImage> {
+    WTF_MAKE_FAST_ALLOCATED;
+    using Base = FilterEffectConcreteApplier<FEImage>;
+
+public:
+    using Base::Base;
+
+    bool apply(const Filter&, const FilterImageVector& inputs, FilterImage& result) const override;
+};
+
+bool FEImageSoftwareApplier::apply(const Filter& filter, const FilterImageVector&, FilterImage& result) const
 {
-    return adoptRef(*new FEImage(filter, image, preserveAspectRatio));
-}
-
-Ref<FEImage> FEImage::createWithIRIReference(Filter& filter, TreeScope& treeScope, const String& href, const SVGPreserveAspectRatioValue& preserveAspectRatio)
-{
-    return adoptRef(*new FEImage(filter, treeScope, href, preserveAspectRatio));
-}
-
-void FEImage::determineAbsolutePaintRect()
-{
-    FloatRect paintRect = filter().absoluteTransform().mapRect(filterPrimitiveSubregion());
-    FloatRect srcRect;
-    if (m_image) {
-        srcRect.setSize(m_image->size());
-        m_preserveAspectRatio.transformRect(paintRect, srcRect);
-    } else if (RenderElement* renderer = referencedRenderer())
-        srcRect = filter().absoluteTransform().mapRect(renderer->repaintRectInLocalCoordinates());
-
-    if (clipsToBounds())
-        paintRect.intersect(maxEffectRect());
-    else
-        paintRect.unite(maxEffectRect());
-    setAbsolutePaintRect(enclosingIntRect(paintRect));
-}
-
-RenderElement* FEImage::referencedRenderer() const
-{
-    if (!m_treeScope)
-        return nullptr;
-    auto target = SVGURIReference::targetElementFromIRIString(m_href, *m_treeScope);
-    if (!is<SVGElement>(target.element))
-        return nullptr;
-    return target.element->renderer();
-}
-
-void FEImage::platformApplySoftware()
-{
-    RenderElement* renderer = referencedRenderer();
-    if (!m_image && !renderer)
-        return;
-
-    // FEImage results are always in DestinationColorSpace::SRGB()
-    setResultColorSpace(DestinationColorSpace::SRGB());
-
-    ImageBuffer* resultImage = createImageBufferResult();
+    auto resultImage = result.imageBuffer();
     if (!resultImage)
-        return;
+        return false;
 
-    FloatRect destRect = filter().absoluteTransform().mapRect(filterPrimitiveSubregion());
-
-    FloatRect srcRect;
-    if (renderer)
-        srcRect = filter().absoluteTransform().mapRect(renderer->repaintRectInLocalCoordinates());
-    else {
-        srcRect = FloatRect(FloatPoint(), m_image->size());
-        m_preserveAspectRatio.transformRect(destRect, srcRect);
-    }
-
-    IntPoint paintLocation = absolutePaintRect().location();
-    destRect.move(-paintLocation.x(), -paintLocation.y());
-
+    auto primitiveSubregion = result.primitiveSubregion();
     auto& context = resultImage->context();
 
-    if (renderer) {
-        const AffineTransform& absoluteTransform = filter().absoluteTransform();
-        context.concatCTM(absoluteTransform);
-
-        auto contextNode = makeRefPtr(downcast<SVGElement>(renderer->element()));
-        if (contextNode->hasRelativeLengths()) {
-            SVGLengthContext lengthContext(contextNode.get());
-            FloatSize viewportSize;
-
-            // If we're referencing an element with percentage units, eg. <rect with="30%"> those values were resolved against the viewport.
-            // Build up a transformation that maps from the viewport space to the filter primitive subregion.
-            if (lengthContext.determineViewport(viewportSize))
-                context.concatCTM(makeMapBetweenRects(FloatRect(FloatPoint(), viewportSize), destRect));
+    WTF::switchOn(m_effect.sourceImage(),
+        [&] (const Ref<Image>& image) {
+            auto imageRect = primitiveSubregion;
+            auto srcRect = m_effect.sourceImageRect();
+            m_effect.preserveAspectRatio().transformRect(imageRect, srcRect);
+            imageRect.scale(filter.filterScale());
+            imageRect = IntRect(imageRect) - result.absoluteImageRect().location();
+            context.drawImage(image, imageRect, srcRect);
+        },
+        [&] (const Ref<ImageBuffer>& imageBuffer) {
+            auto imageRect = primitiveSubregion;
+            imageRect.moveBy(m_effect.sourceImageRect().location());
+            imageRect.scale(filter.filterScale());
+            imageRect = IntRect(imageRect) - result.absoluteImageRect().location();
+            context.drawImageBuffer(imageBuffer, imageRect.location());
+        },
+        [&] (RenderingResourceIdentifier) {
+            ASSERT_NOT_REACHED();
         }
+    );
 
-        AffineTransform contentTransformation;
-        SVGRenderingContext::renderSubtreeToContext(context, *renderer, contentTransformation);
-        return;
-    }
-
-    context.drawImage(*m_image, destRect, srcRect);
+    return true;
 }
 
-TextStream& FEImage::externalRepresentation(TextStream& ts, RepresentationType representation) const
+std::unique_ptr<FilterEffectApplier> FEImage::createApplier(const Filter&) const
 {
-    FloatSize imageSize;
-    if (m_image)
-        imageSize = m_image->size();
-    else if (RenderObject* renderer = referencedRenderer())
-        imageSize = enclosingIntRect(renderer->repaintRectInLocalCoordinates()).size();
+    return FilterEffectApplier::create<FEImageSoftwareApplier>(*this);
+}
+
+TextStream& FEImage::externalRepresentation(TextStream& ts, FilterRepresentation representation) const
+{
     ts << indent << "[feImage";
     FilterEffect::externalRepresentation(ts, representation);
-    ts << " image-size=\"" << imageSize.width() << "x" << imageSize.height() << "\"]\n";
+
+    ts << " image-size=\"" << m_sourceImageRect.width() << "x" << m_sourceImageRect.height() << "\"";
     // FIXME: should this dump also object returned by SVGFEImage::image() ?
+
+    ts << "]\n";
     return ts;
 }
 

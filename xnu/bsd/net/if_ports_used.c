@@ -156,7 +156,7 @@ struct net_port_entry {
 	struct net_port_info            npe_npi;
 };
 
-static ZONE_DECLARE(net_port_entry_zone, "net_port_entry",
+static ZONE_DEFINE(net_port_entry_zone, "net_port_entry",
     sizeof(struct net_port_entry), ZC_NONE);
 
 static SLIST_HEAD(net_port_entry_list, net_port_entry) net_port_entry_list =
@@ -201,12 +201,9 @@ if_ports_used_init(void)
 		return;
 	}
 
-	MALLOC(net_port_entry_hash_table, struct net_port_entry_hash_table *,
-	    NPE_HASH_BUCKET_COUNT * sizeof(*net_port_entry_hash_table),
-	    M_IFADDR, M_WAITOK | M_ZERO);
-	if (net_port_entry_hash_table == NULL) {
-		panic("net_port_entry_hash_table allocation failed");
-	}
+	net_port_entry_hash_table = zalloc_permanent(
+		NPE_HASH_BUCKET_COUNT * sizeof(*net_port_entry_hash_table),
+		ZALIGN_PTR);
 }
 
 static void

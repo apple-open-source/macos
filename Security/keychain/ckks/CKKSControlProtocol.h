@@ -30,6 +30,8 @@
 
 NS_ASSUME_NONNULL_BEGIN;
 
+#define CKKSControlStatusDefaultNonTransientStateTimeout (1*NSEC_PER_SEC)
+
 @protocol CKKSControlProtocol <NSObject>
 - (void)performanceCounters:(void(^)(NSDictionary <NSString *, NSNumber *> * _Nullable))reply;
 - (void)rpcResetLocal: (NSString* _Nullable)viewName reply: (void(^)(NSError* _Nullable result)) reply;
@@ -41,14 +43,14 @@ NS_ASSUME_NONNULL_BEGIN;
 - (void)rpcResetCloudKit:(NSString* _Nullable)viewName reason:(NSString *)reason reply: (void(^)(NSError* _Nullable result)) reply;
 - (void)rpcResync:(NSString* _Nullable)viewName reply: (void(^)(NSError* _Nullable result)) reply;
 - (void)rpcResyncLocal:(NSString* _Nullable)viewName reply:(void(^)(NSError* _Nullable result))reply;
+
 /**
  * Fetch status for the CKKS zones. If NULL is passed in a viewname, all zones are fetched.
+ * If `fast` is `YES`, this call will avoid expensive operations (and thus not
+ * report them), and also omit the global status.
  */
-- (void)rpcStatus:(NSString* _Nullable)viewName reply: (void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error)) reply;
-/**
- * Same as rpcStatus:reply: but avoid expensive operations (and thus don't report them). fastStatus doesn't include global status.
- */
-- (void)rpcFastStatus:(NSString* _Nullable)viewName reply: (void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply;
+- (void)rpcStatus:(NSString* _Nullable)viewName fast:(BOOL)fast waitForNonTransientState:(dispatch_time_t)waitForTransientTimeout reply: (void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error)) reply;
+
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable)viewName classA:(bool)classAError onlyIfNoRecentFetch:(bool)onlyIfNoRecentFetch reply:(void(^)(NSError* _Nullable result))reply;
 - (void)rpcPushOutgoingChanges:(NSString* _Nullable)viewName reply: (void(^)(NSError* _Nullable result)) reply;
 - (void)rpcGetCKDeviceIDWithReply:(void (^)(NSString* _Nullable ckdeviceID))reply;

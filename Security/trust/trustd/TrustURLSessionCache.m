@@ -31,7 +31,7 @@
 #include "trust/trustd/TrustURLSessionCache.h"
 
 #define MAX_CACHED_SESSIONS 20
-const NSString *TrustdUserAgent = @"com.apple.trustd/2.1";
+const NSString *TrustdUserAgent = @"com.apple.trustd/2.2";
 
 static NSTimeInterval TrustURLSessionGetResourceTimeout(void) {
     return (NSTimeInterval)3.0;

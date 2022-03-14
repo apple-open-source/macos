@@ -3372,20 +3372,17 @@ static kauth_cred_t kauth_cred_find_and_ref(kauth_cred_t cred,
     struct kauth_cred_entry_head *bucket);
 static bool kauth_cred_is_equal(kauth_cred_t cred1, kauth_cred_t cred2);
 
-static LCK_GRP_DECLARE(ucred_rw_lock_group, "ucred_rw locks");
-
 struct ucred_rw {
 	LIST_ENTRY(ucred_rw) crw_link;
 	struct ucred *crw_cred;
 	os_refcnt_t crw_weak_ref;
-	lck_mtx_t crw_lock;
 };
 
 #define KAUTH_CRED_TABLE_SIZE 128
 LIST_HEAD(kauth_cred_entry_head, ucred_rw);
 
-static ZONE_DECLARE(ucred_rw_zone, "cred_rw", sizeof(struct ucred_rw), ZC_ZFREE_CLEARMEM);
-static SECURITY_READ_ONLY_LATE(zone_t) ucred_zone;
+ZONE_DEFINE_ID(ZONE_ID_KAUTH_CRED, "cred", struct ucred, ZC_READONLY | ZC_ZFREE_CLEARMEM);
+static ZONE_DEFINE_TYPE(ucred_rw_zone, "cred_rw", struct ucred_rw, ZC_ZFREE_CLEARMEM);
 
 static struct kauth_cred_entry_head
     kauth_cred_table_anchor[KAUTH_CRED_TABLE_SIZE];
@@ -3433,9 +3430,6 @@ kauth_cred_init(void)
 	for (int i = 0; i < KAUTH_CRED_TABLE_SIZE; i++) {
 		LIST_INIT(&kauth_cred_table_anchor[i]);
 	}
-
-	ucred_zone = zone_create_ext("cred", sizeof(struct ucred),
-	    ZC_READONLY | ZC_ZFREE_CLEARMEM, ZONE_ID_KAUTH_CRED, NULL);
 
 	vfs_context0.vc_ucred = kauth_cred_create(&kernel_cred_template);
 }
@@ -3720,7 +3714,6 @@ kauth_cred_alloc(void (^cred_setup)(kauth_cred_t))
 
 	/* Continue with construction: */
 	rw = zalloc_flags(ucred_rw_zone, Z_WAITOK | Z_ZERO | Z_NOFAIL);
-	lck_mtx_init(&rw->crw_lock, &ucred_rw_lock_group, LCK_ATTR_NULL);
 	os_ref_init(&rw->crw_weak_ref, NULL);
 
 	model_cred.cr_rw = rw;
@@ -3822,8 +3815,6 @@ kauth_cred_free(kauth_cred_t cred, bool remove)
 	if (os_atomic_load(&cred->cr_ref, relaxed) != 0) {
 		panic("%s: freeing credential with active long-term ref", __func__);
 	}
-
-	lck_mtx_destroy(&rw->crw_lock, &ucred_rw_lock_group);
 
 #if CONFIG_MACF
 	mac_cred_label_destroy(&mut_copy);
@@ -4733,35 +4724,19 @@ void
 }
 
 static void
-kauth_cred_set_ref_locked(kauth_cred_t cred, unsigned long ref)
-{
-	zalloc_ro_update_field(ZONE_ID_KAUTH_CRED, cred, cr_ref, &ref);
-}
-
-static unsigned long
-kauth_cred_get_ref_locked(const kauth_cred_t cred)
-{
-	return os_atomic_load(&cred->cr_ref, relaxed);
-}
-
-static void
 kauth_cred_hold(kauth_cred_t cred, bool need_ref)
 {
-	struct ucred_rw *rw;
 	unsigned long ref;
 
 	if (need_ref) {
 		kauth_cred_ref(cred);
 	}
 
-	rw = kauth_cred_rw(cred);
-	lck_mtx_lock(&rw->crw_lock);
-	ref = kauth_cred_get_ref_locked(cred);
+	ref = zalloc_ro_update_field_atomic(ZONE_ID_KAUTH_CRED,
+	    cred, cr_ref, ZRO_ATOMIC_ADD_LONG, 1);
 	if (ref >= KAUTH_CRED_REF_MAX) {
 		kauth_cred_panic_over_retain(cred);
 	}
-	kauth_cred_set_ref_locked(cred, ref + 1);
-	lck_mtx_unlock(&rw->crw_lock);
 }
 
 static void
@@ -4769,17 +4744,12 @@ kauth_cred_drop(kauth_cred_t *credp)
 {
 	unsigned long ref;
 	kauth_cred_t cred = *credp;
-	struct ucred_rw *rw;
 
-	rw = kauth_cred_rw(cred);
-
-	lck_mtx_lock(&rw->crw_lock);
-	ref = kauth_cred_get_ref_locked(cred);
-	if (__improbable(ref == 0)) {
+	ref = zalloc_ro_update_field_atomic(ZONE_ID_KAUTH_CRED,
+	    cred, cr_ref, ZRO_ATOMIC_ADD_LONG, -1);
+	if (__improbable(ref == 0 || ref > KAUTH_CRED_REF_MAX)) {
 		kauth_cred_panic_over_released(cred);
 	}
-	kauth_cred_set_ref_locked(cred, ref - 1);
-	lck_mtx_unlock(&rw->crw_lock);
 
 	kauth_cred_unref(credp);
 }

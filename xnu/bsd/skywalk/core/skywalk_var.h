@@ -233,7 +233,7 @@ SLOT_INCREMENT(uint32_t i, uint32_t n, uint32_t lim)
 /*
  * Flow advisory entries.
  */
-#define NX_FLOWADV_DEFAULT      512
+#define NX_FLOWADV_DEFAULT      682
 #define NX_FLOWADV_MAX          (64 * 1024)
 #define FO_FLOWADV_CHUNK        64
 
@@ -460,7 +460,7 @@ sk_unprotect(sk_protect_t protect)
 
 
 /*
- * For sysctls that _MALLOC a buffer to fill then copyout at completion,
+ * For sysctls that allocate a buffer to fill then copyout at completion,
  * set an upper bound on the size of the buffer we'll allocate.
  */
 #define SK_SYSCTL_ALLOC_MAX             ((size_t)(100 * 1024 * 1024))

@@ -120,7 +120,7 @@ static NSString* KCDSEpoch= @"epoch";
 }
 
 + (BOOL)supportsSecureCoding {
-    return true;
+    return YES;
 }
 
 

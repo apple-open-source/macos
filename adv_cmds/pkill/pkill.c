@@ -1,6 +1,8 @@
 /*	$NetBSD: pkill.c,v 1.16 2005/10/10 22:13:20 kleink Exp $	*/
 
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-NetBSD
+ *
  * Copyright (c) 2002 The NetBSD Foundation, Inc.
  * Copyright (c) 2005 Pawel Jakub Dawidek <pjd@FreeBSD.org>
  * All rights reserved.
@@ -31,7 +33,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/pkill/pkill.c,v 1.12 2011/02/04 16:40:50 jilles Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -43,6 +45,7 @@ __FBSDID("$FreeBSD: src/bin/pkill/pkill.c,v 1.12 2011/02/04 16:40:50 jilles Exp 
 #include <sys/user.h>
 
 #include <assert.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits.h>
@@ -61,6 +64,9 @@ __FBSDID("$FreeBSD: src/bin/pkill/pkill.c,v 1.12 2011/02/04 16:40:50 jilles Exp 
 #include <grp.h>
 #include <errno.h>
 #include <locale.h>
+#ifndef __APPLE__
+#include <jail.h>
+#endif
 
 #ifdef __APPLE__
 #include <xpc/xpc.h>
@@ -84,7 +90,7 @@ __FBSDID("$FreeBSD: src/bin/pkill/pkill.c,v 1.12 2011/02/04 16:40:50 jilles Exp 
 #else
 /* Ignore system-processes (if '-S' flag is not specified) and myself. */
 #define	PSKIP(kp)	((kp)->ki_pid == mypid ||			\
-			 (!kthreads && ((kp)->ki_flag & P_KTHREAD) != 0))
+			 (!kthreads && ((kp)->ki_flag & P_KPROC) != 0))
 #endif
 
 enum listtype {
@@ -94,14 +100,16 @@ enum listtype {
 	LT_TTY,
 	LT_PGRP,
 #ifndef __APPLE__
-	LT_JID,
+	LT_JAIL,
+	LT_SID,
+	LT_CLASS
 #endif
-	LT_SID
 };
 
 struct list {
 	SLIST_ENTRY(list) li_chain;
 	long	li_number;
+	char	*li_name;
 };
 
 SLIST_HEAD(listhead, list);
@@ -142,6 +150,7 @@ static struct listhead tdevlist = SLIST_HEAD_INITIALIZER(tdevlist);
 #ifndef __APPLE__
 static struct listhead sidlist = SLIST_HEAD_INITIALIZER(sidlist);
 static struct listhead jidlist = SLIST_HEAD_INITIALIZER(jidlist);
+static struct listhead classlist = SLIST_HEAD_INITIALIZER(classlist);
 #endif
 
 static void	usage(void) __attribute__((__noreturn__));
@@ -266,9 +275,9 @@ main(int argc, char **argv)
 #endif
 
 #ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "DF:G:ILP:U:ad:fg:ilnoqt:u:vx")) != -1)
+	while ((ch = getopt(argc, argv, "DF:G:ILP:U:ac:d:fg:ilnoqt:u:vx")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "DF:G:ILM:N:P:SU:ad:fg:ij:lnoqs:t:u:vx")) != -1)
+	while ((ch = getopt(argc, argv, "DF:G:ILM:N:P:SU:ac:d:fg:ij:lnoqs:t:u:vx")) != -1)
 #endif
 		switch (ch) {
 		case 'D':
@@ -316,6 +325,12 @@ main(int argc, char **argv)
 		case 'a':
 			ancestors++;
 			break;
+#ifndef __APPLE__
+		case 'c':
+			makelist(&classlist, LT_CLASS, optarg);
+			criteria = 1;
+			break;
+#endif
 		case 'd':
 			if (!pgrep)
 				usage();
@@ -333,7 +348,7 @@ main(int argc, char **argv)
 			break;
 #ifndef __APPLE__
 		case 'j':
-			makelist(&jidlist, LT_JID, optarg);
+			makelist(&jidlist, LT_JAIL, optarg);
 			criteria = 1;
 			break;
 #endif
@@ -416,7 +431,10 @@ main(int argc, char **argv)
 	 * Use KERN_PROC_PROC instead of KERN_PROC_ALL, since we
 	 * just want processes and not individual kernel threads.
 	 */
-	plist = kvm_getprocs(kd, KERN_PROC_PROC, 0, &nproc);
+	if (pidfromfile >= 0)
+		plist = kvm_getprocs(kd, KERN_PROC_PID, pidfromfile, &nproc);
+	else
+		plist = kvm_getprocs(kd, KERN_PROC_PROC, 0, &nproc);
 	if (plist == NULL) {
 		errx(STATUS_ERROR, "Cannot get process list (%s)",
 		    kvm_geterr(kd));
@@ -679,6 +697,19 @@ main(int argc, char **argv)
 			selected[i] = 0;
 			continue;
 		}
+
+		SLIST_FOREACH(li, &classlist, li_chain) {
+			/*
+			 * We skip P_SYSTEM processes to match ps(1) output.
+			 */
+			if ((kp->ki_flag & P_SYSTEM) == 0 &&
+			    strcmp(kp->ki_loginclass, li->li_name) == 0)
+				break;
+		}
+		if (SLIST_FIRST(&classlist) != NULL && li == NULL) {
+			selected[i] = 0;
+			continue;
+		}
 #endif /* !__APPLE__ */
 
 		if (argc == 0)
@@ -794,6 +825,8 @@ main(int argc, char **argv)
 			continue;
 		rv |= (*action)(kp);
 	}
+	if (rv && pgrep && !quiet)
+		putchar('\n');
 	if (!did_action && !pgrep && longfmt)
 		fprintf(stderr,
 		    "No matching processes belonging to you were found\n");
@@ -818,13 +851,14 @@ usage(void)
 	fprintf(stderr,
 #ifdef __APPLE__
 		"usage: %s %s [-F pidfile] [-G gid]\n"
-		"             [-P ppid] [-U uid] [-g pgrp]\n"
+		"             [-P ppid] [-U uid] [-g pgrp] [-t tty] [-u euid]\n"
+		"             pattern ...\n",
 #else
 		"usage: %s %s [-F pidfile] [-G gid] [-M core] [-N system]\n"
-		"             [-P ppid] [-U uid] [-g pgrp] [-j jid] [-s sid]\n"
+		"             [-P ppid] [-U uid] [-c class] [-g pgrp] [-j jail]\n"
+		"             [-s sid] [-t tty] [-u euid] pattern ...\n",
 #endif
-		"             [-t tty] [-u euid] pattern ...\n", getprogname(),
-		ustr);
+		getprogname(), ustr);
 
 	exit(STATUS_BADUSAGE);
 }
@@ -934,10 +968,12 @@ grepact(const sysmon_row_t kp)
 grepact(const struct kinfo_proc *kp)
 #endif
 {
+	static bool first = true;
 
-	show_process(kp);
-	if (!quiet)
+	if (!quiet && !first)
 		printf("%s", delim);
+	show_process(kp);
+	first = false;
 	return (1);
 }
 
@@ -966,8 +1002,15 @@ makelist(struct listhead *head, enum listtype type, char *src)
 		SLIST_INSERT_HEAD(head, li, li_chain);
 		empty = 0;
 
+#ifdef __APPLE__
 		li->li_number = (uid_t)strtol(sp, &ep, 0);
 		if (*ep == '\0') {
+#else
+		if (type != LT_CLASS)
+			li->li_number = (uid_t)strtol(sp, &ep, 0);
+
+		if (type != LT_CLASS && *ep == '\0') {
+#endif
 			switch (type) {
 			case LT_PGRP:
 				if (li->li_number == 0)
@@ -978,7 +1021,7 @@ makelist(struct listhead *head, enum listtype type, char *src)
 				if (li->li_number == 0)
 					li->li_number = getsid(mypid);
 				break;
-			case LT_JID:
+			case LT_JAIL:
 				if (li->li_number < 0)
 					errx(STATUS_BADUSAGE,
 					     "Negative jail ID `%s'", sp);
@@ -1046,14 +1089,25 @@ foundtty:		if ((st.st_mode & S_IFCHR) == 0)
 			li->li_number = st.st_rdev;
 			break;
 #ifndef __APPLE__
-		case LT_JID:
+		case LT_JAIL: {
+			int jid;
+
 			if (strcmp(sp, "none") == 0)
 				li->li_number = 0;
 			else if (strcmp(sp, "any") == 0)
 				li->li_number = -1;
+			else if ((jid = jail_getid(sp)) != -1)
+				li->li_number = jid;
 			else if (*ep != '\0')
 				errx(STATUS_BADUSAGE,
-				     "Invalid jail ID `%s'", sp);
+				     "Invalid jail ID or name `%s'", sp);
+			break;
+		}
+		case LT_CLASS:
+			li->li_number = -1;
+			li->li_name = strdup(sp);
+			if (li->li_name == NULL)
+				err(STATUS_ERROR, "Cannot allocate memory");
 			break;
 #endif /* !__APPLE__ */
 		default:

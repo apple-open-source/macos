@@ -32,8 +32,8 @@
 #include "config.h"
 #include "RangeInputType.h"
 
-#include "AXObjectCache.h"
 #include "Decimal.h"
+#include "DocumentInlines.h"
 #include "ElementChildIterator.h"
 #include "EventNames.h"
 #include "HTMLCollection.h"
@@ -46,6 +46,7 @@
 #include "RenderSlider.h"
 #include "RuntimeEnabledFeatures.h"
 #include "ScopedEventQueue.h"
+#include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "SliderThumbElement.h"
 #include "StepRange.h"
@@ -205,7 +206,7 @@ auto RangeInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBaseE
 
     bool isVertical = false;
     if (auto* renderer = element()->renderer()) {
-        ControlPart part = renderer->style().appearance();
+        ControlPart part = renderer->style().effectiveAppearance();
         isVertical = part == SliderVerticalPart || part == MediaVolumeSliderPart;
     }
 
@@ -234,9 +235,6 @@ auto RangeInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBaseE
     if (newValue != current) {
         EventQueueScope scope;
         setValueAsDecimal(newValue, DispatchInputAndChangeEvent);
-
-        if (AXObjectCache* cache = element()->document().existingAXObjectCache())
-            cache->postNotification(element(), AXObjectCache::AXValueChanged);
     }
 
     event.setDefaultHandled();
@@ -249,10 +247,9 @@ void RangeInputType::createShadowSubtreeAndUpdateInnerTextElementEditability(Con
     ASSERT(element());
     ASSERT(element()->userAgentShadowRoot());
 
-    static MainThreadNeverDestroyed<const AtomString> webkitSliderRunnableTrackName("-webkit-slider-runnable-track", AtomString::ConstructFromLiteral);
     Document& document = element()->document();
     auto track = HTMLDivElement::create(document);
-    track->setPseudo(webkitSliderRunnableTrackName);
+    track->setPseudo(ShadowPseudoIds::webkitSliderRunnableTrack());
     track->appendChild(source, SliderThumbElement::create(document));
     auto container = SliderContainerElement::create(document);
     container->appendChild(source, track);

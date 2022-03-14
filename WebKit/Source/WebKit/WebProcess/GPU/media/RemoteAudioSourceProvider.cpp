@@ -29,6 +29,7 @@
 #if ENABLE(GPU_PROCESS) && ENABLE(WEB_AUDIO) && PLATFORM(COCOA)
 
 #include "GPUProcessConnection.h"
+#include "Logging.h"
 #include "RemoteAudioSourceProviderManager.h"
 #include "RemoteMediaPlayerProxyMessages.h"
 
@@ -50,7 +51,7 @@ Ref<RemoteAudioSourceProvider> RemoteAudioSourceProvider::create(WebCore::MediaP
 
 RemoteAudioSourceProvider::RemoteAudioSourceProvider(MediaPlayerIdentifier identifier, WTF::LoggerHelper& helper)
     : m_identifier(identifier)
-    , m_gpuProcessConnection(makeWeakPtr(WebProcess::singleton().ensureGPUProcessConnection()))
+    , m_gpuProcessConnection(WebProcess::singleton().ensureGPUProcessConnection())
 #if !RELEASE_LOG_DISABLED
     , m_logger(helper.logger())
     , m_logIdentifier(helper.logIdentifier())
@@ -89,7 +90,7 @@ void RemoteAudioSourceProvider::audioSamplesAvailable(const PlatformAudioData& d
 #if !RELEASE_LOG_DISABLED
 WTFLogChannel& RemoteAudioSourceProvider::logChannel() const
 {
-    return LogMedia;
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 #endif
 

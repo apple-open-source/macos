@@ -34,6 +34,7 @@
 #include <IOKit/sbp2/IOFireWireSBP2Target.h>
 #include "FWDebugging.h"
 
+__exported_push
 const OSSymbol *gCommand_Set_Spec_ID_Symbol = NULL;
 const OSSymbol *gCommand_Set_Symbol = NULL;
 const OSSymbol *gModule_Vendor_ID_Symbol = NULL;
@@ -45,7 +46,8 @@ const OSSymbol *gGUID_Symbol = NULL;
 const OSSymbol *gUnit_Characteristics_Symbol = NULL;
 const OSSymbol *gManagement_Agent_Offset_Symbol = NULL;
 const OSSymbol *gFast_Start_Symbol = NULL;
-		
+__exported_pop
+
 OSDefineMetaClassAndStructors(IOFireWireSBP2Target, IOService);
 
 OSMetaClassDefineReservedUnused(IOFireWireSBP2Target, 0);
@@ -72,15 +74,14 @@ bool IOFireWireSBP2Target::start( IOService *provider )
 	
 	// we want the expansion data member to be zeroed if it's available 
 	// so create and zero in a local then assign to the member when were done
+	// (IOMallocType guarantees to return zero'd memory)
 	
-	ExpansionData * exp_data = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	ExpansionData * exp_data = IOMallocType( ExpansionData );
 	if( !exp_data )
 	{
 		return false;
 	}
 
-	bzero( exp_data, sizeof(ExpansionData) );
-	
 	fExpansionData = exp_data;
 	
 	fControl = fProviderUnit->getController();
@@ -229,8 +230,7 @@ void IOFireWireSBP2Target::free( void )
 		if( fExpansionData->fPendingMgtAgentCommands )
 			fExpansionData->fPendingMgtAgentCommands->release() ;
 	
-		IOFree( fExpansionData, sizeof(ExpansionData) );
-		fExpansionData = NULL;
+		IOFreeType( fExpansionData, ExpansionData );
 	}
 	
 	if( fProviderUnit )

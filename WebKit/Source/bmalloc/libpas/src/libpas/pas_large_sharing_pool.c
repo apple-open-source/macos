@@ -120,10 +120,10 @@ static void validate_min_heap(void)
             &pas_large_sharing_min_heap_instance, index);
         
         if (verbose) {
-            pas_log(" %zu:%p:%lu-%lu:%llu",
+            pas_log(" %d:%p:%lu-%lu:%llu",
                     node->index_in_min_heap,
                     node, node->range.begin, node->range.end,
-                    node->use_epoch);
+                    (unsigned long long)node->use_epoch);
         }
     }
     
@@ -171,9 +171,6 @@ static pas_large_sharing_node* create_node(
     pas_physical_memory_synchronization_style synchronization_style)
 {
     pas_large_sharing_node* result;
-    size_t page_size;
-
-    page_size = pas_page_malloc_alignment();
     
     result = pas_utility_heap_allocate(
         sizeof(pas_large_sharing_node),
@@ -287,13 +284,39 @@ successor(pas_large_sharing_node* node)
 static bool states_match(pas_large_sharing_node* left,
                          pas_large_sharing_node* right)
 {
-    return left->is_committed == right->is_committed
-        && left->synchronization_style == right->synchronization_style
-        && ((!left->num_live_bytes && !right->num_live_bytes) ||
-            (pas_range_size(left->range) == left->num_live_bytes &&
-             pas_range_size(right->range) == right->num_live_bytes))
-        && (left->use_epoch == right->use_epoch
-            || (!left->is_committed && !left->num_live_bytes));
+    bool both_empty;
+    bool both_full;
+    
+    if (left->is_committed != right->is_committed)
+        return false;
+
+    if (left->synchronization_style != right->synchronization_style)
+        return false;
+
+    both_empty =
+        !left->num_live_bytes &&
+        !right->num_live_bytes;
+    
+    both_full =
+        pas_range_size(left->range) == left->num_live_bytes &&
+        pas_range_size(right->range) == right->num_live_bytes;
+
+    if (!both_empty && !both_full)
+        return false;
+
+    /* Right now: both sides have identical commit states and identical synchronization styes. And
+       either both sides are empty or both sides are full.
+    
+       The only reason why we wouldn't want to coalesce is if epochs didn't match. But that only
+       matters when the memory is free and committed. */
+
+    if (!left->is_committed)
+        return true;
+
+    if (both_full)
+        return true;
+
+    return left->use_epoch == right->use_epoch;
 }
 
 static bool is_eligible(pas_large_sharing_node* node)
@@ -596,7 +619,7 @@ static bool try_splat_impl(pas_range range,
     if (verbose) {
         pas_log("Doing splat in range %p-%p, command = %s, epoch = %llu, "
                 "synchronization_style = %s\n",
-                (void*)range.begin, (void*)range.end, splat_command_get_string(command), epoch,
+                (void*)range.begin, (void*)range.end, splat_command_get_string(command), (unsigned long long)epoch,
                 pas_physical_memory_synchronization_style_get_string(synchronization_style));
     }
     
@@ -1042,7 +1065,7 @@ bool pas_large_sharing_pool_allocate_and_commit(
 
     case pas_physical_memory_is_locked_by_virtual_range_common_lock:
         if (commit_log.total || pas_physical_page_sharing_pool_balance < 0) {
-            static const size_t max_num_locks_held = 2;
+            enum { max_num_locks_held = 2 };
             
             pas_lock* locks_held[max_num_locks_held];
             size_t num_locks_held;
@@ -1098,7 +1121,7 @@ pas_large_sharing_pool_decommit_least_recently_used(
     
     if (verbose) {
         pas_log("Going to decommit %lu to %lu with epoch %llu\n",
-               node->range.begin, node->range.end, node->use_epoch);
+               node->range.begin, node->range.end, (unsigned long long)node->use_epoch);
     }
     
     if (try_splat(node->range, splat_decommit, 0, NULL, decommit_log, NULL,
@@ -1113,14 +1136,11 @@ pas_large_sharing_pool_decommit_least_recently_used(
 void pas_large_sharing_pool_validate(void)
 {
     pas_large_sharing_node* node;
-    size_t page_size;
     
     pas_heap_lock_assert_held();
 
     if (!pas_large_sharing_pool_enabled)
         return;
-    
-    page_size = pas_page_malloc_alignment();
     
     for (node = (pas_large_sharing_node*)
              pas_red_black_tree_minimum(&pas_large_sharing_tree);
@@ -1157,7 +1177,6 @@ pas_large_sharing_pool_compute_summary(
 {
     pas_large_sharing_node* node;
     pas_heap_summary result;
-    size_t page_size;
 
     pas_zero_memory(&result, sizeof(result));
     
@@ -1166,8 +1185,6 @@ pas_large_sharing_pool_compute_summary(
         result.committed += pas_range_size(range);
         return result;
     }
-    
-    page_size = pas_page_malloc_alignment();
     
     pas_heap_lock_lock_conditionally(heap_lock_hold_mode);
     

@@ -223,6 +223,7 @@ SOSPeerInfoSetOctagonKeys(CFAllocatorRef allocator,
 
 CFStringRef SOSPeerInfoCopySerialNumber(SOSPeerInfoRef pi);
 
+CFStringRef SOSPeerInfoCopyStateString(SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr);
 void SOSPeerInfoLogState(char *category, SOSPeerInfoRef pi, SecKeyRef pubKey, CFStringRef myPID, char sigchr);
 
 enum {

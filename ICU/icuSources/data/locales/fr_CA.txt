@@ -1,4 +1,4 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 fr_CA{
@@ -232,6 +232,16 @@ fr_CA{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyyMMdd",
+            }
             availableFormats{
                 Bh{"h 'h' B"}
                 Bhms{"h:mm:ss B"}
@@ -241,6 +251,7 @@ fr_CA{
                 EHms{"E HH:mm:ss"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
+                GyMd{"y-MM-dd GGGGG"}
                 H{"HH 'h'"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -255,31 +266,6 @@ fr_CA{
                 yyyyM{"y-MM G"}
                 yyyyMEd{"E y-MM-dd G"}
                 yyyyMd{"y-MM-dd G"}
-                 
-                // The following are all copied over from fr.txt to work around the horizontal-inheritance
-                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
-                // bug is fixed.
-                Bhm{"h:mm B"}
-                E{"ccc"}
-                Ed{"E d"}
-                Gy{"y G"}
-                GyMMM{"MMM y G"}
-                GyMMMEd{"E d MMM y G"}
-                GyMMMd{"d MMM y G"}
-                M{"L"}
-                MMM{"LLL"}
-                MMMEd{"E d MMM"}
-                MMMMd{"d MMMM"}
-                MMMd{"d MMM"}
-                d{"d"}
-                y{"y G"}
-                yyyy{"y G"}
-                yyyyMMM{"MMM y G"}
-                yyyyMMMEd{"E d MMM y G"}
-                yyyyMMMM{"MMMM y G"}
-                yyyyMMMd{"d MMM y G"}
-                yyyyQQQ{"QQQ y G"}
-                yyyyQQQQ{"QQQQ y G"}
             }
             intervalFormats{
                 Bh{
@@ -393,6 +379,7 @@ fr_CA{
                 EHms{"E HH:mm:ss"}
                 Ehm{"E h:mm a"}
                 Ehms{"E h:mm:ss a"}
+                GyMd{"y-MM-dd GGGGG"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
                 Hmsv{"HH:mm:ss v"}
@@ -772,6 +759,7 @@ fr_CA{
                 H{"HH 'h'"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
+                GyMd{"y-MM-dd GGGGG"}
                 MEd{"E d MMM"}
                 MMd{"MM-d"}
                 MMdd{"MM-dd"}
@@ -870,6 +858,7 @@ fr_CA{
         braille{"braille"}
         bullets_stars{"puces/astérisques"}
         dash_connector{"tirets/connecteurs"}
+        emoji{"émoji"}
         ideographic_desc_characters{"symboles de description sinographique"}
         keycap{"dessus de touche"}
         sign_standard_symbols{"signe ou symbole"}

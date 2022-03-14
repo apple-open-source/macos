@@ -28,27 +28,39 @@
 
 #if ENABLE(IMAGE_ANALYSIS)
 
+#import "Logging.h"
 #import <WebCore/TextRecognitionResult.h>
 #import <pal/cocoa/VisionKitCoreSoftLink.h>
 #import <pal/spi/cocoa/FeatureFlagsSPI.h>
 
-// Note that this is actually declared as an Objective-C class in VisionKit headers.
-// However, for staging purposes, we define it as a protocol instead to avoid symbol
-// redefinition errors that would arise when compiling with an SDK that contains the
-// real definition of VKWKDataDetectorInfo.
-// Once the changes in rdar://77978745 have been in the SDK for a while, we can remove
-// this staging declaration and use the real Objective-C class.
-@protocol VKWKDataDetectorInfo
-@property (nonatomic, readonly) DDScannerResult *result;
-@property (nonatomic, readonly) NSArray<VKQuad *> *boundingQuads;
-@end
-
-@interface VKImageAnalysis (Staging_77978745)
-@property (nonatomic, readonly) NSArray<id <VKWKDataDetectorInfo>> *textDataDetectors;
-@end
-
 namespace WebKit {
 using namespace WebCore;
+
+static bool hasVisionKitCorePrefixedClasses()
+{
+    static bool result = false;
+    static std::once_flag onceFlag;
+    std::call_once(onceFlag, [&] {
+        result = !!PAL::getVKCImageAnalyzerClass();
+    });
+    return result;
+}
+
+RetainPtr<VKImageAnalyzer> createImageAnalyzer()
+{
+    if (hasVisionKitCorePrefixedClasses())
+        return adoptNS([static_cast<VKImageAnalyzer *>(PAL::allocVKCImageAnalyzerInstance()) init]);
+
+    return adoptNS([PAL::allocVKImageAnalyzerInstance() init]);
+}
+
+RetainPtr<VKImageAnalyzerRequest> createImageAnalyzerRequest(CGImageRef image, VKAnalysisTypes types)
+{
+    if (hasVisionKitCorePrefixedClasses())
+        return adoptNS([static_cast<VKImageAnalyzerRequest *>(PAL::allocVKCImageAnalyzerRequestInstance()) initWithCGImage:image orientation:VKImageOrientationUp requestType:types]);
+
+    return adoptNS([PAL::allocVKImageAnalyzerRequestInstance() initWithCGImage:image orientation:VKImageOrientationUp requestType:types]);
+}
 
 static FloatQuad floatQuad(VKQuad *quad)
 {
@@ -110,7 +122,7 @@ TextRecognitionResult makeTextRecognitionResult(VKImageAnalysis *analysis)
     if ([analysis respondsToSelector:@selector(textDataDetectors)]) {
         auto dataDetectors = retainPtr(analysis.textDataDetectors);
         result.dataDetectors.reserveInitialCapacity([dataDetectors count]);
-        for (id <VKWKDataDetectorInfo> info in dataDetectors.get())
+        for (VKWKDataDetectorInfo *info in dataDetectors.get())
             result.dataDetectors.uncheckedAppend({ info.result, floatQuads(info.boundingQuads) });
     }
 #endif // ENABLE(DATA_DETECTION)
@@ -126,6 +138,15 @@ static bool isLiveTextEnabled()
 {
     return true;
 }
+
+#if ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
+
+void requestImageAnalysisWithIdentifier(VKImageAnalyzer *, const String&, CGImageRef, CompletionHandler<void(TextRecognitionResult&&)>&& completion)
+{
+    completion({ });
+}
+
+#endif // ENABLE(IMAGE_ANALYSIS_ENHANCEMENTS)
 
 #endif
 

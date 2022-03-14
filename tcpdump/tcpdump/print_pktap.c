@@ -59,6 +59,7 @@ print_pktap_header(struct netdissect_options *ndo, struct pktap_header *pktp_hdr
 	ND_PRINT((ndo, " frame_pre_length %u", pktp_hdr->pth_frame_pre_length));
 	ND_PRINT((ndo, " frame_post_length %u", pktp_hdr->pth_frame_post_length));
 	ND_PRINT((ndo, " iftype %u\n", pktp_hdr->pth_iftype));
+	ND_PRINT((ndo, " flowid 0x%x\n", pktp_hdr->pth_flowid));
 }
 #endif /* DEBUG */
 
@@ -184,14 +185,26 @@ pktap_if_print(struct netdissect_options *ndo, const struct pcap_pkthdr *h,
 					  prsep));
 				prsep = ", ";
 			}
-#ifdef PTH_FLAG_WAKE_PKT
 			if ((pktp_hdr->pth_flags & PTH_FLAG_WAKE_PKT)) {
 				ND_PRINT((ndo, "%s" "wk",
 					  prsep));
 				prsep = ", ";
 			}
-#endif /* PTH_FLAG_WAKE_PKT */
 		}
+		if ((ndo->ndo_kflag & PRMD_FLOWID)) {
+			ND_PRINT((ndo, "%s" "flowid 0x%x",
+				  prsep,
+				  pktp_hdr->pth_flowid));
+			prsep = ", ";
+		}
+#ifdef PKTAP_HAS_TRACE_TAG
+		if ((ndo->ndo_kflag & PRMD_TRACETAG)) {
+			ND_PRINT((ndo, "%s" "ttag 0x%x",
+				  prsep,
+				  pktp_hdr->pth_trace_tag));
+			prsep = ", ";
+		}
+#endif /* PKTAP_HAS_TRACE_TAG */
 		ND_PRINT((ndo, ") "));
 	}
 

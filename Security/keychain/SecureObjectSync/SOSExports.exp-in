@@ -147,6 +147,7 @@ _SOSPeerInfoIsCloudIdentity
 _SOSPeerInfoIsEnabledView
 _SOSPeerInfoIsRetirementTicket
 _SOSPeerInfoKVSOnly
+_SOSPeerInfoCopyStateString
 _SOSPeerInfoLogState
 _SOSPeerInfoLookupGestaltValue
 _SOSPeerInfoPeerIDEqual
@@ -243,11 +244,13 @@ _SOSViewsGetV0BackupViewSet
 _SOSViewsGetV0SubviewSet
 _SOSViewsGetV0ViewSet
 _SOSViewsIsV0Subview
+_SOSViewsGetUserVisibleSet
 _SOSViewsQuery
 _SOSPeerInfoIsViewPermitted
 _SOSViewsSetTestViewsSet
 _SOSViewSetIntersectsV0
 _SOSPeerInfoV0ViewsEnabled
+_SOSPeerInfoHasUserVisibleViewsEnabled
 _SOSViewsXlateAction
 
 //
@@ -342,6 +345,7 @@ _SOSCircleEncodeToDER
 _SOSCircleForEachActivePeer
 _SOSCircleForEachActiveValidPeer
 _SOSCircleForEachApplicant
+_SOSCircleForEachRejectedApplicant
 _SOSCircleForEachPeer
 _SOSCircleForEachRetiredPeer
 _SOSCircleForEachValidPeer
@@ -363,6 +367,8 @@ _SOSCircleHasPeerWithID
 _SOSCircleHasRejectedApplicant
 _SOSCircleHasValidSyncingPeer
 _SOSCircleIsOlderGeneration
+_SOSCirclePeerInfoCopyStateString
+_SOSCircleCopyStateString
 _SOSCircleLogState
 _SOSCirclePeerSigUpdate
 _SOSCircleRejectRequest

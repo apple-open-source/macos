@@ -30,6 +30,7 @@
 
 #include <WebCore/GraphicsContextCG.h>
 #include <WebCore/ImageBufferIOSurfaceBackend.h>
+#include <WebCore/PixelBuffer.h>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StdLibExtras.h>
 
@@ -55,7 +56,7 @@ size_t ImageBufferShareableIOSurfaceBackend::calculateExternalMemoryCost(const P
 
 std::unique_ptr<ImageBufferShareableIOSurfaceBackend> ImageBufferShareableIOSurfaceBackend::create(const Parameters& parameters, ImageBufferBackendHandle handle)
 {
-    if (!WTF::holds_alternative<MachSendRight>(handle)) {
+    if (!std::holds_alternative<MachSendRight>(handle)) {
         RELEASE_ASSERT_NOT_REACHED();
         return nullptr;
     }
@@ -65,13 +66,18 @@ std::unique_ptr<ImageBufferShareableIOSurfaceBackend> ImageBufferShareableIOSurf
 
 ImageBufferBackendHandle ImageBufferShareableIOSurfaceBackend::createImageBufferBackendHandle() const
 {
-    return WTF::get<MachSendRight>(m_handle).copySendRight();
+    return std::get<MachSendRight>(m_handle).copySendRight();
 }
 
 GraphicsContext& ImageBufferShareableIOSurfaceBackend::context() const
 {
     RELEASE_ASSERT_NOT_REACHED();
     return *(GraphicsContext*)nullptr;
+}
+
+IntSize ImageBufferShareableIOSurfaceBackend::backendSize() const
+{
+    return calculateBackendSize(m_parameters);
 }
 
 unsigned ImageBufferShareableIOSurfaceBackend::bytesPerRow() const

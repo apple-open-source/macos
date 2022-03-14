@@ -136,12 +136,15 @@ private:
 
     void flushRenderers();
 
-    void processNewVideoSample(MediaSample&, bool hasChangedOrientation);
+    void processNewVideoSample(MediaSample&, bool hasChangedOrientation, VideoSampleMetadata, Seconds);
     void enqueueVideoSample(MediaSample&);
+    void reenqueueCurrentVideoSampleIfNeeded();
     void requestNotificationWhenReadyForVideoData();
 
     void paint(GraphicsContext&, const FloatRect&) override;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override;
+    std::optional<MediaSampleVideoFrame> videoFrameForCurrentTime() override;
+    DestinationColorSpace colorSpace() override;
     bool metaDataAvailable() const { return m_mediaStreamPrivate && m_readyState >= MediaPlayer::ReadyState::HaveMetadata; }
 
     void acceleratedRenderingStateChanged() final { updateLayersAsNeeded(); }
@@ -159,12 +162,14 @@ private:
 
     void setBufferingPolicy(MediaPlayer::BufferingPolicy) override;
     void audioOutputDeviceChanged() final;
+    std::optional<VideoFrameMetadata> videoFrameMetadata() final;
 
     MediaPlayer::ReadyState currentReadyState();
     void updateReadyState();
 
     void updateTracks();
     void updateRenderingMode();
+    void scheduleRenderingModeChanged();
     void checkSelectedVideoTrack();
     void updateDisplayLayer();
 
@@ -206,10 +211,10 @@ private:
     void readyStateChanged(MediaStreamTrackPrivate&) override;
 
     // RealtimeMediaSouce::VideoSampleObserver
-    void videoSampleAvailable(MediaSample&) final;
+    void videoSampleAvailable(MediaSample&, VideoSampleMetadata) final;
 
     RetainPtr<PlatformLayer> createVideoFullscreenLayer() override;
-    void setVideoFullscreenLayer(PlatformLayer*, WTF::Function<void()>&& completionHandler) override;
+    void setVideoFullscreenLayer(PlatformLayer*, Function<void()>&& completionHandler) override;
     void setVideoFullscreenFrame(FloatRect) override;
 
     AudioSourceProvider* audioSourceProvider() final;
@@ -278,6 +283,11 @@ private:
     bool m_isVisibleInViewPort { false };
     bool m_haveSeenMetadata { false };
     bool m_waitingForFirstImage { false };
+
+    uint64_t m_sampleCount { 0 };
+    uint64_t m_lastVideoFrameMetadataSampleCount { 0 };
+    Seconds m_presentationTime { 0 };
+    VideoSampleMetadata m_sampleMetadata;
 };
     
 }

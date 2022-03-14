@@ -1156,7 +1156,7 @@ hfs_savelinkorigin(cnode_t *cp, cnid_t parentcnid)
 			origin = TAILQ_LAST(&cp->c_originlist, hfs_originhead);
 			TAILQ_REMOVE(&cp->c_originlist, origin, lo_link);
 		} else {
-			origin = hfs_malloc(sizeof(linkorigin_t));
+			origin = hfs_malloc_type(linkorigin_t);
 		}
 		origin->lo_thread = thread;
 	}
@@ -1176,7 +1176,7 @@ hfs_relorigins(struct cnode *cp)
 	linkorigin_t *origin, *prev;
 
 	TAILQ_FOREACH_SAFE(origin, &cp->c_originlist, lo_link, prev) {
-		hfs_free(origin, sizeof(*origin));
+		hfs_free_type(origin, linkorigin_t);
 	}
 	TAILQ_INIT(&cp->c_originlist);
 }
@@ -1195,7 +1195,7 @@ hfs_relorigin(struct cnode *cp, cnid_t parentcnid)
 	TAILQ_FOREACH_SAFE(origin, &cp->c_originlist, lo_link, prev) {
 		if (origin->lo_thread == thread) {
 			TAILQ_REMOVE(&cp->c_originlist, origin, lo_link);
-			hfs_free(origin, sizeof(*origin));
+			hfs_free_type(origin, linkorigin_t);
 			break;
 		} else if (origin->lo_parentcnid == parentcnid) {
 			/*
@@ -1305,7 +1305,7 @@ setfirstlink(struct hfsmount * hfsmp, cnid_t fileid, cnid_t firstlink)
 	if (hfsmp->hfs_attribute_cp == NULL) {
 		return (EPERM);
 	}
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	result = hfs_buildattrkey(fileid, FIRST_LINK_XATTR_NAME, (HFSPlusAttrKey *)&iterator->key);
 	if (result) {
@@ -1342,7 +1342,7 @@ setfirstlink(struct hfsmount * hfsmp, cnid_t fileid, cnid_t firstlink)
 	}
 	(void) BTFlushPath(btfile);
 out:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 
 	return MacToVFSError(result);
 }
@@ -1366,7 +1366,7 @@ getfirstlink(struct hfsmount * hfsmp, cnid_t fileid, cnid_t *firstlink)
 	if (hfsmp->hfs_attribute_cp == NULL) {
 		return (EPERM);
 	}
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	result = hfs_buildattrkey(fileid, FIRST_LINK_XATTR_NAME, (HFSPlusAttrKey *)&iterator->key);
 	if (result)
@@ -1391,7 +1391,7 @@ getfirstlink(struct hfsmount * hfsmp, cnid_t fileid, cnid_t *firstlink)
 	}
 	*firstlink = strtoul((char*)&dataptr->attrData[0], NULL, 10);
 out:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 
 	return MacToVFSError(result);
 }

@@ -552,6 +552,16 @@ protected:
 	
 	virtual kern_return_t
 	UserReportHBAConstraints ( OSDictionary * constraints );
+
+	/*!
+		@function UserCallMediaParametersHaveChanged
+		@abstract Called to propagate change in media parameters.
+		@result kIOReturnSuccess on success. See IOReturn.h for error codes.
+	*/
+
+	virtual kern_return_t
+	UserCallMediaParametersHaveChanged ( void );
+
 };
 
 

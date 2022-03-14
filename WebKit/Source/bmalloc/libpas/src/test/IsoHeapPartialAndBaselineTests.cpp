@@ -32,6 +32,7 @@
 #include "iso_heap_config.h"
 #include "iso_test_heap.h"
 #include "iso_test_heap_config.h"
+#include <mutex>
 #include "pas_baseline_allocator_table.h"
 #include "pas_heap.h"
 #include "pas_random.h"
@@ -831,7 +832,7 @@ void addScavengerDependentTests()
             ADD_TEST(testSimplePartialAllocations(3072, 8, pas_medium_segregated_page_config_variant, 1, 100, 1, 1, 4, 3, FreeInOrder()));
             ADD_TEST(testSimplePartialAllocations(4096, 8, pas_medium_segregated_page_config_variant, 1, 1, 1, 1, 1, 1, FreeInOrder()));
             ADD_TEST(testSimplePartialAllocations(10752, 8, pas_medium_segregated_page_config_variant, 1, 1, 1, 1, 1, 1, FreeInOrder()));
-            ADD_TEST(testSimplePartialAllocations(20480, 8, pas_medium_segregated_page_config_variant, 1, 1, 1, 1, 1, 1, FreeInOrder()));
+            ADD_TEST(testSimplePartialAllocations(21504, 8, pas_medium_segregated_page_config_variant, 1, 1, 1, 1, 1, 1, FreeInOrder()));
     
             // Test that we can allocate objects with interesting alignment.
             ADD_TEST(testSimplePartialAllocations(32, 32, pas_small_segregated_page_config_variant, 1, 1, 1, 1, 1, 1, FreeInOrder()));
@@ -1082,7 +1083,7 @@ void addIsoHeapPartialAndBaselineTests()
     SuspendScavengerScope suspendScavenger;
     
 #if PAS_ENABLE_ISO && PAS_ENABLE_ISO_TEST
-    if (pas_thread_local_cache_is_guaranteed_to_destruct()) {
+    {
         RunScavengerFully runScavengerFully;
         addScavengerDependentTests();
     }

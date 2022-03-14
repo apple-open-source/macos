@@ -52,7 +52,7 @@ RealtimeVideoSource::~RealtimeVideoSource()
 
 void RealtimeVideoSource::whenReady(CompletionHandler<void(String)>&& callback)
 {
-    m_source->whenReady([this, protectedThis = makeRef(*this), callback = WTFMove(callback)](auto message) mutable {
+    m_source->whenReady([this, protectedThis = Ref { *this }, callback = WTFMove(callback)](auto message) mutable {
         setName(String { m_source->name() });
         m_currentSettings = m_source->settings();
         setSize(m_source->size());
@@ -179,7 +179,7 @@ RefPtr<MediaSample> RealtimeVideoSource::adaptVideoSample(MediaSample& sample)
 }
 #endif
 
-void RealtimeVideoSource::videoSampleAvailable(MediaSample& sample)
+void RealtimeVideoSource::videoSampleAvailable(MediaSample& sample, VideoSampleMetadata metadata)
 {
     if (m_frameDecimation > 1 && ++m_frameDecimationCounter % m_frameDecimation)
         return;
@@ -193,13 +193,13 @@ void RealtimeVideoSource::videoSampleAvailable(MediaSample& sample)
     auto size = this->size();
     if (!size.isEmpty() && size != expandedIntSize(sample.presentationSize())) {
         if (auto mediaSample = adaptVideoSample(sample)) {
-            RealtimeMediaSource::videoSampleAvailable(*mediaSample);
+            RealtimeMediaSource::videoSampleAvailable(*mediaSample, metadata);
             return;
         }
     }
 #endif
 
-    RealtimeMediaSource::videoSampleAvailable(sample);
+    RealtimeMediaSource::videoSampleAvailable(sample, metadata);
 }
 
 Ref<RealtimeMediaSource> RealtimeVideoSource::clone()

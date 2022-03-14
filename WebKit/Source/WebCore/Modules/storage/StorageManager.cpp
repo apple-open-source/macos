@@ -49,7 +49,7 @@ Ref<StorageManager> StorageManager::create(NavigatorBase& navigator)
 }
 
 StorageManager::StorageManager(NavigatorBase& navigator)
-    : m_navigator(makeWeakPtr(navigator))
+    : m_navigator(navigator)
 {
 }
 
@@ -115,12 +115,18 @@ void StorageManager::fileSystemAccessGetDirectory(DOMPromiseDeferred<IDLInterfac
         return promise.reject(connectionInfoOrException.releaseException());
 
     auto connectionInfo = connectionInfoOrException.releaseReturnValue();
-    connectionInfo.connection.fileSystemGetDirectory(connectionInfo.origin, [promise = WTFMove(promise)](auto result) mutable {
+    connectionInfo.connection.fileSystemGetDirectory(connectionInfo.origin, [promise = WTFMove(promise), weakNavigator = m_navigator](auto result) mutable {
         if (result.hasException())
             return promise.reject(result.releaseException());
 
-        auto identifierConnectionPair = result.releaseReturnValue();
-        promise.resolve(FileSystemDirectoryHandle::create({ }, identifierConnectionPair.first, Ref { * identifierConnectionPair.second }));
+        auto [identifier, connection] = result.releaseReturnValue();
+        auto* context = weakNavigator ? weakNavigator->scriptExecutionContext() : nullptr;
+        if (!context) {
+            connection->closeHandle(identifier);
+            return promise.reject(Exception { InvalidStateError, "Context has stopped"_s });
+        }
+
+        promise.resolve(FileSystemDirectoryHandle::create(*context, { }, identifier, Ref { *connection }));
     });
 }
 

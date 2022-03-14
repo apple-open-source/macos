@@ -246,7 +246,6 @@ struct  sigacts {
 	sigset_t ps_signodefer;         /* signals not masked while handled */
 	sigset_t ps_siginfo;            /* signals that want SA_SIGINFO args */
 	sigset_t ps_oldmask;            /* saved mask from before sigpause */
-	user_addr_t ps_sigreturn_token; /* random token used to validate sigreturn arguments */
 	_Atomic uint32_t ps_sigreturn_validation; /* sigreturn argument validation state */
 	int     ps_flags;               /* signal flags, below */
 	int     ps_sig;                 /* for core dump/debugger XXX */
@@ -974,7 +973,7 @@ uid_t dtrace_proc_selfruid(void);
 
 os_refgrp_decl_extern(p_refgrp);
 KALLOC_TYPE_DECLARE(proc_stats_zone);
-extern zone_t proc_zone;
+ZONE_DECLARE_ID(ZONE_ID_PROC, struct proc);
 
 extern struct proc_ident proc_ident(proc_t p);
 

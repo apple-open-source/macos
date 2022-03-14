@@ -228,6 +228,10 @@ out:
             /* Item can't be decrypted on this device, ever, so drop the item. */
             return SecError(errSecDecode, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Item can't be decrypted on this device, ever, so drop the item."),
                             aksResult, operation, keyclass, keybag);
+        } else if (aksResult == kAKSReturnInvalidPersona) {
+            /* Persona doesn't exist, item can no longer be encrypted or decrypted on this device, so drop the item. */
+            return SecError(errSecDecode, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32") Persona doesn't exist, so drop the item."),
+                            aksResult, operation, keyclass, keybag);
         } else {
             return SecError(errSecNotAvailable, error, CFSTR("ks_crypt_diversify: %x failed to '%@' item (class %"PRId32", bag: %"PRId32")"),
                             aksResult, operation, keyclass, keybag);

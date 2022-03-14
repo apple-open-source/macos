@@ -26,7 +26,7 @@
  * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/usr.bin/getconf/getconf.h,v 1.4 2002/10/27 04:14:08 wollman Exp $
+ * $FreeBSD$
  */
 
 #ifdef STABLE
@@ -36,8 +36,17 @@ typedef long long intmax_t;
 #include <inttypes.h>
 #endif
 
+#ifdef __APPLE__
+#define  nitems(x)   (sizeof((x)) / sizeof((x)[0]))
+#endif
+
 int	find_confstr(const char *name, int *key);
+int	find_unsigned_limit(const char *name, uintmax_t *value);
 int	find_limit(const char *name, intmax_t *value);
 int	find_pathconf(const char *name, int *key);
 int	find_progenv(const char *name, const char **alt_path);
 int	find_sysconf(const char *name, int *key);
+void	foreach_confstr(void (*func)(const char *, int));
+void	foreach_pathconf(void (*func)(const char *, int, const char *),
+	    const char *path);
+void	foreach_sysconf(void (*func)(const char *, int));

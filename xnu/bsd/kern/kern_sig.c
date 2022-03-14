@@ -753,8 +753,6 @@ execsigs(proc_t p, thread_t thread)
 
 	atomic_store_explicit(&ps->ps_sigreturn_validation,
 	    PS_SIGRETURN_VALIDATION_DEFAULT, memory_order_relaxed);
-	/* Generate random token value used to validate sigreturn arguments */
-	read_random(&ps->ps_sigreturn_token, sizeof(ps->ps_sigreturn_token));
 
 	/*
 	 * Reset stack state to the user stack.

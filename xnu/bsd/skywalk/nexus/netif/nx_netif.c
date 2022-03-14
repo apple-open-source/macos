@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -296,10 +296,10 @@ SYSCTL_UINT(_kern_skywalk_netif, OID_AUTO, doorbell_max_dequeue,
     "max packets to dequeue in doorbell context");
 #endif /* !DEVELOPMENT && !DEBUG */
 
-static ZONE_DECLARE(na_netif_zone, SKMEM_ZONE_PREFIX ".na.netif",
+static ZONE_DEFINE(na_netif_zone, SKMEM_ZONE_PREFIX ".na.netif",
     sizeof(struct nexus_netif_adapter), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nx_netif_zone, SKMEM_ZONE_PREFIX ".nx.netif",
+static ZONE_DEFINE(nx_netif_zone, SKMEM_ZONE_PREFIX ".nx.netif",
     sizeof(struct nx_netif), ZC_ZFREE_CLEARMEM);
 
 #define SKMEM_TAG_NETIF_MIT          "com.apple.skywalk.netif.mit"
@@ -1412,6 +1412,28 @@ nx_netif_ctl_detach(struct kern_nexus *nx, struct nx_spec_req *nsr)
 		 */
 		err = EBUSY;
 	} else {
+		struct ifnet *ifp;
+		boolean_t suspended = FALSE;
+
+		ifp = nif->nif_ifp;
+		if (ifp == NULL) {
+			err = EALREADY;
+			goto done;
+		}
+		/*
+		 * For regular kernel-attached interfaces, quiescing is handled by
+		 * the ifnet detach thread, which calls dlil_quiesce_and_detach_nexuses().
+		 * For interfaces created by skywalk test cases, flowswitch/netif nexuses
+		 * are constructed on the fly and can also be torn down on the fly.
+		 * dlil_quiesce_and_detach_nexuses() won't help here because any nexus
+		 * can be detached while the interface is still attached.
+		 */
+		if (ifnet_datamov_suspend_if_needed(ifp)) {
+			SK_UNLOCK();
+			suspended = TRUE;
+			ifnet_datamov_drain(ifp);
+			SK_LOCK();
+		}
 		nx_netif_agent_fini(nif);
 		nx_netif_capabilities_fini(nif);
 		nx_netif_flow_fini(nif);
@@ -1426,13 +1448,20 @@ nx_netif_ctl_detach(struct kern_nexus *nx, struct nx_spec_req *nsr)
 		nx_port_free(nx, NEXUS_PORT_NET_IF_DEV);
 		nx_port_free(nx, NEXUS_PORT_NET_IF_HOST);
 
+		ifp->if_na_ops = NULL;
+		ifp->if_na = NULL;
 		nif->nif_ifp = NULL;
 		nif->nif_netif_nxadv = NULL;
+		SKYWALK_CLEAR_CAPABLE(ifp);
+		if (suspended) {
+			ifnet_datamov_resume(ifp);
+		}
+
 #if (DEVELOPMENT || DEBUG)
 		skoid_destroy(&nif->nif_skoid);
 #endif /* !DEVELOPMENT && !DEBUG */
 	}
-
+done:
 #if SK_LOG
 	if (nsr != NULL) {
 		uuid_string_t ifuuidstr;
@@ -1773,13 +1802,15 @@ nx_netif_na_dtor(struct nexus_adapter *na)
 	/*
 	 * If the finalizer callback hasn't been called for whatever
 	 * reasons, pick up the embryonic ifnet stored in na_private.
-	 * na_release_locked() will release the I/O refcnt of a
-	 * non-NULL na_ifp.
+	 * Otherwise, release the I/O refcnt of a non-NULL na_ifp.
 	 */
 	if ((ifp = na->na_ifp) == NULL) {
 		ifp = na->na_private;
+		na->na_private = NULL;
+	} else {
+		ifnet_decr_iorefcnt(ifp);
+		na->na_ifp = NULL;
 	}
-	na->na_private = NULL;
 
 	if (nifna->nifna_netif != NULL) {
 		nx_netif_release(nifna->nifna_netif);
@@ -2230,7 +2261,7 @@ __attribute__((optnone))
 	devna->na_krings_delete = nx_netif_dev_krings_delete;
 	devna->na_special = nx_netif_na_special;
 
-	na_flags = NAF_NATIVE | NAF_ASYNC_DTOR;
+	na_flags = NAF_NATIVE;
 	if (NX_PROV(nx)->nxprov_flags & NXPROVF_VIRTUAL_DEVICE) {
 		na_flags |= NAF_VIRTUAL_DEVICE;
 	}
@@ -2312,7 +2343,7 @@ __attribute__((optnone))
 	hostna->na_krings_delete = nx_netif_host_krings_delete;
 	hostna->na_special = nx_netif_host_na_special;
 
-	na_flags = NAF_HOST_ONLY | NAF_NATIVE | NAF_ASYNC_DTOR;
+	na_flags = NAF_HOST_ONLY | NAF_NATIVE;
 	if (NX_LLINK_PROV(nx)) {
 		/*
 		 * while operating in logical link mode, we don't need to
@@ -2363,7 +2394,7 @@ __attribute__((optnone))
 	na_retain_locked(devna);
 	na_retain_locked(hostna);
 
-	SKYWALK_SET_CAPABLE(ifp, devna);
+	SKYWALK_SET_CAPABLE(ifp);
 
 	NETIF_WLOCK(nif);
 	nif->nif_ifp = ifp;
@@ -3434,7 +3465,7 @@ netif_rx_notify_fast(struct __kern_channel_ring *ring, struct proc *p,
 #pragma unused(p, flags)
 	sk_protect_t protect;
 	struct nexus_adapter *hwna;
-	struct nexus_pkt_stats stats;
+	struct nexus_pkt_stats stats = {};
 	uint32_t i, count;
 	int err = 0;
 

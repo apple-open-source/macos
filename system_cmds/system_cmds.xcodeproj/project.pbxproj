@@ -321,6 +321,7 @@
 		1523FE6C1595056C00661E82 /* ltop.c in Sources */ = {isa = PBXBuildFile; fileRef = 1523FE6B1595056C00661E82 /* ltop.c */; };
 		1523FE6D1595058100661E82 /* ltop.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1523FE6A1595056C00661E82 /* ltop.1 */; };
 		1812F1EE1C8F923900F3DC9E /* system_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = C9D64CCF1B91063200CFA43B /* system_cmds.plist */; };
+		2AD06CBF26A93BB40052D4CC /* unsigned_limits.c in Sources */ = {isa = PBXBuildFile; fileRef = 2AD06CBE26A93BB40052D4CC /* unsigned_limits.c */; };
 		358407CE2245AC09006A0D8E /* cpuctl.c in Sources */ = {isa = PBXBuildFile; fileRef = 358407CD2245AC09006A0D8E /* cpuctl.c */; };
 		358407D02245AC32006A0D8E /* cpuctl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 358407CF2245AC32006A0D8E /* cpuctl.8 */; };
 		5262264121E8295A0053ABA1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 189337C21CC7CB4800B2A6A4 /* CoreFoundation.framework */; };
@@ -2400,6 +2401,8 @@
 		1523FE6B1595056C00661E82 /* ltop.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ltop.c; sourceTree = "<group>"; };
 		189337C21CC7CB4800B2A6A4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		18EA07101C99C76C006D3005 /* EmbeddedOSSupportHost.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = EmbeddedOSSupportHost.framework; path = System/Library/PrivateFrameworks/EmbeddedOSSupportHost.framework; sourceTree = SDKROOT; };
+		2AD06CBD26A3E3F10052D4CC /* unsigned_limits.gperf */ = {isa = PBXFileReference; lastKnownFileType = text; path = unsigned_limits.gperf; sourceTree = "<group>"; };
+		2AD06CBE26A93BB40052D4CC /* unsigned_limits.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = unsigned_limits.c; sourceTree = BUILT_PRODUCTS_DIR; };
 		3521C84D2245AA92001B3201 /* cpuctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cpuctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		3521C8562245AB52001B3201 /* cpuctl.tproj */ = {isa = PBXFileReference; lastKnownFileType = folder; path = cpuctl.tproj; sourceTree = "<group>"; };
 		358407CD2245AC09006A0D8E /* cpuctl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; name = cpuctl.c; path = cpuctl.tproj/cpuctl.c; sourceTree = "<group>"; };
@@ -3337,6 +3340,7 @@
 			children = (
 				BA4B7A241373C30100003422 /* confstr.c */,
 				BA4B7A251373C30100003422 /* limits.c */,
+				2AD06CBE26A93BB40052D4CC /* unsigned_limits.c */,
 				BA4B7A261373C30100003422 /* pathconf.c */,
 				BA4B7A271373C30100003422 /* progenv.c */,
 				BA4B7A281373C30100003422 /* sysconf.c */,
@@ -3488,6 +3492,7 @@
 				BA4FD23A1372FAFA0025925C /* limits.gperf */,
 				BA4FD23B1372FAFA0025925C /* pathconf.gperf */,
 				BA4FD23C1372FAFA0025925C /* progenv.gperf */,
+				2AD06CBD26A3E3F10052D4CC /* unsigned_limits.gperf */,
 				BA4FD23D1372FAFA0025925C /* sysconf.gperf */,
 				BA4B7A231373C2DC00003422 /* Generated Source */,
 			);
@@ -5220,6 +5225,7 @@
 				"$(SRCROOT)/getconf.tproj/pathconf.gperf",
 				"$(SRCROOT)/getconf.tproj/progenv.gperf",
 				"$(SRCROOT)/getconf.tproj/sysconf.gperf",
+				"$(SRCROOT)/getconf.tproj/unsigned_limits.gperf",
 			);
 			outputPaths = (
 				"$(BUILT_PRODUCTS_DIR)/confstr.c",
@@ -5227,6 +5233,7 @@
 				"$(BUILT_PRODUCTS_DIR)/pathconf.c",
 				"$(BUILT_PRODUCTS_DIR)/progenv.c",
 				"$(BUILT_PRODUCTS_DIR)/sysconf.c",
+				"$(BUILT_PRODUCTS_DIR)/unsigned_limits.c",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -5625,6 +5632,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				BA4B7A191373BEDD00003422 /* getconf.c in Sources */,
+				2AD06CBF26A93BB40052D4CC /* unsigned_limits.c in Sources */,
 				BA4B7A291373C30100003422 /* confstr.c in Sources */,
 				BA4B7A2A1373C30100003422 /* limits.c in Sources */,
 				BA4B7A2B1373C30100003422 /* pathconf.c in Sources */,
@@ -7319,7 +7327,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					APPLE_GETCONF_UNDERSCORE,
-					APPLE_GETCONF_SPEC,
 				);
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = getconf;
@@ -8171,7 +8178,6 @@
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					APPLE_GETCONF_UNDERSCORE,
-					APPLE_GETCONF_SPEC,
 				);
 				INSTALL_PATH = /usr/bin;
 				PRODUCT_NAME = getconf;

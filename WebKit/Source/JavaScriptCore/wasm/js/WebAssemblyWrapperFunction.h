@@ -27,7 +27,6 @@
 
 #if ENABLE(WEBASSEMBLY)
 
-#include "JSWebAssemblyCodeBlock.h"
 #include "WebAssemblyFunctionBase.h"
 
 namespace JSC {

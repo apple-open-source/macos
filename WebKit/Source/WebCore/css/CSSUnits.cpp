@@ -39,6 +39,37 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CSS_PT:
     case CSSUnitType::CSS_PC:
     case CSSUnitType::CSS_Q:
+    case CSSUnitType::CSS_IC:
+    case CSSUnitType::CSS_EMS:
+    case CSSUnitType::CSS_EXS:
+    case CSSUnitType::CSS_CHS:
+    case CSSUnitType::CSS_REMS:
+    case CSSUnitType::CSS_LHS:
+    case CSSUnitType::CSS_RLHS:
+    case CSSUnitType::CSS_VW:
+    case CSSUnitType::CSS_VH:
+    case CSSUnitType::CSS_VMIN:
+    case CSSUnitType::CSS_VMAX:
+    case CSSUnitType::CSS_VB:
+    case CSSUnitType::CSS_VI:
+    case CSSUnitType::CSS_SVW:
+    case CSSUnitType::CSS_SVH:
+    case CSSUnitType::CSS_SVMIN:
+    case CSSUnitType::CSS_SVMAX:
+    case CSSUnitType::CSS_SVB:
+    case CSSUnitType::CSS_SVI:
+    case CSSUnitType::CSS_LVW:
+    case CSSUnitType::CSS_LVH:
+    case CSSUnitType::CSS_LVMIN:
+    case CSSUnitType::CSS_LVMAX:
+    case CSSUnitType::CSS_LVB:
+    case CSSUnitType::CSS_LVI:
+    case CSSUnitType::CSS_DVW:
+    case CSSUnitType::CSS_DVH:
+    case CSSUnitType::CSS_DVMIN:
+    case CSSUnitType::CSS_DVMAX:
+    case CSSUnitType::CSS_DVB:
+    case CSSUnitType::CSS_DVI:
         return CSSUnitCategory::Length;
     case CSSUnitType::CSS_MS:
     case CSSUnitType::CSS_S:
@@ -52,10 +83,33 @@ CSSUnitCategory unitCategory(CSSUnitType type)
     case CSSUnitType::CSS_KHZ:
         return CSSUnitCategory::Frequency;
     case CSSUnitType::CSS_DPPX:
+    case CSSUnitType::CSS_X:
     case CSSUnitType::CSS_DPI:
     case CSSUnitType::CSS_DPCM:
         return CSSUnitCategory::Resolution;
-    default:
+    case CSSUnitType::CSS_ATTR:
+    case CSSUnitType::CSS_CALC:
+    case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_LENGTH:
+    case CSSUnitType::CSS_CALC_PERCENTAGE_WITH_NUMBER:
+    case CSSUnitType::CSS_COUNTER:
+    case CSSUnitType::CSS_COUNTER_NAME:
+    case CSSUnitType::CSS_DIMENSION:
+    case CSSUnitType::CSS_FONT_FAMILY:
+    case CSSUnitType::CSS_FR:
+    case CSSUnitType::CSS_IDENT:
+    case CSSUnitType::CSS_PAIR:
+    case CSSUnitType::CSS_PROPERTY_ID:
+    case CSSUnitType::CSS_QUAD:
+    case CSSUnitType::CSS_QUIRKY_EMS:
+    case CSSUnitType::CSS_RECT:
+    case CSSUnitType::CSS_RGBCOLOR:
+    case CSSUnitType::CSS_SHAPE:
+    case CSSUnitType::CSS_STRING:
+    case CSSUnitType::CSS_UNICODE_RANGE:
+    case CSSUnitType::CSS_UNKNOWN:
+    case CSSUnitType::CSS_URI:
+    case CSSUnitType::CSS_VALUE_ID:
+    case CSSUnitType::CustomIdent:
         return CSSUnitCategory::Other;
     }
 }
@@ -75,11 +129,9 @@ CSSUnitType canonicalUnitTypeForCategory(CSSUnitCategory category)
         return CSSUnitType::CSS_DEG;
     case CSSUnitCategory::Frequency:
         return CSSUnitType::CSS_HZ;
-#if ENABLE(CSS_IMAGE_RESOLUTION) || ENABLE(RESOLUTION_MEDIA_QUERY)
     case CSSUnitCategory::Resolution:
         return CSSUnitType::CSS_DPPX;
-#endif
-    default:
+    case CSSUnitCategory::Other:
         return CSSUnitType::CSS_UNKNOWN;
     }
 }
@@ -138,7 +190,28 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     case CSSUnitType::CSS_VH: ts << "vh"; break;
     case CSSUnitType::CSS_VMIN: ts << "vmin"; break;
     case CSSUnitType::CSS_VMAX: ts << "vmax"; break;
+    case CSSUnitType::CSS_VB: ts << "vb"; break;
+    case CSSUnitType::CSS_VI: ts << "vi"; break;
+    case CSSUnitType::CSS_SVW: ts << "svw"; break;
+    case CSSUnitType::CSS_SVH: ts << "svh"; break;
+    case CSSUnitType::CSS_SVMIN: ts << "svmin"; break;
+    case CSSUnitType::CSS_SVMAX: ts << "svmax"; break;
+    case CSSUnitType::CSS_SVB: ts << "svb"; break;
+    case CSSUnitType::CSS_SVI: ts << "svi"; break;
+    case CSSUnitType::CSS_LVW: ts << "lvw"; break;
+    case CSSUnitType::CSS_LVH: ts << "lvh"; break;
+    case CSSUnitType::CSS_LVMIN: ts << "lvmin"; break;
+    case CSSUnitType::CSS_LVMAX: ts << "lvmax"; break;
+    case CSSUnitType::CSS_LVB: ts << "lvb"; break;
+    case CSSUnitType::CSS_LVI: ts << "lvi"; break;
+    case CSSUnitType::CSS_DVW: ts << "dvw"; break;
+    case CSSUnitType::CSS_DVH: ts << "dvh"; break;
+    case CSSUnitType::CSS_DVMIN: ts << "dvmin"; break;
+    case CSSUnitType::CSS_DVMAX: ts << "dvmax"; break;
+    case CSSUnitType::CSS_DVB: ts << "dvb"; break;
+    case CSSUnitType::CSS_DVI: ts << "dvi"; break;
     case CSSUnitType::CSS_DPPX: ts << "dppx"; break;
+    case CSSUnitType::CSS_X: ts << "x"; break;
     case CSSUnitType::CSS_DPI: ts << "dpi"; break;
     case CSSUnitType::CSS_DPCM: ts << "dpcm"; break;
     case CSSUnitType::CSS_FR: ts << "fr"; break;
@@ -150,6 +223,7 @@ TextStream& operator<<(TextStream& ts, CSSUnitType unitType)
     case CSSUnitType::CSS_TURN: ts << "turn"; break;
     case CSSUnitType::CSS_REMS: ts << "rems"; break;
     case CSSUnitType::CSS_CHS: ts << "chs"; break;
+    case CSSUnitType::CSS_IC: ts << "ics"; break;
     case CSSUnitType::CSS_COUNTER_NAME: ts << "counter_name"; break;
     case CSSUnitType::CSS_SHAPE: ts << "shape"; break;
     case CSSUnitType::CSS_QUAD: ts << "quad"; break;

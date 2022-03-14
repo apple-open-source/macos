@@ -2,7 +2,10 @@
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 id{
-    AuxExemplarCharacters{"[å]"}
+    AuxExemplarCharacters{
+        "[á à ă â å ä ã ā æ ç é è ĕ ê ë ē í ì ĭ î ï ī ñ ó ò ŏ ô ö ø ō œ ú ù ŭ û ü ū ÿ"
+        "]"
+    }
     Ellipsis{
         final{"{0}…"}
         initial{"…{0}"}
@@ -197,6 +200,16 @@ id{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEdd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
+            }
             availableFormats{
                 E{"ccc"}
                 Ed{"E, d"}
@@ -224,6 +237,17 @@ id{
                 yyyyMd{"d/M/y G"}
                 yyyyQQQ{"QQQ y G"}
                 yyyyQQQQ{"QQQQ y G"}
+            }
+            eras{
+                abbreviated{
+                    "EB",
+                }
+                narrow{
+                    "EB",
+                }
+                wide{
+                    "Era Buddhis",
+                }
             }
             intervalFormats{
                 H{
@@ -336,6 +360,16 @@ id{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "UMMMMEEEEdd",
+                "UMMMMd",
+                "UMMMd",
+                "yMd",
             }
             cyclicNameSets{
                 solarTerms{
@@ -508,6 +542,16 @@ id{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEdd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyyMMdd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h.mm B"}
@@ -524,6 +568,7 @@ id{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
                 H{"HH"}
                 Hm{"HH.mm"}
                 Hms{"HH.mm.ss"}
@@ -722,6 +767,16 @@ id{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEdd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMMdd",
+            }
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -741,6 +796,7 @@ id{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
                 H{"HH"}
                 Hm{"HH.mm"}
                 Hms{"HH.mm.ss"}
@@ -1241,6 +1297,29 @@ id{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEdd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
+            }
+            dayNames{
+                format{
+                    wide{
+                        "Ahad",
+                        "Senin",
+                        "Selasa",
+                        "Rabu",
+                        "Kamis",
+                        "Jumat",
+                        "Sabtu",
+                    }
+                }
+            }
             eras{
                 abbreviated{
                     "H",
@@ -1425,6 +1504,16 @@ id{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEdd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
             }
             availableFormats{
                 M{"L"}
@@ -1696,6 +1785,16 @@ id{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEdd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
+            }
             availableFormats{
                 M{"L"}
                 MEd{"E, d/M"}
@@ -1862,8 +1961,9 @@ id{
             }
         }
         day-short{
-            dn{"h"}
+            dn{"hr"}
             relative{
+                "-2"{"selumbari"}
                 "2"{"lusa"}
             }
             relativeTime{
@@ -1948,7 +2048,7 @@ id{
             }
         }
         hour{
-            dn{"Jam"}
+            dn{"jam"}
             relative{
                 "0"{"jam ini"}
             }
@@ -1999,6 +2099,9 @@ id{
         }
         minute-narrow{
             dn{"m"}
+            relative{
+                "0"{"mnt ini"}
+            }
             relativeTime{
                 future{
                     other{"dlm {0} mnt"}
@@ -2010,6 +2113,9 @@ id{
         }
         minute-short{
             dn{"mnt."}
+            relative{
+                "0"{"mnt ini"}
+            }
             relativeTime{
                 future{
                     other{"dlm {0} mnt"}
@@ -2069,7 +2175,7 @@ id{
             relative{
                 "-1"{"bulan lalu"}
                 "0"{"bulan ini"}
-                "1"{"bulan berikutnya"}
+                "1"{"bulan depan"}
             }
             relativeTime{
                 future{
@@ -2141,6 +2247,11 @@ id{
         }
         quarter-short{
             dn{"krtl."}
+            relative{
+                "-1"{"krtl lalu"}
+                "0"{"krtl ini"}
+                "1"{"krtl berikutnya"}
+            }
             relativeTime{
                 future{
                     other{"dlm {0} krtl."}
@@ -2590,7 +2701,7 @@ id{
         }
     }
     measurementSystemNames{
-        UK{"BR"}
+        UK{"UK"}
         US{"AS"}
         metric{"Metrik"}
     }

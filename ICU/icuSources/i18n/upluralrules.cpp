@@ -179,4 +179,29 @@ uplrules_getKeywords(const UPluralRules *uplrules,
     return uenum_openFromStringEnumeration(senum, status);
 }
 
+U_CAPI double U_EXPORT2
+uplrules_getSampleForKeyword(const UPluralRules *uplrules,
+                             const UChar* keyword,
+                             UErrorCode *status) {
+    if (U_FAILURE(*status)) {
+        return 0;
+    }
+    const PluralRules* constPlrules = reinterpret_cast<const PluralRules*>(uplrules);
+    PluralRules* plrules = const_cast<PluralRules*>(constPlrules);
+    if (plrules == NULL) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return 0;
+    }
+    
+    double samples[2];
+    int32_t numSamples = plrules->getSamples(UnicodeString(keyword), samples, 2, *status);
+    if (numSamples < 1) {
+        return 0;
+    } else if (numSamples == 1) {
+        return samples[0];
+    } else {
+        return (samples[0] == 0) ? samples[1] : samples[0];
+    }
+}
+
 #endif /* #if !UCONFIG_NO_FORMATTING */

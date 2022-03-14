@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -14,11 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,19 +33,20 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)conv.c	8.3 (Berkeley) 4/2/94";
 #endif
-__used static const char rcsid[] =
-  "$FreeBSD: src/bin/dd/conv.c,v 1.16 2002/02/02 06:24:12 imp Exp $";
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 
 #include <err.h>
+#include <inttypes.h>
 #include <string.h>
+#include <time.h>
 
 #include "dd.h"
 #include "extern.h"
@@ -78,7 +77,7 @@ def(void)
 		dd_out(0);
 
 		/*
-		 * Ddout copies the leftover output to the beginning of
+		 * dd_out copies the leftover output to the beginning of
 		 * the buffer and resets the output buffer.  Reset the
 		 * input buffer to match it.
 	 	 */
@@ -137,7 +136,7 @@ block(void)
 	 */
 	ch = 0;
 	for (inp = in.dbp - in.dbcnt, outp = out.dbp; in.dbcnt;) {
-		maxlen = MIN(cbsz, in.dbcnt);
+		maxlen = MIN(cbsz, (size_t)in.dbcnt);
 		if ((t = ctab) != NULL)
 			for (cnt = 0; cnt < maxlen && (ch = *inp++) != '\n';
 			    ++cnt)
@@ -150,7 +149,7 @@ block(void)
 		 * Check for short record without a newline.  Reassemble the
 		 * input block.
 		 */
-		if (ch != '\n' && in.dbcnt < cbsz) {
+		if (ch != '\n' && (size_t)in.dbcnt < cbsz) {
 			(void)memmove(in.db, in.dbp - in.dbcnt, in.dbcnt);
 			break;
 		}
@@ -172,7 +171,8 @@ block(void)
 				++st.trunc;
 
 			/* Toss characters to a newline. */
-			for (; in.dbcnt && *inp++ != '\n'; --in.dbcnt);
+			for (; in.dbcnt && *inp++ != '\n'; --in.dbcnt)
+				;
 			if (!in.dbcnt)
 				intrunc = 1;
 			else
@@ -224,16 +224,14 @@ unblock(void)
 
 	/* Translation and case conversion. */
 	if ((t = ctab) != NULL)
-		for (cnt = in.dbrcnt, inp = in.dbp; cnt--;) {
+		for (inp = in.dbp - (cnt = in.dbrcnt); cnt--; ++inp)
 			*inp = t[*inp];
-			--inp;
-		}
 	/*
 	 * Copy records (max cbsz size chunks) into the output buffer.  The
 	 * translation has to already be done or we might not recognize the
 	 * spaces.
 	 */
-	for (inp = in.db; in.dbcnt >= cbsz; inp += cbsz, in.dbcnt -= cbsz) {
+	for (inp = in.db; (size_t)in.dbcnt >= cbsz; inp += cbsz, in.dbcnt -= cbsz) {
 		for (t = inp + cbsz - 1; t >= inp && *t == ' '; --t)
 			;
 		if (t >= inp) {

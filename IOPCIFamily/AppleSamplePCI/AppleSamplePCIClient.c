@@ -13,27 +13,27 @@ cc AppleSamplePCIClient.c -o /tmp/sampleclient -framework IOKit -framework CoreF
 
 #include "AppleSamplePCIShared.h"
 
-void Test( mach_port_t masterPort, io_service_t service );
+void Test( mach_port_t mainPort, io_service_t service );
 void TestSharedMemory( io_connect_t connect );
 
 
 int main( int argc, char * argv[] )
 {
-    mach_port_t                 masterPort;
+    mach_port_t                 mainPort;
     io_iterator_t               iter;
     io_service_t                service;
     kern_return_t               kr;
     CFMutableDictionaryRef      properties;
     CFStringRef                 cfStr;
 
-    kr = IOMasterPort( MACH_PORT_NULL, &masterPort);
+    kr = IOMainPort( MACH_PORT_NULL, &mainPort);
     assert( KERN_SUCCESS == kr );
 
     // Look up the object we wish to open. This example uses simple class
     // matching (IOServiceMatching()) to look up the object that is the
     // AppleSamplePCI driver class instantiated by the kext.
 
-    kr = IOServiceGetMatchingServices( masterPort,
+    kr = IOServiceGetMatchingServices( mainPort,
                         IOServiceMatching( kAppleSamplePCIClassName ), &iter);
     assert( KERN_SUCCESS == kr );
 
@@ -76,7 +76,7 @@ int main( int argc, char * argv[] )
         CFRelease( properties );
 
         // test out the user client
-        Test( masterPort, service );
+        Test( mainPort, service );
     }
     IOObjectRelease(iter);
 
@@ -86,7 +86,7 @@ int main( int argc, char * argv[] )
 
 #define arrayCnt(var) (sizeof(var) / sizeof(var[0]))
 
-void Test( mach_port_t masterPort, io_service_t service )
+void Test( mach_port_t mainPort, io_service_t service )
 {
     kern_return_t               kr;
     io_connect_t                connect;

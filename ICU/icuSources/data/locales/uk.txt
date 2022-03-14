@@ -280,6 +280,16 @@ uk{
             }
         }
         minimalPairs{
+            case{
+                accusative{"Знайшли {0}"}
+                genitive{"Немає {0}"}
+                nominative{"Є {0}"}
+            }
+            gender{
+                feminine{"Ця {0}"}
+                masculine{"Цей {0}"}
+                neuter{"Це {0}"}
+            }
             ordinal{
                 few{"{0}-я дивізія, {0}-є коло"}
                 other{"{0}-а дивізія, {0}-е коло"}
@@ -510,13 +520,23 @@ uk{
                 "HH:mm",
                 "EEEE, d MMMM y 'р'. G",
                 "d MMMM y 'р'. G",
-                "d MMM y G",
+                "d MMM y 'р'. G",
                 "dd.MM.yy GGGGG",
                 "{1} {0}",
                 "{1} 'о' {0}",
                 "{1} 'о' {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyyMMdd",
             }
             availableFormats{
                 Bh{"h B"}
@@ -534,6 +554,7 @@ uk{
                 GyMMM{"LLL y 'р'. G"}
                 GyMMMEd{"E, d MMM y 'р'. G"}
                 GyMMMd{"d MMM y 'р'. G"}
+                GyMd{"dd-MM-y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -574,7 +595,7 @@ uk{
                 }
                 Gy{
                     G{"y 'р'. G – y 'р'. G"}
-                    y{"y–y 'рр'. G"}
+                    y{"y–y 'рр'. G"}
                 }
                 GyM{
                     G{"MM.y G – MM.y G"}
@@ -590,19 +611,19 @@ uk{
                 GyMMM{
                     G{"LLL y 'р'. G – LLL y 'р'. G"}
                     M{"LLL – LLL y 'р'. G"}
-                    y{"LLL y – LLL y 'рр'. G"}
+                    y{"LLL y – LLL y 'рр'. G"}
                 }
                 GyMMMEd{
                     G{"ccc, d MMM y 'р'. G – ccc, d MMM y 'р'. G"}
                     M{"ccc, d MMM – ccc, d MMM y 'р'. G"}
                     d{"ccc, d MMM – ccc, d MMM y 'р'. G"}
-                    y{"ccc, d MMM y – ccc, d MMM y 'рр'. G"}
+                    y{"ccc, d MMM y – ccc, d MMM y 'рр'. G"}
                 }
                 GyMMMd{
                     G{"d MMM y 'р'. G – d MMM y 'р'. G"}
                     M{"d MMM – d MMM y 'р'. G"}
                     d{"d–d MMM y 'р'. G"}
-                    y{"d MMM y – d MMM y 'рр'. G"}
+                    y{"d MMM y – d MMM y 'рр'. G"}
                 }
                 GyMd{
                     G{"dd.MM.y G – dd.MM.y G"}
@@ -682,21 +703,21 @@ uk{
                 }
                 yMMM{
                     M{"LLL–LLL y 'р'."}
-                    y{"LLL y – LLL y 'рр'."}
+                    y{"LLL y – LLL y 'рр'."}
                 }
                 yMMMEd{
                     M{"E, d MMM – E, d MMM y 'р'."}
                     d{"E, d – E, d MMM y 'р'."}
-                    y{"E, d MMM y – E, d MMM y 'рр'."}
+                    y{"E, d MMM y – E, d MMM y 'рр'."}
                 }
                 yMMMM{
                     M{"LLLL – LLLL y 'р'."}
-                    y{"LLLL y – LLLL y 'р'."}
+                    y{"LLLL y – LLLL y 'рр'."}
                 }
                 yMMMd{
                     M{"d MMM – d MMM y 'р'."}
                     d{"d–d MMM y 'р'."}
-                    y{"d MMM y – d MMM y 'рр'."}
+                    y{"d MMM y – d MMM y 'рр'."}
                 }
                 yMd{
                     M{"dd.MM.y – dd.MM.y"}
@@ -733,6 +754,16 @@ uk{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMMdd",
+            }
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -752,6 +783,7 @@ uk{
                 GyMMM{"LLL y 'р'. G"}
                 GyMMMEd{"E, d MMM y 'р'. G"}
                 GyMMMd{"d MMM y 'р'. G"}
+                GyMd{"dd-MM-y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -979,19 +1011,19 @@ uk{
                 GyMMM{
                     G{"LLL y G – LLL y 'р'. G"}
                     M{"LLL – LLL y 'р'. G"}
-                    y{"LLL y – LLL y 'рр'. G"}
+                    y{"LLL y – LLL y 'рр'. G"}
                 }
                 GyMMMEd{
                     G{"ccc, d MMM y G – ccc, d MMM y 'р'. G"}
                     M{"ccc, d MMM – ccc, d MMM y 'р'. G"}
                     d{"ccc, d MMM – ccc, d MMM y 'р'. G"}
-                    y{"ccc, d MMM y – ccc, d MMM y 'рр'. G"}
+                    y{"ccc, d MMM y – ccc, d MMM y 'рр'. G"}
                 }
                 GyMMMd{
                     G{"d MMM y G – d MMM y 'р'. G"}
                     M{"d MMM – d MMM y 'р'. G"}
                     d{"d–d MMM y 'р'. G"}
-                    y{"d MMM y – d MMM y 'рр'. G"}
+                    y{"d MMM y – d MMM y 'рр'. G"}
                 }
                 GyMd{
                     G{"dd.MM.y G – dd.MM.y G"}
@@ -1071,21 +1103,21 @@ uk{
                 }
                 yMMM{
                     M{"LLL–LLL y 'р'."}
-                    y{"LLL y – LLL y 'рр'."}
+                    y{"LLL y – LLL y 'рр'."}
                 }
                 yMMMEd{
                     M{"E, d MMM – E, d MMM y 'р'."}
                     d{"E, d – E, d MMM y 'р'."}
-                    y{"E, d MMM y – E, d MMM y 'рр'."}
+                    y{"E, d MMM y – E, d MMM y 'рр'."}
                 }
                 yMMMM{
                     M{"LLLL – LLLL y 'р'."}
-                    y{"LLLL y – LLLL y 'рр'."}
+                    y{"LLLL y – LLLL y 'рр'."}
                 }
                 yMMMd{
                     M{"d MMM – d MMM y 'р'."}
                     d{"d–d MMM y 'р'."}
-                    y{"d MMM y – d MMM y 'рр'."}
+                    y{"d MMM y – d MMM y 'рр'."}
                 }
                 yMd{
                     M{"dd.MM.y – dd.MM.y"}
@@ -1846,7 +1878,7 @@ uk{
         place{"місце"}
         plant{"рослина"}
         punctuation{"пунктуація"}
-        rightwards_arrows{"стрілки вправо"}
+        rightwards_arrows{"стрілка вправо"}
         sign_standard_symbols{"знак чи символ"}
         small_form_variant{"малі варіанти"}
         smiley{"смайлик"}

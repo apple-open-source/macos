@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -34,10 +32,11 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__COPYRIGHT(
 "@(#) Copyright (c) 1989, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n";
+	The Regents of the University of California.  All rights reserved.\n");
 #endif /* not lint */
 
 #if 0
@@ -46,8 +45,7 @@ static char sccsid[] = "@(#)paste.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 #endif
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/paste/paste.c,v 1.14 2004/06/25 01:48:43 tjr Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -62,15 +60,15 @@ __FBSDID("$FreeBSD: src/usr.bin/paste/paste.c,v 1.14 2004/06/25 01:48:43 tjr Exp
 #include <wchar.h>
 #include <sysexits.h>
 
-wchar_t *delim;
-int delimcnt;
+static wchar_t *delim;
+static int delimcnt;
 
-int parallel(char **);
-int sequential(char **);
-int tr(wchar_t *);
+static int parallel(char **);
+static int sequential(char **);
+static int tr(wchar_t *);
 static void usage(void);
 
-wchar_t tab[] = L"\t";
+static wchar_t tab[] = L"\t";
 
 int
 main(int argc, char *argv[])
@@ -130,7 +128,7 @@ typedef struct _list {
 	char *name;
 } LIST;
 
-int
+static int
 parallel(char **argv)
 {
 	LIST *lp;
@@ -141,7 +139,7 @@ parallel(char **argv)
 	LIST *head, *tmp;
 	int opencnt, output;
 
-	for (cnt = 0, head = NULL; (p = *argv); ++argv, ++cnt) {
+	for (cnt = 0, head = tmp = NULL; (p = *argv); ++argv, ++cnt) {
 		if ((lp = malloc(sizeof(LIST))) == NULL)
 			err(1, NULL);
 		if (p[0] == '-' && !p[1])
@@ -203,7 +201,7 @@ parallel(char **argv)
 	return (0);
 }
 
-int
+static int
 sequential(char **argv)
 {
 	FILE *fp;
@@ -243,7 +241,7 @@ sequential(char **argv)
 	return (failed != 0);
 }
 
-int
+static int
 tr(wchar_t *arg)
 {
 	int cnt;

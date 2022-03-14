@@ -29,6 +29,7 @@
 
 #include "AccessibilityObjectInterface.h"
 #include "PageIdentifier.h"
+#include <pal/SessionID.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
 #include <wtf/RefPtr.h>
@@ -67,6 +68,7 @@ enum class AXPropertyName : uint16_t {
     AccessibilityDescription,
     AccessibilityText,
     ActionVerb,
+    AncestorFlags,
     AutoCompleteValue,
     BlockquoteLevel,
     BoundingBoxRect,
@@ -94,8 +96,8 @@ enum class AXPropertyName : uint16_t {
     ColumnHeaders,
     ColumnIndex,
     ColumnIndexRange,
-    ComputedLabel,
     ComputedRoleString,
+    Contents,
     CurrentState,
     CurrentValue,
     DatetimeAttributeValue,
@@ -116,7 +118,6 @@ enum class AXPropertyName : uint16_t {
     HasARIAValueNow,
     HasApplePDFAnnotationAttribute,
     HasBoldFont,
-    HasChildren,
     HasHighlighting,
     HasItalicFont,
     HasPlainText,
@@ -227,6 +228,7 @@ enum class AXPropertyName : uint16_t {
     IsValueAutofillAvailable,
     IsVisible,
     IsVisited,
+    IsWidget,
     KeyShortcutsValue,
     Language,
     LayoutCount,
@@ -235,12 +237,13 @@ enum class AXPropertyName : uint16_t {
     LiveRegionAtomic,
     LiveRegionRelevant,
     LiveRegionStatus,
+    LocalizedActionVerb,
     MathFencedOpenString,
     MathFencedCloseString,
     MathLineThickness,
     MathPrescripts,
     MathPostscripts,
-    MathRadicandObject,
+    MathRadicand,
     MathRootIndexObject,
     MathUnderObject,
     MathOverObject,
@@ -251,6 +254,7 @@ enum class AXPropertyName : uint16_t {
     MathSuperscriptObject,
     MaxValueForRange,
     MinValueForRange,
+    NameAttribute,
     NextSibling,
     Orientation,
     OuterHTML,
@@ -314,11 +318,11 @@ enum class AXPropertyName : uint16_t {
     WebArea,
 };
 
-using AXPropertyValueVariant = Variant<std::nullptr_t, String, bool, int, unsigned, double, float, uint64_t, Color, URL, LayoutRect, FloatRect, AXID, IntPoint, OptionSet<SpeakAs>, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path>;
-using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, WTF::IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
+using AXPropertyValueVariant = std::variant<std::nullptr_t, AXID, String, bool, int, unsigned, double, float, uint64_t, Color, URL, LayoutRect, FloatRect, PAL::SessionID, IntPoint, OptionSet<SpeakAs>, std::pair<unsigned, unsigned>, Vector<AccessibilityText>, Vector<AXID>, Vector<std::pair<AXID, AXID>>, Vector<String>, Path, OptionSet<AXAncestorFlag>>;
+using AXPropertyMap = HashMap<AXPropertyName, AXPropertyValueVariant, IntHash<AXPropertyName>, WTF::StrongEnumHashTraits<AXPropertyName>>;
 
 struct AXPropertyChange {
-    AXID axID { InvalidAXID }; // ID of the object whose properties changed.
+    AXID axID; // ID of the object whose properties changed.
     AXPropertyMap properties; // Changed properties.
 };
 
@@ -343,7 +347,11 @@ public:
 
     struct NodeChange {
         Ref<AXIsolatedObject> isolatedObject;
+#if PLATFORM(COCOA)
         RetainPtr<AccessibilityObjectWrapper> wrapper;
+#elif USE(ATSPI)
+        RefPtr<AccessibilityObjectWrapper> wrapper;
+#endif
     };
 
     void generateSubtree(AXCoreObject&, AXCoreObject*, bool attachWrapper);
@@ -398,8 +406,8 @@ private:
     Vector<AXID> m_pendingNodeRemovals WTF_GUARDED_BY_LOCK(m_changeLogLock); // Nodes to be removed from the tree.
     Vector<AXID> m_pendingSubtreeRemovals WTF_GUARDED_BY_LOCK(m_changeLogLock); // Nodes whose subtrees are to be removed from the tree.
     Vector<std::pair<AXID, Vector<AXID>>> m_pendingChildrenUpdates WTF_GUARDED_BY_LOCK(m_changeLogLock);
-    AXID m_pendingFocusedNodeID WTF_GUARDED_BY_LOCK(m_changeLogLock) { InvalidAXID };
-    AXID m_focusedNodeID { InvalidAXID };
+    AXID m_pendingFocusedNodeID WTF_GUARDED_BY_LOCK(m_changeLogLock);
+    AXID m_focusedNodeID;
     Lock m_changeLogLock;
 };
 

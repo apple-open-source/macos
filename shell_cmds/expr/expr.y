@@ -5,7 +5,7 @@
  *
  * Largely rewritten by J.T. Conklin (jtc@wimsey.com)
  *
- * $FreeBSD: src/bin/expr/expr.y,v 1.28 2011/07/09 12:20:15 se Exp $
+ * $FreeBSD$
  */
 
 #include <sys/types.h>
@@ -74,7 +74,6 @@ int		to_integer(struct val *);
 void		to_string(struct val *);
 int		yyerror(const char *);
 int		yylex(void);
-int		yyparse(void);
 
 %}
 
@@ -435,11 +434,9 @@ op_plus(struct val *a, struct val *b)
 void
 assert_minus(intmax_t a, intmax_t b, intmax_t r)
 {
-	/* special case subtraction of INTMAX_MIN */
-	if (b == INTMAX_MIN && a < 0)
+	if ((a >= 0 && b < 0 && r <= 0) ||
+	    (a < 0 && b > 0 && r >= 0))
 		errx(ERR_EXIT, "overflow");
-	/* check addition of negative subtrahend */
-	assert_plus(a, -b, r);
 }
 
 struct val *
@@ -457,14 +454,26 @@ op_minus(struct val *a, struct val *b)
 	return (r);
 }
 
+/*
+ * We depend on undefined behaviour giving a result (in r).
+ * To test this result, pass it as volatile.  This prevents
+ * optimizing away of the test based on the undefined behaviour.
+ */
 void
-assert_times(intmax_t a, intmax_t b, intmax_t r)
+assert_times(intmax_t a, intmax_t b, volatile intmax_t r)
 {
 	/*
-	 * if first operand is 0, no overflow is possible,
-	 * else result of division test must match second operand
+	 * If the first operand is 0, no overflow is possible, 
+	 * else the result of the division test must match the
+	 * second operand.
+	 *
+	 * Be careful to avoid overflow in the overflow test, as
+	 * in assert_div().  Overflow in division would kill us
+	 * with a SIGFPE before getting the test wrong.  In old
+	 * buggy versions, optimization used to give a null test
+	 * instead of a SIGFPE.
 	 */
-	if (a != 0 && r / a != b)
+	if ((a == -1 && b == INTMAX_MIN) || (a != 0 && r / a != b))
 		errx(ERR_EXIT, "overflow");
 }
 
@@ -555,7 +564,7 @@ op_colon(struct val *a, struct val *b)
 #endif
 
 		} else
-			v = make_integer((intmax_t)(rm[0].rm_eo - rm[0].rm_so));
+			v = make_integer((intmax_t)(rm[0].rm_eo));
 	else
 		if (rp.re_nsub == 0)
 			v = make_integer((intmax_t)0);

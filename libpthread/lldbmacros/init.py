@@ -1,3 +1,5 @@
+from __future__ import print_function
+from builtins import hex
 from xnu import *
 import struct
 
@@ -72,8 +74,8 @@ def PthreadShowUserMutex(cmd_args=None):
 	task = kern.GetValueFromAddress(cmd_args[0], "task_t")
 	uaddr = kern.GetValueFromAddress(cmd_args[1], "user_addr_t")
 
-	print GetUserMutexSummary.header
-	print GetUserMutexSummary(task, uaddr)
+	print(GetUserMutexSummary.header)
+	print(GetUserMutexSummary(task, uaddr))
 
 @lldb_type_summary(['ksyn_wait_queue *', 'ksyn_wait_queue_t'])
 @header("{:<20s} {:<20s} {:<10s} {:<6s} {:<6s} {:<8s} {:<8s} {:<8s} {:<8s}".format('kwq', 'uaddr', 'type', 'pflags', 'kflags', 'refs', 'indrop', 'waiters', 'preposts'))
@@ -230,17 +232,17 @@ def PthreadCurrentMutex(cmd_args=None):
 		raise ArgumentError("No arguments passed")
 
 	thread = kern.GetValueFromAddress(cmd_args[0], "thread_t")
-	print GetPthreadSummary.header
-	print GetPthreadSummary(thread)
+	print(GetPthreadSummary.header)
+	print(GetPthreadSummary(thread))
 
 	uthread = Cast(thread.uthread, "uthread_t")
 	kwe = Cast(addressof(uthread.uu_save.uus_kwe), 'struct ksyn_waitq_element *')
 	if not kwe or not kwe.kwe_kwqqueue:
-		print GetKweSummary.header
-		print GetKweSummary(kwe)
+		print(GetKweSummary.header)
+		print(GetKweSummary(kwe))
 	else:
-		print GetKwqSummary.header
-		print GetKwqSummary(kwe.kwe_kwqqueue)
+		print(GetKwqSummary.header)
+		print(GetKwqSummary(kwe.kwe_kwqqueue))
 
 @lldb_command('showpthreadkwq')
 def PthreadShowKsynQueue(cmd_args=None):
@@ -252,8 +254,8 @@ def PthreadShowKsynQueue(cmd_args=None):
 		raise ArgumentError("No arguments passed")
 
 	kwq = kern.GetValueFromAddress(cmd_args[0], "ksyn_wait_queue_t")
-	print GetKwqSummary.header
-	print GetKwqSummary(kwq)
+	print(GetKwqSummary.header)
+	print(GetKwqSummary(kwq))
 
 @lldb_command('showpthreadkwe')
 def PthreadShowKsynElement(cmd_args=None):
@@ -265,8 +267,8 @@ def PthreadShowKsynElement(cmd_args=None):
 		raise ArgumentError("No arguments passed")
 
 	kwe = kern.GetValueFromAddress(cmd_args[0], "struct ksyn_waitq_element *")
-	print GetKweSummary.header
-	print GetKweSummary(kwe)
+	print(GetKweSummary.header)
+	print(GetKweSummary(kwe))
 
 @lldb_command('showpthreadworkqueue')
 def ShowPthreadWorkqueue(cmd_args=None):
@@ -281,11 +283,11 @@ def ShowPthreadWorkqueue(cmd_args=None):
 	proc = kern.GetValueFromAddress(cmd_args[0], "proc_t")
 	wq = Cast(proc.p_wqptr, "struct workqueue *");
 	
-	print GetPthreadWorkqueueSummary.header
-	print GetPthreadWorkqueueSummary(wq)
+	print(GetPthreadWorkqueueSummary.header)
+	print(GetPthreadWorkqueueSummary(wq))
 	
-	print GetPthreadWorkqueueDetail.header
-	print GetPthreadWorkqueueDetail(wq)
+	print(GetPthreadWorkqueueDetail.header)
+	print(GetPthreadWorkqueueDetail(wq))
 
 def IterateTAILQ_HEAD(headval, element_name):
     """ iterate over a TAILQ_HEAD in kernel. refer to bsd/sys/queue.h

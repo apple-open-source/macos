@@ -77,6 +77,7 @@
 #include <JavaScriptCore/SlotVisitor.h>
 #include <JavaScriptCore/SlotVisitorInlines.h>
 #include <JavaScriptCore/TypedArrayType.h>
+#include <algorithm>
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/Lock.h>
 #include <wtf/Locker.h>
@@ -129,7 +130,8 @@ WebGL2RenderingContext::~WebGL2RenderingContext()
     m_boundTransformFeedbackBuffer = nullptr;
     m_boundUniformBuffer = nullptr;
     m_boundIndexedUniformBuffers.clear();
-    m_activeQueries.clear();
+    for (auto& activeQuery : m_activeQueries)
+        activeQuery = nullptr;
 }
 
 void WebGL2RenderingContext::initializeNewContext()
@@ -221,6 +223,10 @@ long long WebGL2RenderingContext::getInt64Parameter(GCGLenum pname)
 
 void WebGL2RenderingContext::initializeVertexArrayObjects()
 {
+#if !USE(ANGLE)
+    if (!isGLES2Compliant())
+        initVertexAttrib0();
+#endif
     m_defaultVertexArrayObject = WebGLVertexArrayObject::create(*this, WebGLVertexArrayObject::Type::Default);
     addContextObject(*m_defaultVertexArrayObject);
 #if USE(OPENGL_ES)
@@ -228,10 +234,7 @@ void WebGL2RenderingContext::initializeVertexArrayObjects()
 #else
     bindVertexArray(nullptr); // The default VAO was removed in OpenGL 3.3 but not from WebGL 2; bind the default for WebGL to use.
 #endif
-#if !USE(ANGLE)
-    if (!isGLES2Compliant())
-        initVertexAttrib0();
-#endif
+
 }
 
 void WebGL2RenderingContext::initializeShaderExtensions()
@@ -1076,7 +1079,7 @@ void WebGL2RenderingContext::texStorage3D(GCGLenum target, GCGLsizei levels, GCG
     if (isContextLostOrPending())
         return;
 
-    auto texture = validateTextureBinding("texStorage3D", target);
+    auto texture = validateTexture3DBinding("texStorage3D", target);
     if (!texture)
         return;
 
@@ -1795,7 +1798,8 @@ void WebGL2RenderingContext::drawRangeElements(GCGLenum mode, GCGLuint start, GC
 {
     if (isContextLostOrPending())
         return;
-
+    if (!validateVertexArrayObject("drawRangeElements"))
+        return;
     m_context->drawRangeElements(mode, start, end, count, type, offset);
 }
 
@@ -1916,9 +1920,14 @@ void WebGL2RenderingContext::deleteQuery(WebGLQuery* query)
 
     if (isContextLostOrPending() || !query || !query->object() || !validateWebGLObject("deleteQuery", query))
         return;
-    if (query->target() && query == m_activeQueries.get(query->target())) {
-        m_context->endQuery(query->target());
-        m_activeQueries.remove(query->target());
+    if (query->target()) {
+        for (auto& activeQuery : m_activeQueries) {
+            if (query == activeQuery) {
+                m_context->endQuery(query->target());
+                activeQuery = nullptr;
+                break;
+            }
+        }
     }
     deleteObject(locker, query);
 }
@@ -1934,38 +1943,40 @@ GCGLboolean WebGL2RenderingContext::isQuery(WebGLQuery* query)
     return m_context->isQuery(query->object());
 }
 
-bool WebGL2RenderingContext::validateQueryTarget(const char* functionName, GCGLenum target, GCGLenum* targetKey)
+std::optional<WebGL2RenderingContext::ActiveQueryKey> WebGL2RenderingContext::validateQueryTarget(const char* functionName, GCGLenum target)
 {
-    if (target != GraphicsContextGL::ANY_SAMPLES_PASSED && target != GraphicsContextGL::ANY_SAMPLES_PASSED_CONSERVATIVE && target != GraphicsContextGL::TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN) {
-        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid target");
-        return false;
+    switch (target) {
+    case GraphicsContextGL::ANY_SAMPLES_PASSED:
+    case GraphicsContextGL::ANY_SAMPLES_PASSED_CONSERVATIVE:
+        return ActiveQueryKey::SamplesPassed;
+    case GraphicsContextGL::TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN:
+        return ActiveQueryKey::PrimitivesWritten;
+    default:
+        break;
     }
-    if (targetKey)
-        *targetKey = (target == GraphicsContextGL::ANY_SAMPLES_PASSED_CONSERVATIVE) ? GraphicsContextGL::ANY_SAMPLES_PASSED : target;
-    return true;
+    synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid target");
+    return std::nullopt;
 }
 
 void WebGL2RenderingContext::beginQuery(GCGLenum target, WebGLQuery& query)
 {
     Locker locker { objectGraphLock() };
-
-    GCGLenum targetKey;
-    if (!validateWebGLObject("beginQuery", &query) || !validateQueryTarget("beginQuery", target, &targetKey))
+    if (!validateWebGLObject("beginQuery", &query))
         return;
-
+    auto activeQueryKey = validateQueryTarget("beginQuery", target);
+    if (!activeQueryKey)
+        return;
     if (query.target() && query.target() != target) {
         synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "beginQuery", "query type does not match target");
         return;
     }
 
-    auto addResult = m_activeQueries.add(targetKey, makeRefPtr(&query));
-
     // Only one query object can be active per target.
-    if (!addResult.isNewEntry) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "beginQuery", "Query object of target is already active");
+    if (m_activeQueries[*activeQueryKey]) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "beginQuery", "query object of target is already active");
         return;
     }
-
+    m_activeQueries[*activeQueryKey] = &query;
     m_context->beginQuery(target, query.object());
     query.setTarget(target);
 }
@@ -1973,29 +1984,29 @@ void WebGL2RenderingContext::beginQuery(GCGLenum target, WebGLQuery& query)
 void WebGL2RenderingContext::endQuery(GCGLenum target)
 {
     Locker locker { objectGraphLock() };
-
-    GCGLenum targetKey;
-    if (isContextLostOrPending() || !scriptExecutionContext() || !validateQueryTarget("beginQuery", target, &targetKey))
+    if (isContextLostOrPending() || !scriptExecutionContext())
         return;
-
-    auto query = m_activeQueries.take(targetKey);
-    if (!query) {
-        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "endQuery", "Query object of target is not active");
+    auto activeQueryKey = validateQueryTarget("endQuery", target);
+    if (!activeQueryKey)
+        return;
+    if (!m_activeQueries[*activeQueryKey]) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "endQuery", "query object of target is not active");
         return;
     }
-
     m_context->endQuery(target);
 
     // A query's result must not be made available until control has returned to the user agent's main loop.
-    scriptExecutionContext()->eventLoop().queueMicrotask([query] {
+    scriptExecutionContext()->eventLoop().queueMicrotask([query = WTFMove(m_activeQueries[*activeQueryKey])] {
         query->makeResultAvailable();
     });
 }
 
 RefPtr<WebGLQuery> WebGL2RenderingContext::getQuery(GCGLenum target, GCGLenum pname)
 {
-    GCGLenum targetKey;
-    if (isContextLostOrPending() || !scriptExecutionContext() || !validateQueryTarget("beginQuery", target, &targetKey))
+    if (isContextLostOrPending() || !scriptExecutionContext())
+        return nullptr;
+    auto activeQueryKey = validateQueryTarget("beginQuery", target);
+    if (!activeQueryKey)
         return nullptr;
 
     if (pname != GraphicsContextGL::CURRENT_QUERY) {
@@ -2003,7 +2014,7 @@ RefPtr<WebGLQuery> WebGL2RenderingContext::getQuery(GCGLenum target, GCGLenum pn
         return nullptr;
     }
 
-    auto query = m_activeQueries.get(targetKey);
+    auto query = m_activeQueries[*activeQueryKey];
     if (!query || query->target() != target)
         return nullptr;
     return query;
@@ -2013,7 +2024,14 @@ WebGLAny WebGL2RenderingContext::getQueryParameter(WebGLQuery& query, GCGLenum p
 {
     if (!validateWebGLObject("getQueryParameter", &query))
         return nullptr;
-
+    if (!query.target()) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "getQueryParameter", "query has not been used by beginQuery");
+        return nullptr;
+    }
+    if (std::find(std::begin(m_activeQueries), std::end(m_activeQueries), &query) != std::end(m_activeQueries)) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "getQueryParameter", "query is currently active");
+        return nullptr;
+    }
     switch (pname) {
     case GraphicsContextGL::QUERY_RESULT:
         if (!query.isResultAvailable())
@@ -2024,7 +2042,7 @@ WebGLAny WebGL2RenderingContext::getQueryParameter(WebGLQuery& query, GCGLenum p
             return false;
         break;
     default:
-        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getQueryParameter", "Invalid pname");
+        synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getQueryParameter", "invalid parameter name");
         return nullptr;
     }
 
@@ -2379,7 +2397,10 @@ RefPtr<WebGLActiveInfo> WebGL2RenderingContext::getTransformFeedbackVarying(WebG
 {
     if (!validateWebGLProgramOrShader("getTransformFeedbackVarying", &program))
         return nullptr;
-
+    if (!program.getLinkStatus()) {
+        synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, "getTransformFeedbackVarying", "program not linked");
+        return nullptr;
+    }
     GraphicsContextGL::ActiveInfo info;
     m_context->getTransformFeedbackVarying(program.object(), index, info);
 
@@ -2501,7 +2522,7 @@ WebGLAny WebGL2RenderingContext::getIndexedParameter(GCGLenum target, GCGLuint i
             synthesizeGLError(GraphicsContextGL::INVALID_VALUE, "getIndexedParameter", "index out of range");
             return nullptr;
         }
-        return makeRefPtr(buffer);
+        return RefPtr { buffer };
     }
     case GraphicsContextGL::TRANSFORM_FEEDBACK_BUFFER_SIZE:
     case GraphicsContextGL::TRANSFORM_FEEDBACK_BUFFER_START:
@@ -2813,9 +2834,24 @@ WebGLAny WebGL2RenderingContext::getFramebufferAttachmentParameter(GCGLenum targ
 
         switch (pname) {
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
-            return GraphicsContextGL::FRAMEBUFFER_DEFAULT;
+            return static_cast<unsigned>(GraphicsContextGL::FRAMEBUFFER_DEFAULT);
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_RED_SIZE:
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_BLUE_SIZE:
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_GREEN_SIZE:
+            return attachment == GraphicsContextGL::BACK ? 8 : 0;
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_ALPHA_SIZE:
+            return attachment == GraphicsContextGL::BACK && m_attributes.alpha ? 8 : 0;
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_DEPTH_SIZE:
+            return attachment == GraphicsContextGL::DEPTH ? 24 : 0;
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_STENCIL_SIZE:
+            return attachment == GraphicsContextGL::STENCIL ? 8 : 0;
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE:
+            return static_cast<unsigned>(GraphicsContextGL::UNSIGNED_NORMALIZED);
+        case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING:
+            return static_cast<unsigned>(GraphicsContextGL::LINEAR);
         default:
-            return m_context->getFramebufferAttachmentParameteri(target, attachment, pname);
+            synthesizeGLError(GraphicsContextGL::INVALID_ENUM, functionName, "invalid parameter name");
+            return nullptr;
         }
     }
 
@@ -2831,14 +2867,14 @@ WebGLAny WebGL2RenderingContext::getFramebufferAttachmentParameter(GCGLenum targ
 
     RefPtr<WebGLSharedObject> attachmentObject;
     if (attachment == GraphicsContextGL::DEPTH_STENCIL_ATTACHMENT) {
-        attachmentObject = makeRefPtr(targetFramebuffer->getAttachmentObject(GraphicsContextGL::DEPTH_ATTACHMENT));
-        auto stencilAttachment = makeRefPtr(targetFramebuffer->getAttachmentObject(GraphicsContextGL::STENCIL_ATTACHMENT));
+        attachmentObject = targetFramebuffer->getAttachmentObject(GraphicsContextGL::DEPTH_ATTACHMENT);
+        RefPtr stencilAttachment = targetFramebuffer->getAttachmentObject(GraphicsContextGL::STENCIL_ATTACHMENT);
         if (attachmentObject != stencilAttachment) {
             synthesizeGLError(GraphicsContextGL::INVALID_OPERATION, functionName, "different objects bound to DEPTH_ATTACHMENT and STENCIL_ATTACHMENT");
             return nullptr;
         }
     } else
-        attachmentObject = makeRefPtr(targetFramebuffer->getAttachmentObject(attachment));
+        attachmentObject = targetFramebuffer->getAttachmentObject(attachment);
 
     if (!attachmentObject) {
         if (pname == GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)
@@ -2856,8 +2892,8 @@ WebGLAny WebGL2RenderingContext::getFramebufferAttachmentParameter(GCGLenum targ
         return static_cast<unsigned>(GraphicsContextGL::RENDERBUFFER);
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
         if (attachmentObject->isTexture())
-            return makeRefPtr(reinterpret_cast<WebGLTexture&>(*attachmentObject));
-        return makeRefPtr(reinterpret_cast<WebGLRenderbuffer&>(*attachmentObject));
+            return static_pointer_cast<WebGLTexture>(attachmentObject);
+        return static_pointer_cast<WebGLRenderbuffer>(attachmentObject);
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE:
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_LAYER:
     case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL:
@@ -3119,7 +3155,7 @@ void WebGL2RenderingContext::addMembersToOpaqueRoots(JSC::AbstractSlotVisitor& v
         visitor.addOpaqueRoot(buffer.get());
 
     for (auto& entry : m_activeQueries)
-        visitor.addOpaqueRoot(entry.value.get());
+        visitor.addOpaqueRoot(entry.get());
 
     for (auto& entry : m_boundSamplers)
         visitor.addOpaqueRoot(entry.get());
@@ -3353,7 +3389,7 @@ WebGLAny WebGL2RenderingContext::getParameter(GCGLenum pname)
     case GraphicsContextGL::VERTEX_ARRAY_BINDING:
         if (m_boundVertexArrayObject->isDefaultObject())
             return nullptr;
-        return makeRefPtr(static_cast<WebGLVertexArrayObject&>(*m_boundVertexArrayObject));
+        return static_pointer_cast<WebGLVertexArrayObject>(m_boundVertexArrayObject);
     default:
         return WebGLRenderingContextBase::getParameter(pname);
     }

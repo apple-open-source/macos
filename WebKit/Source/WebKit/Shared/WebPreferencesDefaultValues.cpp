@@ -30,7 +30,6 @@
 #include <wtf/text/WTFString.h>
 
 #if PLATFORM(COCOA)
-#include <WebCore/VersionChecks.h>
 #include <pal/spi/cocoa/FeatureFlagsSPI.h>
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
@@ -42,7 +41,7 @@
 
 namespace WebKit {
 
-#if !PLATFORM(COCOA)
+#if !PLATFORM(COCOA) && !PLATFORM(WIN)
 bool isFeatureFlagEnabled(const char*, bool defaultValue)
 {
     return defaultValue;
@@ -53,15 +52,22 @@ bool isFeatureFlagEnabled(const char*, bool defaultValue)
 
 bool defaultPassiveTouchListenersAsDefaultOnDocument()
 {
-    static bool result = linkedOnOrAfter(WebCore::SDKVersion::FirstThatDefaultsToPassiveTouchListenersOnDocument);
+    static bool result = linkedOnOrAfter(SDKVersion::FirstThatDefaultsToPassiveTouchListenersOnDocument);
     return result;
 }
 
 bool defaultCSSOMViewScrollingAPIEnabled()
 {
-    static bool result = WebCore::IOSApplication::isIMDb() && applicationSDKVersion() < DYLD_IOS_VERSION_13_0;
+    static bool result = WebCore::IOSApplication::isIMDb() && !linkedOnOrAfter(SDKVersion::FirstWithoutIMDbCSSOMViewScrollingQuirk);
     return !result;
 }
+
+#if !USE(APPLE_INTERNAL_SDK)
+bool defaultAlternateFormControlDesignEnabled()
+{
+    return false;
+}
+#endif
 
 #endif
 
@@ -69,13 +75,13 @@ bool defaultCSSOMViewScrollingAPIEnabled()
 
 bool defaultPassiveWheelListenersAsDefaultOnDocument()
 {
-    static bool result = linkedOnOrAfter(WebCore::SDKVersion::FirstThatDefaultsToPassiveWheelListenersOnDocument);
+    static bool result = linkedOnOrAfter(SDKVersion::FirstThatDefaultsToPassiveWheelListenersOnDocument);
     return result;
 }
 
 bool defaultWheelEventGesturesBecomeNonBlocking()
 {
-    static bool result = linkedOnOrAfter(WebCore::SDKVersion::FirstThatAllowsWheelEventGesturesToBecomeNonBlocking);
+    static bool result = linkedOnOrAfter(SDKVersion::FirstThatAllowsWheelEventGesturesToBecomeNonBlocking);
     return result;
 }
 
@@ -142,7 +148,7 @@ bool defaultAsyncOverflowScrollingEnabled()
 bool defaultOfflineWebApplicationCacheEnabled()
 {
 #if PLATFORM(COCOA)
-    static bool newSDK = linkedOnOrAfter(WebCore::SDKVersion::FirstWithApplicationCacheDisabledByDefault);
+    static bool newSDK = linkedOnOrAfter(SDKVersion::FirstWithApplicationCacheDisabledByDefault);
     return !newSDK;
 #else
     // FIXME: Other platforms should consider turning this off.
@@ -155,7 +161,7 @@ bool defaultOfflineWebApplicationCacheEnabled()
 
 bool defaultUseGPUProcessForCanvasRenderingEnabled()
 {
-#if ENABLE(GPU_PROCESS_BY_DEFAULT)
+#if ENABLE(GPU_PROCESS_BY_DEFAULT) || PLATFORM(WIN)
     bool defaultValue = true;
 #else
     bool defaultValue = false;
@@ -182,7 +188,12 @@ bool defaultUseGPUProcessForMediaEnabled()
 
 bool defaultUseGPUProcessForWebGLEnabled()
 {
-    return isFeatureFlagEnabled("gpu_process_webgl", false);
+#if PLATFORM(WIN)
+    bool defaultValue = true;
+#else
+    bool defaultValue = false;
+#endif
+    return isFeatureFlagEnabled("gpu_process_webgl", defaultValue);
 }
 
 #endif // ENABLE(GPU_PROCESS)
@@ -266,7 +277,11 @@ bool defaultIncrementalPDFEnabled()
 
 bool defaultWebXREnabled()
 {
+#if HAVE(WEBXR_INTERNALS)
+    return true;
+#else
     return false;
+#endif
 }
 
 #endif // ENABLE(WEBXR)
@@ -309,11 +324,6 @@ bool defaultVP9SWDecoderEnabledOnBattery()
 bool defaultWebMParserEnabled()
 {
     return isFeatureFlagEnabled("webm_parser", true);
-}
-
-bool defaultWebMWebAudioEnabled()
-{
-    return isFeatureFlagEnabled("webm_webaudio", false);
 }
 
 #endif // ENABLE(MEDIA_SOURCE)

@@ -118,6 +118,7 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 - (void)ghostBustInfo: (void(^)(NSData *json, NSError *error))complete;
 - (void)iCloudIdentityStatus_internal: (void(^)(NSDictionary *tableSpid, NSError *error))complete;
 - (void)iCloudIdentityStatus: (void (^)(NSData *json, NSError *error))complete;
+- (void)accountStatus: (void (^)(NSData *json, NSError *error))complete;
 
 - (void)myPeerInfo:(void (^)(NSData *, NSError *))complete;
 - (void)circleHash:(void (^)(NSString *, NSError *))complete;

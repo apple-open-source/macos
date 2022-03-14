@@ -295,7 +295,7 @@ static ssize_t alphaIndex(unsigned char c)
         unsigned char buf_claim_token[CLAIM_TOKEN_BYTES];
         int ret = SecRandomCopyBytes(kSecRandomDefault, sizeof(buf_claim_token), buf_claim_token);
         if (ret != errSecSuccess) {
-            memset(buf_claim_token, 0, sizeof(buf_claim_token));
+            memset_s(buf_claim_token, sizeof(buf_claim_token), 0, sizeof(buf_claim_token));
             if (error != nil) {
                 *error = [NSError errorWithDomain:OTInheritanceKeyErrorDomain
                                              code:OTInheritanceKeyErrorSecRandom
@@ -304,7 +304,7 @@ static ssize_t alphaIndex(unsigned char c)
             return nil;
         }
         _claimTokenData = [NSData dataWithBytes:buf_claim_token length:sizeof(buf_claim_token)];
-        memset(buf_claim_token, 0, sizeof(buf_claim_token));
+        memset_s(buf_claim_token, sizeof(buf_claim_token), 0, sizeof(buf_claim_token));
         _claimTokenString = [OTInheritanceKey printableWithData:_claimTokenData checksumSize:4 error:error];
         if (_claimTokenString == nil) {
             return nil;
@@ -313,7 +313,7 @@ static ssize_t alphaIndex(unsigned char c)
         unsigned char buf_recovery_key[RECOVERY_KEY_BYTES];
         ret = SecRandomCopyBytes(kSecRandomDefault, sizeof(buf_recovery_key), buf_recovery_key);
         if (ret != errSecSuccess) {
-            memset(buf_recovery_key, 0, sizeof(buf_recovery_key));
+            memset_s(buf_recovery_key, sizeof(buf_recovery_key), 0, sizeof(buf_recovery_key));
             if (error != nil) {
                 *error = [NSError errorWithDomain:OTInheritanceKeyErrorDomain
                                              code:OTInheritanceKeyErrorSecRandom
@@ -322,7 +322,7 @@ static ssize_t alphaIndex(unsigned char c)
             return nil;
         }
         _recoveryKeyData = [NSData dataWithBytes:buf_recovery_key length:sizeof(buf_recovery_key)];
-        memset(buf_recovery_key, 0, sizeof(buf_recovery_key));
+        memset_s(buf_recovery_key, sizeof(buf_recovery_key), 0, sizeof(buf_recovery_key));
 
         if (![self generateWrappingWithError:error]) {
             return nil;

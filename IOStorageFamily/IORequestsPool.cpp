@@ -40,7 +40,7 @@ IOReturn IORequestsPool::init(uint32_t numOfRequests, uint32_t maxIOSize, uint8_
 
 	for (uint32_t i = 0; i < numOfRequests; i++) {
 
-		newRequest = IONewZero(class IORequest, 1);
+		newRequest = IOMallocType(IORequest);
 		if (newRequest == NULL) {
 			retVal = kIOReturnNoSpace;
 			goto FailedToAlloc;
@@ -59,7 +59,7 @@ IOReturn IORequestsPool::init(uint32_t numOfRequests, uint32_t maxIOSize, uint8_
 
 FailedToInit:
 	/* The request isn't in the list and not initalized */
-	IODelete(newRequest, class IORequest *, 1);
+	IOFreeType(newRequest, IORequest);
 FailedToAlloc:
 	/* Remove all requests from the list and deinit them */
 	deinit();
@@ -73,7 +73,7 @@ void IORequestsPool::deinit()
 	while(!queue_empty(&fFreeRequests)) {
 		queue_remove_first(&fFreeRequests, request, class IORequest *, fRequests);
 		request->deinit();
-		IODelete(request, class IORequest *, 1);
+		IOFreeType(request, IORequest);
 	}
 	
 	IOLockFree(fLock);

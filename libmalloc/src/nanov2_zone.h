@@ -204,8 +204,10 @@ typedef struct {
 
 // Linkage between regions. Overlays the nanov2_block_meta_t that corresponds
 // to the arena metadata block, so must be the same size as nanov2_block_meta_t.
+// Accessed atomically when walking the regions.
 typedef struct {
-    uint16_t next_region_offset;	// Offset to next region in 512MB blocks
+	// Offset to next region in 512MB blocks
+	os_atomic(uint16_t) next_region_offset;
 	uint16_t unused;
 } nanov2_region_linkage_t;
 
@@ -281,23 +283,22 @@ typedef struct nanozonev2_s {
 	// Lock used to serialize access to current_block.
 	_malloc_lock_s		blocks_lock;
 
-	// Lock used to protect current_region_base, current_region_next_arena and
-	// current_region_limit.
+	// Lock used to protect modification of current_region_next_arena.
 	_malloc_lock_s		regions_lock;
 	
 	// Base address of the first region. Fixed once set.
 	nanov2_region_t 	*first_region_base;
 	
-	// Base address of the current region. Always the most recently allocated
-	// region and therefore the one with the highest base address.
-	nanov2_region_t 	*current_region_base;
-	
-	// Address to use for the next arena. Always between current_region_base
-	// and current_region_limit.
-	nanov2_arena_t		*current_region_next_arena;
-	
- 	// Limit address of the current region (first byte after the region).
- 	void				*current_region_limit;
+	// Address to use for the next arena, or the limit arena of the current
+	// region (i.e. the first byte after the end of the current region) if the
+	// current region is full. This is always the upper bound on addresses that
+	// can possibly be allocated from nano. When a new region is allocated, this
+	// is set directly to the _second_ arena of the new region, so a value on a
+	// region boundary is always a limit arena rather than a first arena.
+	//
+	// Modified under the protection of the regions_lock but atomically loaded
+	// outside of it from fast-path contexts; access with care.
+	os_atomic(nanov2_arena_t *) current_region_next_arena;
 	
 	// Lock used when madvising.
 	_malloc_lock_s		madvise_lock;

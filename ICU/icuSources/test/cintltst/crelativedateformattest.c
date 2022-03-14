@@ -329,6 +329,39 @@ static const char* nb_decDef_long_midSent_day[kNumOffsets*2] = {
 
 // Need attrDef for nb
 
+// Apple addition (rdar://80742319)
+static const char* hu_decDef_narrow_midSent_min[kNumOffsets*2] = {
+/*  text                    numeric */
+    "5 perce",              "5 perce",   /* -5   */
+    "2,2 perce",            "2,2 perce", /* -2.2 */
+    "2 perce",              "2 perce",   /* -2   */
+    "1 perce",              "1 perce",   /* -1   */
+    "0,7 perce",            "0,7 perce", /* -0.7 */
+    "ebben a percben",      "0 perce",   /* -0   */
+    "ebben a percben",      "0 perc m\\u00falva",        /*  0   */
+    "0,7 perc m\\u00falva", "0,7 perc m\\u00falva",      /*  0.7 */
+    "1 perc m\\u00falva",   "1 perc m\\u00falva",        /*  1   */
+    "2 perc m\\u00falva",   "2 perc m\\u00falva",        /*  2   */
+    "5 perc m\\u00falva",   "5 perc m\\u00falva"         /*  5   */
+};
+
+// Apple addition (rdar://80742319)
+static const FieldsDat hu_attrDef_narrow_midSent_min[kNumOffsets*2] = {
+/*  text           numeric           text                    numeric */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "5 perce",          "5 perce",       -5   */
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3}, /* "2,2 perce",        "2,2 perce",     -2.2 */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "2 perce",          "2 perce",       -2   */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "1 perce",          "1 perce",        -1   */
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3}, /* "0,7 perce",        "0,7 perce",     -0.7 */
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "ebben a percben",  "0 perccel ezelőtt",       -0   */
+    {-1,  -1,  -1},                   {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "ebben a percben",  "0 perc múlva",             0   */
+    {UDAT_REL_NUMERIC_FIELD,  0,  3}, {UDAT_REL_NUMERIC_FIELD,  0,  3}, /* "0,7 perc múlva",   "0,7 perc múlva",           0.7 */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "1 perc múlva",     "1 perc múlva",             1   */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "2 perc múlva",     "2 perc múlva",             2   */
+    {UDAT_REL_NUMERIC_FIELD,  0,  1}, {UDAT_REL_NUMERIC_FIELD,  0,  1}, /* "5 perc múlva",     "5 perc múlva"              5   */
+};
+
+
 
 typedef struct {
     const char*                         locale;
@@ -361,6 +394,9 @@ static const RelDateTimeFormatTestItem fmtTestItems[] = {
       enIN_decDef_short_midSent_weds, enIN_attrDef_short_midSent_weds},
     //add suitable entry for nb
     //{ "nb", -1, UDAT_STYLE_LONG,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_DAY,     nb_decDef_long_midSent_day ...
+    // Apple addition (rdar://80742319)
+    { "hu", -1, UDAT_STYLE_NARROW,  UDISPCTX_CAPITALIZATION_FOR_MIDDLE_OF_SENTENCE, UDAT_REL_UNIT_MINUTE,
+      hu_decDef_narrow_midSent_min,   hu_attrDef_narrow_midSent_min},
     { NULL,  0, (UDateRelativeDateTimeFormatterStyle)0, (UDisplayContext)0, (URelativeDateTimeUnit)0, NULL, NULL } /* terminator */
 };
 

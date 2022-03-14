@@ -191,7 +191,7 @@ GraphicsContextCG::GraphicsContextCG(CGContextRef cgContext)
 
     m_data = new GraphicsContextPlatformPrivate(cgContext);
     // Make sure the context starts in sync with our state.
-    updateState(m_state, { GraphicsContextState::FillColorChange, GraphicsContextState::StrokeColorChange, GraphicsContextState::StrokeThicknessChange });
+    didUpdateState(m_state, { GraphicsContextState::FillColorChange, GraphicsContextState::StrokeColorChange, GraphicsContextState::StrokeThicknessChange });
     m_state.imageInterpolationQuality = coreInterpolationQuality(CGContextGetInterpolationQuality(platformContext()));
 }
 
@@ -376,10 +376,6 @@ static void drawPatternCallback(void* info, CGContextRef context)
 {
     CGImageRef image = (CGImageRef)info;
     CGFloat height = CGImageGetHeight(image);
-#if PLATFORM(IOS_FAMILY)
-    CGContextScaleCTM(context, 1, -1);
-    CGContextTranslateCTM(context, 0, -height);
-#endif
     CGContextDrawImage(context, GraphicsContextCG(context).roundToDevicePixels(FloatRect(0, 0, CGImageGetWidth(image), height)), image);
 }
 
@@ -438,10 +434,6 @@ void GraphicsContextCG::drawPattern(NativeImage& nativeImage, const FloatSize& i
         matrix = CGAffineTransformConcat(matrix, CGContextGetCTM(context));
         // The top of a partially-decoded image is drawn at the bottom of the tile. Map it to the top.
         matrix = CGAffineTransformTranslate(matrix, 0, imageSize.height() - h);
-#if PLATFORM(IOS_FAMILY)
-        matrix = CGAffineTransformScale(matrix, 1, -1);
-        matrix = CGAffineTransformTranslate(matrix, 0, -h);
-#endif
         CGImageRef platformImage = CGImageRetain(subImage.get());
         RetainPtr<CGPatternRef> pattern = adoptCF(CGPatternCreate(platformImage, CGRectMake(0, 0, tileRect.width(), tileRect.height()), matrix,
             tileRect.width() + spacing.width() * (1 / narrowPrecisionToFloat(patternTransform.a())),
@@ -1083,7 +1075,7 @@ static void setCGShadow(const GraphicsContext& graphicsContext, const FloatSize&
         CGContextSetShadowWithColor(context, CGSizeMake(xOffset, yOffset), blurRadius, cachedCGColor(color).get());
 }
 
-void GraphicsContextCG::updateState(const GraphicsContextState& state, GraphicsContextState::StateChangeFlags flags)
+void GraphicsContextCG::didUpdateState(const GraphicsContextState& state, GraphicsContextState::StateChangeFlags flags)
 {
     auto context = platformContext();
 
@@ -1192,13 +1184,13 @@ void GraphicsContextCG::strokeRect(const FloatRect& rect, float lineWidth)
 void GraphicsContextCG::setLineCap(LineCap cap)
 {
     switch (cap) {
-    case ButtCap:
+    case LineCap::Butt:
         CGContextSetLineCap(platformContext(), kCGLineCapButt);
         break;
-    case RoundCap:
+    case LineCap::Round:
         CGContextSetLineCap(platformContext(), kCGLineCapRound);
         break;
-    case SquareCap:
+    case LineCap::Square:
         CGContextSetLineCap(platformContext(), kCGLineCapSquare);
         break;
     }
@@ -1219,13 +1211,13 @@ void GraphicsContextCG::setLineDash(const DashArray& dashes, float dashOffset)
 void GraphicsContextCG::setLineJoin(LineJoin join)
 {
     switch (join) {
-    case MiterJoin:
+    case LineJoin::Miter:
         CGContextSetLineJoin(platformContext(), kCGLineJoinMiter);
         break;
-    case RoundJoin:
+    case LineJoin::Round:
         CGContextSetLineJoin(platformContext(), kCGLineJoinRound);
         break;
-    case BevelJoin:
+    case LineJoin::Bevel:
         CGContextSetLineJoin(platformContext(), kCGLineJoinBevel);
         break;
     }

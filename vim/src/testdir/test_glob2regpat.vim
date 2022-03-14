@@ -1,8 +1,11 @@
 " Test glob2regpat()
 
+source vim9.vim
+
 func Test_glob2regpat_invalid()
   if has('float')
-    call assert_fails('call glob2regpat(1.33)', 'E806:')
+    call assert_equal('^1\.33$', glob2regpat(1.33))
+    call CheckDefAndScriptFailure(['echo glob2regpat(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
   endif
   call assert_fails('call glob2regpat("}")', 'E219:')
   call assert_fails('call glob2regpat("{")', 'E220:')

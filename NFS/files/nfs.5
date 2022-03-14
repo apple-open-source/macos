@@ -253,6 +253,13 @@ where the
 follows
 .Tn DNS
 domain naming conventions.
+.Ss NFSv4 Mirror Mounts.
+While crossing file system boundries on the server side, nfs client will automatically create mount points on the client side. Such mount points will be marked as
+.Ar ephemeral
+in
+.Ic nfsstat -m
+output.
+Mount options are inherited from the parent mount point.
 .Ss MacOS NFSv4 name mapping rules.
 When processing identities by default we first check and see if the idenity string from the server is a string of digits if so we use that as the uid/gid to ask
 .Tn Open Directory
@@ -443,6 +450,7 @@ root@foobar.com maps to id 0
 .Re
 .Pp
 .Xr dot_clean 1 ,
+.Xr nfsstat 1 ,
 .Xr nfs.conf 5 ,
 .Xr nfs4mapid 8 ,
 .Xr mount_nfs 8 ,

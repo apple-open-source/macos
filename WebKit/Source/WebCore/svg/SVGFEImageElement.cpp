@@ -2,7 +2,7 @@
  * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
  * Copyright (C) 2010 Dirk Schulze <krit@webkit.org>
- * Copyright (C) 2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2018-2021 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -30,8 +30,10 @@
 #include "Image.h"
 #include "RenderObject.h"
 #include "RenderSVGResource.h"
+#include "SVGElementInlines.h"
 #include "SVGNames.h"
 #include "SVGPreserveAspectRatioValue.h"
+#include "SVGRenderingContext.h"
 #include <wtf/IsoMallocInlines.h>
 
 namespace WebCore {
@@ -162,7 +164,7 @@ void SVGFEImageElement::notifyFinished(CachedResource&, const NetworkLoadMetrics
     if (!isConnected())
         return;
 
-    auto parent = makeRefPtr(parentElement());
+    RefPtr parent = parentElement();
 
     if (!parent || !parent->hasTagName(SVGNames::filterTag))
         return;
@@ -174,16 +176,48 @@ void SVGFEImageElement::notifyFinished(CachedResource&, const NetworkLoadMetrics
     RenderSVGResource::markForLayoutAndParentResourceInvalidation(*parentRenderer);
 }
 
-RefPtr<FilterEffect> SVGFEImageElement::build(SVGFilterBuilder*, Filter& filter) const
+std::tuple<RefPtr<ImageBuffer>, FloatRect> SVGFEImageElement::imageBufferForEffect() const
+{
+    auto target = SVGURIReference::targetElementFromIRIString(href(), treeScope());
+    if (!is<SVGElement>(target.element))
+        return { };
+
+    if (isDescendantOrShadowDescendantOf(target.element.get()))
+        return { };
+
+    auto contextNode = static_pointer_cast<SVGElement>(target.element);
+    auto renderer = contextNode->renderer();
+    if (!renderer)
+        return { };
+
+    auto absoluteTransform = SVGRenderingContext::calculateTransformationToOutermostCoordinateSystem(*renderer);
+    if (!absoluteTransform.isInvertible())
+        return { };
+
+    auto shearFreeAbsoluteTransform = AffineTransform(absoluteTransform.xScale(), 0, 0, absoluteTransform.yScale(), 0, 0);
+
+    auto imageRect = renderer->repaintRectInLocalCoordinates();
+
+    auto imageBuffer = SVGRenderingContext::createImageBuffer(imageRect, shearFreeAbsoluteTransform, DestinationColorSpace::SRGB(), RenderingMode::Unaccelerated);
+    if (!imageBuffer)
+        return { };
+
+    auto& context = imageBuffer->context();
+    SVGRenderingContext::renderSubtreeToContext(context, *renderer, AffineTransform());
+
+    return { imageBuffer, imageRect };
+}
+
+RefPtr<FilterEffect> SVGFEImageElement::build(SVGFilterBuilder&) const
 {
     if (m_cachedImage)
-        return FEImage::createWithImage(filter, m_cachedImage->imageForRenderer(renderer()), preserveAspectRatio());
+        return FEImage::create(Ref { *m_cachedImage->imageForRenderer(renderer()) }, preserveAspectRatio());
 
-    auto target = SVGURIReference::targetElementFromIRIString(href(), treeScope());
-    if (isDescendantOrShadowDescendantOf(target.element.get()))
+    auto [imageBuffer, imageRect] = imageBufferForEffect();
+    if (!imageBuffer)
         return nullptr;
 
-    return FEImage::createWithIRIReference(filter, treeScope(), href(), preserveAspectRatio());
+    return FEImage::create(imageBuffer.releaseNonNull(), imageRect, preserveAspectRatio());
 }
 
 void SVGFEImageElement::addSubresourceAttributeURLs(ListHashSet<URL>& urls) const

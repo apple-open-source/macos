@@ -32,11 +32,13 @@
 #include "config.h"
 #include "SearchInputType.h"
 
+#include "ElementInlines.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
 #include "InputTypeNames.h"
 #include "KeyboardEvent.h"
 #include "RenderSearchField.h"
+#include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "TextControlInnerElements.h"
 
@@ -65,15 +67,12 @@ void SearchInputType::addSearchResult()
 
 static void updateResultButtonPseudoType(SearchFieldResultsButtonElement& resultButton, int maxResults)
 {
-    static MainThreadNeverDestroyed<const AtomString> webkitSearchDecorationName("-webkit-search-decoration", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> webkitSearchResultsDecorationName("-webkit-search-results-decoration", AtomString::ConstructFromLiteral);
-    static MainThreadNeverDestroyed<const AtomString> webkitSearchResultsButtonName("-webkit-search-results-button", AtomString::ConstructFromLiteral);
     if (!maxResults)
-        resultButton.setPseudo(webkitSearchResultsDecorationName);
+        resultButton.setPseudo(ShadowPseudoIds::webkitSearchResultsDecoration());
     else if (maxResults < 0)
-        resultButton.setPseudo(webkitSearchDecorationName);
+        resultButton.setPseudo(ShadowPseudoIds::webkitSearchDecoration());
     else
-        resultButton.setPseudo(webkitSearchResultsButtonName);
+        resultButton.setPseudo(ShadowPseudoIds::webkitSearchResultsButton());
 }
 
 void SearchInputType::attributeChanged(const QualifiedName& name)

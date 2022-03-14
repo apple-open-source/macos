@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1985, 1986, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -14,7 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,7 +38,7 @@ static char sccsid[] = "@(#)zopen.c	8.1 (Berkeley) 6/27/93";
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/compress/zopen.c,v 1.17 2011/09/28 08:47:17 bz Exp $");
+__FBSDID("$FreeBSD$");
 
 /*-
  * fcompress.c - File compression ala IEEE Computer, June 1984.
@@ -280,7 +282,7 @@ zwrite(void *cookie, const char *wbp, int num)
 	hsize_reg = hsize;
 	cl_hash(zs, (count_int)hsize_reg);	/* Clear hash table. */
 
-middle:	for (; count--;) {
+middle:	for (i = 0; count--;) {
 		c = *bp++;
 		in_count++;
 		fcode = (long)(((long)c << maxbits) + ent);
@@ -402,8 +404,8 @@ output(struct s_zstate *zs, code_int ocode)
 			bytes_out += bits;
 			if (fwrite(bp, sizeof(char), bits, fp) != bits)
 				return (-1);
-//			bp += bits;
-//			bits = 0;
+			bp += bits;
+			bits = 0;
 			offset = 0;
 		}
 		/*

@@ -46,6 +46,10 @@ static char sccsid[] = "@(#)mv.c	8.2 (Berkeley) 4/2/94";
 #include <sys/cdefs.h>
 __FBSDID("$FreeBSD$");
 
+#ifndef __APPLE__
+#include <sys/types.h>
+#include <sys/acl.h>
+#endif
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/wait.h>
@@ -76,18 +80,25 @@ __FBSDID("$FreeBSD$");
 
 #ifdef __APPLE__ 
 #include <get_compat.h>
+
+#define	st_atim	st_atimespec
+#define	st_mtim	st_mtimespec
 #else   
 #define COMPAT_MODE(a,b) (1) 
 #endif /* __APPLE__ */ 
 
 #include "pathnames.h"
 
-static int	fflg, iflg, nflg, vflg;
+static int	fflg, hflg, iflg, nflg, vflg;
 
 static int	copy(const char *, const char *);
 static int	do_move(const char *, const char *);
 static int	fastcopy(const char *, const char *, struct stat *);
 static void	usage(void);
+#ifndef __APPLE__
+static void	preserve_fd_acls(int source_fd, int dest_fd, const char *source_path,
+		    const char *dest_path);
+#endif
 
 int
 main(int argc, char *argv[])
@@ -102,8 +113,11 @@ main(int argc, char *argv[])
 	int ch;
 	char path[PATH_MAX];
 
-	while ((ch = getopt(argc, argv, "finv")) != -1)
+	while ((ch = getopt(argc, argv, "fhinv")) != -1)
 		switch (ch) {
+		case 'h':
+			hflg = 1;
+			break;
 		case 'i':
 			iflg = 1;
 			fflg = nflg = 0;
@@ -182,6 +196,17 @@ main(int argc, char *argv[])
 		}
 	}
 #endif /* __APPLE__ */
+
+	/*
+	 * If -h was specified, treat the target as a symlink instead of
+	 * directory.
+	 */
+	if (hflg) {
+		if (argc > 2)
+			usage();
+		if (lstat(argv[1], &sb) == 0 && S_ISLNK(sb.st_mode))
+			exit(do_move(argv[0], argv[1]));
+	}
 
 	/* It's a directory, move each file into it. */
 	if (strlen(argv[argc - 1]) > sizeof(path) - 1)
@@ -265,12 +290,12 @@ do_move(const char *from, const char *to)
 		} else if (iflg) {
 			(void)fprintf(stderr, "overwrite %s? %s", to, YESNO);
 			ask = 1;
-		} else if (access(to, W_OK) && !stat(to, &sb)) {
+		} else if (access(to, W_OK) && !stat(to, &sb) && isatty(STDIN_FILENO)) {
 			strmode(sb.st_mode, modep);
 			(void)fprintf(stderr, "override %s%s%s/%s for %s? %s",
 			    modep + 1, modep[9] == ' ' ? "" : " ",
-			    user_from_uid(sb.st_uid, 0),
-			    group_from_gid(sb.st_gid, 0), to, YESNO);
+			    user_from_uid((unsigned long)sb.st_uid, 0),
+			    group_from_gid((unsigned long)sb.st_gid, 0), to, YESNO);
 			ask = 1;
 		}
 		if (ask) {
@@ -290,6 +315,11 @@ do_move(const char *from, const char *to)
 			}
 		}
 	}
+	/*
+	 * Rename on FreeBSD will fail with EISDIR and ENOTDIR, before failing
+	 * with EXDEV.  Therefore, copy() doesn't have to perform the checks
+	 * specified in the Step 3 of the POSIX mv specification.
+	 */
 	if (!rename(from, to)) {
 		if (vflg)
 			printf("%s -> %s\n", from, to);
@@ -300,14 +330,25 @@ do_move(const char *from, const char *to)
 		struct statfs sfs;
 		char path[PATH_MAX];
 
-		/* Can't mv(1) a mount point. */
-		if (realpath(from, path) == NULL) {
-			warnx("cannot resolve %s: %s", from, path);
+		/*
+		 * If the source is a symbolic link and is on another
+		 * filesystem, it can be recreated at the destination.
+		 */
+		if (lstat(from, &sb) == -1) {
+			warn("%s", from);
 			return (1);
 		}
-		if (!statfs(path, &sfs) && !strcmp(path, sfs.f_mntonname)) {
-			warnx("cannot rename a mount point");
-			return (1);
+		if (!S_ISLNK(sb.st_mode)) {
+			/* Can't mv(1) a mount point. */
+			if (realpath(from, path) == NULL) {
+				warn("cannot resolve %s: %s", from, path);
+				return (1);
+			}
+			if (!statfs(path, &sfs) &&
+			    !strcmp(path, sfs.f_mntonname)) {
+				warnx("cannot rename a mount point");
+				return (1);
+			}
 		}
 	} else {
 		warn("rename %s to %s", from, to);
@@ -330,26 +371,27 @@ do_move(const char *from, const char *to)
 static int
 fastcopy(const char *from, const char *to, struct stat *sbp)
 {
-	struct timeval tval[2];
-	static u_int blen;
-	static char *bp;
+	struct timespec ts[2];
+	static u_int blen = MAXPHYS;
+	static char *bp = NULL;
 	mode_t oldmode;
+#ifdef __APPLE__
+	/* See rdar://problem/10819384 - implicit conversion precision loss */
 	ssize_t nread;
 	int from_fd, to_fd;
+#else
+	int nread, from_fd, to_fd;
+	struct stat tsb;
+#endif
 
 	if ((from_fd = open(from, O_RDONLY, 0)) < 0) {
 		warn("fastcopy: open() failed (from): %s", from);
 		return (1);
 	}
-	if (blen < sbp->st_blksize) {
-		if (bp != NULL)
-			free(bp);
-		if ((bp = malloc((size_t)sbp->st_blksize)) == NULL) {
-			blen = 0;
-			warnx("malloc failed");
-			return (1);
-		}
-		blen = sbp->st_blksize;
+	if (bp == NULL && (bp = malloc((size_t)blen)) == NULL) {
+		warnx("malloc(%u) failed", blen);
+		(void)close(from_fd);
+		return (1);
 	}
 	while ((to_fd =
 	    open(to, O_CREAT | O_EXCL | O_TRUNC | O_WRONLY, 0)) < 0) {
@@ -400,7 +442,6 @@ err:		if (unlink(to))
 		     to, from);
 	}
 #endif
-	(void)close(from_fd);
 
 	oldmode = sbp->st_mode & ALLPERMS;
 	if (fchown(to_fd, sbp->st_uid, sbp->st_gid)) {
@@ -415,6 +456,15 @@ err:		if (unlink(to))
 	}
 	if (fchmod(to_fd, sbp->st_mode))
 		warn("%s: set mode (was: 0%03o)", to, oldmode);
+#ifndef __APPLE__
+	/*
+	 * POSIX 1003.2c states that if _POSIX_ACL_EXTENDED is in effect
+	 * for dest_file, then its ACLs shall reflect the ACLs of the
+	 * source_file.
+	 */
+	preserve_fd_acls(from_fd, to_fd, from, to);
+#endif
+	(void)close(from_fd);
 	/*
 	 * XXX
 	 * NFS doesn't support chflags; ignore errors unless there's reason
@@ -422,15 +472,28 @@ err:		if (unlink(to))
 	 * if the server supports flags and we were trying to *remove* flags
 	 * on a file that we copied, i.e., that we didn't create.)
 	 */
-	errno = 0;
+#ifdef __APPLE__
 	if (fchflags(to_fd, (u_int)sbp->st_flags))
 		if (errno != ENOTSUP || sbp->st_flags != 0)
 			warn("%s: set flags (was: 0%07o)", to, sbp->st_flags);
+#else
+	if (fstat(to_fd, &tsb) == 0) {
+		if ((sbp->st_flags  & ~UF_ARCHIVE) !=
+		    (tsb.st_flags & ~UF_ARCHIVE)) {
+			if (fchflags(to_fd,
+			    sbp->st_flags | (tsb.st_flags & UF_ARCHIVE)))
+				if (errno != EOPNOTSUPP ||
+				    ((sbp->st_flags & ~UF_ARCHIVE) != 0))
+					warn("%s: set flags (was: 0%07o)",
+					    to, sbp->st_flags);
+		}
+	} else
+		warn("%s: cannot stat", to);
+#endif
 
-	tval[0].tv_sec = sbp->st_atime;
-	tval[1].tv_sec = sbp->st_mtime;
-	tval[0].tv_usec = tval[1].tv_usec = 0;
-	if (utimes(to, tval))
+	ts[0] = sbp->st_atim;
+	ts[1] = sbp->st_mtim;
+	if (futimens(to_fd, ts))
 		warn("%s: set times", to);
 
 	if (close(to_fd)) {
@@ -450,9 +513,26 @@ err:		if (unlink(to))
 static int
 copy(const char *from, const char *to)
 {
+	struct stat sb;
 	int pid, status;
-	
-	/* posix_spawn cp from to && rm from */
+
+	if (lstat(to, &sb) == 0) {
+		/* Destination path exists. */
+		if (S_ISDIR(sb.st_mode)) {
+			if (rmdir(to) != 0) {
+				warn("rmdir %s", to);
+				return (1);
+			}
+		} else {
+			if (unlink(to) != 0) {
+				warn("unlink %s", to);
+				return (1);
+			}
+		}
+	} else if (errno != ENOENT) {
+		warn("%s", to);
+		return (1);
+	}
 
 	/* Copy source to destination. */
 	if (!(pid = vfork())) {
@@ -508,12 +588,67 @@ copy(const char *from, const char *to)
 	return (0);
 }
 
+#ifndef __APPLE__
+static void
+preserve_fd_acls(int source_fd, int dest_fd, const char *source_path,
+    const char *dest_path)
+{
+	acl_t acl;
+	acl_type_t acl_type;
+	int acl_supported = 0, ret, trivial;
+
+	ret = fpathconf(source_fd, _PC_ACL_NFS4);
+	if (ret > 0 ) {
+		acl_supported = 1;
+		acl_type = ACL_TYPE_NFS4;
+	} else if (ret < 0 && errno != EINVAL) {
+		warn("fpathconf(..., _PC_ACL_NFS4) failed for %s",
+		    source_path);
+		return;
+	}
+	if (acl_supported == 0) {
+		ret = fpathconf(source_fd, _PC_ACL_EXTENDED);
+		if (ret > 0 ) {
+			acl_supported = 1;
+			acl_type = ACL_TYPE_ACCESS;
+		} else if (ret < 0 && errno != EINVAL) {
+			warn("fpathconf(..., _PC_ACL_EXTENDED) failed for %s",
+			    source_path);
+			return;
+		}
+	}
+	if (acl_supported == 0)
+		return;
+
+	acl = acl_get_fd_np(source_fd, acl_type);
+	if (acl == NULL) {
+		warn("failed to get acl entries for %s", source_path);
+		return;
+	}
+	if (acl_is_trivial_np(acl, &trivial)) {
+		warn("acl_is_trivial() failed for %s", source_path);
+		acl_free(acl);
+		return;
+	}
+	if (trivial) {
+		acl_free(acl);
+		return;
+	}
+	if (acl_set_fd_np(dest_fd, acl, acl_type) < 0) {
+		warn("failed to set acl entries for %s", dest_path);
+		acl_free(acl);
+		return;
+	}
+	acl_free(acl);
+}
+#endif
+
 static void
 usage(void)
 {
 
 	(void)fprintf(stderr, "%s\n%s\n",
-		      "usage: mv [-f | -i | -n] [-v] source target",
+		      "usage: mv [-f | -i | -n] [-hv] source target",
 		      "       mv [-f | -i | -n] [-v] source ... directory");
 	exit(EX_USAGE);
 }

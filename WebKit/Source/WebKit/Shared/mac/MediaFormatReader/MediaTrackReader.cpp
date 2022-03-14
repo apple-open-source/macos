@@ -28,17 +28,18 @@
 
 #if ENABLE(WEBM_FORMAT_READER)
 
+#include "Logging.h"
 #include "MediaFormatReader.h"
 #include "MediaSampleByteRange.h"
 #include "MediaSampleCursor.h"
 #include <WebCore/AudioTrackPrivate.h>
 #include <WebCore/InbandTextTrackPrivate.h>
-#include <WebCore/Logging.h>
 #include <WebCore/MediaDescription.h>
 #include <WebCore/SampleMap.h>
 #include <WebCore/VideoTrackPrivate.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <wtf/LoggerHelper.h>
+#include <wtf/NeverDestroyed.h>
 #include <wtf/WorkQueue.h>
 
 #include <pal/cocoa/MediaToolboxSoftLink.h>
@@ -66,8 +67,8 @@ RefPtr<MediaTrackReader> MediaTrackReader::create(Allocator&& allocator, const M
 
 WorkQueue& MediaTrackReader::storageQueue()
 {
-    static auto& queue = WorkQueue::create("WebKit::MediaTrackReader Storage Queue", WorkQueue::Type::Serial).leakRef();
-    return queue;
+    static NeverDestroyed<Ref<WorkQueue>> queue = WorkQueue::create("WebKit::MediaFormatReader Queue");
+    return queue.get();
 }
 
 MediaTrackReader::MediaTrackReader(Allocator&& allocator, const MediaFormatReader& formatReader, CMMediaType mediaType, uint64_t trackID, std::optional<bool> enabled)
@@ -233,7 +234,7 @@ OSStatus MediaTrackReader::createCursorAtLastSampleInDecodeOrder(MTPluginSampleC
 
 WTFLogChannel& MediaTrackReader::logChannel() const
 {
-    return WebCore::LogMedia;
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 
 const void* MediaTrackReader::nextSampleCursorLogIdentifier(uint64_t cursorID) const

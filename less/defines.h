@@ -84,7 +84,7 @@
 #define	PIPEC		(!SECURE)
 
 /*
- * LOGFILE is 1 if you wish to allow the -l option (to create log files).
+ * LOGFILE is 1 if you wish to allow the -o option (to create log files).
  */
 #define	LOGFILE		(!SECURE)
 
@@ -135,6 +135,11 @@
 #define TGETENT_OK  1
 
 /*
+ * HAVE_ANSI_PROTOS	is 1 if your compiler supports ANSI function prototypes.
+ */
+#define HAVE_ANSI_PROTOS	1
+
+/*
  * HAVE_SYS_TYPES_H is 1 if your system has <sys/types.h>.
  */
 #define HAVE_SYS_TYPES_H 1
@@ -163,7 +168,7 @@
 /*
  * Default shell metacharacters and meta-escape character.
  */
-#define	DEF_METACHARS	"; *?\t\n'\"()<>[]|&^`#\\$%=~"
+#define	DEF_METACHARS	"; *?\t\n'\"()<>[]|&^`#\\$%=~{},"
 #define	DEF_METAESCAPE	"\\"
 
 /* 
@@ -220,20 +225,17 @@
 /* Define HAVE_FILENO if you have the fileno() macro. */
 #define HAVE_FILENO 1
 
+/* Define HAVE_FLOAT if your compiler supports the "double" type. */
+#define HAVE_FLOAT 1
+
 /* Define to 1 if you have the `fsync' function. */
 #define HAVE_FSYNC 1
 
+/* GNU regex library */
+/* #undef HAVE_GNU_REGEX */
+
 /* Define to 1 if you have the <inttypes.h> header file. */
 #define HAVE_INTTYPES_H 1
-
-/* Define to 1 if you have the `gen' library (-lgen). */
-/* #undef HAVE_LIBGEN */
-
-/* Define to 1 if you have the `intl' library (-lintl). */
-/* #undef HAVE_LIBINTL */
-
-/* Define to 1 if you have the `PW' library (-lPW). */
-/* #undef HAVE_LIBPW */
 
 /* Define to 1 if you have the <limits.h> header file. */
 #define HAVE_LIMITS_H 1
@@ -244,17 +246,29 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
+/* Define to 1 if you have the `nanosleep' function. */
+#define HAVE_NANOSLEEP 1
+
 /* Define HAVE_OSPEED if your termcap library has the ospeed variable. */
 #define HAVE_OSPEED 1
 
 /* PCRE (Perl-compatible regular expression) library */
 /* #undef HAVE_PCRE */
 
+/* PCRE2 (Perl-compatible regular expression) library */
+/* #undef HAVE_PCRE2 */
+
+/* Define to 1 if you have the `poll' function. */
+#define HAVE_POLL 1
+
 /* Define to 1 if you have the `popen' function. */
 #define HAVE_POPEN 1
 
 /* POSIX regcomp() and regex.h */
 #define HAVE_POSIX_REGCOMP 1
+
+/* Define to 1 if you have the `realpath' function. */
+#define HAVE_REALPATH 1
 
 /* System V regcmp() */
 /* #undef HAVE_REGCMP */
@@ -340,11 +354,17 @@
 /* Define HAVE_TIME_T if your system supports the "time_t" type. */
 #define HAVE_TIME_T 1
 
+/* Define to 1 if you have the `ttyname' function. */
+#define HAVE_TTYNAME 1
+
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1
 
 /* Define HAVE_UPPER_LOWER if you have isupper, islower, toupper, tolower. */
 #define HAVE_UPPER_LOWER 1
+
+/* Define to 1 if you have the `usleep' function. */
+#define HAVE_USLEEP 1
 
 /* Henry Spencer V8 regcomp() and regexp.h */
 /* #undef HAVE_V8_REGCOMP */
@@ -386,6 +406,9 @@
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "less"
+
+/* Define to the home page for this package. */
+/* #undef PACKAGE_URL */
 
 /* Define to the version of this package. */
 #define PACKAGE_VERSION "1"

@@ -44,8 +44,7 @@ void pas_bitfit_page_construct(pas_bitfit_page* page,
 
     config = *config_ptr;
     
-    PAS_ASSERT(pas_page_kind_get_config_kind(config.base.page_kind)
-               == pas_page_config_kind_bitfit);
+    PAS_ASSERT(config.base.page_config_kind == pas_page_config_kind_bitfit);
 
     pas_lock_assert_held(&view->ownership_lock);
 
@@ -54,7 +53,7 @@ void pas_bitfit_page_construct(pas_bitfit_page* page,
                 page, view, pas_bitfit_page_config_kind_get_string(config.kind));
     }
 
-    pas_page_base_construct(&page->base, config.base.page_kind);
+    pas_page_base_construct(&page->base, pas_page_kind_for_bitfit_variant(config.variant));
 
     page->use_epoch = PAS_EPOCH_INVALID;
 
@@ -104,9 +103,8 @@ void pas_bitfit_page_construct(pas_bitfit_page* page,
         
         /* If there are any bytes in the page not made available for allocation then make sure
            that the use counts know about it. */
-        start_of_payload = config.base.page_object_payload_offset;
-        end_of_payload =
-            config.base.page_object_payload_offset + config.base.page_object_payload_size;
+        start_of_payload = config.page_object_payload_offset;
+        end_of_payload = config.page_object_payload_offset + config.page_object_payload_size;
 
         pas_page_granule_increment_uses_for_range(
             use_counts, 0, start_of_payload,
@@ -179,7 +177,7 @@ PAS_NO_RETURN void pas_bitfit_page_deallocation_did_fail(
     const char* reason)
 {
     pas_start_crash_logging();
-    pas_log("Thread %p encountered bitfit alloaction error.\n", pthread_self());
+    pas_log("Thread %p encountered bitfit alloaction error.\n", (void*)pthread_self());
     pas_log("Bits for page %p (%s):\n",
             page, pas_bitfit_page_config_kind_get_string(config_kind));
     pas_bitfit_page_log_bits(page, offset, offset + 1);
@@ -300,9 +298,8 @@ void pas_bitfit_page_verify(pas_bitfit_page* page)
     data.boundary = (uintptr_t)pas_bitfit_page_boundary(page, config);
     pas_zero_memory(data.my_use_counts, PAS_MAX_GRANULES);
     
-    start_of_payload = config.base.page_object_payload_offset;
-    end_of_payload =
-        config.base.page_object_payload_offset + config.base.page_object_payload_size;
+    start_of_payload = config.page_object_payload_offset;
+    end_of_payload = config.page_object_payload_offset + config.page_object_payload_size;
     
     pas_page_granule_increment_uses_for_range(
         data.my_use_counts, 0, start_of_payload,

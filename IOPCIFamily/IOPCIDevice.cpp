@@ -94,7 +94,6 @@ mach_vm_protect(
 #define super IOService
 
 OSDefineMetaClassAndStructors(IOPCIDevice, IOService)
-OSMetaClassDefineReservedUnused(IOPCIDevice,  3);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  4);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  5);
 OSMetaClassDefineReservedUnused(IOPCIDevice,  6);
@@ -549,6 +548,24 @@ IOReturn IOPCIDevice::setPCIPowerState(uint8_t powerState, uint32_t options)
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+IOReturn IOPCIDevice::addPowerChild(IOService *theChild)
+{
+#if TARGET_CPU_ARM || TARGET_CPU_ARM64
+    IOPCIHostBridgeData *vars = parent->reserved->hostBridgeData;
+    vars->addPCIEPowerChild(theChild);
+#endif
+    return super::addPowerChild(theChild);
+}
+
+IOReturn IOPCIDevice::removePowerChild(IOPowerConnection *theChild)
+{
+#if TARGET_CPU_ARM || TARGET_CPU_ARM64
+    IOPCIHostBridgeData *vars = parent->reserved->hostBridgeData;
+    vars->removePCIEPowerChild(theChild);
+#endif
+	return super::removePowerChild(theChild);
+}
+
 void IOPCIDevice::updateWakeReason(uint16_t pmeState)
 {
     OSNumber * num;
@@ -753,36 +770,42 @@ IOReturn IOPCIDevice::getResources( void )
 UInt32 IOPCIDevice::configRead32( IOPCIAddressSpace _space,
                                   UInt8 offset )
 {
+	if (!parent) return (0xFFFFFFFF);
     return (parent->configRead32(_space, offset));
 }
 
 void IOPCIDevice::configWrite32( IOPCIAddressSpace _space,
                                  UInt8 offset, UInt32 data )
 {
+	if (!parent) return;
     parent->configWrite32( _space, offset, data );
 }
 
 UInt16 IOPCIDevice::configRead16( IOPCIAddressSpace _space,
                                   UInt8 offset )
 {
+	if (!parent) return (0xFFFF);
     return (parent->configRead16(_space, offset));
 }
 
 void IOPCIDevice::configWrite16( IOPCIAddressSpace _space,
                                  UInt8 offset, UInt16 data )
 {
+	if (!parent) return;
     parent->configWrite16( _space, offset, data );
 }
 
 UInt8 IOPCIDevice::configRead8( IOPCIAddressSpace _space,
                                 UInt8 offset )
 {
+	if (!parent) return (0xFF);
     return (parent->configRead8(_space, offset));
 }
 
 void IOPCIDevice::configWrite8( IOPCIAddressSpace _space,
                                 UInt8 offset, UInt8 data )
 {
+	if (!parent) return;
     parent->configWrite8( _space, offset, data );
 }
 
@@ -792,8 +815,9 @@ bool IOPCIDevice::configAccess(bool write)
 {
 	bool ok = (!isInactive()
 			&& reserved
+			&& parent
 			&& (0 == ((write ? VM_PROT_WRITE : VM_PROT_READ) & reserved->configProt)));
-	if (!ok && !ml_at_interrupt_context())
+	if (!ok && !ml_at_interrupt_context() && (gIOPCIFlags & kIOPCIConfiguratorIOLog))
 	{
 		OSReportWithBacktrace("config protect fail(2) for device %u:%u:%u\n",
 								PCI_ADDRESS_TUPLE(this));
@@ -919,10 +943,15 @@ UInt32 IOPCIDevice::setConfigBits( UInt8 reg, UInt32 mask, UInt32 value )
     return (was);
 }
 
+bool IOPCIDevice::setBusLeadEnable( bool enable )
+{
+    return (0 != setConfigBits(kIOPCIConfigCommand, kIOPCICommandBusLead,
+                               enable ? kIOPCICommandBusLead : 0));
+}
+
 bool IOPCIDevice::setBusMasterEnable( bool enable )
 {
-    return (0 != setConfigBits(kIOPCIConfigCommand, kIOPCICommandBusMaster,
-                               enable ? kIOPCICommandBusMaster : 0));
+    return setBusLeadEnable(enable);
 }
 
 bool IOPCIDevice::setMemoryEnable( bool enable )
@@ -1339,6 +1368,54 @@ OSObject* IOPCIDevice::getProperty(const OSSymbol * aKey) const
 }
 
 IOReturn
+IOPCIDevice::configureInterrupts(UInt32 interruptType, UInt32 numRequired, UInt32 numRequested, IOOptionBits options)
+{
+    IOReturn       ret = kIOReturnBadArgument;
+
+    if ((numRequired < 1) || (numRequested < 1) || !!options) return ret;
+    IORecursiveLockLock(reserved->lock);
+    if (reserved->interruptVectorsResolved) // TODO add cleanup support on numRequired == 0 (if needed).
+    {
+        IORecursiveLockUnlock(reserved->lock);
+        return kIOReturnUnsupported;
+    }
+    reserved->interruptVectorsResolved = 1;
+    switch (interruptType)
+    {
+    case kIOInterruptTypeLevel:
+        ret = parent->resolveLegacyInterrupts(parent->getProvider(), this);
+        break;
+    case kIOInterruptTypePCIMessaged:
+        if (reserved->msiMode & kMSIX)
+        {
+            IOByteCount capa = 0;
+            extendedFindPCICapability(kIOPCIMSICapability, &capa);
+            if (!capa) break;
+            reserved->msiMode &= ~kMSIX;
+            reserved->msiCapability = capa;
+        }
+        ret = parent->resolveMSIInterrupts(parent->getProvider(), this, numRequired, numRequested);
+        break;
+    case kIOInterruptTypePCIMessagedX:
+        if (~reserved->msiMode & kMSIX)
+        {
+            IOByteCount capa = 0;
+            extendedFindPCICapability(kIOPCIMSIXCapability, &capa);
+            if (!capa) break;
+            reserved->msiMode |= kMSIX;
+            reserved->msiCapability = capa;
+        }
+        ret = parent->resolveMSIInterrupts(parent->getProvider(), this, numRequired, numRequested);
+    }
+    if (ret)
+    {
+        reserved->interruptVectorsResolved = 0;
+    }
+    IORecursiveLockUnlock(reserved->lock);
+    return ret;
+}
+
+IOReturn
 IOPCIDevice::setProperties(OSObject * properties)
 {
     IOReturn       ret = kIOReturnUnsupported;
@@ -1484,17 +1561,17 @@ bool IOPCIDevice::handleOpen(IOService * forClient, IOOptionBits options, void *
 
 void IOPCIDevice::handleClose(IOService * forClient, IOOptionBits options)
 {
-    if (isOpen(forClient) == true)
+    if ((forClient != NULL) && (isOpen(forClient) == true))
     {
         if ((reserved->sessionOptions & kIOPCISessionOptionDriverkit) != 0)
         {
             reserved->offloadEngineMMIODisable = 0;
-            // Driverkit either called close or crashed. Turn off bus mastering to prevent any further DMAs
+            // Driverkit either called close or crashed. Turn off bus leading to prevent any further DMAs
             uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
-            if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
+            if ((command & (kIOPCICommandBusLead | kIOPCICommandMemorySpace)) != 0)
             {
-                DLOG("IOPCIDevice::handleClose: disabling memory and bus mastering for client %s\n", (forClient) ? forClient->getName() : "unknown");
-                extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+                DLOG("IOPCIDevice::handleClose: disabling memory and bus leading for client %s\n", (forClient) ? forClient->getName() : "unknown");
+                extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusLead | kIOPCICommandMemorySpace));
             }
         }
         
@@ -1980,13 +2057,7 @@ IMPL(IOPCIDevice, _ManageSession)
 
 kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t options)
 {
-    // disable bus mastering early, ref: rdar://74099674
-    uint16_t command = extendedConfigRead16(kIOPCIConfigurationOffsetCommand);
-    if ((command & (kIOPCICommandBusMaster | kIOPCICommandMemorySpace)) != 0)
-    {
-        DLOG("IOPCIDevice::ClientCrashed_Impl disabling memory and bus mastering for client %s\n", (client) ? client->getName() : "unknown");
-        extendedConfigWrite16(kIOPCIConfigurationOffsetCommand, command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
-    }
+	DLOG("IOPCIDevice::ClientCrashed_Impl() for client %s\n", (client) ? client->getName() : "unknown");
 
     // only reset the device if the driver potentially changed the state of the device
     if(isOpen(client) == true)
@@ -1997,12 +2068,18 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
               getName(),
               PCI_ADDRESS_TUPLE(this));
 
+        IOReturn ret = parent->terminateChild(this);
+        if (ret == kIOReturnNoDevice)
+        {
+            return kIOReturnSuccess;
+        }
+
         thread_call_t threadCall = thread_call_allocate(OSMemberFunctionCast(thread_call_func_t,
                                                                              this,
                                                                              &IOPCIDevice::clientCrashedThreadCall),
                                                         this);
 
-        // threadcall because terminating in this context can deadlock
+        // threadcall because waiting for termination in this context can deadlock
         if(threadCall != NULL)
         {
             retain();
@@ -2015,33 +2092,20 @@ kern_return_t IOPCIDevice::ClientCrashed_Impl(IOService *client, uint64_t option
             }
         }
     }
+	else
+	{
+        IOLog("%s: PCIDriverKit client, %s, did not open device %s[%u:%u:%u], skipping recovery\n",
+              __PRETTY_FUNCTION__,
+              (client != NULL) ? client->getName() : "unknown",
+              getName(),
+              PCI_ADDRESS_TUPLE(this));
+	}
 
     return kIOReturnSuccess;
 }
 
 IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
 {
-    // TODO:
-    // perform hot-reset either by doing a secondary reset on the downstream bridge
-    // or disabling the link and re-enabling it
-
-    // terminate the IOPCIDevice and all its functions
-    OSIterator* peerIterator =  parent->getChildIterator(gIOServicePlane);
-    OSObject*   peer         =  NULL;
-    while (   (peerIterator != NULL)
-           && ((peer = peerIterator->getNextObject()) != NULL))
-    {
-        IOPCIDevice* pciPeer = OSDynamicCast(IOPCIDevice, peer);
-        if (   (pciPeer != NULL)
-            && (pciPeer->isInactive() == false))
-        {
-            DLOG("%s Terminating device %u:%u:%u\n", __PRETTY_FUNCTION__, PCI_ADDRESS_TUPLE(pciPeer));
-            // terminate the IOPCIDevices
-            pciPeer->terminate();
-        }
-    }
-    OSSafeReleaseNULL(peerIterator);
-
     IOPCIDevice* bridgeDevice = OSDynamicCast(IOPCIDevice, parent->getParentEntry(gIOServicePlane));
     if (bridgeDevice != NULL)
     {
@@ -2065,7 +2129,7 @@ IOReturn IOPCIDevice::clientCrashedThreadCall(thread_call_t threadCall)
 kern_return_t
 IMPL(IOPCIDevice, _MemoryAccess)
 {
-    if (isOpen(forClient) == false)
+    if ((forClient == NULL) || (isOpen(forClient) == false))
     {
         DLOG("IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
         return kIOReturnNotOpen;
@@ -2286,7 +2350,7 @@ IMPL(IOPCIDevice, _MemoryAccess)
 kern_return_t
 IMPL(IOPCIDevice, _CopyDeviceMemoryWithIndex)
 {
-    if (isOpen(forClient) == false)
+    if ((forClient == NULL) || (isOpen(forClient) == false))
     {
         DLOG("IOPCIDevice::%s: device not open for client %s\n", __FUNCTION__, (forClient != NULL) ? forClient->getName() : "unknown client");
         return kIOReturnNotOpen;
@@ -2462,6 +2526,14 @@ IMPL(IOPCIDevice, GetBARInfo)
     }
 
     return result;
+}
+
+#pragma mark Interrupts Allocation
+
+kern_return_t
+IMPL(IOPCIDevice, ConfigureInterrupts)
+{
+    return configureInterrupts(interruptType, numRequired, numRequested, options);
 }
 
 #endif

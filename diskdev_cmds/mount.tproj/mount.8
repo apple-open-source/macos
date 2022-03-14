@@ -39,13 +39,13 @@
 .Nd mount file systems
 .Sh SYNOPSIS
 .Nm mount
-.Op Fl adfruvw
+.Op Fl adfrkuvw
 .Op Fl t Ar lfs | external_type
 .Nm mount
-.Op Fl dfruvw
+.Op Fl dfrkuvw
 .Ar special | mount_point
 .Nm mount
-.Op Fl dfruvw
+.Op Fl dfrkuvw
 .Op Fl o Ar options
 .Op Fl t Ar lfs | external_type
 .Ar special mount_point
@@ -94,6 +94,10 @@ command is trying to do.
 .It Fl f
 Forces the revocation of write access when trying to downgrade
 a filesystem mount status from read-write to read-only.
+.It Fl k
+In the course of the mount system call, the kernel should not follow
+any symlinks that may be present in the provided mount-on directory.
+
 .It Fl o
 Options are specified with a
 .Fl o
@@ -170,6 +174,12 @@ by the filesystem.
 .It nobrowse
 This option indicates that the mount point should not be visible
 via the GUI (i.e., appear on the Desktop as a separate volume).
+.It nofollow
+This option indicates that in the course of the mount system call,
+the kernel should not follow any symlinks that may be present in the provided
+mount-on directory. This is the same as the
+.Fl k
+option.
 .El
 .Pp
 Any additional options specific to a filesystem type that is not

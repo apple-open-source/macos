@@ -12,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -33,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)join.1	8.3 (Berkeley) 4/28/95
-.\" $FreeBSD: src/usr.bin/join/join.1,v 1.20 2005/02/13 22:25:23 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd July 5, 2004
+.Dd June 20, 2020
 .Dt JOIN 1
 .Os
 .Sh NAME
@@ -49,8 +45,8 @@
 .Op Fl e Ar string
 .Op Fl o Ar list
 .Op Fl t Ar char
-.Op Fl \&1 Ar field
-.Op Fl \&2 Ar field
+.Op Fl 1 Ar field
+.Op Fl 2 Ar field
 .Ar file1
 .Ar file2
 .Sh DESCRIPTION
@@ -98,8 +94,8 @@ option specifies the fields that will be output from each file for
 each line with matching join fields.
 Each element of
 .Ar list
-has the either the form
-.Ql file_number.field ,
+has either the form
+.Ar file_number . Ns Ar field ,
 where
 .Ar file_number
 is a file number and
@@ -127,18 +123,20 @@ Do not display the default output, but display a line for each unpairable
 line in file
 .Ar file_number .
 The options
-.Fl v Ar 1
+.Fl v Cm 1
 and
-.Fl v Ar 2
+.Fl v Cm 2
 may be specified at the same time.
 .It Fl 1 Ar field
 Join on the
 .Ar field Ns 'th
-field of file 1.
+field of
+.Ar file1 .
 .It Fl 2 Ar field
 Join on the
 .Ar field Ns 'th
-field of file 2.
+field of
+.Ar file2 .
 .El
 .Pp
 When the default field delimiter characters are used, the files to be joined
@@ -162,10 +160,82 @@ If one of the arguments
 or
 .Ar file2
 is
-.Dq - ,
+.Sq Fl ,
 the standard input is used.
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Assuming a file named
+.Pa nobel_laureates.txt
+with information about some of the first Nobel Peace Prize laureates:
+.Bd -literal -offset indent
+1901,Jean Henri Dunant,M
+1901,Frederic Passy,M
+1902,Elie Ducommun,M
+1905,Baroness Bertha Sophie Felicita Von Suttner,F
+1910,Permanent International Peace Bureau,
+.Ed
+.Pp
+and a second file
+.Pa nobel_nationalities.txt
+with their nationalities:
+.Bd -literal -offset indent
+Jean Henri Dunant,Switzerland
+Frederic Passy,France
+Elie Ducommun,Switzerland
+Baroness Bertha Sophie Felicita Von Suttner
+.Ed
+.Pp
+Join the two files using the second column from first file and the default first
+column from second file specifying a custom field delimiter:
+.Bd -literal -offset indent
+$ join -t, -1 2 nobel_laureates.txt nobel_nationalities.txt
+Jean Henri Dunant,1901,M,Switzerland
+Frederic Passy,1901,M,France
+Elie Ducommun,1902,M,Switzerland
+Baroness Bertha Sophie Felicita Von Suttner,1905,F
+.Ed
+.Pp
+Show only the year and the nationality of the laureate using
+.Ql <<NULL>>
+to replace empty fields:
+.Bd -literal -offset indent
+$ join -e "<<NULL>>" -t, -1 2 -o "1.1 2.2" nobel_laureates.txt nobel_nationalities.txt
+1901,Switzerland
+1901,France
+1902,Switzerland
+1905,<<NULL>>
+.Ed
+.Pp
+Show only lines from first file which do not have a match in second file:
+.Bd -literal -offset indent
+$ join -v1 -t, -1 2 nobel_laureates.txt nobel_nationalities.txt
+Permanent International Peace Bureau,1910,
+.Ed
+.Pp
+Assuming a file named
+.Pa capitals.txt
+with the following content:
+.Bd -literal -offset indent
+Belgium,Brussels
+France,Paris
+Italy,Rome
+Switzerland
+.Ed
+.Pp
+Show the name and capital of the country where the laureate was born.
+This example uses
+.Pa nobel_nationalities.txt
+as a bridge but does not show any information from that file.
+Also see the note about
+.Xr sort 1
+above to understand why we need to sort the intermediate result.
+.Bd -literal -offset indent
+$ join -t, -1 2 -o 1.2 2.2 nobel_laureates.txt nobel_nationalities.txt | \e
+    sort -k2 -t, | join -t, -e "<<NULL>>" -1 2 -o 1.1 2.2 - capitals.txt
+Elie Ducommun,<<NULL>>
+Jean Henri Dunant,<<NULL>>
+.Ed
 .Sh COMPATIBILITY
 For compatibility with historic versions of
 .Nm ,
@@ -173,19 +243,27 @@ the following options are available:
 .Bl -tag -width indent
 .It Fl a
 In addition to the default output, produce a line for each unpairable line
-in both file 1 and file 2.
+in both
+.Ar file1
+and
+.Ar file2 .
 .It Fl j1 Ar field
 Join on the
 .Ar field Ns 'th
-field of file 1.
+field of
+.Ar file1 .
 .It Fl j2 Ar field
 Join on the
 .Ar field Ns 'th
-field of file 2.
+field of
+.Ar file2 .
 .It Fl j Ar field
 Join on the
 .Ar field Ns 'th
-field of both file 1 and file 2.
+field of both
+.Ar file1
+and
+.Ar file2 .
 .It Fl o Ar list ...
 Historical implementations of
 .Nm
@@ -193,39 +271,23 @@ permitted multiple arguments to the
 .Fl o
 option.
 These arguments were of the form
-.Ql file_number.field_number
+.Ar file_number . Ns Ar field_number
 as described
 for the current
 .Fl o
 option.
 This has obvious difficulties in the presence of files named
-.Ql 1.2 .
+.Pa 1.2 .
 .El
 .Pp
-These options are available only
-so historic shell scripts do not require modification.
-They should not be used in new code.
-.Sh LEGACY DESCRIPTION
-The
-.Fl e
-option causes a specified string to be substituted into empty fields,
-even if they are in the middle of a line.
-In legacy mode,
-the substitution only takes place at the end of a line.
-.Pp
-Only documented options are allowed.
-In legacy mode,
-some obsolete options are re-written into current options.
-.Pp
-For more information about legacy mode, see
-.Xr compat 5 .
+These options are available only so historic shell scripts do not require
+modification and should not be used.
 .Sh SEE ALSO
 .Xr awk 1 ,
 .Xr comm 1 ,
 .Xr paste 1 ,
 .Xr sort 1 ,
-.Xr uniq 1 ,
-.Xr compat 5
+.Xr uniq 1
 .Sh STANDARDS
 The
 .Nm

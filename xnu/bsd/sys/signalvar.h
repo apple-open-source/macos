@@ -177,6 +177,14 @@ int sigprop[NSIG] = {
  * Machine-independent functions:
  */
 
+#if DEVELOPMENT || DEBUG
+extern bool no_sigsys;
+#define send_sigsys (!no_sigsys)
+#else
+#define send_sigsys 1
+#endif
+
+
 void    execsigs(struct proc *p, thread_t thread);
 void    gsignal(int pgid, int sig);
 int     issignal_locked(struct proc *p);

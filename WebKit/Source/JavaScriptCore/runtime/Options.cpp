@@ -354,8 +354,8 @@ static void overrideDefaults()
 
 #if PLATFORM(MAC) && CPU(ARM64)
     Options::numberOfGCMarkers() = 4;
-    Options::numberOfDFGCompilerThreads() = 2;
-    Options::numberOfFTLCompilerThreads() = 2;
+    Options::numberOfDFGCompilerThreads() = 3;
+    Options::numberOfFTLCompilerThreads() = 3;
 #endif
 
 #if USE(BMALLOC_MEMORY_FOOTPRINT_API)
@@ -434,8 +434,6 @@ void Options::recomputeDependentOptions()
     Options::useConcurrentGC() = false;
 #endif
 
-    if (!isARM64())
-        Options::useDataIC() = false;
     if (!Options::useDataIC())
         Options::useDataICInOptimizingJIT() = false;
 
@@ -554,9 +552,6 @@ void Options::recomputeDependentOptions()
         Options::randomIntegrityAuditRate() = 0;
     else if (Options::randomIntegrityAuditRate() > 1.0)
         Options::randomIntegrityAuditRate() = 1.0;
-    
-    if (Options::usePrivateMethods())
-        Options::usePrivateClassFields() = true;
 
     if (!Options::allowUnsupportedTiers()) {
 #define DISABLE_TIERS(option, flags, ...) do { \
@@ -570,9 +565,6 @@ void Options::recomputeDependentOptions()
 
         FOR_EACH_JSC_EXPERIMENTAL_OPTION(DISABLE_TIERS);
     }
-
-    if (Options::usePrivateStaticClassFields())
-        Options::usePrivateClassFields() = true;
 
     if (Options::verboseVerifyGC())
         Options::verifyGC() = true;

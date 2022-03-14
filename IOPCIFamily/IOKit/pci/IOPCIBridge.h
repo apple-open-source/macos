@@ -52,6 +52,50 @@ enum {
     kIOPCIResourceTypeCount          = 4,
 };
 
+// Adapter hotplug states
+enum {
+    kIOPCIAdapterPresent           = 0,
+    // Summary: Adapter present, slot powered, power indicator on
+    // Transitions:
+    //     -> kIOPCIAdapterHotRemovePending: Attn Button pressed
+
+    kIOPCIAdapterHotAddPending     = 1,
+    // Summary: Adapter present, slot not powered, power indicator blinking. 5s
+    //          "abort interval" timer started.
+    // Transitions:
+    //    -> kIOPCIAdapterPresent: 5s elapses. Power controller turned.
+    //    -> kIOPCIAdapterNotPresent: Attention button pressed again before 5s
+    //       elapses. Timer cancelled.
+
+    kIOPCIAdapterNotPresent        = 2,
+    // Summary: Adapter not present, slot not powered, power indicator off
+    // Transitions:
+    //   -> kIOPCIAdapterHotAddPending: Attn Button pressed
+
+    kIOPCIAdapterHotRemovePending  = 3,
+    // Summary: Adapter present, slot powered, power indicator blinking. 5s
+    //          "abort interval" timer started.
+    // Transitions:
+    //   -> kIOPCIAdapterNotPresentPending: 5s elapses. nub terminated and
+    //      power controller turned off. Another timer set for 1s.
+    //   -> kIOPCIAdapterPresent: Attention button pressed again before 5s
+    //      elapses. Timer cancelled.
+
+    kIOPCIAdapterNotPresentPending = 4,
+    // Summary: Adapter not present, slot not powered, power indicator blinking.
+    //          1s timer started.
+    //
+    // In this state, software must 1 second before turning off the
+    // power indicator or attempting to turn on the power controller.
+    // (PCIe base spec sec 6.7.1.8 ("Power Controller"))
+    // Transitions:
+    //   -> kIOPCIAdapterNotPresent: 1s timer elapses, turn off power
+    //      indicator, allow hotplugs.
+
+    kIOPCIAdapterUnused            = 5,
+    // Summary: Adapter hotplug not supported.
+};
+
 typedef struct
 {
     IOService * device;
@@ -103,7 +147,7 @@ private:
 
     IOReturn resolveInterrupts(IOPCIDevice * nub );
     IOReturn resolveLegacyInterrupts( IOService * provider, IOPCIDevice * nub );
-    IOReturn resolveMSIInterrupts   ( IOService * provider, IOPCIDevice * nub );
+    IOReturn resolveMSIInterrupts   ( IOService * provider, IOPCIDevice * nub, UInt32 numRequired = 0, UInt32 numRequested = 0 );
 
     IOReturn relocate(IOPCIDevice * device, uint32_t options);
     void spaceFromProperties( IORegistryEntry * regEntry,
@@ -138,6 +182,8 @@ protected:
         IOPCIMessagedInterruptController *messagedInterruptController;
         IOPCIHostBridgeData *hostBridgeData;
         atomic_bool readyToProbe;
+        bool commandCompletedSupport;
+        bool commandSent;
     };
 
 /*! @var reserved
@@ -252,30 +298,30 @@ public:
 
     /* * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
-    virtual IOReturn createAGPSpace( IOAGPDevice * master,
+    virtual IOReturn createAGPSpace( IOAGPDevice * lead,
                                      IOOptionBits options,
                                      IOPhysicalAddress * address, 
                                      IOPhysicalLength * length );
 
-    virtual IOReturn destroyAGPSpace( IOAGPDevice * master );
+    virtual IOReturn destroyAGPSpace( IOAGPDevice * lead );
 
-    virtual IORangeAllocator * getAGPRangeAllocator( IOAGPDevice * master );
+    virtual IORangeAllocator * getAGPRangeAllocator( IOAGPDevice * lead );
 
-    virtual IOOptionBits getAGPStatus( IOAGPDevice * master,
+    virtual IOOptionBits getAGPStatus( IOAGPDevice * lead,
                                        IOOptionBits options = 0 );
-    virtual IOReturn resetAGPDevice( IOAGPDevice * master,
+    virtual IOReturn resetAGPDevice( IOAGPDevice * lead,
                                      IOOptionBits options = 0 );
 
-    virtual IOReturn getAGPSpace( IOAGPDevice * master,
+    virtual IOReturn getAGPSpace( IOAGPDevice * lead,
                                   IOPhysicalAddress * address, 
                                   IOPhysicalLength * length );
 
-    virtual IOReturn commitAGPMemory( IOAGPDevice * master, 
+    virtual IOReturn commitAGPMemory( IOAGPDevice * lead, 
                                       IOMemoryDescriptor * memory,
                                       IOByteCount agpOffset,
                                       IOOptionBits options );
 
-    virtual IOReturn releaseAGPMemory(  IOAGPDevice * master, 
+    virtual IOReturn releaseAGPMemory(  IOAGPDevice * lead, 
                                         IOMemoryDescriptor * memory, 
                                         IOByteCount agpOffset,
                                         IOOptionBits options );
@@ -361,6 +407,14 @@ protected:
 #endif
 
 private:
+	IOReturn terminateChild(IOPCIDevice *child);
+	IOReturn terminateChildGated(IOPCIDevice *child);
+	void hotReset(IOPCIDevice *child);
+
+protected:
+    void slotControlWrite(IOPCIDevice *device, uint16_t data, uint16_t mask);
+
+private:
     void probeBusGated( probeBusParams *params );
 };
 
@@ -379,6 +433,7 @@ protected:
 private:
     IOPCIDevice *                  fBridgeDevice;
     IOTimerEventSource *           fTimerProbeES;
+    IOTimerEventSource *           fAttnButtonTimer;
     IOWorkLoop *                   fWorkLoop;
     IOPMDriverAssertionID          fPMAssertion;
     IOSimpleLock *                 fISRLock;
@@ -402,6 +457,7 @@ private:
     uint8_t                        fNoDevice;
     uint8_t                        fLinkControlWithPM;
     uint8_t                        fPowerState;
+    uint8_t                        fAdapterState;
     char                           fLogName[32];
 ;
 
@@ -447,6 +503,10 @@ public:
                             IOService * whatDevice ) override;
 
     void adjustPowerState(unsigned long state);
+
+    virtual IOReturn addPowerChild( IOService * theChild ) override;
+
+    virtual IOReturn removePowerChild( IOPowerConnection * theChild ) override;
 
     virtual IOReturn saveDeviceState( IOPCIDevice * device,
                                       IOOptionBits options = 0 ) override;
@@ -503,6 +563,10 @@ public:
     void handleInterrupt( IOInterruptEventSource * source,
                              int                      count );
     void timerProbe(IOTimerEventSource * es);
+
+private:
+    void attnButtonTimer(IOTimerEventSource * es);
+    IOReturn attnButtonHandlerFinish(thread_call_t threadCall);
 };
 __exported_pop
 

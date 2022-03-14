@@ -33,10 +33,6 @@
 #include <stdio.h>
 #include <wtf/StdLibExtras.h>
 
-#if PLATFORM(MAC)
-#include "ImportanceAssertion.h"
-#endif
-
 namespace IPC {
 
 static const uint8_t* copyBuffer(const uint8_t* buffer, size_t bufferSize)
@@ -94,16 +90,6 @@ Decoder::Decoder(const uint8_t* buffer, size_t bufferSize, void (*bufferDealloca
         return;
 }
 
-Decoder::Decoder(const uint8_t* buffer, size_t bufferSize, ConstructWithoutHeaderTag)
-    : m_buffer { buffer }
-    , m_bufferPos { m_buffer }
-    , m_bufferEnd { m_buffer + bufferSize }
-    , m_bufferDeallocator([] (const uint8_t*, size_t) { })
-{
-    if (UNLIKELY(reinterpret_cast<uintptr_t>(m_buffer) % alignof(uint64_t)))
-        markInvalid();
-}
-
 Decoder::Decoder(const uint8_t* stream, size_t streamSize, uint64_t destinationID)
     : m_buffer { stream }
     , m_bufferPos { m_buffer }
@@ -157,11 +143,7 @@ std::unique_ptr<Decoder> Decoder::unwrapForTesting(Decoder& decoder)
 {
     ASSERT(decoder.isSyncMessage());
 
-    Vector<Attachment> attachments;
-    Attachment attachment;
-    while (decoder.removeAttachment(attachment))
-        attachments.append(WTFMove(attachment));
-    attachments.reverse();
+    auto attachments = std::exchange(decoder.m_attachments, { });
 
     DataReference wrappedMessage;
     if (!decoder.decode(wrappedMessage))
@@ -228,13 +210,11 @@ const uint8_t* Decoder::decodeFixedLengthReference(size_t size, size_t alignment
     return data;
 }
 
-bool Decoder::removeAttachment(Attachment& attachment)
+std::optional<Attachment> Decoder::takeLastAttachment()
 {
     if (m_attachments.isEmpty())
-        return false;
-
-    attachment = m_attachments.takeLast();
-    return true;
+        return std::nullopt;
+    return m_attachments.takeLast();
 }
 
 } // namespace IPC

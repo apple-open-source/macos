@@ -12,7 +12,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/cksum/crc32.c,v 1.9 2003/03/13 23:32:28 robert Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -101,7 +101,7 @@ int
 crc32(int fd, uint32_t *cval, off_t *clen)
 {
     uint32_t lcrc = ~0;
-    ssize_t nr;
+    int nr ;
     off_t len ;
     char buf[BUFSIZ], *p ;
 	

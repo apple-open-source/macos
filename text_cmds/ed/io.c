@@ -26,12 +26,9 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/ed/io.c,v 1.14 2003/01/01 18:48:39 schweikh Exp $");
+__FBSDID("$FreeBSD$");
 
 #include "ed.h"
-
-
-extern int scripted;
 
 /* read_file: read a named file/pipe into the buffer; return line count */
 long
@@ -39,29 +36,31 @@ read_file(char *fn, long n)
 {
 	FILE *fp;
 	long size;
-
+	int cs;
 
 	fp = (*fn == '!') ? popen(fn + 1, "r") : fopen(strip_escapes(fn), "r");
 	if (fp == NULL) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
 		errmsg = "cannot open input file";
 		return ERR;
-	} else if ((size = read_stream(fp, n)) < 0)
-		return ERR;
-	 else if (((*fn == '!') ?  pclose(fp) : fclose(fp)) < 0) {
+	}
+	if ((size = read_stream(fp, n)) < 0) {
+		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
+		errmsg = "error reading input file";
+	}
+	if ((cs = (*fn == '!') ?  pclose(fp) : fclose(fp)) < 0) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
 		errmsg = "cannot close input file";
-		return ERR;
 	}
-	fprintf(stdout, !scripted ? "%lu\n" : "", size);
+	if (size < 0 || cs < 0)
+		return ERR;
+	if (!scripted)
+		fprintf(stdout, "%lu\n", size);
 	return current_addr - n;
 }
 
-
-extern int des;
-
-char *sbuf;			/* file i/o buffer */
-int sbufsz;			/* file i/o buffer size */
+static char *sbuf;		/* file i/o buffer */
+static int sbufsz;		/* file i/o buffer size */
 int newline_added;		/* if set, newline appended to input file */
 
 /* read_stream: read a stream into the editor buffer; return status */
@@ -77,8 +76,6 @@ read_stream(FILE *fp, long n)
 	int len;
 
 	isbinary = newline_added = 0;
-	if (des)
-		init_des_cipher();
 	for (current_addr = n; (len = get_stream_line(fp)) > 0; size += len) {
 		SPL1();
 		if (put_sbuf_line(sbuf) == NULL) {
@@ -107,8 +104,6 @@ read_stream(FILE *fp, long n)
 		newline_added = 1;
 	newline_added = appended ? newline_added : o_newline_added;
 	isbinary = isbinary | o_isbinary;
-	if (des)
-		size += 8 - size % 8;			/* adjust DES size */
 	return size;
 }
 
@@ -120,8 +115,8 @@ get_stream_line(FILE *fp)
 	int c;
 	int i = 0;
 
-	while (((c = des ? get_des_char(fp) : getc(fp)) != EOF || (!feof(fp) &&
-	    !ferror(fp))) && c != '\n') {
+	while (((c = getc(fp)) != EOF || (!feof(fp) && !ferror(fp))) &&
+	    c != '\n') {
 		REALLOC(sbuf, sbufsz, i + 1, ERR);
 		if (!(sbuf[i++] = c))
 			isbinary = 1;
@@ -148,20 +143,26 @@ write_file(char *fn, const char *mode, long n, long m)
 {
 	FILE *fp;
 	long size;
+	int cs;
 
 	fp = (*fn == '!') ? popen(fn+1, "w") : fopen(strip_escapes(fn), mode);
 	if (fp == NULL) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
 		errmsg = "cannot open output file";
 		return ERR;
-	} else if ((size = write_stream(fp, n, m)) < 0)
-		return ERR;
-	 else if (((*fn == '!') ?  pclose(fp) : fclose(fp)) < 0) {
+	}
+	if ((size = write_stream(fp, n, m)) < 0) {
+		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
+		errmsg = "error writing output file";
+	}
+	if ((cs = (*fn == '!') ?  pclose(fp) : fclose(fp)) < 0) {
 		fprintf(stderr, "%s: %s\n", fn, strerror(errno));
 		errmsg = "cannot close output file";
-		return ERR;
 	}
-	fprintf(stdout, !scripted ? "%lu\n" : "", size);
+	if (size < 0 || cs < 0)
+		return ERR;
+	if (!scripted)
+		fprintf(stdout, "%lu\n", size);
 	return n ? m - n + 1 : 0;
 }
 
@@ -175,8 +176,6 @@ write_stream(FILE *fp, long n, long m)
 	char *s;
 	int len;
 
-	if (des)
-		init_des_cipher();
 	for (; n && n <= m; n++, lp = lp->q_forw) {
 		if ((s = get_sbuf_line(lp)) == NULL)
 			return ERR;
@@ -187,10 +186,6 @@ write_stream(FILE *fp, long n, long m)
 			return ERR;
 		size += len;
 	}
-	if (des) {
-		flush_des_file(fp);			/* flush buffer */
-		size += 8 - size % 8;			/* adjust DES size */
-	}
 	return size;
 }
 
@@ -200,7 +195,7 @@ int
 put_stream_line(FILE *fp, const char *s, int len)
 {
 	while (len--)
-		if ((des ? put_des_char(*s++, fp) : fputc(*s++, fp)) < 0) {
+		if (fputc(*s++, fp) < 0) {
 			fprintf(stderr, "%s\n", strerror(errno));
 			errmsg = "cannot write file";
 			return ERR;
@@ -296,14 +291,12 @@ get_tty_line(void)
 #define ESCAPES "\a\b\f\n\r\t\v\\"
 #define ESCCHARS "abfnrtv\\"
 
-extern int rows;
-extern int cols;
-
 /* put_tty_line: print text to stdout */
 int
 put_tty_line(const char *s, int l, long n, int gflag)
 {
 	int col = 0;
+	int lc = 0;
 	char *cp;
 
 	if ((gflag & GNP) && !(gflag & GINT)) {
@@ -314,6 +307,18 @@ put_tty_line(const char *s, int l, long n, int gflag)
 		if ((gflag & GLS) && ++col > cols) {
 			fputs("\\\n", stdout);
 			col = 1;
+#ifndef __APPLE__
+/* Removed as part of rdar://problem/3751351 */
+#ifndef BACKWARDS
+			if (!scripted && !isglobal && ++lc > rows) {
+				lc = 0;
+				fputs("Press <RETURN> to continue... ", stdout);
+				fflush(stdout);
+				if (get_tty_line() < 0)
+					return ERR;
+			}
+#endif
+#endif
 		}
 		if (gflag & GLS) {
 			if (31 < *s && *s < 127 && *s != '\\')
@@ -334,8 +339,14 @@ put_tty_line(const char *s, int l, long n, int gflag)
 		} else
 			putchar(*s);
 	}
-	if (posixly_correct && (gflag & GLS) && !(gflag & GINT))
+#ifndef BACKWARDS
+#ifdef __APPLE__
+	if ((gflag & GLS) && !(gflag & GINT))
+#else
+	if (gflag & GLS)
+#endif
 		putchar('$');
+#endif
 	putchar('\n');
 	return 0;
 }

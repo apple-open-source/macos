@@ -28,12 +28,12 @@
 #if ENABLE(WEBGL)
 
 #include "GraphicsContextGLAttributes.h"
+#include "GraphicsLayerContentsDisplayDelegate.h"
 #include "GraphicsTypesGL.h"
 #include "Image.h"
 #include "IntRect.h"
 #include "IntSize.h"
 #include "MediaPlayer.h"
-#include "PlatformLayer.h"
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
 #include <wtf/text/WTFString.h>
@@ -341,7 +341,6 @@ public:
     static constexpr GCGLenum RGB5_A1 = 0x8057;
     static constexpr GCGLenum RGB565 = 0x8D62;
     static constexpr GCGLenum DEPTH_COMPONENT16 = 0x81A5;
-    static constexpr GCGLenum STENCIL_INDEX = 0x1901;
     static constexpr GCGLenum STENCIL_INDEX8 = 0x8D48;
     static constexpr GCGLenum RENDERBUFFER_WIDTH = 0x8D42;
     static constexpr GCGLenum RENDERBUFFER_HEIGHT = 0x8D43;
@@ -787,7 +786,7 @@ public:
         Yes
     };
 
-    virtual PlatformLayer* platformLayer() const = 0;
+    virtual RefPtr<GraphicsLayerContentsDisplayDelegate> layerContentsDisplayDelegate() = 0;
 
     ALWAYS_INLINE static bool hasAlpha(DataFormat format)
     {
@@ -898,7 +897,8 @@ public:
 
     class Client {
     public:
-        virtual ~Client() { }
+        WEBCORE_EXPORT Client();
+        WEBCORE_EXPORT virtual ~Client();
         virtual void didComposite() = 0;
         virtual void forceContextLost() = 0;
         virtual void recycleContext() = 0;
@@ -911,12 +911,8 @@ public:
         GCGLint size;
     };
 
-    // Creates a GraphicsContextGL instance to render into offscreen destination in context of HostWindow.
-    // HostWindow might affect the decision which backend is to be used.
-    WEBCORE_EXPORT static RefPtr<GraphicsContextGL> create(const GraphicsContextGLAttributes&, HostWindow*);
-
-    GraphicsContextGL(GraphicsContextGLAttributes);
-    virtual ~GraphicsContextGL() = default;
+    WEBCORE_EXPORT GraphicsContextGL(GraphicsContextGLAttributes);
+    WEBCORE_EXPORT virtual ~GraphicsContextGL();
 
     void addClient(Client& client) { m_clients.add(&client); }
     void removeClient(Client& client) { m_clients.remove(&client); }
@@ -1275,14 +1271,14 @@ public:
     virtual void prepareForDisplay() = 0;
 
     // FIXME: should be removed, caller should keep track of changed state.
-    virtual void markContextChanged() = 0;
+    WEBCORE_EXPORT virtual void markContextChanged();
 
     // FIXME: these should be removed, caller is interested in buffer clear status and
     // should track that in a variable that the caller holds. Caller should receive
     // the value from reshape() and didComposite().
-    virtual bool layerComposited() const = 0;
-    virtual void setBuffersToAutoClear(GCGLbitfield) = 0;
-    virtual GCGLbitfield getBuffersToAutoClear() const = 0;
+    bool layerComposited() const;
+    void setBuffersToAutoClear(GCGLbitfield);
+    GCGLbitfield getBuffersToAutoClear() const;
 
     // FIXME: these should be removed, they're part of drawing buffer and
     // display buffer abstractions that the caller should hold separate to
@@ -1297,7 +1293,7 @@ public:
     // FIXME: this should be removed. The layer should be marked composited by
     // preparing for display, so that canvas image buffer and the layer agree
     // on the content.
-    virtual void markLayerComposited() = 0;
+    WEBCORE_EXPORT void markLayerComposited();
 
     enum class SimulatedEventForTesting {
         ContextChange,
@@ -1315,11 +1311,6 @@ public:
 #endif
 
     IntSize getInternalFramebufferSize() const { return IntSize(m_currentWidth, m_currentHeight); }
-
-    static unsigned getClearBitsByAttachmentType(GCGLenum);
-    static unsigned getClearBitsByFormat(GCGLenum);
-
-    static uint8_t getChannelBitsByFormat(GCGLenum);
 
     struct PixelStoreParams final {
         GCGLint alignment { 4 };
@@ -1360,14 +1351,22 @@ public:
     // Returns true upon success.
     static bool packImageData(Image*, const void* pixels, GCGLenum format, GCGLenum type, bool flipY, AlphaOp, DataFormat sourceFormat, unsigned sourceImageWidth, unsigned sourceImageHeight, const IntRect& sourceImageSubRectangle, int depth, unsigned sourceUnpackAlignment, int unpackImageHeight, Vector<uint8_t>& data);
 
+    WEBCORE_EXPORT static void paintToCanvas(const GraphicsContextGLAttributes&, PixelBuffer&&, const IntSize& canvasSize, GraphicsContext&);
 protected:
     int m_currentWidth { 0 };
     int m_currentHeight { 0 };
     HashSet<Client*> m_clients;
+    // A bitmask of GL buffer bits (GL_COLOR_BUFFER_BIT,
+    // GL_DEPTH_BUFFER_BIT, GL_STENCIL_BUFFER_BIT) which need to be
+    // auto-cleared.
+    GCGLbitfield m_buffersToAutoClear { 0 };
+    bool m_layerComposited { false };
 
 private:
     GraphicsContextGLAttributes m_attrs;
 };
+
+WEBCORE_EXPORT RefPtr<GraphicsContextGL> createWebProcessGraphicsContextGL(const GraphicsContextGLAttributes&);
 
 inline GCGLfloat GraphicsContextGL::getFloat(GCGLenum pname)
 {

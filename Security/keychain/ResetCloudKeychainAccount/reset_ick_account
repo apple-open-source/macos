@@ -11,6 +11,9 @@ parser = argparse.ArgumentParser(description='Reset your iCloud Keychain account
 parser.add_argument('--noprompt', action='store_true', help='do not prompt to continue after verifying passwords/passcode')
 parser.add_argument('icloudpassword', nargs='?', help='iCloud password')
 parser.add_argument('passcode', nargs='?', help='passcode or password of the local device')
+
+parser.add_argument('--mk', action='store_true', help='after resetting account, register a recovery key')
+
 args = parser.parse_args()
 
 if not args.icloudpassword:
@@ -240,3 +243,21 @@ for x in range(0,15):
     time.sleep(5)
 
 print("Success: Reset Complete. Please resolve CFUs on your other devices.")
+
+if args.mk:
+    print("Attempting to generate and register a recovery key...")
+    try:
+        rk_gen_output = subprocess.run(["cdptool", "rk", "--gen"], capture_output=True, check=True).stdout
+    except subprocess.CalledProcessError as error:
+        print("Exception caught generating recovery key.")
+        print("stderr: %s" % (error.stderr))
+        print("stdout: %s" % (error.stdout))
+        sys.exit(1)
+    except:
+        print("Exception caught generating recovery key.")
+        print("Exception follows:")
+        raise
+
+    rk_gen_string_output = rk_gen_output.decode("utf-8")
+    rk_gen_string_output.split('\n')
+    print(rk_gen_string_output)

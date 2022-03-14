@@ -13,7 +13,7 @@
 0755	501	501	private/var/mobile/Library/Application Support
 0700	501	501	private/var/mobile/Library/Caches
 0700	501	501	private/var/mobile/Library/Cookies
-0755	501	501	private/var/mobile/Library/ExternalAccessory
+0775	501	286	private/var/mobile/Library/ExternalAccessory
 0700	501	501	private/var/mobile/Library/Keyboard
 0775	501	250	private/var/mobile/Library/Logs
 0775	501	250	private/var/mobile/Library/Logs/CrashReporter

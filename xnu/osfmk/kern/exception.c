@@ -162,6 +162,9 @@ exception_init(void)
 #endif /* (DEVELOPMENT || DEBUG) */
 }
 
+static TUNABLE(bool, pac_replace_ptrs_user, "-pac_replace_ptrs_user", false);
+static TUNABLE(bool, pac_replace_ts_user, "-pac_replace_ts_user", false);
+
 /*
  *	Routine:	exception_deliver
  *	Purpose:
@@ -185,6 +188,7 @@ exception_deliver(
 {
 	ipc_port_t              exc_port = IPC_PORT_NULL;
 	exception_data_type_t   small_code[EXCEPTION_CODE_MAX];
+	thread_state_t          new_state = NULL;
 	int                     code64;
 	int                     behavior;
 	int                     flavor;
@@ -290,36 +294,51 @@ exception_deliver(
 
 	switch (behavior) {
 	case EXCEPTION_STATE: {
-		mach_msg_type_number_t state_cnt;
-		thread_state_data_t state;
+		mach_msg_type_number_t old_state_cnt, new_state_cnt;
+		thread_state_data_t old_state;
+		thread_set_status_flags_t flags = TSSF_CHECK_USER_FLAGS;
+
+		if (pac_replace_ptrs_user) {
+			flags |= TSSF_ALLOW_ONLY_USER_PTRS;
+		}
+		if (pac_replace_ts_user) {
+			flags |= TSSF_ALLOW_ONLY_USER_STATE;
+		}
 
 		c_thr_exc_raise_state++;
-		state_cnt = _MachineStateCount[flavor];
+		old_state_cnt = _MachineStateCount[flavor];
 		kr = thread_getstatus_to_user(thread, flavor,
-		    (thread_state_t)state,
-		    &state_cnt);
+		    (thread_state_t)old_state,
+		    &old_state_cnt);
+		new_state_cnt = old_state_cnt;
 		if (kr == KERN_SUCCESS) {
+			new_state = (thread_state_t)kalloc_data(sizeof(thread_state_data_t), Z_WAITOK | Z_ZERO);
+			if (new_state == NULL) {
+				kr = KERN_RESOURCE_SHORTAGE;
+				goto out_release_right;
+			}
 			if (code64) {
 				kr = mach_exception_raise_state(exc_port,
 				    exception,
 				    code,
 				    codeCnt,
 				    &flavor,
-				    state, state_cnt,
-				    state, &state_cnt);
+				    old_state, old_state_cnt,
+				    new_state, &new_state_cnt);
 			} else {
 				kr = exception_raise_state(exc_port, exception,
 				    small_code,
 				    codeCnt,
 				    &flavor,
-				    state, state_cnt,
-				    state, &state_cnt);
+				    old_state, old_state_cnt,
+				    new_state, &new_state_cnt);
 			}
 			if (kr == KERN_SUCCESS) {
 				if (exception != EXC_CORPSE_NOTIFY) {
 					kr = thread_setstatus_from_user(thread, flavor,
-					    (thread_state_t)state,
-					    state_cnt);
+					    (thread_state_t)new_state, new_state_cnt,
+					    (thread_state_t)old_state, old_state_cnt,
+					    flags);
 				}
 				goto out_release_right;
 			}
@@ -366,15 +385,30 @@ exception_deliver(
 	}
 
 	case EXCEPTION_STATE_IDENTITY: {
-		mach_msg_type_number_t state_cnt;
-		thread_state_data_t state;
+		mach_msg_type_number_t old_state_cnt, new_state_cnt;
+		thread_state_data_t old_state;
+		thread_set_status_flags_t flags = TSSF_CHECK_USER_FLAGS;
+
+		if (pac_replace_ptrs_user) {
+			flags |= TSSF_ALLOW_ONLY_USER_PTRS;
+		}
+
+		if (pac_replace_ts_user) {
+			flags |= TSSF_ALLOW_ONLY_USER_STATE;
+		}
 
 		c_thr_exc_raise_state_id++;
-		state_cnt = _MachineStateCount[flavor];
+		old_state_cnt = _MachineStateCount[flavor];
 		kr = thread_getstatus_to_user(thread, flavor,
-		    (thread_state_t)state,
-		    &state_cnt);
+		    (thread_state_t)old_state,
+		    &old_state_cnt);
+		new_state_cnt = old_state_cnt;
 		if (kr == KERN_SUCCESS) {
+			new_state = (thread_state_t)kalloc_data(sizeof(thread_state_data_t), Z_WAITOK | Z_ZERO);
+			if (new_state == NULL) {
+				kr = KERN_RESOURCE_SHORTAGE;
+				goto out_release_right;
+			}
 			if (code64) {
 				kr = mach_exception_raise_state_identity(
 					exc_port,
@@ -384,8 +418,8 @@ exception_deliver(
 					code,
 					codeCnt,
 					&flavor,
-					state, state_cnt,
-					state, &state_cnt);
+					old_state, old_state_cnt,
+					new_state, &new_state_cnt);
 			} else {
 				kr = exception_raise_state_identity(exc_port,
 				    thread_port,
@@ -394,15 +428,15 @@ exception_deliver(
 				    small_code,
 				    codeCnt,
 				    &flavor,
-				    state, state_cnt,
-				    state, &state_cnt);
+				    old_state, old_state_cnt,
+				    new_state, &new_state_cnt);
 			}
 
 			if (kr == KERN_SUCCESS) {
 				if (exception != EXC_CORPSE_NOTIFY) {
 					kr = thread_setstatus_from_user(thread, flavor,
-					    (thread_state_t)state,
-					    state_cnt);
+					    (thread_state_t)new_state, new_state_cnt,
+					    (thread_state_t)old_state, old_state_cnt, flags);
 				}
 				goto out_release_right;
 			}
@@ -432,6 +466,10 @@ out_release_right:
 
 	if (task_token_port) {
 		ipc_port_release_send(task_token_port);
+	}
+
+	if (new_state) {
+		kfree_data(new_state, sizeof(thread_state_data_t));
 	}
 
 	return kr;
@@ -636,12 +674,14 @@ exception_triage(
 	thread_t thread = current_thread();
 	task_t   task   = current_task();
 
+	assert(codeCnt > 0);
+
 	if (VM_MAP_PAGE_SIZE(task->map) < PAGE_SIZE) {
 		DEBUG4K_EXC("thread %p task %p map %p exception %d codes 0x%llx 0x%llx\n",
-		    thread, task, task->map, exception, code[0], code[1]);
+		    thread, task, task->map, exception, code[0], codeCnt > 1 ? code[1] : 0);
 		if (debug4k_panic_on_exception) {
 			panic("DEBUG4K thread %p task %p map %p exception %d codes 0x%llx 0x%llx",
-			    thread, task, task->map, exception, code[0], code[1]);
+			    thread, task, task->map, exception, code[0], codeCnt > 1 ? code[1] : 0);
 		}
 	}
 
@@ -649,7 +689,8 @@ exception_triage(
 #ifdef MACH_BSD
 	if (proc_pid(task->bsd_info) <= exception_log_max_pid) {
 		printf("exception_log_max_pid: pid %d (%s): sending exception %d (0x%llx 0x%llx)\n",
-		    proc_pid(task->bsd_info), proc_name_address(task->bsd_info), exception, code[0], code[1]);
+		    proc_pid(task->bsd_info), proc_name_address(task->bsd_info),
+		    exception, code[0], codeCnt > 1 ? code[1] : 0);
 	}
 #endif /* MACH_BSD */
 #endif /* DEVELOPMENT || DEBUG */

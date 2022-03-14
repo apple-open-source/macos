@@ -23,8 +23,11 @@
  * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#if TARGET_OS_IPHONE
 #import "WKWebViewPrivateForTestingIOS.h"
+#else
 #import "WKWebViewPrivateForTestingMac.h"
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -111,6 +114,7 @@ struct WKAppPrivacyReportTestingData {
 - (void)_clearAppPrivacyReportTestingData:(void(^)(void))completionHandler;
 
 - (void)_createMediaSessionCoordinatorForTesting:(id <_WKMediaSessionCoordinator>)privateCoordinator completionHandler:(void(^)(BOOL))completionHandler;
+- (void)_gpuToWebProcessConnectionCountForTesting:(void(^)(NSUInteger))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 
 - (void)_isLayerTreeFrozenForTesting:(void (^)(BOOL frozen))completionHandler WK_API_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA));
 

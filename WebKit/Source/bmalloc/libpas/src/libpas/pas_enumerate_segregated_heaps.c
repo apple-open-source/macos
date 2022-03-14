@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2020-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -344,7 +344,8 @@ static bool enumerate_exclusive_view(pas_enumerator* enumerator,
         enumerator, (void*)page_boundary);
     PAS_ASSERT(page);
 
-    page = pas_enumerator_read(enumerator, page, pas_segregated_page_header_size(*page_config));
+    page = pas_enumerator_read(
+        enumerator, page, pas_segregated_page_header_size(*page_config, pas_segregated_page_exclusive_role));
     if (!page)
         return false;
 
@@ -404,7 +405,9 @@ static bool enumerate_shared_view(pas_enumerator* enumerator,
                 enumerator, (void*)page_boundary);
             PAS_ASSERT(page);
             
-            page = pas_enumerator_read(enumerator, page, pas_segregated_page_header_size(*page_config));
+            page = pas_enumerator_read(
+                enumerator, page,
+                pas_segregated_page_header_size(*page_config, pas_segregated_page_shared_role));
             if (!page)
                 return false;
         }
@@ -430,9 +433,10 @@ static bool enumerate_shared_view(pas_enumerator* enumerator,
         
         PAS_ASSERT(page);
         
-        payload_begin = pas_round_up_to_power_of_2(page_config->base.page_object_payload_offset,
+        payload_begin = pas_round_up_to_power_of_2(page_config->shared_payload_offset,
                                                    pas_segregated_page_config_min_align(*page_config));
-        payload_end = pas_segregated_page_config_object_payload_end_offset_from_boundary(*page_config);
+        payload_end = pas_segregated_page_config_payload_end_offset_for_role(
+            *page_config, pas_segregated_page_shared_role);
         
         record_page_payload_and_meta(enumerator,
                                      page_config,
@@ -481,7 +485,8 @@ static bool enumerate_partial_view(pas_enumerator* enumerator,
         enumerator, (void*)page_boundary);
     PAS_ASSERT(page);
     
-    page = pas_enumerator_read(enumerator, page, pas_segregated_page_header_size(*page_config));
+    page = pas_enumerator_read(
+        enumerator, page, pas_segregated_page_header_size(*page_config, pas_segregated_page_shared_role));
     if (!page)
         return false;
 
@@ -510,7 +515,11 @@ static bool enumerate_partial_view(pas_enumerator* enumerator,
     if (verbose)
         pas_log("Found allocator = %p\n", allocator);
 
-    full_alloc_bits.bits = pas_compact_tagged_unsigned_ptr_load_remote(enumerator, &view->alloc_bits);
+    /* This is so weird: the size we pass is only valid when view->alloc_bits is pointing at the
+       local_allocator's bits. But that's the only time that load_remote will go down the path where it needs
+       to know the size. So, it's fine, I guess. */
+    full_alloc_bits.bits = pas_lenient_compact_unsigned_ptr_load_remote(
+        enumerator, &view->alloc_bits, pas_segregated_page_config_num_alloc_bytes(*page_config));
     full_alloc_bits.word_index_begin = view->alloc_bits_offset;
     full_alloc_bits.word_index_end = view->alloc_bits_offset + view->alloc_bits_size;
     record_page_objects(
@@ -669,7 +678,8 @@ bool pas_enumerate_segregated_heaps(pas_enumerator* enumerator)
             return false;
 
         for (index = PAS_DEALLOCATION_LOG_SIZE; index--;) {
-            uintptr_t object = tlc->deallocation_log[index] >> PAS_SEGREGATED_PAGE_CONFIG_KIND_NUM_BITS;
+            uintptr_t object =
+                tlc->deallocation_log[index] >> PAS_SEGREGATED_PAGE_CONFIG_KIND_AND_ROLE_NUM_BITS;
             if (object) {
                 pas_ptr_hash_set_set(
                     &context.objects_in_deallocation_log, (void*)object,
@@ -716,17 +726,17 @@ bool pas_enumerate_segregated_heaps(pas_enumerator* enumerator)
                 layout_node = pas_compact_atomic_thread_local_cache_layout_node_load_remote(
                     enumerator, &cache_node->next);
 
-                allocator_index = UINT_MAX;
+                allocator_index = 0;
                 has_allocator = false;
             }
 
             if (has_allocator) {
                 pas_local_allocator* allocator;
                 
-                if (allocator_index >= tlc->allocator_index_upper_bound)
+                if (!allocator_index || allocator_index >= tlc->allocator_index_upper_bound)
                     break;
 
-                allocator = pas_thread_local_cache_get_local_allocator_impl(tlc, allocator_index);
+                allocator = pas_thread_local_cache_get_local_allocator_direct(tlc, allocator_index);
                 
                 consider_allocator(enumerator, &context, allocator);
             }

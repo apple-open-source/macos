@@ -238,6 +238,8 @@ public:
     void setLayerListMutationAllowed(bool flag) { m_layerListMutationAllowed = flag; }
 #endif
 
+    bool willCompositeClipPath() const;
+
 protected:
     void destroy();
 
@@ -511,7 +513,7 @@ public:
     void willRemoveChildWithBlendMode();
 #endif
 
-    const LayoutSize& offsetForInFlowPosition() const { return m_offsetForInFlowPosition; }
+    const LayoutSize& offsetForInFlowPosition() const { return m_offsetForPosition; }
 
     void clearClipRectsIncludingDescendants(ClipRectsType typeToClear = AllClipRectTypes);
     void clearClipRects(ClipRectsType typeToClear = AllClipRectTypes);
@@ -597,7 +599,7 @@ public:
     {
         // FIXME: This really needs to know if there are transforms on this layer and any of the layers
         // between it and the ancestor in question.
-        return !renderer().hasTransform() && !renderer().isSVGRoot();
+        return !renderer().hasTransform() && !renderer().isSVGRootOrLegacySVGRoot();
     }
 
     // FIXME: adjustForColumns allows us to position compositing layers in columns correctly, but eventually they need to be split across columns too.
@@ -714,11 +716,11 @@ public:
     void setRepaintStatus(RepaintStatus status) { m_repaintStatus = status; }
     RepaintStatus repaintStatus() const { return static_cast<RepaintStatus>(m_repaintStatus); }
 
-    LayoutUnit staticInlinePosition() const { return m_staticInlinePosition; }
-    LayoutUnit staticBlockPosition() const { return m_staticBlockPosition; }
+    LayoutUnit staticInlinePosition() const { return m_offsetForPosition.width(); }
+    LayoutUnit staticBlockPosition() const { return m_offsetForPosition.height(); }
    
-    void setStaticInlinePosition(LayoutUnit position) { m_staticInlinePosition = position; }
-    void setStaticBlockPosition(LayoutUnit position) { m_staticBlockPosition = position; }
+    void setStaticInlinePosition(LayoutUnit position) { m_offsetForPosition.setWidth(position); }
+    void setStaticBlockPosition(LayoutUnit position) { m_offsetForPosition.setHeight(position); }
 
     bool hasTransform() const { return renderer().hasTransform(); }
     // Note that this transform has the transform-origin baked in.
@@ -734,7 +736,7 @@ public:
     // Note that this transform has the perspective-origin baked in.
     TransformationMatrix perspectiveTransform(const LayoutRect& layerRect) const;
     FloatPoint perspectiveOrigin() const;
-    bool preserves3D() const { return renderer().style().transformStyle3D() == TransformStyle3D::Preserve3D; }
+    bool preserves3D() const { return renderer().style().preserves3D(); }
     bool has3DTransform() const { return m_transform && !m_transform->isAffine(); }
     bool hasTransformedAncestor() const { return m_hasTransformedAncestor; }
 
@@ -815,6 +817,12 @@ public:
     bool requiresFullLayerImageForFilters() const;
 
     Element* enclosingElement() const;
+
+    static Vector<RenderLayer*> topLayerRenderLayers(RenderView&);
+
+    bool establishesTopLayer() const;
+    void establishesTopLayerWillChange();
+    void establishesTopLayerDidChange();
 
     enum ViewportConstrainedNotCompositedReason {
         NoNotCompositedReason,
@@ -923,8 +931,7 @@ private:
 
     LayoutRect clipRectRelativeToAncestor(RenderLayer* ancestor, LayoutSize offsetFromAncestor, const LayoutRect& constrainingRect) const;
 
-    void clipToRect(GraphicsContext&, const LayerPaintingInfo&, OptionSet<PaintBehavior>, const ClipRect&, BorderRadiusClippingRule = IncludeSelfForBorderRadius);
-    void restoreClip(GraphicsContext&, const LayerPaintingInfo&, const ClipRect&);
+    void clipToRect(GraphicsContext&, GraphicsContextStateSaver&, EventRegionContextStateSaver&, const LayerPaintingInfo&, OptionSet<PaintBehavior>, const ClipRect&, BorderRadiusClippingRule = IncludeSelfForBorderRadius);
 
     bool shouldRepaintAfterLayout() const;
 
@@ -961,9 +968,9 @@ private:
 
     bool setupFontSubpixelQuantization(GraphicsContext&, bool& didQuantizeFonts);
 
-    Path computeClipPath(const LayoutSize& offsetFromRoot, LayoutRect& rootRelativeBounds, WindRule&) const;
+    std::pair<Path, WindRule> computeClipPath(const LayoutSize& offsetFromRoot, const LayoutRect& rootRelativeBoundsForNonBoxes) const;
 
-    bool setupClipPath(GraphicsContext&, const LayerPaintingInfo&, const LayoutSize& offsetFromRoot);
+    void setupClipPath(GraphicsContext&, GraphicsContextStateSaver&, const LayerPaintingInfo&, const LayoutSize& offsetFromRoot);
 
     void ensureLayerFilters();
     void clearLayerFilters();
@@ -1170,8 +1177,8 @@ private:
     // Only valid if m_repaintRectsValid is set (std::optional<> not used to avoid padding).
     LayerRepaintRects m_repaintRects;
 
-    // Our current relative position offset.
-    LayoutSize m_offsetForInFlowPosition;
+    // Our current relative or absolute position offset.
+    LayoutSize m_offsetForPosition;
 
     // Our (x,y) coordinates are in our parent layer's coordinate space.
     LayoutPoint m_topLeft;
@@ -1183,10 +1190,6 @@ private:
 
     Markable<ScrollingScope, IntegralMarkableTraits<ScrollingScope, 0>> m_boxScrollingScope;
     Markable<ScrollingScope, IntegralMarkableTraits<ScrollingScope, 0>> m_contentsScrollingScope;
-
-    // Cached normal flow values for absolute positioned elements with static left/top values.
-    LayoutUnit m_staticInlinePosition;
-    LayoutUnit m_staticBlockPosition;
 
     std::unique_ptr<TransformationMatrix> m_transform;
     

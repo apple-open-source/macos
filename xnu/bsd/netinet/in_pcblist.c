@@ -273,7 +273,7 @@ __private_extern__ int
 get_pcblist_n(short proto, struct sysctl_req *req, struct inpcbinfo *pcbinfo)
 {
 	int error = 0;
-	int i, n;
+	int i, n, sz;
 	struct inpcb *inp, **inp_list = NULL;
 	inp_gen_t gencnt;
 	struct xinpgen xig;
@@ -327,7 +327,7 @@ get_pcblist_n(short proto, struct sysctl_req *req, struct inpcbinfo *pcbinfo)
 	 * OK, now we're committed to doing something.
 	 */
 	gencnt = pcbinfo->ipi_gencnt;
-	n = pcbinfo->ipi_count;
+	n = sz = pcbinfo->ipi_count;
 
 	bzero(&xig, sizeof(xig));
 	xig.xig_len = sizeof(xig);
@@ -354,7 +354,7 @@ get_pcblist_n(short proto, struct sysctl_req *req, struct inpcbinfo *pcbinfo)
 		goto done;
 	}
 
-	inp_list = _MALLOC(n * sizeof(*inp_list), M_TEMP, M_WAITOK);
+	inp_list = kalloc_type(struct inpcb *, n, Z_WAITOK);
 	if (inp_list == NULL) {
 		error = ENOMEM;
 		goto done;
@@ -453,9 +453,8 @@ done:
 #if SKYWALK
 	nstat_userland_release_snapshot(userlandsnapshot, nuserland);
 #endif /* SKYWALK */
-	if (inp_list != NULL) {
-		FREE(inp_list, M_TEMP);
-	}
+
+	kfree_type(struct inpcb *, sz, inp_list);
 	if (buf != NULL) {
 		kfree_data(buf, item_size);
 	}

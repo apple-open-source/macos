@@ -55,11 +55,13 @@ assembler/MacroAssemblerARMv7.cpp
 assembler/MacroAssemblerCodeRef.cpp
 assembler/MacroAssemblerMIPS.cpp
 assembler/MacroAssemblerPrinter.cpp
+assembler/MacroAssemblerRISCV64.cpp
 assembler/MacroAssemblerX86Common.cpp
 assembler/PerfLog.cpp
 assembler/Printer.cpp
 assembler/ProbeContext.cpp
 assembler/ProbeStack.cpp
+assembler/SecureARM64EHashPins.cpp
 
 b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp
 b3/air/AirAllocateRegistersAndStackByLinearScan.cpp
@@ -132,6 +134,7 @@ b3/B3Effects.cpp
 b3/B3EliminateCommonSubexpressions.cpp
 b3/B3EliminateDeadCode.cpp
 b3/B3EnsureLoopPreHeaders.cpp
+b3/B3EstimateStaticExecutionCounts.cpp
 b3/B3ExtractValue.cpp
 b3/B3FenceValue.cpp
 b3/B3FixSSA.cpp
@@ -272,6 +275,7 @@ bytecode/PutByStatus.cpp
 bytecode/PutByVariant.cpp
 bytecode/RecordedStatuses.cpp
 bytecode/ReduceWhitespace.cpp
+bytecode/Repatch.cpp
 bytecode/SetPrivateBrandStatus.cpp
 bytecode/SetPrivateBrandVariant.cpp
 bytecode/SpeculatedType.cpp
@@ -447,17 +451,10 @@ dfg/DFGWatchpointCollectionPhase.cpp
 disassembler/ARM64Disassembler.cpp
 disassembler/CapstoneDisassembler.cpp
 disassembler/Disassembler.cpp
-disassembler/UDis86Disassembler.cpp
+disassembler/RISCV64Disassembler.cpp
 disassembler/X86Disassembler.cpp
 
 disassembler/ARM64/A64DOpcode.cpp
-
-disassembler/udis86/udis86.c
-disassembler/udis86/udis86_decode.c
-disassembler/udis86/udis86_itab_holder.c
-disassembler/udis86/udis86_syn-att.c
-disassembler/udis86/udis86_syn-intel.c
-disassembler/udis86/udis86_syn.c
 
 domjit/DOMJITAbstractHeap.cpp
 domjit/DOMJITHeapRange.cpp
@@ -618,6 +615,7 @@ interpreter/ShadowChicken.cpp
 interpreter/StackVisitor.cpp
 
 jit/AssemblyHelpers.cpp
+jit/BaselineJITCode.cpp
 jit/BaselineJITPlan.cpp
 jit/BinarySwitch.cpp
 jit/CCallHelpers.cpp
@@ -635,12 +633,10 @@ jit/IntrinsicEmitter.cpp
 jit/JIT.cpp
 jit/JITAddGenerator.cpp
 jit/JITArithmetic.cpp
-jit/JITArithmetic32_64.cpp
 jit/JITBitAndGenerator.cpp
 jit/JITBitOrGenerator.cpp
 jit/JITBitXorGenerator.cpp
 jit/JITCall.cpp
-jit/JITCall32_64.cpp
 jit/JITCode.cpp
 jit/JITCompilation.cpp
 jit/JITCompilationKey.cpp
@@ -658,7 +654,6 @@ jit/JITOpcodes32_64.cpp
 jit/JITOperations.cpp
 jit/JITPlan.cpp
 jit/JITPropertyAccess.cpp
-jit/JITPropertyAccess32_64.cpp
 jit/JITRightShiftGenerator.cpp
 jit/JITSafepoint.cpp
 jit/JITSizeStatistics.cpp
@@ -674,7 +669,6 @@ jit/Reg.cpp
 jit/RegisterAtOffset.cpp
 jit/RegisterAtOffsetList.cpp
 jit/RegisterSet.cpp
-jit/Repatch.cpp
 jit/ScratchRegisterAllocator.cpp
 jit/SetupVarargsFrame.cpp
 jit/SlowPathCall.cpp
@@ -834,11 +828,11 @@ runtime/IntlListFormatPrototype.cpp
 runtime/IntlLocale.cpp
 runtime/IntlLocaleConstructor.cpp
 runtime/IntlLocalePrototype.cpp
-runtime/IntlNumberFormat.cpp
+runtime/IntlNumberFormat.cpp @no-unify // Confine U_HIDE_DRAFT_API's effect in this file.
 runtime/IntlNumberFormatConstructor.cpp
 runtime/IntlNumberFormatPrototype.cpp
 runtime/IntlObject.cpp
-runtime/IntlPluralRules.cpp
+runtime/IntlPluralRules.cpp @no-unify // Confine U_HIDE_DRAFT_API's effect to this file.
 runtime/IntlPluralRulesConstructor.cpp
 runtime/IntlPluralRulesPrototype.cpp
 runtime/IntlRelativeTimeFormat.cpp
@@ -852,6 +846,7 @@ runtime/IntlSegmenterPrototype.cpp
 runtime/IntlSegments.cpp
 runtime/IntlSegmentsPrototype.cpp
 runtime/IntlWorkaround.cpp @no-unify // Confine U_HIDE_DRAFT_API's effect to this file.
+runtime/ISO8601.cpp
 runtime/IteratorOperations.cpp
 runtime/IteratorPrototype.cpp
 runtime/JSArray.cpp
@@ -967,6 +962,9 @@ runtime/ProxyConstructor.cpp
 runtime/ProxyObject.cpp
 runtime/ProxyRevoke.cpp
 runtime/RandomizingFuzzerAgent.cpp
+runtime/ShadowRealmObject.cpp
+runtime/ShadowRealmConstructor.cpp
+runtime/ShadowRealmPrototype.cpp
 runtime/ReflectObject.cpp
 runtime/RegExp.cpp
 runtime/RegExpCache.cpp
@@ -1009,8 +1007,23 @@ runtime/SymbolObject.cpp
 runtime/SymbolPrototype.cpp
 runtime/SymbolTable.cpp
 runtime/TemplateObjectDescriptor.cpp
+runtime/TemporalCalendar.cpp
+runtime/TemporalCalendarConstructor.cpp
+runtime/TemporalCalendarPrototype.cpp
+runtime/TemporalDuration.cpp
+runtime/TemporalDurationConstructor.cpp
+runtime/TemporalDurationPrototype.cpp
+runtime/TemporalInstant.cpp
+runtime/TemporalInstantConstructor.cpp
+runtime/TemporalInstantPrototype.cpp
 runtime/TemporalNow.cpp
 runtime/TemporalObject.cpp
+runtime/TemporalPlainTime.cpp
+runtime/TemporalPlainTimeConstructor.cpp
+runtime/TemporalPlainTimePrototype.cpp
+runtime/TemporalTimeZone.cpp
+runtime/TemporalTimeZoneConstructor.cpp
+runtime/TemporalTimeZonePrototype.cpp
 runtime/TestRunnerUtils.cpp
 runtime/ThrowScope.cpp
 runtime/TypeLocationCache.cpp
@@ -1053,16 +1066,16 @@ wasm/WasmB3IRGenerator.cpp
 wasm/WasmBBQPlan.cpp
 wasm/WasmBinding.cpp
 wasm/WasmCallee.cpp
+wasm/WasmCalleeGroup.cpp
 wasm/WasmCalleeRegistry.cpp
 wasm/WasmCallingConvention.cpp
-wasm/WasmCodeBlock.cpp
 wasm/WasmCompilationMode.cpp
 wasm/WasmContext.cpp
 wasm/WasmEmbedder.h
 wasm/WasmEntryPlan.cpp
 wasm/WasmFaultSignalHandler.cpp
 wasm/WasmFormat.cpp
-wasm/WasmFunctionCodeBlock.cpp
+wasm/WasmFunctionCodeBlockGenerator.cpp
 wasm/WasmGlobal.cpp
 wasm/WasmHandlerInfo.cpp
 wasm/WasmIndexOrName.cpp
@@ -1078,8 +1091,8 @@ wasm/WasmMemoryMode.cpp
 wasm/WasmModule.cpp
 wasm/WasmModuleInformation.cpp
 wasm/WasmNameSectionParser.cpp
-wasm/WasmOMGForOSREntryPlan.cpp
 wasm/WasmOMGPlan.cpp
+wasm/WasmOSREntryPlan.cpp
 wasm/WasmOpcodeOrigin.cpp
 wasm/WasmOperations.cpp
 wasm/WasmPageCount.cpp
@@ -1101,7 +1114,6 @@ wasm/js/JSToWasm.cpp
 wasm/js/JSToWasm.h
 wasm/js/JSToWasmICCallee.cpp
 wasm/js/JSWebAssembly.cpp
-wasm/js/JSWebAssemblyCodeBlock.cpp
 wasm/js/JSWebAssemblyCompileError.cpp
 wasm/js/JSWebAssemblyException.cpp
 wasm/js/JSWebAssemblyGlobal.cpp

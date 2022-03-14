@@ -724,7 +724,7 @@ UBool RegexMatcher::find(UErrorCode &status) {
             if  (findProgressInterrupt(startPos, status))
                 return FALSE;
         }
-        UPRV_UNREACHABLE;
+        UPRV_UNREACHABLE_EXIT;
 
     case START_START:
         // Matches are only possible at the start of the input string
@@ -772,7 +772,7 @@ UBool RegexMatcher::find(UErrorCode &status) {
                     return FALSE;
             }
         }
-        UPRV_UNREACHABLE;
+        UPRV_UNREACHABLE_EXIT;
 
     case START_STRING:
     case START_CHAR:
@@ -804,7 +804,7 @@ UBool RegexMatcher::find(UErrorCode &status) {
                     return FALSE;
            }
         }
-        UPRV_UNREACHABLE;
+        UPRV_UNREACHABLE_EXIT;
 
     case START_LINE:
         {
@@ -884,19 +884,15 @@ UBool RegexMatcher::find(UErrorCode &status) {
         }
 
     default:
-#if U_PLATFORM_IS_DARWIN_BASED
-        // Should never use UPRV_UNREACHABLE (unconditional abort) in
-        // production code. Instead, write to log, set error status. (rdar://79977677)
-        os_log(OS_LOG_DEFAULT, "# ICU RegexMatcher::find startPos %lld, unhandled fStartType %d",
-                                                                startPos, fPattern->fStartType);
+        UPRV_UNREACHABLE_ASSERT;
+        // Unknown value in fPattern->fStartType, should be from StartOfMatch enum. But
+        // we have reports of this in production code, don't use UPRV_UNREACHABLE_EXIT.
+        // See ICU-21669.
         status = U_INTERNAL_PROGRAM_ERROR;
         return FALSE;
-#else
-        UPRV_UNREACHABLE;
-#endif
     }
 
-    UPRV_UNREACHABLE;
+    UPRV_UNREACHABLE_EXIT;
 }
 
 
@@ -1007,7 +1003,7 @@ UBool RegexMatcher::findUsingChunk(UErrorCode &status) {
             if  (findProgressInterrupt(startPos, status))
                 return FALSE;
         }
-        UPRV_UNREACHABLE;
+        UPRV_UNREACHABLE_EXIT;
 
     case START_START:
         // Matches are only possible at the start of the input string
@@ -1049,7 +1045,7 @@ UBool RegexMatcher::findUsingChunk(UErrorCode &status) {
                 return FALSE;
         }
     }
-    UPRV_UNREACHABLE;
+    UPRV_UNREACHABLE_EXIT;
 
     case START_STRING:
     case START_CHAR:
@@ -1078,7 +1074,7 @@ UBool RegexMatcher::findUsingChunk(UErrorCode &status) {
                 return FALSE;
         }
     }
-    UPRV_UNREACHABLE;
+    UPRV_UNREACHABLE_EXIT;
 
     case START_LINE:
     {
@@ -1158,19 +1154,15 @@ UBool RegexMatcher::findUsingChunk(UErrorCode &status) {
     }
 
     default:
-#if U_PLATFORM_IS_DARWIN_BASED
-        // Should never use UPRV_UNREACHABLE (unconditional abort) in
-        // production code. Instead, write to log, set error status. (rdar://79977677)
-        os_log(OS_LOG_DEFAULT, "# ICU RegexMatcher::findUsingChunk startPos %d, unhandled fStartType %d",
-                                                                        startPos, fPattern->fStartType);
+        UPRV_UNREACHABLE_ASSERT;
+        // Unknown value in fPattern->fStartType, should be from StartOfMatch enum. But
+        // we have reports of this in production code, don't use UPRV_UNREACHABLE_EXIT.
+        // See ICU-21669.
         status = U_INTERNAL_PROGRAM_ERROR;
         return FALSE;
-#else
-        UPRV_UNREACHABLE;
-#endif
     }
 
-    UPRV_UNREACHABLE;
+    UPRV_UNREACHABLE_EXIT;
 }
 
 
@@ -2037,7 +2029,7 @@ static UText *utext_extract_replace(UText *src, UText *dest, int64_t start, int6
         return dest;
     }
 
-    // Caller did not provide a prexisting UText.
+    // Caller did not provide a preexisting UText.
     // Open a new one, and have it adopt the text buffer storage.
     if (U_FAILURE(*status)) {
         return NULL;
@@ -3749,7 +3741,7 @@ void RegexMatcher::MatchAt(int64_t startIdx, UBool toEnd, UErrorCode &status) {
                 }
 
                 if (success && inputItr.inExpansion()) {
-                    // We otained a match by consuming part of a string obtained from
+                    // We obtained a match by consuming part of a string obtained from
                     // case-folding a single code point of the input text.
                     // This does not count as an overall match.
                     success = FALSE;
@@ -3945,7 +3937,7 @@ void RegexMatcher::MatchAt(int64_t startIdx, UBool toEnd, UErrorCode &status) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
                     if (lbStartIdx > 0) {
-                        // move index to a code point boudary, if it's not on one already.
+                        // move index to a code point boundary, if it's not on one already.
                         UTEXT_SETNATIVEINDEX(fInputText, lbStartIdx);
                         lbStartIdx = UTEXT_GETNATIVEINDEX(fInputText);
                     }
@@ -3994,7 +3986,7 @@ void RegexMatcher::MatchAt(int64_t startIdx, UBool toEnd, UErrorCode &status) {
                     break;
                 }
 
-                // Look-behind match is good.  Restore the orignal input string region,
+                // Look-behind match is good.  Restore the original input string region,
                 //   which had been truncated to pin the end of the lookbehind match to the
                 //   position being looked-behind.
                 fActiveStart = fData[opValue+2];
@@ -4031,7 +4023,7 @@ void RegexMatcher::MatchAt(int64_t startIdx, UBool toEnd, UErrorCode &status) {
                     // First time through loop.
                     lbStartIdx = fp->fInputIdx - minML;
                     if (lbStartIdx > 0) {
-                        // move index to a code point boudary, if it's not on one already.
+                        // move index to a code point boundary, if it's not on one already.
                         UTEXT_SETNATIVEINDEX(fInputText, lbStartIdx);
                         lbStartIdx = UTEXT_GETNATIVEINDEX(fInputText);
                     }
@@ -4083,7 +4075,7 @@ void RegexMatcher::MatchAt(int64_t startIdx, UBool toEnd, UErrorCode &status) {
                 // Look-behind expression matched, which means look-behind test as
                 //   a whole Fails
 
-                //   Restore the orignal input string length, which had been truncated
+                //   Restore the original input string length, which had been truncated
                 //   inorder to pin the end of the lookbehind match
                 //   to the position being looked-behind.
                 fActiveStart = fData[opValue+2];
@@ -4266,15 +4258,11 @@ void RegexMatcher::MatchAt(int64_t startIdx, UBool toEnd, UErrorCode &status) {
         default:
             // Trouble.  The compiled pattern contains an entry with an
             //           unrecognized type tag.
-#if U_PLATFORM_IS_DARWIN_BASED
-            // Should never use UPRV_UNREACHABLE (unconditional abort) in
-            // production code. Instead, write to log, set error status. (rdar://79977677)
-            os_log(OS_LOG_DEFAULT, "# ICU RegexMatcher::MatchAt startIdx %lld, op %d => unhandled opType %d",
-                                                                        startIdx, op, opType);
+            UPRV_UNREACHABLE_ASSERT;
+            // Unknown opcode type in opType = URX_TYPE(pat[fp->fPatIdx]). But we have
+            // reports of this in production code, don't use UPRV_UNREACHABLE_EXIT.
+            // See ICU-21669.
             status = U_INTERNAL_PROGRAM_ERROR;
-#else
-            UPRV_UNREACHABLE;
-#endif
         }
 
         if (U_FAILURE(status)) {
@@ -5227,7 +5215,7 @@ void RegexMatcher::MatchChunkAt(int32_t startIdx, UBool toEnd, UErrorCode &statu
                 }
 
                 if (success && inputItr.inExpansion()) {
-                    // We otained a match by consuming part of a string obtained from
+                    // We obtained a match by consuming part of a string obtained from
                     // case-folding a single code point of the input text.
                     // This does not count as an overall match.
                     success = FALSE;
@@ -5449,7 +5437,7 @@ void RegexMatcher::MatchChunkAt(int32_t startIdx, UBool toEnd, UErrorCode &statu
                     break;
                 }
 
-                // Look-behind match is good.  Restore the orignal input string region,
+                // Look-behind match is good.  Restore the original input string region,
                 //   which had been truncated to pin the end of the lookbehind match to the
                 //   position being looked-behind.
                 fActiveStart = fData[opValue+2];
@@ -5529,7 +5517,7 @@ void RegexMatcher::MatchChunkAt(int32_t startIdx, UBool toEnd, UErrorCode &statu
                 // Look-behind expression matched, which means look-behind test as
                 //   a whole Fails
 
-                //   Restore the orignal input string length, which had been truncated
+                //   Restore the original input string length, which had been truncated
                 //   inorder to pin the end of the lookbehind match
                 //   to the position being looked-behind.
                 fActiveStart = fData[opValue+2];
@@ -5712,15 +5700,11 @@ void RegexMatcher::MatchChunkAt(int32_t startIdx, UBool toEnd, UErrorCode &statu
         default:
             // Trouble.  The compiled pattern contains an entry with an
             //           unrecognized type tag.
-#if U_PLATFORM_IS_DARWIN_BASED
-            // Should never use UPRV_UNREACHABLE (unconditional abort) in
-            // production code. Instead, write to log, set error status. (rdar://79977677)
-            os_log(OS_LOG_DEFAULT, "# ICU RegexMatcher::MatchChunkAt startIdx %d, op %d => unhandled opType %d",
-                                                                            startIdx, op, opType);
+            UPRV_UNREACHABLE_ASSERT;
+            // Unknown opcode type in opType = URX_TYPE(pat[fp->fPatIdx]). But we have
+            // reports of this in production code, don't use UPRV_UNREACHABLE_EXIT.
+            // See ICU-21669.
             status = U_INTERNAL_PROGRAM_ERROR;
-#else
-            UPRV_UNREACHABLE;
-#endif
         }
 
         if (U_FAILURE(status)) {

@@ -252,11 +252,9 @@ static void __DARequestClaimCallback( int status, void * context )
     DADiskRef    disk;
     DARequestRef request = context;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     disk = DARequestGetDisk( request );
 
-    DALogDebug( "  claimed disk, id = %@, success.", disk );
+    DALogInfo( "claimed disk, id = %@, success.", disk );
 
     DARequestDispatchCallback( request, status ? unix_err( status ) : status );
 
@@ -283,8 +281,6 @@ static void __DARequestClaimReleaseCallback( CFTypeRef response, void * context 
 static Boolean __DARequestEject( DARequestRef request )
 {
     DADiskRef disk;
-
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     disk = DARequestGetDisk( request );
 
@@ -359,7 +355,7 @@ static Boolean __DARequestEject( DARequestRef request )
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
-        DALogDebug( "  ejected disk, id = %@, ongoing.", disk );
+        DALogInfo( "ejected disk, id = %@, ongoing.", disk );
 
         DAThreadExecute( __DARequestEjectEject, disk, __DARequestEjectCallback, request );
 
@@ -376,8 +372,6 @@ static void __DARequestEjectCallback( int status, void * context )
     DADiskRef    disk;
     DARequestRef request = context;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     disk = DARequestGetDisk( request );
 
     if ( status )
@@ -388,9 +382,9 @@ static void __DARequestEjectCallback( int status, void * context )
 
         DADissenterRef dissenter;
 
-        DALogDebug( "  ejected disk, id = %@, failure.", disk );
+        DALogInfo( "ejected disk, id = %@, failure.", disk );
 
-        DALogDebug( "unable to eject %@ (status code 0x%08X).", disk, status );
+        DALogInfo( "unable to eject %@ (status code 0x%08X).", disk, status );
 
         dissenter = DADissenterCreate( kCFAllocatorDefault, unix_err( status ) );
 
@@ -404,7 +398,7 @@ static void __DARequestEjectCallback( int status, void * context )
          * We were able to eject the disk.
          */
 
-        DALogDebug( "  ejected disk, id = %@, success.", disk );
+        DALogInfo( "ejected disk, id = %@, success.", disk );
     }
 
     DARequestDispatchCallback( request, status ? unix_err( status ) : status );
@@ -952,8 +946,6 @@ static Boolean __DARequestRename( DARequestRef request )
 {
     DADiskRef disk;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     disk = DARequestGetDisk( request );
 
     /*
@@ -1009,7 +1001,7 @@ static Boolean __DARequestRename( DARequestRef request )
 
             DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
-            DALogDebug( "  renamed disk, id = %@, ongoing.", disk );
+            DALogInfo( "renamed disk, id = %@, ongoing.", disk );
 
             DAFileSystemRename( DADiskGetFileSystem( disk ),
                                 DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ),
@@ -1039,11 +1031,9 @@ static void __DARequestRenameCallback( int status, void * context )
          * We were unable to rename the disk.
          */
 
-        DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
+        DALogInfo( "renamed disk, id = %@, failure.", disk );
 
-        DALogDebug( "  renamed disk, id = %@, failure.", disk );
-
-        DALogDebug( "unable to rename %@ (status code 0x%08X).", disk, status );
+        DALogInfo( "unable to rename %@ (status code 0x%08X).", disk, status );
     }
     else
     {
@@ -1108,9 +1098,7 @@ static void __DARequestRenameCallback( int status, void * context )
             CFRelease( keys );
         }
 
-        DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
-        DALogDebug( "  renamed disk, id = %@, success.", disk );
+        DALogInfo( "renamed disk, id = %@, success.", disk );
     }
 
     DARequestDispatchCallback( request, status ? unix_err( status ) : status );
@@ -1128,7 +1116,6 @@ static Boolean __DARequestUnmount( DARequestRef request )
 {
     DADiskRef disk;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     disk = DARequestGetDisk( request );
 
@@ -1253,7 +1240,7 @@ static Boolean __DARequestUnmount( DARequestRef request )
 
         DAUnitSetState( disk, kDAUnitStateCommandActive, TRUE );
 
-        DALogDebug( "  unmounted disk, id = %@, ongoing.", disk );
+        DALogInfo( "unmounted disk, id = %@, ongoing.", disk );
 
         DAFileSystemUnmountWithArguments( DADiskGetFileSystem( disk ),
                                           DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey ),
@@ -1274,8 +1261,6 @@ static void __DARequestUnmountCallback( int status, void * context )
 {
     DADiskRef    disk;
     DARequestRef request = context;
-
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     disk = DARequestGetDisk( request );
 
@@ -1320,7 +1305,7 @@ static void __DARequestUnmountCallback( int status, void * context )
 
         if ( dissenter == NULL )
         {
-            DALogDebug( "  unmounted disk, id = %@, failure.", disk );
+            DALogInfo( "unmounted disk, id = %@, failure.", disk );
 
             DALogError( "unable to unmount %@ (status code 0x%08X).", disk, status );
 
@@ -1357,7 +1342,7 @@ handleumount:
 
         DADiskSetBypath( disk, NULL );
 
-        DALogDebug( "  unmounted disk, id = %@, success.", disk );
+        DALogInfo( "unmounted disk, id = %@, success.", disk );
 
         if ( DADiskGetDescription( disk, kDADiskDescriptionMediaPathKey ) )
         {
@@ -1367,7 +1352,7 @@ handleumount:
         }
         else
         {
-            DALogDebug( "  removed disk, id = %@.", disk );
+            DALogInfo( "removed disk, id = %@.", disk );
 
             DADiskDisappearedCallback( disk );
 

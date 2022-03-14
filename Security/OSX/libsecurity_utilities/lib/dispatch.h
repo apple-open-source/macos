@@ -108,7 +108,7 @@ private:
 class SemaphoreWait {
 	NOCOPY(SemaphoreWait)
 public:
-	SemaphoreWait(SemaphoreWait& originalWait);
+	SemaphoreWait(SemaphoreWait&& originalWait);
 	SemaphoreWait(Semaphore& semaphore, dispatch_time_t timeout = DISPATCH_TIME_FOREVER);
 	virtual ~SemaphoreWait();
 

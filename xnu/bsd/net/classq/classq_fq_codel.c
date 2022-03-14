@@ -315,7 +315,7 @@ fq_addq(fq_if_t *fqs, pktsched_pkt_t *pkt, fq_if_classq_t *fq_cl)
 
 	fq_detect_dequeue_stall(fqs, fq, fq_cl, &now);
 
-	if (__improbable(FQ_IS_DELAYHIGH(fq))) {
+	if (__improbable(FQ_IS_DELAYHIGH(fq) || FQ_IS_OVERWHELMING(fq))) {
 		if ((fq->fq_flags & FQF_FLOWCTL_CAPABLE) &&
 		    (*pkt_flags & PKTF_FLOW_ADV)) {
 			fc_adv = 1;
@@ -327,6 +327,7 @@ fq_addq(fq_if_t *fqs, pktsched_pkt_t *pkt, fq_if_classq_t *fq_cl)
 			    (pkt_proto != IPPROTO_QUIC)) {
 				droptype = DTYPE_EARLY;
 				fq_cl->fcl_stat.fcl_drop_early += cnt;
+				IFCQ_DROP_ADD(fqs->fqs_ifq, cnt, pktsched_get_pkt_len(pkt));
 			}
 			DTRACE_IP6(flow__adv, fq_if_t *, fqs,
 			    fq_if_classq_t *, fq_cl, fq_t *, fq,
@@ -402,6 +403,24 @@ fq_addq(fq_if_t *fqs, pktsched_pkt_t *pkt, fq_if_classq_t *fq_cl)
 
 			for (i = 0; i < cnt; i++) {
 				fq_head_drop(fqs, fq);
+			}
+			fq_cl->fcl_stat.fcl_drop_overflow += cnt;
+
+			/*
+			 * TCP and QUIC will react to the loss of those head dropped pkts
+			 * and adjust send rate.
+			 */
+			if ((fq->fq_flags & FQF_FLOWCTL_CAPABLE) &&
+			    (*pkt_flags & PKTF_FLOW_ADV) &&
+			    (pkt_proto != IPPROTO_TCP) &&
+			    (pkt_proto != IPPROTO_QUIC)) {
+				if (fq_if_add_fcentry(fqs, pkt, pkt_flowsrc, fq, fq_cl)) {
+					fq->fq_flags |= FQF_FLOWCTL_ON;
+					FQ_SET_OVERWHELMING(fq);
+					fq_cl->fcl_stat.fcl_overwhelming++;
+					/* deliver flow control advisory error */
+					ret = CLASSQEQ_SUCCESS_FC;
+				}
 			}
 		} else {
 			if (fqs->fqs_large_flow == NULL) {
@@ -604,11 +623,17 @@ fq_getq_flow(fq_if_t *fqs, fq_t *fq, pktsched_pkt_t *pkt)
 		fq->fq_updatetime = now + fqs->fqs_update_interval;
 		fq->fq_min_qdelay = 0;
 	}
+
+	if (fqs->fqs_large_flow != fq || !fq_if_almost_at_drop_limit(fqs)) {
+		FQ_CLEAR_OVERWHELMING(fq);
+	}
 	if (!FQ_IS_DELAYHIGH(fq) || fq_empty(fq)) {
 		FQ_CLEAR_DELAY_HIGH(fq);
-		if (fq->fq_flags & FQF_FLOWCTL_ON) {
-			fq_if_flow_feedback(fqs, fq, fq_cl);
-		}
+	}
+
+	if ((fq->fq_flags & FQF_FLOWCTL_ON) &&
+	    !FQ_IS_DELAYHIGH(fq) && !FQ_IS_OVERWHELMING(fq)) {
+		fq_if_flow_feedback(fqs, fq, fq_cl);
 	}
 
 	if (fq_empty(fq)) {

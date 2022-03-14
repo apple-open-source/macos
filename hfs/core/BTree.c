@@ -180,7 +180,7 @@ Result:		noErr				- success
 OSStatus BTOpenPath(FCB *filePtr, KeyCompareProcPtr keyCompareProc)
 {
 	OSStatus				err;
-	BTreeControlBlockPtr	btreePtr;
+	BTreeControlBlockPtr			btreePtr;
 	BTHeaderRec				*header;
 	NodeRec					nodeRec;
 
@@ -206,7 +206,7 @@ OSStatus BTOpenPath(FCB *filePtr, KeyCompareProcPtr keyCompareProc)
 
 	//////////////////////// Allocate Control Block /////////////////////////////
 
-	btreePtr = hfs_mallocz(sizeof(BTreeControlBlock));
+	btreePtr = hfs_malloc_type(BTreeControlBlock);
 
 	btreePtr->getBlockProc		= GetBTreeBlock;
 	btreePtr->releaseBlockProc	= ReleaseBTreeBlock;
@@ -360,7 +360,7 @@ ErrorExit:
 
 	filePtr->fcbBTCBPtr = nil;
 	(void) ReleaseNode (btreePtr, &nodeRec);
-	hfs_free(btreePtr, sizeof(*btreePtr));
+	hfs_free_type(btreePtr, BTreeControlBlock);
 
 	return err;
 }
@@ -400,7 +400,7 @@ OSStatus	BTClosePath			(FCB					*filePtr)
 	err = UpdateHeader (btreePtr, true);
 	M_ExitOnError (err);
 
-	hfs_free(btreePtr, sizeof(*btreePtr));
+	hfs_free_type(btreePtr, BTreeControlBlock);
 	filePtr->fcbBTCBPtr = nil;
 
 	return	noErr;

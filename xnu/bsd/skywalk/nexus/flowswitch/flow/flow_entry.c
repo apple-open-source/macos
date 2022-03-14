@@ -184,9 +184,7 @@ flow_entry_find_by_uuid(struct flow_owner *fo, uuid_t uuid)
 struct flow_entry *
 flow_entry_alloc(struct flow_owner *fo, struct nx_flow_req *req, int *perr)
 {
-#if SK_LOG
-	char dbgbuf[FLOWENTRY_DBGBUF_SIZE]; /* just for debug message */
-#endif /* SK_LOG */
+	SK_LOG_VAR(char dbgbuf[FLOWENTRY_DBGBUF_SIZE]);
 	nexus_port_t nx_port = req->nfr_nx_port;
 	struct flow_entry *fe = NULL;
 	flowadv_idx_t fadv_idx = FLOWADV_IDX_NONE;
@@ -712,6 +710,7 @@ fe_id_cmp(const struct flow_entry *a, const struct flow_entry *b)
 }
 
 #if SK_LOG
+SK_NO_INLINE_ATTRIBUTE
 char *
 fk_as_string(const struct flow_key *fk, char *dst, size_t dsz)
 {
@@ -732,6 +731,7 @@ fk_as_string(const struct flow_key *fk, char *dst, size_t dsz)
 	return dst;
 }
 
+SK_NO_INLINE_ATTRIBUTE
 char *
 fe_as_string(const struct flow_entry *fe, char *dst, size_t dsz)
 {

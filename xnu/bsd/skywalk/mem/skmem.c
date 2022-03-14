@@ -563,17 +563,14 @@ extern unsigned int vm_page_free_count, vm_page_speculative_count,
  * The compiler doesn't know that snprintf() supports %b format
  * specifier, so use our own wrapper to vsnprintf() here instead.
  */
-static int
-skmem_snprintf(char *str, size_t size, const char *format, ...)
-{
-	int retval;
-	va_list ap;
-
-	va_start(ap, format);
-	retval = vsnprintf(str, size, format, ap);
-	va_end(ap);
-	return retval;
-}
+#define skmem_snprintf(str, size, format, ...)  ({ \
+	_Pragma("clang diagnostic push")                                   \
+	_Pragma("clang diagnostic ignored \"-Wformat-invalid-specifier\"") \
+	_Pragma("clang diagnostic ignored \"-Wformat-extra-args\"")        \
+	_Pragma("clang diagnostic ignored \"-Wformat\"")                   \
+	snprintf(str, size, format, ## __VA_ARGS__)                        \
+	_Pragma("clang diagnostic pop");                                   \
+})
 
 __attribute__((noinline, cold, not_tail_called))
 char *

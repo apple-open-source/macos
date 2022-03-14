@@ -805,7 +805,7 @@ void IOFireWireDevice::setNodeROM(UInt32 gen, UInt16 localID, const IOFWNodeScan
 	
 	if( newROMSize == 20 ) 
 	{
-		RomScan *romScan = (RomScan *)IOMalloc( sizeof(RomScan) );
+		RomScan *romScan = IOMallocType( RomScan );
 		if( romScan ) 
 		{
 			romScan->fROMGeneration = fROMGeneration;
@@ -861,7 +861,7 @@ void IOFireWireDevice::readROMThreadFunc( void *refcon )
 	device->processROM( romScan );
 	
 	IORecursiveLockUnlock(device->fROMLock);
-	IOFree(romScan, sizeof(RomScan));
+	IOFreeType(romScan, RomScan);
     device->release();
 	//IOLog( "IOFireWireDevice::readROMThreadFunc %p exited\n", romScan );
 }

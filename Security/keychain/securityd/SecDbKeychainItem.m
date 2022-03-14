@@ -102,7 +102,7 @@ static const uint8_t* der_decode_set_with_repair(CFAllocatorRef allocator, CFSet
                                                                                const uint8_t* der, const uint8_t *der_end));
 
 const uint32_t kUseDefaultIVMask =  1<<31;
-const int16_t  kIVSizeAESGCM = 12;
+#define kIVSizeAESGCM 12
 
 // echo "keychainblobstaticiv" | openssl dgst -sha256 | cut -c1-24 | xargs -I {} echo "0x{}" | xxd -r | xxd -p  -i
 static const uint8_t gcmIV[kIVSizeAESGCM] = {
@@ -122,7 +122,8 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     //check(keybag >= 0);
 
     /* Precalculate output blob length. */
-    const uint32_t bulkKeySize = 32; /* Use 256 bit AES key for bulkKey. */
+    /* Use 256 bit AES key for bulkKey. */
+#define bulkKeySize 32
     const uint32_t maxKeyWrapOverHead = 8 + 32;
     uint8_t bulkKey[bulkKeySize];
     CFMutableDataRef bulkKeyWrapped = CFDataCreateMutable(NULL, 0);
@@ -276,7 +277,7 @@ bool ks_encrypt_data_legacy(keybag_handle_t keybag, SecAccessControlRef access_c
     }
 
     out:
-    memset(bulkKey, 0, sizeof(bulkKey));
+    memset_s(bulkKey, sizeof(bulkKey), 0, sizeof(bulkKey));
     CFReleaseSafe(ac_data);
     CFReleaseSafe(bulkKeyWrapped);
     CFReleaseSafe(plainText);

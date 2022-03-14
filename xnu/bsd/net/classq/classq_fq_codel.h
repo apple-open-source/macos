@@ -51,6 +51,14 @@ extern "C" {
 	(_fq_)->fq_flags &= ~FQF_DELAY_HIGH; \
 } while (0)
 
+#define FQ_IS_OVERWHELMING(_fq_)   ((_fq_)->fq_flags & FQF_OVERWHELMING)
+#define FQ_SET_OVERWHELMING(_fq_) do { \
+	(_fq_)->fq_flags |= FQF_OVERWHELMING; \
+} while (0)
+#define FQ_CLEAR_OVERWHELMING(_fq_) do { \
+	(_fq_)->fq_flags &= ~FQF_OVERWHELMING; \
+} while (0)
+
 typedef struct flowq {
 	union {
 		MBUFQ_HEAD(mbufq_head) __mbufq; /* mbuf packet queue */
@@ -64,6 +72,7 @@ typedef struct flowq {
 #define FQF_OLD_FLOW    0x08    /* Currently on old flows queue */
 #define FQF_FLOWCTL_ON  0x10    /* Currently flow controlled */
 #define FQF_DESTROYED   0x80    /* flowq destroyed */
+#define FQF_OVERWHELMING  0x40  /* The largest flow when AQM hits queue limit */
 	uint8_t        fq_flags;       /* flags */
 	uint8_t        fq_sc_index; /* service_class index */
 	int32_t        fq_deficit;     /* Deficit for scheduling */

@@ -162,7 +162,8 @@ thread_group_init(void)
 	 * not hash onto the same global waitq which might be currently locked.
 	 */
 	mpsc_daemon_queue_init_with_thread_call(&thread_group_deallocate_queue,
-	    thread_group_deallocate_queue_invoke, THREAD_CALL_PRIORITY_KERNEL);
+	    thread_group_deallocate_queue_invoke, THREAD_CALL_PRIORITY_KERNEL,
+	    MPSC_DAEMON_INIT_NONE);
 }
 
 #if CONFIG_SCHED_CLUTCH

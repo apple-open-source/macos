@@ -37,15 +37,16 @@
 #include "pas_physical_memory_transaction.h"
 
 bool pas_bitfit_allocator_commit_view(pas_bitfit_view* view,
-                                      pas_local_allocator* local,
                                       pas_bitfit_page_config* config,
                                       pas_lock_hold_mode commit_lock_hold_mode)
 {
     static const bool verbose = false;
     
     pas_bitfit_directory* directory;
+    pas_segregated_heap* heap;
 
     directory = pas_compact_bitfit_directory_ptr_load(&view->directory);
+    heap = directory->heap;
 
     /* We're almost certainly gonna commit a page, so let's just get this out of the way. We need to
        release the ownership lock to do this. But, we can't do it at all if we already hold the commit
@@ -118,15 +119,18 @@ bool pas_bitfit_allocator_commit_view(pas_bitfit_view* view,
                             view, pas_bitfit_page_config_kind_get_string(config->kind));
                 }
                 
-                view->page_boundary = config->base.page_allocator(
-                    pas_segregated_view_get_size_directory(local->view)->heap, &transaction);
+                view->page_boundary = config->page_allocator(heap, &transaction);
                 did_succeed = !!view->page_boundary;
                 
                 if (verbose)
                     pas_log("page_boundary = %p, did_succeed = %d\n", view->page_boundary, did_succeed);
                 
-                if (did_succeed)
-                    config->base.create_page_header(view->page_boundary, pas_lock_is_held);
+                if (did_succeed) {
+                    config->base.create_page_header(
+                        view->page_boundary,
+                        pas_page_kind_for_bitfit_variant(config->variant),
+                        pas_lock_is_held);
+                }
                 
                 pas_heap_lock_unlock();
                 if (pas_physical_memory_transaction_end(&transaction))
@@ -174,7 +178,10 @@ bool pas_bitfit_allocator_commit_view(pas_bitfit_view* view,
 
         pas_page_malloc_commit(
             view->page_boundary, config->base.page_size);
-        config->base.create_page_header(view->page_boundary, pas_lock_is_not_held);
+        config->base.create_page_header(
+            view->page_boundary,
+            pas_page_kind_for_bitfit_variant(config->variant),
+            pas_lock_is_not_held);
 
         pas_lock_lock(&view->ownership_lock);
 
@@ -205,6 +212,8 @@ pas_bitfit_view* pas_bitfit_allocator_finish_failing(pas_bitfit_allocator* alloc
                                                      size_t largest_available,
                                                      pas_bitfit_page_config* config)
 {
+    static const bool verbose = false;
+    
     pas_bitfit_directory* directory;
     pas_bitfit_size_class* size_class;
     pas_bitfit_view* new_view;
@@ -222,6 +231,11 @@ pas_bitfit_view* pas_bitfit_allocator_finish_failing(pas_bitfit_allocator* alloc
 
     view_index = view->index;
 
+    if (verbose) {
+        pas_log("Finishing failing in view %p, size = %zu, alignment = %zu, largest_available = %zu\n",
+                view, size, alignment, largest_available);
+    }
+
     /* If we're still on the view that the allocator was on and we found that this view no longer
        has enough max_free for our size class, then tell everyone about this and bail.
     
@@ -231,9 +245,9 @@ pas_bitfit_view* pas_bitfit_allocator_finish_failing(pas_bitfit_allocator* alloc
         unsigned index;
         pas_bitfit_size_class* current_size_class;
         pas_versioned_field first_free_value;
-        
-        pas_bitfit_allocator_reset(allocator);
 
+        allocator->view = NULL;
+        
         PAS_ASSERT(view->page_boundary);
         pas_bitfit_page_for_boundary(view->page_boundary, *config)->did_note_max_free = false;
         
@@ -242,8 +256,14 @@ pas_bitfit_view* pas_bitfit_allocator_finish_failing(pas_bitfit_allocator* alloc
         pas_bitfit_directory_set_processed_max_free(
             directory, index, largest_available >> config->base.min_align_shift,
             "processing on finish_failing");
+
+        /* If we're doing an aligned allocation, then we might now skip over this view even though the
+           size we were allocating would have fit. The reason why we're doing it is that the largest size
+           we could have fit is smaller than the size class, and although it's big enough for the size being
+           requested, it's not aligned properly. */
+        PAS_TESTING_ASSERT(largest_available < size
+                           || alignment > pas_page_base_config_min_align(config->base));
         
-        PAS_TESTING_ASSERT(largest_available < size);
         PAS_TESTING_ASSERT(largest_available < size_class->size);
         
         current_size_class = size_class;

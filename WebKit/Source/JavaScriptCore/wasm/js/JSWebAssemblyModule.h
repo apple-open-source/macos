@@ -43,10 +43,10 @@ namespace Wasm {
 class Module;
 struct ModuleInformation;
 class Plan;
+enum class BindingFailure;
 }
 
 class SymbolTable;
-class JSWebAssemblyCodeBlock;
 class JSWebAssemblyMemory;
 
 class JSWebAssemblyModule final : public JSNonFinalObject {
@@ -70,21 +70,23 @@ public:
     SymbolTable* exportSymbolTable() const;
     Wasm::SignatureIndex signatureIndexFromFunctionIndexSpace(unsigned functionIndexSpace) const;
 
-    JSWebAssemblyCodeBlock* codeBlock(Wasm::MemoryMode mode);
-    void setCodeBlock(VM&, Wasm::MemoryMode, JSWebAssemblyCodeBlock*);
+    Expected<void, Wasm::BindingFailure> generateWasmToJSStubs(VM&);
+    MacroAssemblerCodePtr<WasmEntryPtrTag> wasmToEmbedderStub(size_t importFunctionNum) { return m_wasmToJSExitStubs[importFunctionNum].code(); }
+
+    void clearJSCallICs(VM&);
+    void finalizeUnconditionally(VM&);
 
     JS_EXPORT_PRIVATE Wasm::Module& module();
 
 private:
-    friend class JSWebAssemblyCodeBlock;
-
     JSWebAssemblyModule(VM&, Structure*, Ref<Wasm::Module>&&);
     void finishCreation(VM&);
     DECLARE_VISIT_CHILDREN;
 
     Ref<Wasm::Module> m_module;
     WriteBarrier<SymbolTable> m_exportSymbolTable;
-    WriteBarrier<JSWebAssemblyCodeBlock> m_codeBlocks[Wasm::NumberOfMemoryModes];
+    FixedVector<MacroAssemblerCodeRef<WasmEntryPtrTag>> m_wasmToJSExitStubs;
+    Bag<OptimizingCallLinkInfo> m_callLinkInfos;
 };
 
 } // namespace JSC

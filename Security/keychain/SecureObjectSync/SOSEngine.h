@@ -67,8 +67,6 @@ void SOSEngineMessageCallbackSetCallback(SOSEnginePeerMessageCallBackInfo *sent,
 CFDataRef SOSEngineCreateMessage_locked(SOSEngineRef engine, SOSTransactionRef txn, SOSPeerRef peer,
                                         CFMutableArrayRef *attributeList, CFErrorRef *error, SOSEnginePeerMessageCallBackInfo **sentCallback);
 
-// When you're done with the *sent parameter from SOSEngineCreateMessage_locked, you must call this on the returned object
-void SOSEngineFreeMessageCallback(SOSEnginePeerMessageCallBackInfo* sentCallback);
 // Return a message to be sent for the current state.  Returns NULL on errors,
 // return a zero length CFDataRef if there is nothing to send.
 // If *ProposedManifest is set the caller is responsible for updating their

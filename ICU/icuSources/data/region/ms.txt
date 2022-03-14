@@ -310,6 +310,7 @@ ms{
         CI{"Ivory Coast"}
         CZ{"Republik Czech"}
         FK{"Kepulauan Falkland (Islas Malvinas)"}
+        SZ{"Swaziland"}
         TL{"Timor Timur"}
     }
 }

@@ -47,8 +47,6 @@ typedef struct _cairo_rectangle cairo_rectangle_t;
 
 #if PLATFORM(WIN)
 typedef struct tagRECT RECT;
-struct D2D_RECT_F;
-typedef D2D_RECT_F D2D1_RECT_F;
 #endif
 
 namespace WTF {
@@ -150,6 +148,11 @@ public:
         setWidth(std::max(0.0f, width() - delta));
     }
 
+    void shiftMaxXEdgeBy(float delta)
+    {
+        shiftMaxXEdgeTo(maxX() + delta);
+    }
+
     void shiftYEdgeBy(float delta)
     {
         move(0, delta);
@@ -191,6 +194,7 @@ public:
     }
     void inflate(float d) { inflateX(d); inflateY(d); }
     void inflate(FloatSize size) { inflateX(size.width()); inflateY(size.height()); }
+    void inflate(float dx, float dy, float dmaxX, float dmaxY);
 
     void scale(float s) { scale(s, s); }
     WEBCORE_EXPORT void scale(float sx, float sy);
@@ -216,12 +220,6 @@ public:
 #if USE(CAIRO)
     FloatRect(const cairo_rectangle_t&);
     operator cairo_rectangle_t() const;
-#endif
-
-#if PLATFORM(WIN)
-    WEBCORE_EXPORT FloatRect(const RECT&);
-    WEBCORE_EXPORT FloatRect(const D2D1_RECT_F&);
-    WEBCORE_EXPORT operator D2D1_RECT_F() const;
 #endif
 
     static FloatRect infiniteRect();
@@ -287,6 +285,14 @@ inline FloatRect FloatRect::infiniteRect()
 inline bool FloatRect::isInfinite() const
 {
     return *this == infiniteRect();
+}
+
+inline void FloatRect::inflate(float deltaX, float deltaY, float deltaMaxX, float deltaMaxY)
+{
+    setX(x() - deltaX);
+    setY(y() - deltaY);
+    setWidth(width() + deltaX + deltaMaxX);
+    setHeight(height() + deltaY + deltaMaxY);
 }
 
 FloatRect normalizeRect(const FloatRect&);

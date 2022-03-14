@@ -63,23 +63,25 @@
 }
 
 - (void)rpcStatus:(NSString*)viewName reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply {
-    [[self objectProxyWithErrorHandler: ^(NSError* error) {
-        reply(nil, error);
-
-    }] rpcStatus:viewName reply:^(NSArray<NSDictionary*>* result, NSError* error){
-        reply(result, error);
-    }];
+    [self rpcStatus:viewName fast:NO waitForNonTransientState:CKKSControlStatusDefaultNonTransientStateTimeout reply:reply];
 }
 
 - (void)rpcFastStatus:(NSString*)viewName reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error)) reply {
+    [self rpcStatus:viewName fast:YES waitForNonTransientState:CKKSControlStatusDefaultNonTransientStateTimeout reply:reply];
+}
+
+- (void)rpcStatus:(NSString* _Nullable)viewName
+        fast:(BOOL)fast
+        waitForNonTransientState:(dispatch_time_t)nonTransientStateTimeout
+        reply:(void(^)(NSArray<NSDictionary*>* _Nullable result, NSError* _Nullable error))reply
+{
     [[self objectProxyWithErrorHandler: ^(NSError* error) {
         reply(nil, error);
 
-    }] rpcFastStatus:viewName reply:^(NSArray<NSDictionary*>* result, NSError* error){
+    }] rpcStatus:viewName fast:fast waitForNonTransientState:nonTransientStateTimeout reply:^(NSArray<NSDictionary*>* result, NSError* error){
         reply(result, error);
     }];
 }
-
 
 - (void)rpcResetLocal:(NSString*)viewName reply:(void(^)(NSError* error))reply {
     secnotice("ckkscontrol", "Requesting a local reset for view %@", viewName);

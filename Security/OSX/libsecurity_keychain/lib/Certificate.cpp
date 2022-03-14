@@ -614,21 +614,25 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 		}
 		CFRef<CFStringRef> cfDesc(CFStringCreateWithBytes(NULL, cleanedUpDescr.Data,
 			(CFIndex)cleanedUpDescr.Length, descrEncoding, true));
-		CFStringAppend(combo, cfPrint);
-		CFStringAppendCString(combo, " (", kCFStringEncodingASCII);
-		CFStringAppend(combo, cfDesc);
-		CFStringAppendCString(combo, ")", kCFStringEncodingASCII);
-		CFRef<CFDataRef> comboData(CFStringCreateExternalRepresentation(NULL, combo,
-			kCFStringEncodingUTF8, 0));
-		printPlusDescr.copy(CFDataGetBytePtr(comboData), CFDataGetLength(comboData));
-		printPlusDescData = printPlusDescr;
-		printName = &printPlusDescData;
-		printEncoding = kCFStringEncodingUTF8;
+		if (cfPrint != nullptr && cfDesc != nullptr && combo != nullptr) {
+			CFStringAppend(combo, cfPrint);
+			CFStringAppendCString(combo, " (", kCFStringEncodingASCII);
+			CFStringAppend(combo, cfDesc);
+			CFStringAppendCString(combo, ")", kCFStringEncodingASCII);
+			CFRef<CFDataRef> comboData(CFStringCreateExternalRepresentation(NULL, combo,
+				kCFStringEncodingUTF8, 0));
+			if (comboData != nullptr) {
+				printPlusDescr.copy(CFDataGetBytePtr(comboData), CFDataGetLength(comboData));
+				printPlusDescData = printPlusDescr;
+				printName = &printPlusDescData;
+				printEncoding = kCFStringEncodingUTF8;
+			}
+		}
 	}
 
 	if (printName == NULL)
 	{
-		/* If the we couldn't find a label use the emailAddress instead. */
+		/* If we couldn't find a label use the emailAddress instead. */
 		if (!emailAddresses.empty())
 			printName = &emailAddresses[0];
 		else
@@ -675,6 +679,29 @@ Certificate::inferLabel(bool addLabel, CFStringRef *rtnString)
 			// string cannot be represented in UTF-8, fall back to ISO Latin 1
 			*rtnString = CFStringCreateWithBytes(NULL, printName->Data,
 				(CFIndex)printName->Length, printEncoding, true);
+		}
+		if(*rtnString == NULL) {
+			// string cannot be represented in a non-deprecated encoding, but
+			// since RFC5280 4.1.2.6 allows legacy IA5 encodings, try ASCII.
+			// CFString.h says "in creating CFString, values greater than 0x7F
+			// are treated as corresponding Unicode value".
+			*rtnString = CFStringCreateWithBytes(NULL, printName->Data,
+				(CFIndex)printName->Length, kCFStringEncodingASCII, true);
+		}
+		if(*rtnString == NULL) {
+			// encoding is bad; string can only be displayed as hex bytes.
+			CFRef<CFDataRef> strData(CFDataCreate(NULL, printName->Data,
+				(CFIndex)printName->Length));
+			if (strData) {
+				CFMutableStringRef hexStr = CFStringCreateMutable(kCFAllocatorDefault,
+					CFDataGetLength(strData) * 2);
+				const uint8_t *bytes = CFDataGetBytePtr(strData);
+				CFIndex len = CFDataGetLength(strData);
+				for (CFIndex ix = 0; hexStr && ix < len; ++ix) {
+					CFStringAppendFormat(hexStr, 0, CFSTR("%02X"), bytes[ix]);
+				}
+				*rtnString = hexStr;
+			}
 		}
 	}
 

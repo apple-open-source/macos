@@ -204,7 +204,15 @@ int main(int argc, char *argv[])
 		usage();
 	url = argv[optind];
 	optind++;
-	realpath(unpercent(argv[optind]), mountPoint);
+
+	if (mntflags & MNT_NOFOLLOW) {
+		size_t sc = strlcpy(mountPoint, unpercent(argv[optind]),
+				    MAXPATHLEN);
+		if (sc >= MAXPATHLEN)
+			err(EX_USAGE, "%s: %s", mountPoint, strerror(EINVAL));
+	} else {
+		realpath(unpercent(argv[optind]), mountPoint);
+	}
 	
 	if (stat(mountPoint, &st) == -1)
 		err(EX_OSERR, "could not find mount point %s", mountPoint);

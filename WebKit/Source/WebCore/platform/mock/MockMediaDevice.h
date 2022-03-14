@@ -160,10 +160,10 @@ struct MockDisplayProperties {
 };
 
 struct MockMediaDevice {
-    bool isMicrophone() const { return WTF::holds_alternative<MockMicrophoneProperties>(properties); }
-    bool isSpeaker() const { return WTF::holds_alternative<MockSpeakerProperties>(properties); }
-    bool isCamera() const { return WTF::holds_alternative<MockCameraProperties>(properties); }
-    bool isDisplay() const { return WTF::holds_alternative<MockDisplayProperties>(properties); }
+    bool isMicrophone() const { return std::holds_alternative<MockMicrophoneProperties>(properties); }
+    bool isSpeaker() const { return std::holds_alternative<MockSpeakerProperties>(properties); }
+    bool isCamera() const { return std::holds_alternative<MockCameraProperties>(properties); }
+    bool isDisplay() const { return std::holds_alternative<MockDisplayProperties>(properties); }
 
     CaptureDevice captureDevice() const
     {
@@ -188,12 +188,12 @@ struct MockMediaDevice {
             return CaptureDevice::DeviceType::Camera;
 
         ASSERT(isDisplay());
-        return WTF::get<MockDisplayProperties>(properties).type;
+        return std::get<MockDisplayProperties>(properties).type;
     }
 
     const MockSpeakerProperties* speakerProperties() const
     {
-        return isSpeaker() ? &WTF::get<MockSpeakerProperties>(properties) : nullptr;
+        return isSpeaker() ? &std::get<MockSpeakerProperties>(properties) : nullptr;
     }
 
     template<class Encoder>
@@ -201,7 +201,7 @@ struct MockMediaDevice {
     {
         encoder << persistentId;
         encoder << label;
-        switchOn(properties, [&](const MockMicrophoneProperties& properties) {
+        WTF::switchOn(properties, [&](const MockMicrophoneProperties& properties) {
             encoder << (uint8_t)1;
             encoder << properties;
         }, [&](const MockSpeakerProperties& properties) {
@@ -259,7 +259,7 @@ struct MockMediaDevice {
 
     String persistentId;
     String label;
-    Variant<MockMicrophoneProperties, MockSpeakerProperties, MockCameraProperties, MockDisplayProperties> properties;
+    std::variant<MockMicrophoneProperties, MockSpeakerProperties, MockCameraProperties, MockDisplayProperties> properties;
 };
 
 } // namespace WebCore

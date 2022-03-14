@@ -43,7 +43,7 @@
 void pas_large_heap_construct(pas_large_heap* heap)
 {
     /* Warning: anything you do here must be duplicated in
-       pas_try_allocate_intrinsic_primitive.h. */
+       pas_try_allocate_intrinsic.h. */
     
     pas_fast_large_free_heap_construct(&heap->free_heap);
     heap->table_state = pas_heap_table_state_uninitialized;
@@ -97,7 +97,7 @@ static pas_allocation_result allocate_impl(pas_large_heap* heap,
     static const bool verbose = false;
     
     pas_allocation_result result;
-    pas_heap_type* type;
+    const pas_heap_type* type;
     pas_large_free_heap_config config;
     aligned_allocator_data data;
     
@@ -130,6 +130,9 @@ static pas_allocation_result allocate_impl(pas_large_heap* heap,
     
     if (!result.did_succeed)
         return pas_allocation_result_create_failure();
+
+    if (verbose)
+        pas_log("Committing the memory we allocated starting at %p.\n", (void*)result.begin);
     
     if (heap_config->aligned_allocator_talks_to_sharing_pool &&
         !pas_large_sharing_pool_allocate_and_commit(
@@ -224,7 +227,7 @@ bool pas_large_heap_try_shrink(uintptr_t begin,
     pas_large_map_entry map_entry;
     pas_large_free_heap_config config;
     pas_large_heap* heap;
-    pas_heap_type* type;
+    const pas_heap_type* type;
     size_t alignment;
 
     pas_heap_lock_assert_held();

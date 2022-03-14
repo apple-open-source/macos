@@ -249,53 +249,25 @@ sema_get_by_id(size_t i)
  * Assumes we already have the subsystem lock.
  */
 static int
-grow_semu_array(int newSize)
+grow_semu_array(void)
 {
-	int i;
 	struct sem_undo *newSemu;
+	int old_size = seminfo.semmnu;
+	int new_size;
 
-	if (newSize <= seminfo.semmnu) {
-		return 1;
-	}
-	if (newSize > limitseminfo.semmnu) { /* enforce hard limit */
-#ifdef SEM_DEBUG
-		printf("undo structure hard limit of %d reached, requested %d\n",
-		    limitseminfo.semmnu, newSize);
-#endif
+	if (old_size >= limitseminfo.semmnu) { /* enforce hard limit */
 		return 0;
 	}
-	newSize = (newSize / SEMMNU_INC + 1) * SEMMNU_INC;
-	newSize = newSize > limitseminfo.semmnu ? limitseminfo.semmnu : newSize;
+	new_size = MIN(roundup(old_size + 1, SEMMNU_INC), limitseminfo.semmnu);
 
-#ifdef SEM_DEBUG
-	printf("growing semu[] from %d to %d\n", seminfo.semmnu, newSize);
-#endif
-	newSemu = kalloc_type(struct sem_undo, newSize, Z_WAITOK | Z_ZERO);
+	newSemu = krealloc_type(struct sem_undo, seminfo.semmnu, new_size,
+	    semu, Z_WAITOK | Z_ZERO);
 	if (NULL == newSemu) {
-#ifdef SEM_DEBUG
-		printf("allocation failed.  no changes made.\n");
-#endif
 		return 0;
 	}
-
-	/* copy the old data to the new array */
-	for (i = 0; i < seminfo.semmnu; i++) {
-		newSemu[i] = semu[i];
-	}
-	/*
-	 * The new elements (from newSemu[i] to newSemu[newSize-1]) have their
-	 * "un_proc" set to 0 (i.e. NULL) by the Z_ZERO flag above,
-	 * so they're already marked as "not in use".
-	 */
-
-	/* Clean up the old array */
-	kfree_type(struct sem_undo, seminfo.semmnu, semu);
 
 	semu = newSemu;
-	seminfo.semmnu = newSize;
-#ifdef SEM_DEBUG
-	printf("expansion successful\n");
-#endif
+	seminfo.semmnu = new_size;
 	return 1;
 }
 
@@ -315,10 +287,9 @@ grow_sema_array(void)
 		return 0;
 	}
 
-	newArr = krealloc(semas,
-	    sizeof(struct semid_kernel *) * (old_size / SEMMNI_INC),
-	    sizeof(struct semid_kernel *) * ((old_size / SEMMNI_INC) + 1),
-	    Z_WAITOK | Z_ZERO);
+	newArr = krealloc_type(struct semid_kernel *,
+	    old_size / SEMMNI_INC, old_size / SEMMNI_INC + 1,
+	    semas, Z_WAITOK | Z_ZERO);
 	if (newArr == NULL) {
 		return 0;
 	}
@@ -455,10 +426,8 @@ semu_alloc(struct proc *p)
 			 * then fail.  We expand last to get the
 			 * most reuse out of existing resources.
 			 */
-			if (!did_something) {
-				if (!grow_semu_array(seminfo.semmnu + 1)) {
-					return -1;
-				}
+			if (!did_something && !grow_semu_array()) {
+				return -1;
 			}
 		} else {
 			/*

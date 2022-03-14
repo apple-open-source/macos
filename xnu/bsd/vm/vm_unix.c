@@ -2044,6 +2044,12 @@ shared_region_check_np(
 			/* retrieve address of its first mapping... */
 			kr = vm_shared_region_start_address(shared_region, &start_address, task);
 			if (kr != KERN_SUCCESS) {
+				SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] "
+				    "check_np(0x%llx) "
+				    "vm_shared_region_start_address() failed\n",
+				    (void *)VM_KERNEL_ADDRPERM(current_thread()),
+				    proc_getpid(p), p->p_comm,
+				    (uint64_t)uap->start_address));
 				error = ENOMEM;
 			} else {
 #if __has_feature(ptrauth_calls)
@@ -2052,6 +2058,12 @@ shared_region_check_np(
 				 * has authenticated pointers into private memory.
 				 */
 				if (vm_shared_region_auth_remap(shared_region) != KERN_SUCCESS) {
+					SHARED_REGION_TRACE_ERROR(("shared_region: %p [%d(%s)] "
+					    "check_np(0x%llx) "
+					    "vm_shared_region_auth_remap() failed\n",
+					    (void *)VM_KERNEL_ADDRPERM(current_thread()),
+					    proc_getpid(p), p->p_comm,
+					    (uint64_t)uap->start_address));
 					error = ENOMEM;
 				}
 #endif /* __has_feature(ptrauth_calls) */
@@ -2061,16 +2073,16 @@ shared_region_check_np(
 					error = copyout(&start_address,
 					    (user_addr_t) uap->start_address,
 					    sizeof(start_address));
-				}
-				if (error != 0) {
-					SHARED_REGION_TRACE_ERROR(
-						("shared_region: %p [%d(%s)] "
-						"check_np(0x%llx) "
-						"copyout(0x%llx) error %d\n",
-						(void *)VM_KERNEL_ADDRPERM(current_thread()),
-						proc_getpid(p), p->p_comm,
-						(uint64_t)uap->start_address, (uint64_t)start_address,
-						error));
+					if (error != 0) {
+						SHARED_REGION_TRACE_ERROR(
+							("shared_region: %p [%d(%s)] "
+							"check_np(0x%llx) "
+							"copyout(0x%llx) error %d\n",
+							(void *)VM_KERNEL_ADDRPERM(current_thread()),
+							proc_getpid(p), p->p_comm,
+							(uint64_t)uap->start_address, (uint64_t)start_address,
+							error));
+					}
 				}
 			}
 		}

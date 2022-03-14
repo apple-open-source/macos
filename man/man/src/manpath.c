@@ -28,7 +28,7 @@
 #include <sys/stat.h>
 #ifdef __APPLE__
 #include <stdbool.h>
-#include <xcselect.h>
+#include <xcselect_private.h>
 #endif /* __APPLE__ */
 
 /* not always in <string.h> */

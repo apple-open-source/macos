@@ -30,6 +30,7 @@
 
 #import "LayerHostingContext.h"
 #import "MediaPlayerPrivateRemoteMessages.h"
+#import "WebCoreArgumentCoders.h"
 #import <QuartzCore/QuartzCore.h>
 #import <WebCore/FloatSize.h>
 #import <WebCore/IOSurface.h>
@@ -83,48 +84,48 @@ void RemoteMediaPlayerProxy::setVideoInlineSizeFenced(const WebCore::FloatSize& 
     setVideoInlineSizeIfPossible(*m_inlineLayerHostingContext, size);
 }
 
-void RemoteMediaPlayerProxy::nativeImageForCurrentTime(CompletionHandler<void(std::optional<WTF::MachSendRight>&&)>&& completionHandler)
+void RemoteMediaPlayerProxy::mediaPlayerOnNewVideoFrameMetadata(VideoFrameMetadata&& metadata, RetainPtr<CVPixelBufferRef>&& buffer)
+{
+    m_webProcessConnection->send(Messages::MediaPlayerPrivateRemote::PushVideoFrameMetadata(metadata, buffer), m_id);
+}
+
+void RemoteMediaPlayerProxy::nativeImageForCurrentTime(CompletionHandler<void(std::optional<WTF::MachSendRight>&&, WebCore::DestinationColorSpace)>&& completionHandler)
 {
     if (!m_player) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
         return;
     }
 
     auto nativeImage = m_player->nativeImageForCurrentTime();
     if (!nativeImage) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
         return;
     }
 
     auto platformImage = nativeImage->platformImage();
     if (!platformImage) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
         return;
     }
 
     auto surface = WebCore::IOSurface::createFromImage(platformImage.get());
     if (!surface) {
-        completionHandler(std::nullopt);
+        completionHandler(std::nullopt, DestinationColorSpace::SRGB());
         return;
     }
 
-    completionHandler(surface->createSendRight());
+    completionHandler(surface->createSendRight(), nativeImage->colorSpace());
 }
 
-#if USE(AVFOUNDATION)
-void RemoteMediaPlayerProxy::pixelBufferForCurrentTimeIfChanged(CompletionHandler<void(std::optional<RetainPtr<CVPixelBufferRef>>&&)>&& completionHandler)
+void RemoteMediaPlayerProxy::colorSpace(CompletionHandler<void(WebCore::DestinationColorSpace)>&& completionHandler)
 {
-    std::optional<RetainPtr<CVPixelBufferRef>> result;
-    RetainPtr<CVPixelBufferRef> pixelBuffer;
-    if (m_player)
-        pixelBuffer = m_player->pixelBufferForCurrentTime();
-    if (m_pixelBufferForCurrentTime != pixelBuffer) {
-        result = pixelBuffer;
-        m_pixelBufferForCurrentTime = WTFMove(pixelBuffer);
+    if (!m_player) {
+        completionHandler(DestinationColorSpace::SRGB());
+        return;
     }
-    completionHandler(WTFMove(result));
+
+    completionHandler(m_player->colorSpace());
 }
-#endif
 
 } // namespace WebKit
 

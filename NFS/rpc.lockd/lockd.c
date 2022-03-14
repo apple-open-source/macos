@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*	$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $	*/
@@ -102,22 +102,22 @@ __RCSID("$NetBSD: lockd.c,v 1.7 2000/08/12 18:08:44 thorpej Exp $");
 #include "nlm_prot.h"
 int bindresvport_sa(int sd, struct sockaddr *sa);
 
-int		_rpcsvcdirty = 0;
+int             _rpcsvcdirty = 0;
 
 struct pidfh *pfh = NULL;
 
 const struct nfs_conf_lockd config_defaults =
 {
-	45,		/* grace_period */
-	60,		/* host_monitor_cache_timeout */
-	0,		/* port */
-	0,		/* send_using_tcp */
-	0,		/* send_using_mnt_transport */
-	180,		/* shutdown_delay_client */
-	180,		/* shutdown_delay_server */
-	1,		/* tcp */
-	1,		/* udp */
-	0,		/* verbose */
+	45,             /* grace_period */
+	60,             /* host_monitor_cache_timeout */
+	0,              /* port */
+	0,              /* send_using_tcp */
+	0,              /* send_using_mnt_transport */
+	180,            /* shutdown_delay_client */
+	180,            /* shutdown_delay_server */
+	1,              /* tcp */
+	1,              /* udp */
+	0,              /* verbose */
 };
 struct nfs_conf_lockd config;
 
@@ -131,12 +131,12 @@ pid_t server_pid = -1;
 struct mon mon_host;
 time_t currsec;
 
-void	init_nsm(void);
-void	nlm_prog_0(struct svc_req *, SVCXPRT *);
-void	nlm_prog_1(struct svc_req *, SVCXPRT *);
-void	nlm_prog_3(struct svc_req *, SVCXPRT *);
-void	nlm_prog_4(struct svc_req *, SVCXPRT *);
-void	usage(void);
+void    init_nsm(void);
+void    nlm_prog_0(struct svc_req *, SVCXPRT *);
+void    nlm_prog_1(struct svc_req *, SVCXPRT *);
+void    nlm_prog_3(struct svc_req *, SVCXPRT *);
+void    nlm_prog_4(struct svc_req *, SVCXPRT *);
+void    usage(void);
 
 static int config_read(struct nfs_conf_lockd *);
 static void sigalarm_grace_period_handler(void);
@@ -168,7 +168,7 @@ static int statd_service_start(void);
  *		change uids or gids.
  *		set up the current working directory or chroot.
  *		set the session id
- * 		change stdio to /dev/null.
+ *              change stdio to /dev/null.
  *		call setrusage(2)
  *		call setpriority(2)
  *		Ignore SIGTERM.
@@ -182,8 +182,8 @@ static int statd_service_start(void);
 
 int
 main(argc, argv)
-	int argc;
-	char **argv;
+int argc;
+char **argv;
 {
 	SVCXPRT *transp = NULL;
 	struct sockaddr_storage saddr;
@@ -220,7 +220,7 @@ main(argc, argv)
 	if (geteuid()) { /* This command allowed only to root */
 		fprintf(stderr, "Sorry. You are not superuser\n");
 		exit(1);
-        }
+	}
 
 	/* Install signal handler to do cleanup */
 	signal(SIGINT, handle_sig_cleanup);
@@ -240,17 +240,20 @@ main(argc, argv)
 		}
 		exit(2);
 	}
-	if (pidfile_write(pfh) == -1)
+	if (pidfile_write(pfh) == -1) {
 		syslog(LOG_WARNING, "can't write to lockd pidfile: %s (%d)", strerror(errno), errno);
+	}
 
-	if (config.verbose)
+	if (config.verbose) {
 		syslog(LOG_INFO, "lockd starting, debug level %d", config.verbose);
-	else
+	} else {
 		syslog(LOG_INFO, "lockd starting");
+	}
 
 	/* make sure statd is running */
-	if ((rv = statd_start()))
+	if ((rv = statd_start())) {
 		syslog(LOG_WARNING, "unable to start statd %d", rv);
+	}
 
 	/* Install signal handler to collect exit status of child processes */
 	sa.sa_handler = handle_sigchld;
@@ -280,7 +283,7 @@ main(argc, argv)
 	case -1:
 		syslog(LOG_ERR, "Could not fork server");
 		handle_sig_cleanup(SIGQUIT);
-		/*NOTREACHED*/
+	/*NOTREACHED*/
 	case 0:
 		/* Server doesn't need to block */
 		sigprocmask(SIG_SETMASK, &osigset, NULL);
@@ -297,7 +300,7 @@ main(argc, argv)
 		sigprocmask(SIG_SETMASK, &osigset, NULL); /* Reset signal mask */
 		client_mach_request();
 		/* We should never return, but if we do kill our other half */
-		syslog(LOG_ERR,	"Lockd: client_mach_request(), returned unexpectedly");
+		syslog(LOG_ERR, "Lockd: client_mach_request(), returned unexpectedly");
 		handle_sig_cleanup(SIGQUIT);
 		/*NOTREACHED*/
 	}
@@ -315,10 +318,10 @@ main(argc, argv)
 	pfh = NULL;
 
 	if (config.udp) {
-
 		/* IPv4 */
-		if ((lockudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+		if ((lockudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			syslog(LOG_ERR, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (lockudpsock >= 0) {
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
@@ -352,22 +355,26 @@ main(argc, argv)
 		}
 		if (lockudpsock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_UDP))
+			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_SM, udp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_UDP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_VERS, udp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_UDP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_VERSX, udp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_UDP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_VERS4, udp)");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(transp);
 				close(lockudpsock);
@@ -376,11 +383,13 @@ main(argc, argv)
 		}
 
 		/* IPv6 */
-		if ((lockudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+		if ((lockudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 			syslog(LOG_ERR, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (lockudp6sock >= 0) {
-			if (setsockopt(lockudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+			if (setsockopt(lockudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on))) {
 				syslog(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
+			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.port);
@@ -413,39 +422,43 @@ main(argc, argv)
 		}
 		if (lockudp6sock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_UDP))
+			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_SM, udp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_UDP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_VERS, udp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_UDP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_VERSX, udp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_UDP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_UDP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_VERS4, udp)");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(transp);
 				close(lockudp6sock);
 				lockudp6sock = -1;
 			}
 		}
-
 	}
 
 	if (config.tcp) {
-
 		/* IPv4 */
-		if ((locktcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+		if ((locktcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			syslog(LOG_ERR, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (locktcpsock >= 0) {
-			if (setsockopt(locktcpsock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			if (setsockopt(locktcpsock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
 				syslog(LOG_WARNING, "setsockopt TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
 			sin->sin_port = htons(config.port);
@@ -473,22 +486,26 @@ main(argc, argv)
 		}
 		if (locktcpsock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_TCP))
+			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_SM, tcp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_TCP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_VERS, tcp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_TCP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_VERSX, tcp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_TCP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv4 (NLM_PROG, NLM_VERS4, tcp)");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(transp);
 				close(locktcpsock);
@@ -497,11 +514,13 @@ main(argc, argv)
 		}
 
 		/* IPv6 */
-		if ((locktcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+		if ((locktcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
 			syslog(LOG_ERR, "can't create TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (locktcp6sock >= 0) {
-			if (setsockopt(locktcp6sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0)
+			if (setsockopt(locktcp6sock, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on)) < 0) {
 				syslog(LOG_WARNING, "setsockopt TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			setsockopt(locktcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
@@ -530,35 +549,40 @@ main(argc, argv)
 		}
 		if (locktcp6sock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_TCP))
+			if (!svc_register(transp, NLM_PROG, NLM_SM, nlm_prog_0, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_SM, tcp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_TCP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS, nlm_prog_1, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_VERS, tcp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_TCP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERSX, nlm_prog_3, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_VERSX, tcp)");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_TCP))
+			}
+			if (!svc_register(transp, NLM_PROG, NLM_VERS4, nlm_prog_4, IPPROTO_TCP)) {
 				syslog(LOG_ERR, "unable to register IPv6 (NLM_PROG, NLM_VERS4, tcp)");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(transp);
 				close(locktcp6sock);
 				locktcp6sock = -1;
 			}
 		}
-
 	}
 
-	if ((lockudp6sock < 0) && (locktcp6sock < 0))
+	if ((lockudp6sock < 0) && (locktcp6sock < 0)) {
 		syslog(LOG_WARNING, "Can't create NLM IPv6 sockets");
-	if ((lockudpsock < 0) && (locktcpsock < 0))
+	}
+	if ((lockudpsock < 0) && (locktcpsock < 0)) {
 		syslog(LOG_WARNING, "Can't create NLM IPv4 sockets");
+	}
 	if ((lockudp6sock < 0) && (locktcp6sock < 0) &&
 	    (lockudpsock < 0) && (locktcpsock < 0)) {
 		syslog(LOG_ERR, "Can't create any NLM sockets!");
@@ -570,12 +594,12 @@ main(argc, argv)
 	/* raise our resource limits as far as they can go */
 	if (getrlimit(RLIMIT_NOFILE, &rlp)) {
 		syslog(LOG_WARNING, "getrlimit(RLIMIT_NOFILE) failed: %s",
-			strerror(errno));
+		    strerror(errno));
 	} else {
-		rlp.rlim_cur = MIN(rlp.rlim_max, 2*FD_SETSIZE);
+		rlp.rlim_cur = MIN(rlp.rlim_max, 2 * FD_SETSIZE);
 		if (setrlimit(RLIMIT_NOFILE, &rlp)) {
 			syslog(LOG_WARNING, "setrlimit(RLIMIT_NOFILE) failed: %s",
-				strerror(errno));
+			    strerror(errno));
 		}
 	}
 
@@ -599,7 +623,7 @@ main(argc, argv)
 	/* Signal the parent (client process) that its ok to start */
 	kill(getppid(), SIGUSR1);
 
-	my_svc_run();		/* Should never return */
+	my_svc_run();           /* Should never return */
 	exit(1);
 }
 
@@ -661,7 +685,6 @@ init_nsm(void)
 	}
 
 	nsm_state = mstat.state;
-
 }
 
 /*
@@ -688,8 +711,9 @@ handle_sig_cleanup(int sig)
 		rpcb_unset(NULL, NLM_PROG, NLM_VERSX);
 		rpcb_unset(NULL, NLM_PROG, NLM_VERS4);
 	}
-	if (pfh && !sig)
+	if (pfh && !sig) {
 		pidfile_remove(pfh);
+	}
 	exit(!sig ? 0 : 1);
 }
 
@@ -706,9 +730,10 @@ handle_sigchld(int sig __unused)
 
 	pid = wait4(-1, &status, WNOHANG, NULL);
 	if ((server_pid != -1) && (pid == server_pid)) {
-		if (status)
+		if (status) {
 			syslog(LOG_ERR, "lockd server %d failed with status %d",
-				pid, WEXITSTATUS(status));
+			    pid, WEXITSTATUS(status));
+		}
 		handle_sig_cleanup(SIGCHLD);
 		/*NOTREACHED*/
 	}
@@ -726,27 +751,29 @@ my_svc_run(void)
 	struct timespec *top;
 	SVCXPRT *xprt;
 
-	for( ;; ) {
+	for (;;) {
 		timeout.tv_sec = config.host_monitor_cache_timeout + 1;
 		timeout.tv_nsec = 0;
-        
+
 		/*
 		 * If there are any expired hosts then sleep with a
 		 * timeout to expire them.
 		 */
-		if (hashosts && (timeout.tv_sec >= 0))
+		if (hashosts && (timeout.tv_sec >= 0)) {
 			top = &timeout;
-		else
+		} else {
 			top = NULL;
+		}
 
 		xprt = svc_pollnext(top);
 
 		gettimeofday(&now, NULL);
 		currsec = now.tv_sec;
-		if (xprt)
+		if (xprt) {
 			(void)svc_getsomerequests(xprt, -1);
-		else if (config.verbose > 3)
+		} else if (config.verbose > 3) {
 			fprintf(stderr, "my_svc_run: svc_pollnext() timeout\n");
+		}
 		hashosts = expire_lock_hosts();
 	}
 }
@@ -764,64 +791,81 @@ config_read(struct nfs_conf_lockd *conf)
 	long tmp;
 
 	if (!(f = fopen(_PATH_NFS_CONF, "r"))) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			syslog(LOG_WARNING, "%s", _PATH_NFS_CONF);
-		return (1);
+		}
+		return 1;
 	}
 	for (; (line = fparseln(f, &len, &linenum, NULL, 0)); free(line)) {
-		if (len <= 0)
+		if (len <= 0) {
 			continue;
+		}
 		/* trim trailing whitespace */
 		p = line + len - 1;
-		while ((p > line) && isspace(*p))
+		while ((p > line) && isspace(*p)) {
 			*p-- = '\0';
+		}
 		/* find key start */
 		key = line;
-		while (isspace(*key))
+		while (isspace(*key)) {
 			key++;
+		}
 		/* find equals/value */
 		value = p = strchr(line, '=');
-		if (p) /* trim trailing whitespace on key */
-			do { *p-- = '\0'; } while ((p > line) && isspace(*p));
+		if (p) { /* trim trailing whitespace on key */
+			do {
+				*p-- = '\0';
+			} while ((p > line) && isspace(*p));
+		}
 		/* find value start */
-		if (value)
-			do { value++; } while (isspace(*value));
+		if (value) {
+			do {
+				value++;
+			} while (isspace(*value));
+		}
 
 		/* all lockd keys start with "nfs.lockd." */
 		if (strncmp(key, "nfs.lockd.", 10)) {
-			if (config.verbose)
+			if (config.verbose) {
 				syslog(LOG_DEBUG, "%4ld %s=%s\n", linenum, key, value ? value : "");
+			}
 			continue;
 		}
 		tmp = !value ? 1 : strtol(value, NULL, 0);
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", tmp);
-		
+		}
+
 		if (tmp > INT32_MAX) {
 			tmp = INT32_MAX;
 		}
-		
+
 		val = (int) tmp;
 
 		if (!strcmp(key, "nfs.lockd.grace_period")) {
-			if (value && val)
+			if (value && val) {
 				conf->grace_period = val;
+			}
 		} else if (!strcmp(key, "nfs.lockd.host_monitor_cache_timeout")) {
-			if (value)
+			if (value) {
 				conf->host_monitor_cache_timeout = val;
+			}
 		} else if (!strcmp(key, "nfs.lockd.port")) {
-			if (value && val)
+			if (value && val) {
 				conf->port = val;
+			}
 		} else if (!strcmp(key, "nfs.lockd.send_using_tcp")) {
 			conf->send_using_tcp = val;
 		} else if (!strcmp(key, "nfs.lockd.send_using_mnt_transport")) {
 			conf->send_using_mnt_transport = val;
 		} else if (!strcmp(key, "nfs.lockd.shutdown_delay_client")) {
-			if (value && val)
+			if (value && val) {
 				conf->shutdown_delay_client = val;
+			}
 		} else if (!strcmp(key, "nfs.lockd.shutdown_delay_server")) {
-			if (value && val)
+			if (value && val) {
 				conf->shutdown_delay_server = val;
+			}
 		} else if (!strcmp(key, "nfs.lockd.tcp")) {
 			conf->tcp = val;
 		} else if (!strcmp(key, "nfs.lockd.udp")) {
@@ -829,14 +873,14 @@ config_read(struct nfs_conf_lockd *conf)
 		} else if (!strcmp(key, "nfs.lockd.verbose")) {
 			conf->verbose = val;
 		} else {
-			if (config.verbose)
+			if (config.verbose) {
 				syslog(LOG_DEBUG, "ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
+			}
 		}
-
 	}
 
 	fclose(f);
-	return (0);
+	return 0;
 }
 
 /*
@@ -852,26 +896,29 @@ get_statd_pid(void)
 	struct flock lock;
 
 	if ((fd = open(_PATH_STATD_PID, O_RDONLY)) < 0) {
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
-		return (0);
+		}
+		return 0;
 	}
 	len = sizeof(pidbuf) - 1;
 	if ((len = read(fd, pidbuf, len)) < 0) {
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "%s: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
+		}
 		close(fd);
-		return (0);
+		return 0;
 	}
 
 	/* parse PID */
 	pidbuf[len] = '\0';
 	pid = (pid_t) strtol(pidbuf, &pidend, 10);
 	if (!len || (pid < 1)) {
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "%s: bogus pid: %s", _PATH_STATD_PID, pidbuf);
+		}
 		close(fd);
-		return (0);
+		return 0;
 	}
 
 	/* check for lock on file by PID */
@@ -882,21 +929,23 @@ get_statd_pid(void)
 	rv = fcntl(fd, F_GETLK, &lock);
 	close(fd);
 	if (rv != 0) {
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "%s: fcntl: %s (%d)", _PATH_STATD_PID, strerror(errno), errno);
-		return (0);
+		}
+		return 0;
 	} else if (lock.l_type == F_UNLCK) {
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "%s: not locked\n", _PATH_STATD_PID);
-		return (0);
+		}
+		return 0;
 	}
-	return (pid);
+	return pid;
 }
 
 static int
 statd_is_running(void)
 {
-	return (get_statd_pid() > 0);
+	return get_statd_pid() > 0;
 }
 
 #pragma clang diagnostic push
@@ -909,21 +958,23 @@ statd_is_loaded(void)
 	int rv = 0;
 
 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	if (!msg)
-		return (0);
+	if (!msg) {
+		return 0;
+	}
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_SERVICE_LABEL), LAUNCH_KEY_GETJOB);
 
 	resp = launch_msg(msg);
 	if (resp) {
-		if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY)
+		if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY) {
 			rv = 1;
+		}
 		launch_data_free(resp);
 	} else {
 		syslog(LOG_ERR, "launch_msg(): %m");
 	}
 
 	launch_data_free(msg);
-	return (rv);
+	return rv;
 }
 
 static int
@@ -936,10 +987,16 @@ statd_load(void)
 	job = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 	args = launch_data_alloc(LAUNCH_DATA_ARRAY);
 	if (!msg || !job || !args) {
-		if (msg) launch_data_free(msg);
-		if (job) launch_data_free(job);
-		if (args) launch_data_free(args);
-		return (1);
+		if (msg) {
+			launch_data_free(msg);
+		}
+		if (job) {
+			launch_data_free(job);
+		}
+		if (args) {
+			launch_data_free(args);
+		}
+		return 1;
 	}
 	launch_data_array_set_index(args, launch_data_new_string(_PATH_STATD), 0);
 	launch_data_dict_insert(job, launch_data_new_string(_STATD_SERVICE_LABEL), LAUNCH_JOBKEY_LABEL);
@@ -952,13 +1009,14 @@ statd_load(void)
 	if (!resp) {
 		rv = errno;
 	} else {
-		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
 			rv = launch_data_get_errno(resp);
+		}
 		launch_data_free(resp);
 	}
 
 	launch_data_free(msg);
-	return (rv);
+	return rv;
 }
 
 static int
@@ -968,21 +1026,23 @@ statd_service_start(void)
 	int rv = 1;
 
 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	if (!msg)
-		return (1);
+	if (!msg) {
+		return 1;
+	}
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_SERVICE_LABEL), LAUNCH_KEY_STARTJOB);
 
 	resp = launch_msg(msg);
 	if (!resp) {
 		rv = errno;
 	} else {
-		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
 			rv = launch_data_get_errno(resp);
+		}
 		launch_data_free(resp);
 	}
 
 	launch_data_free(msg);
-	return (rv);
+	return rv;
 }
 
 int
@@ -991,20 +1051,21 @@ statd_start(void)
 	struct timespec ts;
 	int rv;
 
-	if (statd_is_running())
+	if (statd_is_running()) {
 		rv = 0;
-	else if (statd_is_loaded())
+	} else if (statd_is_loaded()) {
 		rv = statd_service_start();
-	else
+	} else {
 		rv = statd_load();
+	}
 
 	/* sleep a little to give statd/portmap a chance to start */
 	/* (better to sleep 100ms than to timeout on portmap calls) */
 	ts.tv_sec = 0;
-	ts.tv_nsec = 100*1000*1000;
+	ts.tv_nsec = 100 * 1000 * 1000;
 	nanosleep(&ts, NULL);
 
-	return (rv);
+	return rv;
 }
 
 int
@@ -1014,21 +1075,23 @@ statd_stop(void)
 	int rv = 1;
 
 	msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	if (!msg)
-		return (1);
+	if (!msg) {
+		return 1;
+	}
 	launch_data_dict_insert(msg, launch_data_new_string(_STATD_SERVICE_LABEL), LAUNCH_KEY_REMOVEJOB);
 
 	resp = launch_msg(msg);
 	if (!resp) {
 		rv = errno;
 	} else {
-		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)
+		if (launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) {
 			rv = launch_data_get_errno(resp);
+		}
 		launch_data_free(resp);
 	}
 
 	launch_data_free(msg);
-	return (rv);
+	return rv;
 }
 
 #pragma clang diagnostic pop

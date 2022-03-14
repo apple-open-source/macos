@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 dlil_if_flags_strings = ["DLIF_INUSE",
                          "DLIF_REUSE",
                          "DLIF_DEBUG"

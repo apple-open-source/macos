@@ -29,6 +29,7 @@
 #import <SecurityFoundation/SFDigestOperation.h>
 
 #import "keychain/ot/OTDefines.h"
+#import "keychain/ot/ErrorUtils.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecord.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadata.h"
 #import "keychain/ot/proto/generated_source/OTEscrowRecordMetadataClientMetadata.h"
@@ -54,6 +55,7 @@
 #import "utilities/SecCFWrappers.h"
 
 #import <CoreData/CoreDataErrors.h>
+
 
 #if TARGET_OS_OSX
 #include <sandbox.h>

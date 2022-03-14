@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2019-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,11 +32,13 @@
 #include <math.h>
 #include "pas_all_heaps.h"
 #include "pas_baseline_allocator_table.h"
+#include "pas_compact_expendable_memory.h"
 #include "pas_deferred_decommit_log.h"
 #include "pas_dyld_state.h"
 #include "pas_epoch.h"
 #include "pas_heap_lock.h"
 #include "pas_immortal_heap.h"
+#include "pas_large_expendable_memory.h"
 #include "pas_lock.h"
 #include "pas_page_sharing_pool.h"
 #include "pas_status_reporter.h"
@@ -63,7 +65,9 @@ double pas_scavenger_period_in_milliseconds = 100.;
 uint64_t pas_scavenger_max_epoch_delta = 300ll * 1000ll * 1000ll;
 #endif
 
+#if PAS_OS(DARWIN)
 qos_class_t pas_scavenger_requested_qos_class = QOS_CLASS_USER_INITIATED;
+#endif
 
 pas_scavenger_activity_callback pas_scavenger_did_start_callback = NULL;
 pas_scavenger_activity_callback pas_scavenger_completion_callback = NULL;
@@ -129,6 +133,16 @@ static void timed_wait(pthread_cond_t* cond, pthread_mutex_t* mutex,
         printf("Woke up from timed wait at %.2lf.\n", get_time_in_milliseconds());
 }
 
+static bool handle_expendable_memory(pas_expendable_memory_scavenge_kind kind)
+{
+    bool should_go_again = false;
+    pas_heap_lock_lock();
+    should_go_again |= pas_compact_expendable_memory_scavenge(kind);
+    should_go_again |= pas_large_expendable_memory_scavenge(kind);
+    pas_heap_lock_unlock();
+    return should_go_again;
+}
+
 static void* scavenger_thread_main(void* arg)
 {
     pas_scavenger_data* data;
@@ -139,8 +153,15 @@ static void* scavenger_thread_main(void* arg)
     PAS_ASSERT(pas_scavenger_current_state == pas_scavenger_state_polling);
 
     if (verbose)
-        pas_log("Scavenger is running in thread %p\n", pthread_self());
+        pas_log("Scavenger is running in thread %p\n", (void*)pthread_self());
+
+#if PAS_OS(DARWIN) || PAS_PLATFORM(PLAYSTATION)
+#if PAS_BMALLOC
     pthread_setname_np("JavaScriptCore libpas scavenger");
+#else
+    pthread_setname_np("libpas scavenger");
+#endif
+#endif
 
     did_start_callback = pas_scavenger_did_start_callback;
     if (did_start_callback)
@@ -160,7 +181,9 @@ static void* scavenger_thread_main(void* arg)
         uint64_t max_epoch;
         bool did_overflow;
 
+#if PAS_OS(DARWIN)
         pthread_set_qos_class_self_np(pas_scavenger_requested_qos_class, 0);
+#endif
 
         should_go_again = false;
         
@@ -184,8 +207,9 @@ static void* scavenger_thread_main(void* arg)
         
         should_go_again |=
             pas_thread_local_cache_for_all(pas_allocator_scavenge_request_stop_action,
-                                           pas_deallocator_scavenge_flush_log_if_clean_action,
-                                           pas_lock_is_not_held);
+                                           pas_deallocator_scavenge_flush_log_if_clean_action);
+
+        should_go_again |= handle_expendable_memory(pas_expendable_memory_scavenge_periodic);
 
         /* For the purposes of performance tuning, as well as some of the scavenger tests, the epoch
            is time in nanoseconds.
@@ -202,7 +226,7 @@ static void* scavenger_thread_main(void* arg)
             max_epoch = PAS_EPOCH_MIN;
 
         if (verbose)
-            pas_log("epoch = %llu, delta = %llu, max_epoch = %llu\n", epoch, delta, max_epoch);
+            pas_log("epoch = %llu, delta = %llu, max_epoch = %llu\n", (unsigned long long)epoch, (unsigned long long)delta, (unsigned long long)max_epoch);
 
         scavenge_result = pas_physical_page_sharing_pool_scavenge(max_epoch);
 
@@ -454,8 +478,17 @@ void pas_scavenger_clear_all_caches(void)
     pas_scavenger_clear_all_caches_except_remote_tlcs();
     
     pas_thread_local_cache_for_all(pas_allocator_scavenge_force_stop_action,
-                                   pas_deallocator_scavenge_flush_log_action,
-                                   pas_lock_is_not_held);
+                                   pas_deallocator_scavenge_flush_log_action);
+}
+
+void pas_scavenger_decommit_expendable_memory(void)
+{
+    handle_expendable_memory(pas_expendable_memory_scavenge_forced);
+}
+
+void pas_scavenger_fake_decommit_expendable_memory(void)
+{
+    handle_expendable_memory(pas_expendable_memory_scavenge_forced_fake);
 }
 
 size_t pas_scavenger_decommit_free_memory(void)
@@ -472,6 +505,7 @@ size_t pas_scavenger_decommit_free_memory(void)
 void pas_scavenger_run_synchronously_now(void)
 {
     pas_scavenger_clear_all_caches();
+    pas_scavenger_decommit_expendable_memory();
     pas_scavenger_decommit_free_memory();
 }
 
@@ -490,6 +524,9 @@ void pas_scavenger_perform_synchronous_operation(
         return;
     case pas_scavenger_clear_all_caches_kind:
         pas_scavenger_clear_all_caches();
+        return;
+    case pas_scavenger_decommit_expendable_memory_kind:
+        pas_scavenger_decommit_expendable_memory();
         return;
     case pas_scavenger_decommit_free_memory_kind:
         pas_scavenger_decommit_free_memory();

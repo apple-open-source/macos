@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1989, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,28 +29,29 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__used static char const copyright[] =
+static char const copyright[] =
 "@(#) Copyright (c) 1989, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)chmod.c	8.8 (Berkeley) 4/1/94";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/chmod/chmod.c,v 1.27 2002/08/04 05:29:13 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
-#include <sys/types.h>
+#include <sys/param.h>
 #include <sys/stat.h>
 
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <fts.h>
 #include <limits.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -61,25 +60,40 @@ __RCSID("$FreeBSD: src/bin/chmod/chmod.c,v 1.27 2002/08/04 05:29:13 obrien Exp $
 #ifdef __APPLE__
 #include "chmod_acl.h"
 
+/* Needed by chmod_acl.c. */
+int fflag = 0;
 #endif /*__APPLE__*/
 
-int fflag = 0;
+static volatile sig_atomic_t siginfo;
 
-int main(int, char *[]);
+#ifdef __APPLE__
 void usage(void);
+#else
+static void usage(void);
+#endif
+static int may_have_nfs4acl(const FTSENT *ent, int hflag);
+
+static void
+siginfo_handler(int sig __unused)
+{
+
+	siginfo = 1;
+}
 
 int
 main(int argc, char *argv[])
 {
-	FTS *ftsp = NULL;
-	FTSENT *p = NULL;
-	mode_t *set = NULL;
-	long val = 0;
-	int oct = 0;
+	FTS *ftsp;
+	FTSENT *p;
+	mode_t *set;
+#ifdef __APPLE__
 	int Hflag, Lflag, Pflag, Rflag, ch, fts_options, hflag, rval;
+#else
+	int Hflag, Lflag, Rflag, ch, fflag, fts_options, hflag, rval;
+#endif
 	int vflag;
 	char *ep, *mode;
-	mode_t newmode, omode;
+	mode_t newmode;
 #ifdef __APPLE__
 	unsigned int acloptflags = 0;
 	long aclpos = -1;
@@ -89,10 +103,10 @@ main(int argc, char *argv[])
 	int ace_arg_not_required = 0;
 	acl_t acl_input = NULL;
 #endif /* __APPLE__*/
-	int (*change_mode)(const char *, mode_t);
 
+	ftsp = NULL;
+	p = NULL;
 	set = NULL;
-	omode = 0;
 	Hflag = Lflag = Pflag = Rflag = fflag = hflag = vflag = 0;
 #ifndef __APPLE__
 	while ((ch = getopt(argc, argv, "HLPRXfghorstuvwx")) != -1)
@@ -122,12 +136,11 @@ main(int argc, char *argv[])
 			break;
 		case 'h':
 			/*
-			 * In System V (and probably POSIX.2) the -h option
-			 * causes chmod to change the mode of the symbolic
-			 * link.  4.4BSD's symbolic links didn't have modes,
-			 * so it was an undocumented noop.  In FreeBSD 3.0,
-			 * lchmod(2) is introduced and this option does real
-			 * work.
+			 * In System V the -h option causes chmod to change
+			 * the mode of the symbolic link. 4.4BSD's symbolic
+			 * links didn't have modes, so it was an undocumented
+			 * noop.  In FreeBSD 3.0, lchmod(2) is introduced and
+			 * this option does real work.
 			 */
 			hflag = 1;
 			break;
@@ -203,6 +216,7 @@ done:	argv += optind;
 		usage();
 #endif	/* __APPLE__ */
 
+	(void)signal(SIGINFO, siginfo_handler);
 #ifdef __APPLE__
 	if (!(acloptflags & ACL_FLAG) && ((acloptlen = strlen(argv[0])) > 1) && (argv[0][1] == 'a')) {
 		acloptflags |= ACL_FLAG;
@@ -273,23 +287,24 @@ apnoacl:
 #endif /*__APPLE__*/
 
 	if (Rflag) {
-		fts_options = FTS_PHYSICAL;
 		if (hflag)
-			errx(1,
-		"the -R and -h options may not be specified together.");
-		if (Hflag)
-			fts_options |= FTS_COMFOLLOW;
+			errx(1, "the -R and -h options may not be "
+			    "specified together.");
 		if (Lflag) {
-			fts_options &= ~FTS_PHYSICAL;
-			fts_options |= FTS_LOGICAL;
-		}
-	} else
-		fts_options = hflag ? FTS_PHYSICAL : FTS_LOGICAL;
+			fts_options = FTS_LOGICAL;
+		} else {
+			fts_options = FTS_PHYSICAL;
 
-	if (hflag)
-		change_mode = lchmod;
-	else
-		change_mode = chmod;
+			if (Hflag) {
+				fts_options |= FTS_COMFOLLOW;
+			}
+		}
+	} else if (hflag) {
+		fts_options = FTS_PHYSICAL;
+	} else {
+		fts_options = FTS_LOGICAL;
+	}
+
 #ifdef __APPLE__
 	if (acloptflags & ACL_FROM_STDIN) {
 		ssize_t readval = 0;
@@ -337,94 +352,91 @@ apnoacl:
 	}
 	else {
 #endif /* __APPLE__*/
-		if (*mode >= '0' && *mode <= '7') {
-			errno = 0;
-			val = strtol(mode, &ep, 8);
-			if (val > USHRT_MAX || val < 0)
-				errno = ERANGE;
-			if (errno)
-				err(1, "Invalid file mode: %s", mode);
-			if (*ep)
-				errx(1, "Invalid file mode: %s", mode);
-			omode = (mode_t)val;
-			oct = 1;
-		} else {
-			if ((set = setmode(mode)) == NULL)
-				errx(1, "Invalid file mode: %s", mode);
-			oct = 0;
-		}
+		if ((set = setmode(mode)) == NULL)
+			errx(1, "Invalid file mode: %s", mode);
 #ifdef __APPLE__
 	}
 #endif /* __APPLE__*/
 	if ((ftsp = fts_open(++argv, fts_options, 0)) == NULL)
 		err(1, "fts_open");
-	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
+	for (rval = 0; (void)(errno = 0), (p = fts_read(ftsp)) != NULL;) {
+		int atflag;
+
+		if ((fts_options & FTS_LOGICAL) ||
+		    ((fts_options & FTS_COMFOLLOW) &&
+		    p->fts_level == FTS_ROOTLEVEL))
+			atflag = 0;
+		else
+			atflag = AT_SYMLINK_NOFOLLOW;
+
 		switch (p->fts_info) {
 		case FTS_D:
 			if (!Rflag)
 				(void)fts_set(ftsp, p, FTS_SKIP);
 			break;
-		case FTS_DNR:			/* Warn, chmod, continue. */
+		case FTS_DNR:			/* Warn, chmod. */
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			break;
 		case FTS_DP:			/* Already changed at FTS_D. */
 			continue;
+#ifdef __APPLE__
 		case FTS_NS:
 			if (acloptflags & ACL_FLAG) /* don't need stat for -N */
 				break;
+#endif
 		case FTS_ERR:			/* Warn, continue. */
+#ifndef __APPLE__
+		case FTS_NS:
+#endif
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			continue;
-		case FTS_SL:			/* Ignore. */
-		case FTS_SLNONE:
-			/*
-			 * The only symlinks that end up here are ones that
-			 * don't point to anything and ones that we found
-			 * doing a physical walk.
-			 */
-			if (!hflag)
-				continue;
-			/* else */
-			/* FALLTHROUGH */
 		default:
 			break;
 		}
 #ifdef __APPLE__
-/* If an ACL manipulation option was specified, manipulate */
+		/* If an ACL manipulation option was specified, manipulate */
 		if (acloptflags & ACL_FLAG)	{
 			if (0 != modify_file_acl(acloptflags, p->fts_accpath, acl_input, (int)aclpos, inheritance_level, !hflag))
 				rval = 1;
 		}
 		else {
 #endif /* __APPLE__ */
-			newmode = oct ? omode : getmode(set, p->fts_statp->st_mode);
-			if ((newmode & ALLPERMS) == (p->fts_statp->st_mode & ALLPERMS))
+		newmode = getmode(set, p->fts_statp->st_mode);
+		/*
+		 * With NFSv4 ACLs, it is possible that applying a mode
+		 * identical to the one computed from an ACL will change
+		 * that ACL.
+		 */
+		if (may_have_nfs4acl(p, hflag) == 0 &&
+		    (newmode & ALLPERMS) == (p->fts_statp->st_mode & ALLPERMS))
 				continue;
-			if ((*change_mode)(p->fts_accpath, newmode) && !fflag) {
-				warn("Unable to change file mode on %s", p->fts_path);
-				rval = 1;
-			} else {
-				if (vflag) {
-					(void)printf("%s", p->fts_accpath);
+		if (fchmodat(AT_FDCWD, p->fts_accpath, newmode, atflag) == -1
+		    && !fflag) {
+#ifdef __APPLE__
+			warn("Unable to change file mode on %s", p->fts_path);
+#else
+			warn("%s", p->fts_path);
+#endif
+			rval = 1;
+		} else if (vflag || siginfo) {
+			(void)printf("%s", p->fts_path);
 
-					if (vflag > 1) {
-						char m1[12], m2[12];
-						
-						strmode(p->fts_statp->st_mode, m1);
-						strmode((p->fts_statp->st_mode &
-							 S_IFMT) | newmode, m2);
-						
-						(void)printf(": 0%o [%s] -> 0%o [%s]",
-							     p->fts_statp->st_mode, m1,
-					    (p->fts_statp->st_mode & S_IFMT) |
-							     newmode, m2);
-					}
-					(void)printf("\n");
-				}
-				
+			if (vflag > 1 || siginfo) {
+				char m1[12], m2[12];
+
+				strmode(p->fts_statp->st_mode, m1);
+				strmode((p->fts_statp->st_mode &
+				    S_IFMT) | newmode, m2);
+				(void)printf(": 0%o [%s] -> 0%o [%s]",
+				    p->fts_statp->st_mode, m1,
+				    (p->fts_statp->st_mode & S_IFMT) |
+				    newmode, m2);
 			}
+			(void)printf("\n");
+			siginfo = 0;
+		}
 #ifdef __APPLE__
 		}
 #endif /* __APPLE__*/
@@ -438,12 +450,14 @@ apnoacl:
 		free(mode);
 	
 #endif /* __APPLE__ */
-	if (set)
-		free(set);
 	exit(rval);
 }
 
+#ifdef __APPLE__
 void
+#else
+static void
+#endif
 usage(void)
 {
 #ifdef __APPLE__
@@ -455,4 +469,32 @@ usage(void)
 	    "usage: chmod [-fhv] [-R [-H | -L | -P]] mode file ...\n");
 #endif /* __APPLE__ */
 	exit(1);
+}
+
+static int
+may_have_nfs4acl(const FTSENT *ent, int hflag)
+{
+#ifdef __APPLE__
+	return (0);
+#else
+	int ret;
+	static dev_t previous_dev = NODEV;
+	static int supports_acls = -1;
+
+	if (previous_dev != ent->fts_statp->st_dev) {
+		previous_dev = ent->fts_statp->st_dev;
+		supports_acls = 0;
+
+		if (hflag)
+			ret = lpathconf(ent->fts_accpath, _PC_ACL_NFS4);
+		else
+			ret = pathconf(ent->fts_accpath, _PC_ACL_NFS4);
+		if (ret > 0)
+			supports_acls = 1;
+		else if (ret < 0 && errno != EINVAL)
+			warn("%s", ent->fts_path);
+	}
+
+	return (supports_acls);
+#endif
 }

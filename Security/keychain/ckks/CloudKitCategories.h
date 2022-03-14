@@ -40,8 +40,6 @@ NS_ASSUME_NONNULL_BEGIN
 // 1) An atomic write failed
 // 2) Every single suberror is either CKErrorServerRecordChanged or CKErrorUnknownItem
 - (bool)ckksIsCKErrorRecordChangedError;
-- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishError;
-- (NSTimeInterval)cuttlefishRetryAfter;
 
 - (BOOL)isCKKSServerPluginError:(NSInteger)code;
 - (BOOL)isCKServerInternalError;

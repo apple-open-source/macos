@@ -28,7 +28,12 @@
 /* Define when termcap.h defines outfuntype */
 /* #undef HAVE_OUTFUNTYPE */
 
+/* Define when del_curterm() is available */
+#define HAVE_DEL_CURTERM 1
+
 /* Define when __DATE__ " " __TIME__ can be used */
+
+/* Define when del_curterm() is available */
 #define HAVE_DATE_TIME 1
 
 /* Defined from $SOURCE_DATE_EPOCH, used as the build date */
@@ -152,6 +157,9 @@
 /* Define if stat() ignores a trailing slash */
 /* #undef STAT_IGNORES_SLASH */
 
+/* Define to nanoseconds field of struct stat */
+#define ST_MTIM_NSEC st_mtimespec.tv_nsec
+
 /* Define if tgetstr() has a second argument that is (char *) */
 /* #undef TGETSTR_CHAR_P */
 
@@ -216,11 +224,13 @@
 #define HAVE_STRPTIME 1
 #define HAVE_STRTOL 1
 /* #undef HAVE_CANBERRA */
+/* #undef HAVE_SODIUM */
 #define HAVE_ST_BLKSIZE 1
 #define HAVE_SYSCONF 1
 #define HAVE_SYSCTL 1
 /* #undef HAVE_SYSINFO */
 /* #undef HAVE_SYSINFO_MEM_UNIT */
+/* #undef HAVE_SYSINFO_UPTIME */
 #define HAVE_TGETENT 1
 #define HAVE_TOWLOWER 1
 #define HAVE_TOWUPPER 1
@@ -321,7 +331,7 @@
 #define HAVE_STRING_H 1
 
 /* Define if strings.h cannot be included when strings.h already is */
-/* #undef NO_STRINGS_WITH_STRING_H */
+#define NO_STRINGS_WITH_STRING_H 1
 
 /* Define if you want tiny features. */
 /* #undef FEAT_TINY */

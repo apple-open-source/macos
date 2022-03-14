@@ -49,7 +49,7 @@ class IOFireWireBus;
     @class IOFireWirePCRSpace
     @abstract object to multiplex users of the PCR plug registers
 */
-class IOFireWirePCRSpace : public IOFWPseudoAddressSpace
+class __exported IOFireWirePCRSpace : public IOFWPseudoAddressSpace
 {
     OSDeclareDefaultStructors(IOFireWirePCRSpace)
     

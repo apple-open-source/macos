@@ -1060,7 +1060,7 @@ check_with_pf:
 		}
 	}
 
-	if (m->m_pkthdr.pkt_flags & PKTF_IFAINFO && in6_embedded_scope) {
+	if ((m->m_pkthdr.pkt_flags & PKTF_IFAINFO) != 0 && in6_embedded_scope) {
 		if (IN6_IS_SCOPE_LINKLOCAL(&ip6->ip6_src)) {
 			ip6->ip6_src.s6_addr16[1] =
 			    htons(m->m_pkthdr.src_ifindex);
@@ -2383,7 +2383,7 @@ u_char  inet6ctlerrmap[PRC_NCMDS] = {
 	EHOSTUNREACH, EHOSTUNREACH, ECONNREFUSED, ECONNREFUSED,
 	EMSGSIZE, EHOSTUNREACH, 0, 0,
 	0, 0, 0, 0,
-	ENOPROTOOPT
+	ENOPROTOOPT, ECONNREFUSED
 };
 
 static int
@@ -2462,12 +2462,9 @@ in6_ifaddrhashtbl_init(void)
 		in6addr_nhash = IN6ADDR_NHASH;
 	}
 
-	MALLOC(in6_ifaddrhashtbl, struct in6_ifaddrhashhead *,
-	    in6addr_nhash * sizeof(*in6_ifaddrhashtbl),
-	    M_IFADDR, M_WAITOK | M_ZERO);
-	if (in6_ifaddrhashtbl == NULL) {
-		panic("in6_ifaddrhashtbl allocation failed");
-	}
+	in6_ifaddrhashtbl = zalloc_permanent(
+		in6addr_nhash * sizeof(*in6_ifaddrhashtbl),
+		ZALIGN_PTR);
 
 	/*
 	 * Generate the next largest prime greater than in6addr_nhash.

@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*	$NetBSD: lock_proc.c,v 1.7 2000/10/11 20:23:56 is Exp $	*/
@@ -81,13 +81,13 @@ __RCSID("$NetBSD: lock_proc.c,v 1.7 2000/10/11 20:23:56 is Exp $");
 #include "lockd_lock.h"
 
 
-#define	CLIENT_CACHE_SIZE	64	/* No. of client sockets cached */
-#define	CLIENT_CACHE_LIFETIME	120	/* In seconds */
+#define CLIENT_CACHE_SIZE       64      /* No. of client sockets cached */
+#define CLIENT_CACHE_LIFETIME   120     /* In seconds */
 
-#define AOK	(void *)	// assert alignment is OK
+#define AOK     (void *)        // assert alignment is OK
 
-static void	log_from_addr(const char *, struct svc_req *);
-static void	log_netobj(netobj *obj);
+static void     log_from_addr(const char *, struct svc_req *);
+static void     log_netobj(netobj *obj);
 
 /* log_from_addr ----------------------------------------------------------- */
 /*
@@ -98,15 +98,16 @@ static void	log_netobj(netobj *obj);
  */
 static void
 log_from_addr(fun_name, req)
-	const char *fun_name;
-	struct svc_req *req;
+const char *fun_name;
+struct svc_req *req;
 {
 	struct sockaddr *addr;
 	char hostname_buf[NI_MAXHOST];
 
 	addr = svc_getcaller_sa(req->rq_xprt);
-	if (getnameinfo(addr, addr->sa_len, hostname_buf, sizeof hostname_buf, NULL, 0, 0) != 0)
+	if (getnameinfo(addr, addr->sa_len, hostname_buf, sizeof hostname_buf, NULL, 0, 0) != 0) {
 		return;
+	}
 
 	syslog(LOG_DEBUG, "%s from %s", fun_name, hostname_buf);
 }
@@ -116,34 +117,34 @@ log_from_addr(fun_name, req)
  * Purpose:	Log a netobj
  * Returns:	Nothing
  * Notes:	This function should only really be called as part of
- *  		a debug subsystem.
-*/
+ *              a debug subsystem.
+ */
 static void
 log_netobj(obj)
-	netobj *obj;
+netobj *obj;
 {
-	char objvalbuffer[(sizeof(char)*2)*MAX_NETOBJ_SZ+2];
-	char objascbuffer[sizeof(char)*MAX_NETOBJ_SZ+1];
+	char objvalbuffer[(sizeof(char) * 2) * MAX_NETOBJ_SZ + 2];
+	char objascbuffer[sizeof(char) * MAX_NETOBJ_SZ + 1];
 	unsigned int i, maxlen;
 	char *tmp1, *tmp2;
 
 	/* Notify of potential security attacks */
-	if (obj->n_len > MAX_NETOBJ_SZ)	{
+	if (obj->n_len > MAX_NETOBJ_SZ) {
 		syslog(LOG_DEBUG, "SOMEONE IS TRYING TO DO SOMETHING NASTY!\n");
 		syslog(LOG_DEBUG, "netobj too large! Should be %d was %d\n",
 		    MAX_NETOBJ_SZ, obj->n_len);
 	}
 	/* Prevent the security hazard from the buffer overflow */
 	maxlen = (obj->n_len < MAX_NETOBJ_SZ ? obj->n_len : MAX_NETOBJ_SZ);
-	for (i=0, tmp1 = objvalbuffer, tmp2 = objascbuffer; i < maxlen;
-	    i++, tmp1 +=2, tmp2 +=1) {
-		snprintf(tmp1, 2+1, "%02X", *(obj->n_bytes+i));
-		snprintf(tmp2, 1+1, "%c", *(obj->n_bytes+i));
+	for (i = 0, tmp1 = objvalbuffer, tmp2 = objascbuffer; i < maxlen;
+	    i++, tmp1 += 2, tmp2 += 1) {
+		snprintf(tmp1, 2 + 1, "%02X", *(obj->n_bytes + i));
+		snprintf(tmp2, 1 + 1, "%c", *(obj->n_bytes + i));
 	}
 	*tmp1 = '\0';
 	*tmp2 = '\0';
-	syslog(LOG_DEBUG,"netobjvals: %s\n",objvalbuffer);
-	syslog(LOG_DEBUG,"netobjascs: %s\n",objascbuffer);
+	syslog(LOG_DEBUG, "netobjvals: %s\n", objvalbuffer);
+	syslog(LOG_DEBUG, "netobjascs: %s\n", objascbuffer);
 }
 /* get_client -------------------------------------------------------------- */
 /*
@@ -175,7 +176,7 @@ log_netobj(obj)
  *		always re-used in sequence.
  */
 static CLIENT *clnt_cache_ptr[CLIENT_CACHE_SIZE];
-static long clnt_cache_time[CLIENT_CACHE_SIZE];	/* time entry created */
+static long clnt_cache_time[CLIENT_CACHE_SIZE]; /* time entry created */
 static struct sockaddr_storage clnt_cache_addr[CLIENT_CACHE_SIZE];
 static rpcvers_t clnt_cache_vers[CLIENT_CACHE_SIZE];
 static int clnt_cache_next_to_use = 0;
@@ -187,18 +188,18 @@ static int clnt_cache_next_to_use = 0;
  */
 struct badhost {
 	TAILQ_ENTRY(badhost) list;
-	struct sockaddr_storage addr;	/* host address */
-	int count;			/* # of occurences */
-	time_t timelast;		/* last attempted */
-	time_t timenext;		/* next allowed */
+	struct sockaddr_storage addr;   /* host address */
+	int count;                      /* # of occurences */
+	time_t timelast;                /* last attempted */
+	time_t timenext;                /* next allowed */
 };
 TAILQ_HEAD(badhostlist_head, badhost);
 static struct badhostlist_head badhostlist_head = TAILQ_HEAD_INITIALIZER(badhostlist_head);
-#define	BADHOST_CLIENT_TOOK_TOO_LONG	5	/* In seconds */
-#define	BADHOST_NFS_CLIENT_SIDE_DELAY	60	/* In seconds */
-#define	BADHOST_INITIAL_DELAY		120	/* In seconds */
-#define	BADHOST_MAXIMUM_DELAY		3600	/* In seconds */
-#define	BADHOST_DELAY_INCREMENT		300	/* In seconds */
+#define BADHOST_CLIENT_TOOK_TOO_LONG    5       /* In seconds */
+#define BADHOST_NFS_CLIENT_SIDE_DELAY   60      /* In seconds */
+#define BADHOST_INITIAL_DELAY           120     /* In seconds */
+#define BADHOST_MAXIMUM_DELAY           3600    /* In seconds */
+#define BADHOST_DELAY_INCREMENT         300     /* In seconds */
 
 int
 addrcmp(const struct sockaddr *sa1, const struct sockaddr *sa2)
@@ -206,8 +207,9 @@ addrcmp(const struct sockaddr *sa1, const struct sockaddr *sa2)
 	int len;
 	void *p1, *p2;
 
-	if (sa1->sa_family != sa2->sa_family)
+	if (sa1->sa_family != sa2->sa_family) {
 		return -1;
+	}
 
 	switch (sa1->sa_family) {
 	case AF_INET:
@@ -229,24 +231,26 @@ addrcmp(const struct sockaddr *sa1, const struct sockaddr *sa2)
 
 CLIENT *
 get_client(host_addr, vers, client_request, use_tcp)
-	struct sockaddr *host_addr;
-	rpcvers_t vers;
-	int client_request;
-	int use_tcp;
+struct sockaddr *host_addr;
+rpcvers_t vers;
+int client_request;
+int use_tcp;
 {
-    CLIENT *client = NULL, *cached_client;
+	CLIENT *client = NULL, *cached_client;
 	struct timeval retry_time, time_now;
 	int i;
 	int sock_no, cache_ttl;
 	time_t time_start, cache_time = 0;
 	struct badhost *badhost, *nextbadhost;
-	char addrbuf[2*INET6_ADDRSTRLEN];
+	char addrbuf[2 * INET6_ADDRSTRLEN];
 
-	if (config.send_using_mnt_transport == 0)
+	if (config.send_using_mnt_transport == 0) {
 		use_tcp = 0;
-	
-	if (!use_tcp && config.send_using_tcp)
+	}
+
+	if (!use_tcp && config.send_using_tcp) {
 		use_tcp = config.send_using_tcp;
+	}
 
 	gettimeofday(&time_now, NULL);
 
@@ -259,20 +263,25 @@ get_client(host_addr, vers, client_request, use_tcp)
 	cached_client = NULL;
 	for (i = 0; i < CLIENT_CACHE_SIZE; i++) {
 		client = clnt_cache_ptr[i];
-		if (!client)
+		if (!client) {
 			continue;
-		if (clnt_cache_vers[i] != vers)
+		}
+		if (clnt_cache_vers[i] != vers) {
 			continue;
-		if (addrcmp((struct sockaddr *)&clnt_cache_addr[i], host_addr))
+		}
+		if (addrcmp((struct sockaddr *)&clnt_cache_addr[i], host_addr)) {
 			continue;
+		}
 		/* Found it! */
 		if (((clnt_cache_time[i] + cache_ttl) > time_now.tv_sec)) {
-			if (config.verbose > 3)
+			if (config.verbose > 3) {
 				syslog(LOG_DEBUG, "Found CLIENT* in cache");
-			return (client);
+			}
+			return client;
 		}
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "Found expired CLIENT* in cache");
+		}
 		cached_client = client;
 		/* if we end up reusing this guy, make sure we keep the same timestamp */
 		cache_time = clnt_cache_time[i];
@@ -288,8 +297,9 @@ get_client(host_addr, vers, client_request, use_tcp)
 	badhost = TAILQ_FIRST(&badhostlist_head);
 	while (badhost) {
 		nextbadhost = TAILQ_NEXT(badhost, list);
-		if (!addrcmp(host_addr, (struct sockaddr *)&badhost->addr))
+		if (!addrcmp(host_addr, (struct sockaddr *)&badhost->addr)) {
 			break;
+		}
 		if ((badhost->timelast + BADHOST_MAXIMUM_DELAY) < time_now.tv_sec) {
 			/* cleanup entries we haven't heard from in a while */
 			TAILQ_REMOVE(&badhostlist_head, badhost, list);
@@ -302,8 +312,9 @@ get_client(host_addr, vers, client_request, use_tcp)
 	 * If we're getting this "CLIENT*" to send an NFS client side message to
 	 * an NFS server's lockd, then limit the badhost delay to 60 seconds.
 	 */
-	if (badhost && client_request && ((time_now.tv_sec - badhost->timelast) >= BADHOST_NFS_CLIENT_SIDE_DELAY))
+	if (badhost && client_request && ((time_now.tv_sec - badhost->timelast) >= BADHOST_NFS_CLIENT_SIDE_DELAY)) {
 		badhost->timenext = time_now.tv_sec;
+	}
 	if (badhost && (time_now.tv_sec < badhost->timenext)) {
 		/*
 		 * We've got a badhost, and we don't want to try
@@ -311,8 +322,9 @@ get_client(host_addr, vers, client_request, use_tcp)
 		 * cached CLIENT*, go ahead and try to use that.
 		 */
 		if (cached_client) {
-			if (config.verbose)
+			if (config.verbose) {
 				syslog(LOG_DEBUG, "badhost delayed: stale CLIENT* found in cache");
+			}
 			/* Free the next entry if it is in use. */
 			if (clnt_cache_ptr[clnt_cache_next_to_use]) {
 				clnt_destroy(clnt_cache_ptr[clnt_cache_next_to_use]);
@@ -321,16 +333,18 @@ get_client(host_addr, vers, client_request, use_tcp)
 			client = cached_client;
 			goto update_cache_entry;
 		}
-		if (config.verbose)
+		if (config.verbose) {
 			syslog(LOG_DEBUG, "badhost delayed: valid CLIENT* not found in cache");
+		}
 		return NULL;
 	}
 
 	if (config.verbose > 3) {
-		if (!cached_client)
+		if (!cached_client) {
 			syslog(LOG_DEBUG, "CLIENT* not found in cache, creating");
-		else
+		} else {
 			syslog(LOG_DEBUG, "stale CLIENT* found in cache, updating");
+		}
 	}
 
 	/* Free the next entry if it is in use. */
@@ -345,14 +359,17 @@ get_client(host_addr, vers, client_request, use_tcp)
 	sock_no = RPC_ANYSOCK;
 	retry_time.tv_sec = 5;
 	retry_time.tv_usec = 0;
-	if (host_addr->sa_family == AF_INET)	/* Force consultation with portmapper   */
+	if (host_addr->sa_family == AF_INET) {  /* Force consultation with portmapper   */
 		((struct sockaddr_in *) AOK host_addr)->sin_port = 0;
-	else
+	} else {
 		((struct sockaddr_in6 *) AOK host_addr)->sin6_port = 0;
-	if (use_tcp)
+	}
+	if (use_tcp) {
 		client = clnttcp_create_sa(host_addr, NLM_PROG, vers, &sock_no, 0, 0);
-	if (!use_tcp || !client)
+	}
+	if (!use_tcp || !client) {
 		client = clntudp_create_sa(host_addr, NLM_PROG, vers, retry_time, &sock_no);
+	}
 
 	gettimeofday(&time_now, NULL);
 	if (time_now.tv_sec - time_start >= BADHOST_CLIENT_TOOK_TOO_LONG) {
@@ -379,8 +396,9 @@ get_client(host_addr, vers, client_request, use_tcp)
 			} else {
 				/* multiple offenders get an increasingly larger delay */
 				int delay = (badhost->count - 1) * BADHOST_DELAY_INCREMENT;
-				if (delay > BADHOST_MAXIMUM_DELAY)
+				if (delay > BADHOST_MAXIMUM_DELAY) {
 					delay = BADHOST_MAXIMUM_DELAY;
+				}
 				badhost->timenext = time_now.tv_sec + delay;
 			}
 			/* move to end of list */
@@ -394,12 +412,12 @@ get_client(host_addr, vers, client_request, use_tcp)
 		badhost = NULL;
 	}
 
-	if (!client) { 
+	if (!client) {
 		/* We couldn't get a new CLIENT* */
 		if (!cached_client) {
 			getnameinfo(host_addr, host_addr->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 			syslog(LOG_WARNING, "Unable to contact %s: %s", addrbuf,
-				clnt_spcreateerror(use_tcp ? "clnttcp_create" : "clntudp_create"));
+			    clnt_spcreateerror(use_tcp ? "clnttcp_create" : "clntudp_create"));
 			return NULL;
 		}
 		/*
@@ -410,14 +428,15 @@ get_client(host_addr, vers, client_request, use_tcp)
 		client = cached_client;
 		getnameinfo(host_addr, host_addr->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 		syslog(LOG_WARNING, "Unable to update contact info for %s: %s", addrbuf,
-			clnt_spcreateerror(use_tcp ? "clnttcp_create" : "clntudp_create"));
+		    clnt_spcreateerror(use_tcp ? "clnttcp_create" : "clntudp_create"));
 	} else {
 		/*
 		 * We've got a new/updated CLIENT* for this host.
 		 * So, destroy any previously cached CLIENT*.
 		 */
-		if (cached_client)
+		if (cached_client) {
 			clnt_destroy(cached_client);
+		}
 
 		/*
 		 * Disable the default timeout, so we can specify our own in calls
@@ -444,8 +463,9 @@ update_cache_entry:
 	    host_addr->sa_len);
 	clnt_cache_vers[clnt_cache_next_to_use] = vers;
 	clnt_cache_time[clnt_cache_next_to_use] = cache_time;
-	if (++clnt_cache_next_to_use >= CLIENT_CACHE_SIZE)
+	if (++clnt_cache_next_to_use >= CLIENT_CACHE_SIZE) {
 		clnt_cache_next_to_use = 0;
+	}
 
 	return client;
 }
@@ -461,10 +481,10 @@ update_cache_entry:
  */
 int
 transmit_result(opcode, result, addr, client_request)
-	int opcode;
-	nlm_res *result;
-	struct sockaddr *addr;
-	int client_request;
+int opcode;
+nlm_res *result;
+struct sockaddr *addr;
+int client_request;
 {
 	static char dummy;
 	CLIENT *cli;
@@ -478,12 +498,13 @@ transmit_result(opcode, result, addr, client_request)
 		success = clnt_call(cli, opcode, (xdrproc_t)xdr_nlm_res, result, (xdrproc_t)xdr_void,
 		    &dummy, timeo);
 
-		if (config.verbose > 2)
+		if (config.verbose > 2) {
 			syslog(LOG_DEBUG, "clnt_call returns %d(%s)",
 			    success, clnt_sperrno(success));
-		return (0);
+		}
+		return 0;
 	}
-	return (-1);
+	return -1;
 }
 /* transmit4_result --------------------------------------------------------- */
 /*
@@ -495,10 +516,10 @@ transmit_result(opcode, result, addr, client_request)
  */
 int
 transmit4_result(opcode, result, addr, client_request)
-	int opcode;
-	nlm4_res *result;
-	struct sockaddr *addr;
-	int client_request;
+int opcode;
+nlm4_res *result;
+struct sockaddr *addr;
+int client_request;
 {
 	static char dummy;
 	CLIENT *cli;
@@ -512,12 +533,13 @@ transmit4_result(opcode, result, addr, client_request)
 		success = clnt_call(cli, opcode, (xdrproc_t)xdr_nlm4_res, result, (xdrproc_t)xdr_void,
 		    &dummy, timeo);
 
-		if (config.verbose > 2)
+		if (config.verbose > 2) {
 			syslog(LOG_DEBUG, "clnt_call returns %d(%s)",
 			    success, clnt_sperrno(success));
-		return (0);
+		}
+		return 0;
 	}
-	return (-1);
+	return -1;
 }
 
 /*
@@ -526,8 +548,8 @@ transmit4_result(opcode, result, addr, client_request)
 static void nlmtonlm4(struct nlm_lock *, struct nlm4_lock *);
 static void
 nlmtonlm4(arg, arg4)
-	struct nlm_lock *arg;
-	struct nlm4_lock *arg4;
+struct nlm_lock *arg;
+struct nlm4_lock *arg4;
 {
 	arg4->caller_name = arg->caller_name;
 	arg4->fh = arg->fh;
@@ -571,16 +593,17 @@ nlmtonlm4(arg, arg4)
  */
 nlm_testres *
 nlm_test_1_svc(arg, rqstp)
-	nlm_testargs *arg;
-	struct svc_req *rqstp;
+nlm_testargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_testres res;
 	struct nlm4_lock arg4;
 	struct nlm4_holder *holder;
 	nlmtonlm4(&arg->alock, &arg4);
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_test", rqstp);
+	}
 
 	holder = testlock(&arg4, arg->exclusive, 0);
 	/*
@@ -600,13 +623,13 @@ nlm_test_1_svc(arg, rqstp)
 		res.stat.nlm_testrply_u.holder.l_offset = (u_int) holder->l_offset;
 		res.stat.nlm_testrply_u.holder.l_len = (u_int) holder->l_len;
 	}
-	return (&res);
+	return &res;
 }
 
 void *
 nlm_test_msg_1_svc(arg, rqstp)
-	nlm_testargs *arg;
-	struct svc_req *rqstp;
+nlm_testargs *arg;
+struct svc_req *rqstp;
 {
 	nlm_testres res;
 	static char dummy;
@@ -618,8 +641,9 @@ nlm_test_msg_1_svc(arg, rqstp)
 
 	nlmtonlm4(&arg->alock, &arg4);
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_test_msg", rqstp);
+	}
 
 	holder = testlock(&arg4, arg->exclusive, 0);
 
@@ -645,10 +669,11 @@ nlm_test_msg_1_svc(arg, rqstp)
 		success = clnt_call(cli, NLM_TEST_RES, (xdrproc_t)xdr_nlm_testres,
 		    &res, (xdrproc_t)xdr_void, &dummy, timeo);
 
-		if (config.verbose > 2)
+		if (config.verbose > 2) {
 			syslog(LOG_DEBUG, "clnt_call returns %d", success);
+		}
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_lock ---------------------------------------------------------------- */
@@ -659,8 +684,8 @@ nlm_test_msg_1_svc(arg, rqstp)
  */
 nlm_res *
 nlm_lock_1_svc(arg, rqstp)
-	nlm_lockargs *arg;
-	struct svc_req *rqstp;
+nlm_lockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_lockargs arg4;
@@ -671,20 +696,21 @@ nlm_lock_1_svc(arg, rqstp)
 	arg4.reclaim = arg->reclaim;
 	arg4.state = arg->state;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_lock", rqstp);
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
 	res.stat.stat = (nlm_stats) getlock(&arg4, rqstp, LOCK_MON);
-	return (&res);
+	return &res;
 }
 
 void *
 nlm_lock_msg_1_svc(arg, rqstp)
-	nlm_lockargs *arg;
-	struct svc_req *rqstp;
+nlm_lockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_lockargs arg4;
@@ -696,16 +722,17 @@ nlm_lock_msg_1_svc(arg, rqstp)
 	arg4.reclaim = arg->reclaim;
 	arg4.state = arg->state;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_lock_msg", rqstp);
+	}
 
 	res.cookie = arg->cookie;
 	res.stat.stat = (nlm_stats) getlock(&arg4, rqstp, LOCK_ASYNC | LOCK_MON);
 	if (transmit_result(NLM_LOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* if res.stat.stat was success/blocked, then unlock/cancel */
-		if (res.stat.stat == nlm_granted)
+		if (res.stat.stat == nlm_granted) {
 			unlock(&arg4.alock, LOCK_V4);
-		else if (res.stat.stat == nlm_blocked) {
+		} else if (res.stat.stat == nlm_blocked) {
 			nlm4_cancargs carg;
 			carg.cookie = arg4.cookie;
 			carg.block = arg4.block;
@@ -715,7 +742,7 @@ nlm_lock_msg_1_svc(arg, rqstp)
 		}
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_cancel -------------------------------------------------------------- */
@@ -726,8 +753,8 @@ nlm_lock_msg_1_svc(arg, rqstp)
  */
 nlm_res *
 nlm_cancel_1_svc(arg, rqstp)
-	nlm_cancargs *arg;
-	struct svc_req *rqstp;
+nlm_cancargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_cancargs arg4;
@@ -737,20 +764,21 @@ nlm_cancel_1_svc(arg, rqstp)
 	arg4.exclusive = arg->exclusive;
 	nlmtonlm4(&arg->alock, &arg4.alock);
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_cancel", rqstp);
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
 	res.stat.stat = (nlm_stats) cancellock(&arg4, 0);
-	return (&res);
+	return &res;
 }
 
 void *
 nlm_cancel_msg_1_svc(arg, rqstp)
-	nlm_cancargs *arg;
-	struct svc_req *rqstp;
+nlm_cancargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_cancargs arg4;
@@ -760,15 +788,16 @@ nlm_cancel_msg_1_svc(arg, rqstp)
 	arg4.exclusive = arg->exclusive;
 	nlmtonlm4(&arg->alock, &arg4.alock);
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_cancel_msg", rqstp);
+	}
 
 	res.cookie = arg->cookie;
 	res.stat.stat = (nlm_stats) cancellock(&arg4, 0);
 	if (transmit_result(NLM_CANCEL_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_unlock -------------------------------------------------------------- */
@@ -781,35 +810,37 @@ nlm_cancel_msg_1_svc(arg, rqstp)
  */
 nlm_res *
 nlm_unlock_1_svc(arg, rqstp)
-	nlm_unlockargs *arg;
-	struct svc_req *rqstp;
+nlm_unlockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_lock arg4;
 
 	nlmtonlm4(&arg->alock, &arg4);
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_unlock", rqstp);
+	}
 
 	res.stat.stat = (nlm_stats) unlock(&arg4, 0);
 	res.cookie = arg->cookie;
 
-	return (&res);
+	return &res;
 }
 
 void *
 nlm_unlock_msg_1_svc(arg, rqstp)
-	nlm_unlockargs *arg;
-	struct svc_req *rqstp;
+nlm_unlockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_lock arg4;
 
 	nlmtonlm4(&arg->alock, &arg4);
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_unlock_msg", rqstp);
+	}
 
 	res.stat.stat = (nlm_stats) unlock(&arg4, 0);
 	res.cookie = arg->cookie;
@@ -817,7 +848,7 @@ nlm_unlock_msg_1_svc(arg, rqstp)
 	if (transmit_result(NLM_UNLOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -840,15 +871,16 @@ nlm_unlock_msg_1_svc(arg, rqstp)
  */
 nlm_res *
 nlm_granted_1_svc(arg, rqstp)
-	nlm_testargs *arg;
-	struct svc_req *rqstp;
+nlm_testargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	nlm4_lock lock4;
 	int flags;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_granted", rqstp);
+	}
 
 	lock4.fh = arg->alock.fh;
 	lock4.svid = arg->alock.svid;
@@ -856,31 +888,34 @@ nlm_granted_1_svc(arg, rqstp)
 	lock4.l_len = arg->alock.l_len;
 
 	flags = LOCK_ANSWER_GRANTED;
-	if (arg->exclusive)
+	if (arg->exclusive) {
 		flags |= LOCK_ANSWER_LOCK_EXCL;
+	}
 
-	if (lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, nlm_granted))
+	if (lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, nlm_granted)) {
 		res.stat.stat = nlm_denied;
-	else
+	} else {
 		res.stat.stat = nlm_granted;
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	return (&res);
+	return &res;
 }
 
 void *
 nlm_granted_msg_1_svc(arg, rqstp)
-	nlm_testargs *arg;
-	struct svc_req *rqstp;
+nlm_testargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	nlm4_lock lock4;
 	int flags;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_granted_msg", rqstp);
+	}
 
 	lock4.fh = arg->alock.fh;
 	lock4.svid = arg->alock.svid;
@@ -888,20 +923,22 @@ nlm_granted_msg_1_svc(arg, rqstp)
 	lock4.l_len = arg->alock.l_len;
 
 	flags = LOCK_ANSWER_GRANTED;
-	if (arg->exclusive)
+	if (arg->exclusive) {
 		flags |= LOCK_ANSWER_LOCK_EXCL;
+	}
 
-	if (lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, nlm_granted))
+	if (lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, nlm_granted)) {
 		res.stat.stat = nlm_denied;
-	else
+	} else {
 		res.stat.stat = nlm_granted;
+	}
 
 	res.cookie = arg->cookie;
 
 	if (transmit_result(NLM_GRANTED_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 1) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_test_res ------------------------------------------------------------ */
@@ -911,27 +948,30 @@ nlm_granted_msg_1_svc(arg, rqstp)
  */
 void *
 nlm_test_res_1_svc(arg, rqstp)
-	nlm_testres *arg;
-	struct svc_req *rqstp;
+nlm_testres *arg;
+struct svc_req *rqstp;
 {
 	nlm4_lock lock4;
 	int flags = 0;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_test_res", rqstp);
+	}
 
 	if (arg->stat.stat == nlm_denied) {
 		lock4.fh.n_len = 0;
 		lock4.svid = arg->stat.nlm_testrply_u.holder.svid;
 		lock4.l_offset = arg->stat.nlm_testrply_u.holder.l_offset;
 		lock4.l_len = arg->stat.nlm_testrply_u.holder.l_len;
-		if (arg->stat.nlm_testrply_u.holder.exclusive)
+		if (arg->stat.nlm_testrply_u.holder.exclusive) {
 			flags |= LOCK_ANSWER_LOCK_EXCL;
+		}
 		lock_answer(NLM_VERS, &arg->cookie, &lock4, flags, arg->stat.stat);
-	} else
+	} else {
 		lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
+	}
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_lock_res ------------------------------------------------------------ */
@@ -941,15 +981,16 @@ nlm_test_res_1_svc(arg, rqstp)
  */
 void *
 nlm_lock_res_1_svc(arg, rqstp)
-	nlm_res *arg;
-	struct svc_req *rqstp;
+nlm_res *arg;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_lock_res", rqstp);
+	}
 
 	lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_cancel_res ---------------------------------------------------------- */
@@ -959,15 +1000,16 @@ nlm_lock_res_1_svc(arg, rqstp)
  */
 void *
 nlm_cancel_res_1_svc(arg, rqstp)
-	nlm_res *arg;
-	struct svc_req *rqstp;
+nlm_res *arg;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_cancel_res", rqstp);
+	}
 
 	lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_unlock_res ---------------------------------------------------------- */
@@ -977,15 +1019,16 @@ nlm_cancel_res_1_svc(arg, rqstp)
  */
 void *
 nlm_unlock_res_1_svc(arg, rqstp)
-	nlm_res *arg;
-	struct svc_req *rqstp;
+nlm_res *arg;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_unlock_res", rqstp);
+	}
 
 	lock_answer(NLM_VERS, &arg->cookie, NULL, 0, arg->stat.stat);
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_granted_res --------------------------------------------------------- */
@@ -995,11 +1038,12 @@ nlm_unlock_res_1_svc(arg, rqstp)
  */
 void *
 nlm_granted_res_1_svc(arg, rqstp)
-	nlm_res *arg;
-	struct svc_req *rqstp;
+nlm_res *arg;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_granted_res", rqstp);
+	}
 	/* need to undo lock if granted msg wasn't accepted! */
 	if (arg->stat.stat != nlm_granted) {
 		nlm4_res arg4;
@@ -1007,7 +1051,7 @@ nlm_granted_res_1_svc(arg, rqstp)
 		arg4.stat.stat = (nlm4_stats) arg->stat.stat;
 		granted_failed(&arg4);
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1027,20 +1071,21 @@ nlm_granted_res_1_svc(arg, rqstp)
  */
 nlm_shareres *
 nlm_share_3_svc(arg, rqstp)
-	nlm_shareargs *arg;
-	struct svc_req *rqstp;
+nlm_shareargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_shareres res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_share", rqstp);
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
-	res.sequence = 0;	/* X/Open says this field is ignored? */
+	res.sequence = 0;       /* X/Open says this field is ignored? */
 
 	res.stat = (nlm_stats) getshare(arg, rqstp, 0);
-	return (&res);
+	return &res;
 }
 
 /* nlm_unshare ------------------------------------------------------------ */
@@ -1051,19 +1096,20 @@ nlm_share_3_svc(arg, rqstp)
  */
 nlm_shareres *
 nlm_unshare_3_svc(arg, rqstp)
-	nlm_shareargs *arg;
-	struct svc_req *rqstp;
+nlm_shareargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_shareres res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_unshare", rqstp);
+	}
 
 	res.cookie = arg->cookie;
-	res.sequence = 0;	/* X/Open says this field is ignored? */
+	res.sequence = 0;       /* X/Open says this field is ignored? */
 
 	res.stat = (nlm_stats) unshare(arg, rqstp, 0);
-	return (&res);
+	return &res;
 }
 
 /* nlm_nm_lock ------------------------------------------------------------ */
@@ -1078,8 +1124,8 @@ nlm_unshare_3_svc(arg, rqstp)
  */
 nlm_res *
 nlm_nm_lock_3_svc(arg, rqstp)
-	nlm_lockargs *arg;
-	struct svc_req *rqstp;
+nlm_lockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm_res res;
 	struct nlm4_lockargs arg4;
@@ -1090,14 +1136,15 @@ nlm_nm_lock_3_svc(arg, rqstp)
 	arg4.reclaim = arg->reclaim;
 	arg4.state = arg->state;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_nm_lock", rqstp);
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
 	res.stat.stat = (nlm_stats) getlock(&arg4, rqstp, 0);
-	return (&res);
+	return &res;
 }
 
 /* nlm_free_all ------------------------------------------------------------ */
@@ -1112,18 +1159,19 @@ nlm_nm_lock_3_svc(arg, rqstp)
  */
 void *
 nlm_free_all_3_svc(arg, rqstp)
-	nlm_notify *arg;
-	struct svc_req *rqstp;
+nlm_notify *arg;
+struct svc_req *rqstp;
 {
 	static char dummy;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm_free_all", rqstp);
+	}
 
 	/* free all non-monitored locks/shares for specified host */
 	do_free_all(arg->name);
 
-	return (&dummy);
+	return &dummy;
 }
 
 /* calls for nlm version 4 (NFSv3) */
@@ -1135,19 +1183,20 @@ nlm_free_all_3_svc(arg, rqstp)
  */
 nlm4_testres *
 nlm4_test_4_svc(arg, rqstp)
-	nlm4_testargs *arg;
-	struct svc_req *rqstp;
+nlm4_testargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_testres res;
 	struct nlm4_holder *holder;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_test", rqstp);
+	}
 	if (config.verbose > 5) {
 		syslog(LOG_DEBUG, "Locking arguments:\n");
 		log_netobj(&(arg->cookie));
 		syslog(LOG_DEBUG, "Alock arguments:\n");
-		syslog(LOG_DEBUG, "Caller Name: %s\n",arg->alock.caller_name);
+		syslog(LOG_DEBUG, "Caller Name: %s\n", arg->alock.caller_name);
 		syslog(LOG_DEBUG, "File Handle:\n");
 		log_netobj(&(arg->alock.fh));
 		syslog(LOG_DEBUG, "Owner Handle:\n");
@@ -1178,13 +1227,13 @@ nlm4_test_4_svc(arg, rqstp)
 		memcpy(&res.stat.nlm4_testrply_u.holder, holder,
 		    sizeof(struct nlm4_holder));
 	}
-	return (&res);
+	return &res;
 }
 
 void *
 nlm4_test_msg_4_svc(arg, rqstp)
-	nlm4_testargs *arg;
-	struct svc_req *rqstp;
+nlm4_testargs *arg;
+struct svc_req *rqstp;
 {
 	nlm4_testres res;
 	static char dummy;
@@ -1193,8 +1242,9 @@ nlm4_test_msg_4_svc(arg, rqstp)
 	struct timeval timeo;
 	struct nlm4_holder *holder;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_test_msg", rqstp);
+	}
 
 	holder = testlock(&arg->alock, arg->exclusive, LOCK_V4);
 
@@ -1218,10 +1268,11 @@ nlm4_test_msg_4_svc(arg, rqstp)
 		success = clnt_call(cli, NLM4_TEST_RES, (xdrproc_t)xdr_nlm4_testres,
 		    &res, (xdrproc_t)xdr_void, &dummy, timeo);
 
-		if (config.verbose > 2)
+		if (config.verbose > 2) {
 			syslog(LOG_DEBUG, "clnt_call returns %d", success);
+		}
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_lock ---------------------------------------------------------------- */
@@ -1232,18 +1283,19 @@ nlm4_test_msg_4_svc(arg, rqstp)
  */
 nlm4_res *
 nlm4_lock_4_svc(arg, rqstp)
-	nlm4_lockargs *arg;
-	struct svc_req *rqstp;
+nlm4_lockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_lock", rqstp);
+	}
 	if (config.verbose > 5) {
 		syslog(LOG_DEBUG, "Locking arguments:\n");
 		log_netobj(&(arg->cookie));
 		syslog(LOG_DEBUG, "Alock arguments:\n");
-		syslog(LOG_DEBUG, "Caller Name: %s\n",arg->alock.caller_name);
+		syslog(LOG_DEBUG, "Caller Name: %s\n", arg->alock.caller_name);
 		syslog(LOG_DEBUG, "File Handle:\n");
 		log_netobj(&(arg->alock.fh));
 		syslog(LOG_DEBUG, "Owner Handle:\n");
@@ -1251,7 +1303,7 @@ nlm4_lock_4_svc(arg, rqstp)
 		syslog(LOG_DEBUG, "SVID:        %d\n", arg->alock.svid);
 		syslog(LOG_DEBUG, "Lock Offset: %llu\n",
 		    (unsigned long long)arg->alock.l_offset);
-		syslog(LOG_DEBUG, "Lock Length: %llu\n", 
+		syslog(LOG_DEBUG, "Lock Length: %llu\n",
 		    (unsigned long long)arg->alock.l_len);
 		syslog(LOG_DEBUG, "Block:       %s\n", (arg->block ? "true" : "false"));
 		syslog(LOG_DEBUG, "Exclusive:   %s\n", (arg->exclusive ? "true" : "false"));
@@ -1263,26 +1315,27 @@ nlm4_lock_4_svc(arg, rqstp)
 	res.cookie = arg->cookie;
 
 	res.stat.stat = getlock(arg, rqstp, LOCK_MON | LOCK_V4);
-	return (&res);
+	return &res;
 }
 
 void *
 nlm4_lock_msg_4_svc(arg, rqstp)
-	nlm4_lockargs *arg;
-	struct svc_req *rqstp;
+nlm4_lockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_lock_msg", rqstp);
+	}
 
 	res.cookie = arg->cookie;
 	res.stat.stat = getlock(arg, rqstp, LOCK_MON | LOCK_ASYNC | LOCK_V4);
 	if (transmit4_result(NLM4_LOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* if res.stat.stat was success/blocked, then unlock/cancel */
-		if (res.stat.stat == nlm4_granted)
+		if (res.stat.stat == nlm4_granted) {
 			unlock(&arg->alock, LOCK_V4);
-		else if (res.stat.stat == nlm4_blocked) {
+		} else if (res.stat.stat == nlm4_blocked) {
 			nlm4_cancargs carg;
 			carg.cookie = arg->cookie;
 			carg.block = arg->block;
@@ -1292,7 +1345,7 @@ nlm4_lock_msg_4_svc(arg, rqstp)
 		}
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_cancel -------------------------------------------------------------- */
@@ -1303,37 +1356,39 @@ nlm4_lock_msg_4_svc(arg, rqstp)
  */
 nlm4_res *
 nlm4_cancel_4_svc(arg, rqstp)
-	nlm4_cancargs *arg;
-	struct svc_req *rqstp;
+nlm4_cancargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_cancel", rqstp);
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
 	res.stat.stat = cancellock(arg, LOCK_V4);
-	return (&res);
+	return &res;
 }
 
 void *
 nlm4_cancel_msg_4_svc(arg, rqstp)
-	nlm4_cancargs *arg;
-	struct svc_req *rqstp;
+nlm4_cancargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_cancel_msg", rqstp);
+	}
 
 	res.cookie = arg->cookie;
 	res.stat.stat = cancellock(arg, LOCK_V4);
 	if (transmit4_result(NLM4_CANCEL_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_unlock -------------------------------------------------------------- */
@@ -1346,29 +1401,31 @@ nlm4_cancel_msg_4_svc(arg, rqstp)
  */
 nlm4_res *
 nlm4_unlock_4_svc(arg, rqstp)
-	nlm4_unlockargs *arg;
-	struct svc_req *rqstp;
+nlm4_unlockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_unlock", rqstp);
+	}
 
 	res.stat.stat = unlock(&arg->alock, LOCK_V4);
 	res.cookie = arg->cookie;
 
-	return (&res);
+	return &res;
 }
 
 void *
 nlm4_unlock_msg_4_svc(arg, rqstp)
-	nlm4_unlockargs *arg;
-	struct svc_req *rqstp;
+nlm4_unlockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_unlock_msg", rqstp);
+	}
 
 	res.stat.stat = unlock(&arg->alock, LOCK_V4);
 	res.cookie = arg->cookie;
@@ -1376,7 +1433,7 @@ nlm4_unlock_msg_4_svc(arg, rqstp)
 	if (transmit4_result(NLM4_UNLOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1399,56 +1456,62 @@ nlm4_unlock_msg_4_svc(arg, rqstp)
  */
 nlm4_res *
 nlm4_granted_4_svc(arg, rqstp)
-	nlm4_testargs *arg;
-	struct svc_req *rqstp;
+nlm4_testargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 	int flags;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_granted", rqstp);
+	}
 
 	flags = LOCK_ANSWER_GRANTED;
-	if (arg->exclusive)
+	if (arg->exclusive) {
 		flags |= LOCK_ANSWER_LOCK_EXCL;
+	}
 
-	if (lock_answer(NLM_VERS4, &arg->cookie, &arg->alock, flags, nlm4_granted))
+	if (lock_answer(NLM_VERS4, &arg->cookie, &arg->alock, flags, nlm4_granted)) {
 		res.stat.stat = nlm4_denied;
-	else
+	} else {
 		res.stat.stat = nlm4_granted;
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_1() */
 	res.cookie = arg->cookie;
 
-	return (&res);
+	return &res;
 }
 
 void *
 nlm4_granted_msg_4_svc(arg, rqstp)
-	nlm4_testargs *arg;
-	struct svc_req *rqstp;
+nlm4_testargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 	int flags;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_granted_msg", rqstp);
+	}
 
 	flags = LOCK_ANSWER_GRANTED;
-	if (arg->exclusive)
+	if (arg->exclusive) {
 		flags |= LOCK_ANSWER_LOCK_EXCL;
+	}
 
-	if (lock_answer(NLM_VERS4, &arg->cookie, &arg->alock, flags, nlm4_granted))
+	if (lock_answer(NLM_VERS4, &arg->cookie, &arg->alock, flags, nlm4_granted)) {
 		res.stat.stat = nlm4_denied;
-	else
+	} else {
 		res.stat.stat = nlm4_granted;
+	}
 
 	res.cookie = arg->cookie;
 
 	if (transmit4_result(NLM4_GRANTED_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 1) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_test_res ------------------------------------------------------------ */
@@ -1458,27 +1521,30 @@ nlm4_granted_msg_4_svc(arg, rqstp)
  */
 void *
 nlm4_test_res_4_svc(arg, rqstp)
-	nlm4_testres *arg;
-	struct svc_req *rqstp;
+nlm4_testres *arg;
+struct svc_req *rqstp;
 {
 	nlm4_lock lock4;
 	int flags = 0;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_test_res", rqstp);
+	}
 
 	if (arg->stat.stat == nlm4_denied) {
 		lock4.fh.n_len = 0;
 		lock4.svid = arg->stat.nlm4_testrply_u.holder.svid;
 		lock4.l_offset = arg->stat.nlm4_testrply_u.holder.l_offset;
 		lock4.l_len = arg->stat.nlm4_testrply_u.holder.l_len;
-		if (arg->stat.nlm4_testrply_u.holder.exclusive)
+		if (arg->stat.nlm4_testrply_u.holder.exclusive) {
 			flags |= LOCK_ANSWER_LOCK_EXCL;
+		}
 		lock_answer(NLM_VERS4, &arg->cookie, &lock4, flags, arg->stat.stat);
-	} else
+	} else {
 		lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
+	}
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_lock_res ------------------------------------------------------------ */
@@ -1488,15 +1554,16 @@ nlm4_test_res_4_svc(arg, rqstp)
  */
 void *
 nlm4_lock_res_4_svc(arg, rqstp)
-	nlm4_res *arg;
-	struct svc_req *rqstp;
+nlm4_res *arg;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_lock_res", rqstp);
+	}
 
 	lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_cancel_res ---------------------------------------------------------- */
@@ -1506,15 +1573,16 @@ nlm4_lock_res_4_svc(arg, rqstp)
  */
 void *
 nlm4_cancel_res_4_svc(arg, rqstp)
-	nlm4_res *arg;
-	struct svc_req *rqstp;
+nlm4_res *arg;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_cancel_res", rqstp);
+	}
 
 	lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_unlock_res ---------------------------------------------------------- */
@@ -1524,15 +1592,16 @@ nlm4_cancel_res_4_svc(arg, rqstp)
  */
 void *
 nlm4_unlock_res_4_svc(arg, rqstp)
-	nlm4_res *arg __unused;
-	struct svc_req *rqstp;
+nlm4_res *arg __unused;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_unlock_res", rqstp);
+	}
 
 	lock_answer(NLM_VERS4, &arg->cookie, NULL, 0, arg->stat.stat);
 
-	return (NULL);
+	return NULL;
 }
 
 /* nlm_granted_res --------------------------------------------------------- */
@@ -1542,15 +1611,17 @@ nlm4_unlock_res_4_svc(arg, rqstp)
  */
 void *
 nlm4_granted_res_4_svc(arg, rqstp)
-	nlm4_res *arg __unused;
-	struct svc_req *rqstp;
+nlm4_res *arg __unused;
+struct svc_req *rqstp;
 {
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_granted_res", rqstp);
+	}
 	/* need to undo lock if granted msg wasn't accepted! */
-	if (arg->stat.stat != nlm4_granted)
+	if (arg->stat.stat != nlm4_granted) {
 		granted_failed(arg);
-	return (NULL);
+	}
+	return NULL;
 }
 
 /* ------------------------------------------------------------------------- */
@@ -1570,19 +1641,20 @@ nlm4_granted_res_4_svc(arg, rqstp)
  */
 nlm4_shareres *
 nlm4_share_4_svc(arg, rqstp)
-	nlm4_shareargs *arg;
-	struct svc_req *rqstp;
+nlm4_shareargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_shareres res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_share", rqstp);
+	}
 
 	res.cookie = arg->cookie;
-	res.sequence = 0;	/* X/Open says this field is ignored? */
+	res.sequence = 0;       /* X/Open says this field is ignored? */
 
 	res.stat = getshare((nlm_shareargs*)arg, rqstp, LOCK_V4);
-	return (&res);
+	return &res;
 }
 
 /* nlm4_unshare ------------------------------------------------------------ */
@@ -1593,19 +1665,20 @@ nlm4_share_4_svc(arg, rqstp)
  */
 nlm4_shareres *
 nlm4_unshare_4_svc(arg, rqstp)
-	nlm4_shareargs *arg;
-	struct svc_req *rqstp;
+nlm4_shareargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_shareres res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_unshare", rqstp);
+	}
 
 	res.cookie = arg->cookie;
-	res.sequence = 0;	/* X/Open says this field is ignored? */
+	res.sequence = 0;       /* X/Open says this field is ignored? */
 
 	res.stat = unshare((nlm_shareargs*)arg, rqstp, LOCK_V4);
-	return (&res);
+	return &res;
 }
 
 /* nlm4_nm_lock ------------------------------------------------------------ */
@@ -1620,19 +1693,20 @@ nlm4_unshare_4_svc(arg, rqstp)
  */
 nlm4_res *
 nlm4_nm_lock_4_svc(arg, rqstp)
-	nlm4_lockargs *arg;
-	struct svc_req *rqstp;
+nlm4_lockargs *arg;
+struct svc_req *rqstp;
 {
 	static nlm4_res res;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_nm_lock", rqstp);
+	}
 
 	/* copy cookie from arg to result.  See comment in nlm_test_4() */
 	res.cookie = arg->cookie;
 
 	res.stat.stat = getlock(arg, rqstp, LOCK_V4);
-	return (&res);
+	return &res;
 }
 
 /* nlm4_free_all ------------------------------------------------------------ */
@@ -1647,18 +1721,19 @@ nlm4_nm_lock_4_svc(arg, rqstp)
  */
 void *
 nlm4_free_all_4_svc(arg, rqstp)
-	struct nlm4_notify *arg;
-	struct svc_req *rqstp;
+struct nlm4_notify *arg;
+struct svc_req *rqstp;
 {
 	static char dummy;
 
-	if (config.verbose)
+	if (config.verbose) {
 		log_from_addr("nlm4_free_all", rqstp);
+	}
 
 	/* free all non-monitored locks/shares for specified host */
 	do_free_all(arg->name);
 
-	return (&dummy);
+	return &dummy;
 }
 
 /* nlm_sm_notify --------------------------------------------------------- */
@@ -1668,10 +1743,10 @@ nlm4_free_all_4_svc(arg, rqstp)
  */
 void *
 nlm_sm_notify_0_svc(arg, rqstp)
-	struct nlm_sm_status *arg;
-	struct svc_req *rqstp __unused;
+struct nlm_sm_status *arg;
+struct svc_req *rqstp __unused;
 {
 	static char dummy;
 	notify(arg->mon_name, arg->state);
-	return (&dummy);
+	return &dummy;
 }

@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2004 Apple Computer, Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -63,9 +63,9 @@ extern int need_retry_blocked_locks; /* need to call retry_blockingfilelocklist(
 /*static char sccsid[] = "from: * @(#)nlm_prot.x	2.1 88/08/01 4.0 RPCSRC";*/
 __unused static char rcsid[] = "$Id: nlm_prot_svc.c,v 1.6 2006/02/07 06:22:32 lindak Exp $";
 #endif /* not lint */
-extern int _rpcpmstart;		/* Started by a port monitor ? */
-extern int _rpcfdtype;		/* Whether Stream or Datagram ? */
-extern int _rpcsvcdirty;	/* Still serving ? */
+extern int _rpcpmstart;         /* Started by a port monitor ? */
+extern int _rpcfdtype;          /* Whether Stream or Datagram ? */
+extern int _rpcsvcdirty;        /* Still serving ? */
 
 void nlm_prog_0(struct svc_req *rqstp, SVCXPRT *transp);
 
@@ -89,7 +89,7 @@ nlm_prog_0(struct svc_req *rqstp, SVCXPRT *transp)
 	case NLM_SM_NOTIFY:
 		xdr_argument = (xdrproc_t) xdr_nlm_sm_status;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_sm_notify_0_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_sm_notify_0_svc;
 		break;
 
 	default:
@@ -97,7 +97,7 @@ nlm_prog_0(struct svc_req *rqstp, SVCXPRT *transp)
 		_rpcsvcdirty = 0;
 		return;
 	}
-	(void) memset((char *)&argument, 0, sizeof (argument));
+	(void) memset((char *)&argument, 0, sizeof(argument));
 	if (!svc_getargs(transp, xdr_argument, (caddr_t) &argument)) {
 		svcerr_decode(transp);
 		_rpcsvcdirty = 0;
@@ -151,91 +151,91 @@ nlm_prog_1(struct svc_req *rqstp, SVCXPRT *transp)
 	case NLM_TEST:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_nlm_testres;
-		local = (char *(*)(char *, struct svc_req *)) nlm_test_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_test_1_svc;
 		break;
 
 	case NLM_LOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm_lockargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_lock_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_lock_1_svc;
 		break;
 
 	case NLM_CANCEL:
 		xdr_argument = (xdrproc_t) xdr_nlm_cancargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_cancel_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_cancel_1_svc;
 		break;
 
 	case NLM_UNLOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm_unlockargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unlock_1_svc;
 		break;
 
 	case NLM_GRANTED:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_granted_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_granted_1_svc;
 		break;
 
 	case NLM_TEST_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_test_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_test_msg_1_svc;
 		break;
 
 	case NLM_LOCK_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_lockargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_lock_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_lock_msg_1_svc;
 		break;
 
 	case NLM_CANCEL_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_cancargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_cancel_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_cancel_msg_1_svc;
 		break;
 
 	case NLM_UNLOCK_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_unlockargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unlock_msg_1_svc;
 		break;
 
 	case NLM_GRANTED_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_granted_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_granted_msg_1_svc;
 		break;
 
 	case NLM_TEST_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_testres;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_test_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_test_res_1_svc;
 		break;
 
 	case NLM_LOCK_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_lock_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_lock_res_1_svc;
 		break;
 
 	case NLM_CANCEL_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_cancel_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_cancel_res_1_svc;
 		break;
 
 	case NLM_UNLOCK_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unlock_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unlock_res_1_svc;
 		break;
 
 	case NLM_GRANTED_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_granted_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_granted_res_1_svc;
 		break;
 
 	default:
@@ -243,7 +243,7 @@ nlm_prog_1(struct svc_req *rqstp, SVCXPRT *transp)
 		_rpcsvcdirty = 0;
 		return;
 	}
-	(void) memset((char *)&argument, 0, sizeof (argument));
+	(void) memset((char *)&argument, 0, sizeof(argument));
 	if (!svc_getargs(transp, xdr_argument, (caddr_t) &argument)) {
 		svcerr_decode(transp);
 		_rpcsvcdirty = 0;
@@ -258,9 +258,10 @@ nlm_prog_1(struct svc_req *rqstp, SVCXPRT *transp)
 		// XXX causes unlock response to be corrupted?
 		// XXX so do this after we send any response
 		netobj *fh = NULL;
-		if ((local == (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc) ||
-		    (local == (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc))
+		if ((local == (char *(*)(char *, struct svc_req *))nlm_unlock_1_svc) ||
+		    (local == (char *(*)(char *, struct svc_req *))nlm_unlock_msg_1_svc)) {
 			fh = &argument.nlm_unlock_1_arg.alock.fh;
+		}
 		retry_blockingfilelocklist(fh);
 	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {
@@ -298,128 +299,128 @@ nlm_prog_3(struct svc_req *rqstp, SVCXPRT *transp)
 		nlm_notify nlm_free_all_3_arg;
 	} argument;
 	char *result;
- 	xdrproc_t xdr_argument, xdr_result;
- 	char *(*local)(char *, struct svc_req *);
+	xdrproc_t xdr_argument, xdr_result;
+	char *(*local)(char *, struct svc_req *);
 
 	_rpcsvcdirty = 1;
 	switch (rqstp->rq_proc) {
 	case NULLPROC:
- 		(void) svc_sendreply(transp, (xdrproc_t) xdr_void, (char *)NULL);
+		(void) svc_sendreply(transp, (xdrproc_t) xdr_void, (char *)NULL);
 		_rpcsvcdirty = 0;
 		return;
 
 	case NLM_TEST:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_nlm_testres;
-		local = (char *(*)(char *, struct svc_req *)) nlm_test_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_test_1_svc;
 		break;
 
 	case NLM_LOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm_lockargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_lock_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_lock_1_svc;
 		break;
 
 	case NLM_CANCEL:
 		xdr_argument = (xdrproc_t) xdr_nlm_cancargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_cancel_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_cancel_1_svc;
 		break;
 
 	case NLM_UNLOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm_unlockargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unlock_1_svc;
 		break;
 
 	case NLM_GRANTED:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_granted_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_granted_1_svc;
 		break;
 
 	case NLM_TEST_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_test_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_test_msg_1_svc;
 		break;
 
 	case NLM_LOCK_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_lockargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_lock_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_lock_msg_1_svc;
 		break;
 
 	case NLM_CANCEL_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_cancargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_cancel_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_cancel_msg_1_svc;
 		break;
 
 	case NLM_UNLOCK_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_unlockargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unlock_msg_1_svc;
 		break;
 
 	case NLM_GRANTED_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm_testargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_granted_msg_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_granted_msg_1_svc;
 		break;
 
 	case NLM_TEST_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_testres;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_test_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_test_res_1_svc;
 		break;
 
 	case NLM_LOCK_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_lock_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_lock_res_1_svc;
 		break;
 
 	case NLM_CANCEL_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_cancel_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_cancel_res_1_svc;
 		break;
 
 	case NLM_UNLOCK_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unlock_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unlock_res_1_svc;
 		break;
 
 	case NLM_GRANTED_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_granted_res_1_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_granted_res_1_svc;
 		break;
 
 	case NLM_SHARE:
- 		xdr_argument = (xdrproc_t) xdr_nlm_shareargs;
- 		xdr_result = (xdrproc_t) xdr_nlm_shareres;
- 		local = (char *(*)(char *, struct svc_req *)) nlm_share_3_svc;
+		xdr_argument = (xdrproc_t) xdr_nlm_shareargs;
+		xdr_result = (xdrproc_t) xdr_nlm_shareres;
+		local = (char *(*)(char *, struct svc_req *))nlm_share_3_svc;
 		break;
 
 	case NLM_UNSHARE:
 		xdr_argument = (xdrproc_t) xdr_nlm_shareargs;
 		xdr_result = (xdrproc_t) xdr_nlm_shareres;
-		local = (char *(*)(char *, struct svc_req *)) nlm_unshare_3_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_unshare_3_svc;
 		break;
 
 	case NLM_NM_LOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm_lockargs;
 		xdr_result = (xdrproc_t) xdr_nlm_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm_nm_lock_3_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_nm_lock_3_svc;
 		break;
 
 	case NLM_FREE_ALL:
 		xdr_argument = (xdrproc_t) xdr_nlm_notify;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm_free_all_3_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm_free_all_3_svc;
 		break;
 
 	default:
@@ -427,7 +428,7 @@ nlm_prog_3(struct svc_req *rqstp, SVCXPRT *transp)
 		_rpcsvcdirty = 0;
 		return;
 	}
-	(void) memset((char *)&argument, 0, sizeof (argument));
+	(void) memset((char *)&argument, 0, sizeof(argument));
 	if (!svc_getargs(transp, xdr_argument, (caddr_t) &argument)) {
 		svcerr_decode(transp);
 		_rpcsvcdirty = 0;
@@ -442,9 +443,10 @@ nlm_prog_3(struct svc_req *rqstp, SVCXPRT *transp)
 		// XXX causes unlock response to be corrupted?
 		// XXX so do this after we send any response
 		netobj *fh = NULL;
-		if ((local == (char *(*)(char *, struct svc_req *)) nlm_unlock_1_svc) ||
-		    (local == (char *(*)(char *, struct svc_req *)) nlm_unlock_msg_1_svc))
+		if ((local == (char *(*)(char *, struct svc_req *))nlm_unlock_1_svc) ||
+		    (local == (char *(*)(char *, struct svc_req *))nlm_unlock_msg_1_svc)) {
 			fh = &argument.nlm_unlock_3_arg.alock.fh;
+		}
 		retry_blockingfilelocklist(fh);
 	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {
@@ -495,115 +497,115 @@ nlm_prog_4(struct svc_req *rqstp, SVCXPRT *transp)
 	case NLM4_TEST:
 		xdr_argument = (xdrproc_t) xdr_nlm4_testargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_testres;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_test_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_test_4_svc;
 		break;
 
 	case NLM4_LOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm4_lockargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_lock_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_lock_4_svc;
 		break;
 
 	case NLM4_CANCEL:
 		xdr_argument = (xdrproc_t) xdr_nlm4_cancargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_cancel_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_cancel_4_svc;
 		break;
 
 	case NLM4_UNLOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm4_unlockargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_unlock_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_unlock_4_svc;
 		break;
 
 	case NLM4_GRANTED:
 		xdr_argument = (xdrproc_t) xdr_nlm4_testargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_granted_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_granted_4_svc;
 		break;
 
 	case NLM4_TEST_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm4_testargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_test_msg_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_test_msg_4_svc;
 		break;
 
 	case NLM4_LOCK_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm4_lockargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_lock_msg_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_lock_msg_4_svc;
 		break;
 
 	case NLM4_CANCEL_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm4_cancargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_cancel_msg_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_cancel_msg_4_svc;
 		break;
 
 	case NLM4_UNLOCK_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm4_unlockargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_unlock_msg_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_unlock_msg_4_svc;
 		break;
 
 	case NLM4_GRANTED_MSG:
 		xdr_argument = (xdrproc_t) xdr_nlm4_testargs;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_granted_msg_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_granted_msg_4_svc;
 		break;
 
 	case NLM4_TEST_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm4_testres;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_test_res_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_test_res_4_svc;
 		break;
 
 	case NLM4_LOCK_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm4_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_lock_res_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_lock_res_4_svc;
 		break;
 
 	case NLM4_CANCEL_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm4_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_cancel_res_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_cancel_res_4_svc;
 		break;
 
 	case NLM4_UNLOCK_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm4_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_unlock_res_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_unlock_res_4_svc;
 		break;
 
 	case NLM4_GRANTED_RES:
 		xdr_argument = (xdrproc_t) xdr_nlm4_res;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_granted_res_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_granted_res_4_svc;
 		break;
 
 	case NLM4_SHARE:
 		xdr_argument = (xdrproc_t) xdr_nlm4_shareargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_shareres;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_share_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_share_4_svc;
 		break;
 
 	case NLM4_UNSHARE:
 		xdr_argument = (xdrproc_t) xdr_nlm4_shareargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_shareres;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_unshare_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_unshare_4_svc;
 		break;
 
 	case NLM4_NM_LOCK:
 		xdr_argument = (xdrproc_t) xdr_nlm4_lockargs;
 		xdr_result = (xdrproc_t) xdr_nlm4_res;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_nm_lock_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_nm_lock_4_svc;
 		break;
 
 	case NLM4_FREE_ALL:
 		xdr_argument = (xdrproc_t) xdr_nlm4_notify;
 		xdr_result = (xdrproc_t) xdr_void;
-		local = (char *(*)(char *, struct svc_req *)) nlm4_free_all_4_svc;
+		local = (char *(*)(char *, struct svc_req *))nlm4_free_all_4_svc;
 		break;
 
 	default:
@@ -611,7 +613,7 @@ nlm_prog_4(struct svc_req *rqstp, SVCXPRT *transp)
 		_rpcsvcdirty = 0;
 		return;
 	}
-	(void) memset((char *)&argument, 0, sizeof (argument));
+	(void) memset((char *)&argument, 0, sizeof(argument));
 	if (!svc_getargs(transp, xdr_argument, (caddr_t) &argument)) {
 		svcerr_decode(transp);
 		_rpcsvcdirty = 0;
@@ -626,9 +628,10 @@ nlm_prog_4(struct svc_req *rqstp, SVCXPRT *transp)
 		// XXX causes unlock response to be corrupted?
 		// XXX so do this after we send any response
 		netobj *fh = NULL;
-		if ((local == (char *(*)(char *, struct svc_req *)) nlm4_unlock_4_svc) ||
-		    (local == (char *(*)(char *, struct svc_req *)) nlm4_unlock_msg_4_svc))
+		if ((local == (char *(*)(char *, struct svc_req *))nlm4_unlock_4_svc) ||
+		    (local == (char *(*)(char *, struct svc_req *))nlm4_unlock_msg_4_svc)) {
 			fh = &argument.nlm4_unlock_4_arg.alock.fh;
+		}
 		retry_blockingfilelocklist(fh);
 	}
 	if (!svc_freeargs(transp, xdr_argument, (caddr_t) &argument)) {

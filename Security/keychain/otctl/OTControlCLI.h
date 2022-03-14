@@ -21,7 +21,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (int)depart:(NSString * _Nullable)container context:(NSString *)contextID;
 
-- (int)resetOctagon:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID;
+- (int)resetOctagon:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID timeout:(NSTimeInterval)timeout;
 
 - (int)resetProtectedData:(NSString* _Nullable)container context:(NSString *)contextID altDSID:(NSString *)altDSID appleID:(NSString * _Nullable)appleID dsid:(NSString *_Nullable)dsid;
 
@@ -68,54 +68,64 @@ NS_ASSUME_NONNULL_BEGIN
                                        contextID:(NSString *)contextID;
 
 - (int)createCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
-                                          contextID:(NSString *)contextID
-                                               json:(bool)json;
+                                         contextID:(NSString *)contextID
+                                              json:(bool)json
+                                           timeout:(NSTimeInterval)timeout;
 
 - (int)joinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
                                            contextID:(NSString *)contextID
                                          wrappingKey:(NSString*)wrappingKey
                                           wrappedKey:(NSString*)wrappedKey
-                                          uuidString:(NSString*)uuidString;
+                                          uuidString:(NSString*)uuidString
+                                             timeout:(NSTimeInterval)timeout;
 
 - (int)preflightJoinWithCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
                                                     contextID:(NSString *)contextID
                                                   wrappingKey:(NSString*)wrappingKey
                                                    wrappedKey:(NSString*)wrappedKey
-                                                   uuidString:(NSString*)uuidString;
+                                                   uuidString:(NSString*)uuidString
+                                                      timeout:(NSTimeInterval)timeout;
 
 - (int)removeCustodianRecoveryKeyWithContainerName:(NSString* _Nullable)containerName
                                          contextID:(NSString *)contextID
-                                        uuidString:(NSString*)uuidString;
+                                        uuidString:(NSString*)uuidString
+                                           timeout:(NSTimeInterval)timeout;
 
 - (int)createInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
                                    contextID:(NSString *)contextID
-                                        json:(bool)json;
+                                        json:(bool)json
+                                     timeout:(NSTimeInterval)timeout;
 
 - (int)generateInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
                                      contextID:(NSString *)contextID
-                                          json:(bool)json;
+                                          json:(bool)json
+                                       timeout:(NSTimeInterval)timeout;
 
 - (int)storeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
-                                   contextID:(NSString *)contextID
-                                   wrappingKey:(NSString*)wrappingKey
-                                    wrappedKey:(NSString*)wrappedKey
-                                    uuidString:(NSString*)uuidString;
+                                  contextID:(NSString *)contextID
+                                wrappingKey:(NSString*)wrappingKey
+                                 wrappedKey:(NSString*)wrappedKey
+                                 uuidString:(NSString*)uuidString
+                                    timeout:(NSTimeInterval)timeout;
 
 - (int)joinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
                                      contextID:(NSString *)contextID
                                    wrappingKey:(NSString*)wrappingKey
                                     wrappedKey:(NSString*)wrappedKey
-                                    uuidString:(NSString*)uuidString;
+                                    uuidString:(NSString*)uuidString
+                                       timeout:(NSTimeInterval)timeout;
 
 - (int)preflightJoinWithInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
                                               contextID:(NSString *)contextID
                                             wrappingKey:(NSString*)wrappingKey
                                              wrappedKey:(NSString*)wrappedKey
-                                             uuidString:(NSString*)uuidString;
+                                             uuidString:(NSString*)uuidString
+                                                timeout:(NSTimeInterval)timeout;
 
 - (int)removeInheritanceKeyWithContainerName:(NSString* _Nullable)containerName
                                    contextID:(NSString *)contextID
-                                  uuidString:(NSString*)uuidString;
+                                  uuidString:(NSString*)uuidString
+                                     timeout:(NSTimeInterval)timeout;
 
 
 @end

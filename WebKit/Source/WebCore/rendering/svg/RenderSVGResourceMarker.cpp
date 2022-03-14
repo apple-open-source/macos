@@ -23,7 +23,8 @@
 #include "RenderSVGResourceMarker.h"
 
 #include "GraphicsContext.h"
-#include "RenderSVGRoot.h"
+#include "LegacyRenderSVGRoot.h"
+#include "RenderSVGResourceMarkerInlines.h"
 #include <wtf/IsoMallocInlines.h>
 #include <wtf/StackStats.h>
 
@@ -43,7 +44,7 @@ void RenderSVGResourceMarker::layout()
     StackStats::LayoutCheckPoint layoutCheckPoint;
     // Invalidate all resources if our layout changed.
     if (everHadLayout() && selfNeedsLayout())
-        RenderSVGRoot::addResourceForClientInvalidation(this);
+        LegacyRenderSVGRoot::addResourceForClientInvalidation(this);
 
     // RenderSVGHiddenContainer overwrites layout(). We need the
     // layouting of RenderSVGContainer for calculating  local

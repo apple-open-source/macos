@@ -70,32 +70,41 @@ zstd-skippable-frame-4.result \
 zstd-skippable-frame-8.result \
 zstd-skippable-frame-C.result \
 zstd-v0.2-FF.result \
+zstd-v0.2-FF.testfile \
 zstd-v0.3-FF.result \
+zstd-v0.3-FF.testfile \
 zstd-v0.4-FF.result \
+zstd-v0.4-FF.testfile \
 zstd-v0.5-FF.result \
+zstd-v0.5-FF.testfile \
 zstd-v0.6-FF.result \
+zstd-v0.6-FF.testfile \
 zstd-v0.7-00.result \
 zstd-v0.7-21.result \
+zstd-v0.7-21.testfile \
 zstd-v0.7-22.result \
+zstd-v0.7-22.testfile \
 zstd-v0.8-00.result \
 zstd-v0.8-01.result \
+zstd-v0.8-01.testfile \
 zstd-v0.8-02.result \
+zstd-v0.8-02.testfile \
 zstd-v0.8-03.result \
+zstd-v0.8-03.testfile \
 zstd-v0.8-16.result \
+zstd-v0.8-16.testfile \
 zstd-v0.8-20.result \
+zstd-v0.8-20.testfile \
 zstd-v0.8-21.result \
+zstd-v0.8-21.testfile \
 zstd-v0.8-22.result \
+zstd-v0.8-22.testfile \
 zstd-v0.8-23.result \
+zstd-v0.8-23.testfile \
 zstd-v0.8-F4.result \
+zstd-v0.8-F4.testfile \
 zstd-v0.8-FF.result \
-pgp-binary-key-v2-phil.result \
-pgp-binary-key-v3-lutz.result \
-pgp-binary-key-v4-dsa.result \
-pgp-binary-key-v4-ecc-no-userid-secret.result \
-pgp-binary-key-v4-ecc-secret-key.result \
-pgp-binary-key-v4-rsa-key.result \
-pgp-binary-key-v4-rsa-no-userid-secret.result \
-pgp-binary-key-v4-rsa-secret-key.result
+zstd-v0.8-FF.testfile
 
 T = $(top_srcdir)/tests
 check-local:

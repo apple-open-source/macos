@@ -169,6 +169,16 @@ f_reltime(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
 # ifdef FEAT_RELTIME
     proftime_T	res;
     proftime_T	start;
+    long	n1, n2;
+
+    if (rettv_list_alloc(rettv) != OK)
+	return;
+
+    if (in_vim9script()
+	    && (check_for_opt_list_arg(argvars, 0) == FAIL
+		|| (argvars[0].v_type != VAR_UNKNOWN
+		    && check_for_opt_list_arg(argvars, 1) == FAIL)))
+	return;
 
     if (argvars[0].v_type == VAR_UNKNOWN)
     {
@@ -178,7 +188,11 @@ f_reltime(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
     else if (argvars[1].v_type == VAR_UNKNOWN)
     {
 	if (list2proftime(&argvars[0], &res) == FAIL)
+	{
+	    if (in_vim9script())
+		emsg(_(e_invalid_argument));
 	    return;
+	}
 	profile_end(&res);
     }
     else
@@ -186,24 +200,23 @@ f_reltime(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
 	// Two arguments: compute the difference.
 	if (list2proftime(&argvars[0], &start) == FAIL
 		|| list2proftime(&argvars[1], &res) == FAIL)
+	{
+	    if (in_vim9script())
+		emsg(_(e_invalid_argument));
 	    return;
+	}
 	profile_sub(&res, &start);
     }
 
-    if (rettv_list_alloc(rettv) == OK)
-    {
-	long	n1, n2;
-
 #  ifdef MSWIN
-	n1 = res.HighPart;
-	n2 = res.LowPart;
+    n1 = res.HighPart;
+    n2 = res.LowPart;
 #  else
-	n1 = res.tv_sec;
-	n2 = res.tv_usec;
+    n1 = res.tv_sec;
+    n2 = res.tv_usec;
 #  endif
-	list_append_number(rettv->vval.v_list, (varnumber_T)n1);
-	list_append_number(rettv->vval.v_list, (varnumber_T)n2);
-    }
+    list_append_number(rettv->vval.v_list, (varnumber_T)n1);
+    list_append_number(rettv->vval.v_list, (varnumber_T)n2);
 # endif
 }
 
@@ -221,8 +234,13 @@ f_reltimefloat(typval_T *argvars UNUSED, typval_T *rettv)
     rettv->v_type = VAR_FLOAT;
     rettv->vval.v_float = 0;
 #  ifdef FEAT_RELTIME
+    if (in_vim9script() && check_for_list_arg(argvars, 0) == FAIL)
+	return;
+
     if (list2proftime(&argvars[0], &tm) == OK)
 	rettv->vval.v_float = profile_float(&tm);
+    else if (in_vim9script())
+	emsg(_(e_invalid_argument));
 #  endif
 }
 # endif
@@ -240,8 +258,13 @@ f_reltimestr(typval_T *argvars UNUSED, typval_T *rettv)
     rettv->v_type = VAR_STRING;
     rettv->vval.v_string = NULL;
 # ifdef FEAT_RELTIME
+    if (in_vim9script() && check_for_list_arg(argvars, 0) == FAIL)
+	return;
+
     if (list2proftime(&argvars[0], &tm) == OK)
 	rettv->vval.v_string = vim_strsave((char_u *)profile_msg(&tm));
+    else if (in_vim9script())
+	emsg(_(e_invalid_argument));
 # endif
 }
 
@@ -252,11 +275,15 @@ f_reltimestr(typval_T *argvars UNUSED, typval_T *rettv)
     void
 f_strftime(typval_T *argvars, typval_T *rettv)
 {
-    char_u	result_buf[256];
     struct tm	tmval;
     struct tm	*curtime;
     time_t	seconds;
     char_u	*p;
+
+    if (in_vim9script()
+	    && (check_for_string_arg(argvars, 0) == FAIL
+		|| check_for_opt_number_arg(argvars, 1) == FAIL))
+	return;
 
     rettv->v_type = VAR_STRING;
 
@@ -271,6 +298,19 @@ f_strftime(typval_T *argvars, typval_T *rettv)
 	rettv->vval.v_string = vim_strsave((char_u *)_("(Invalid)"));
     else
     {
+# ifdef MSWIN
+	WCHAR	    result_buf[256];
+	WCHAR	    *wp;
+
+	wp = enc_to_utf16(p, NULL);
+	if (wp != NULL)
+	    (void)wcsftime(result_buf, ARRAY_LENGTH(result_buf), wp, curtime);
+	else
+	    result_buf[0] = NUL;
+	rettv->vval.v_string = utf16_to_enc(result_buf, NULL);
+	vim_free(wp);
+# else
+	char_u	    result_buf[256];
 	vimconv_T   conv;
 	char_u	    *enc;
 
@@ -296,6 +336,7 @@ f_strftime(typval_T *argvars, typval_T *rettv)
 	// Release conversion descriptors
 	convert_setup(&conv, NULL, NULL);
 	vim_free(enc);
+# endif
     }
 }
 # endif
@@ -312,6 +353,11 @@ f_strptime(typval_T *argvars, typval_T *rettv)
     char_u	*str;
     vimconv_T   conv;
     char_u	*enc;
+
+    if (in_vim9script()
+	    && (check_for_string_arg(argvars, 0) == FAIL
+		|| check_for_string_arg(argvars, 1) == FAIL))
+	return;
 
     CLEAR_FIELD(tmval);
     tmval.tm_isdst = -1;
@@ -455,8 +501,9 @@ check_due_timer(void)
     int		need_update_screen = FALSE;
     long	current_id = last_timer_id;
 
-    // Don't run any timers while exiting or dealing with an error.
-    if (exiting || aborting())
+    // Don't run any timers while exiting, dealing with an error or at the
+    // debug prompt.
+    if (exiting || aborting() || debug_mode)
 	return next_due;
 
     profile_start(&now);
@@ -474,6 +521,7 @@ check_due_timer(void)
 	    int save_timer_busy = timer_busy;
 	    int save_vgetc_busy = vgetc_busy;
 	    int save_did_emsg = did_emsg;
+	    int prev_uncaught_emsg = uncaught_emsg;
 	    int save_called_emsg = called_emsg;
 	    int save_must_redraw = must_redraw;
 	    int save_trylevel = trylevel;
@@ -490,7 +538,6 @@ check_due_timer(void)
 	    vgetc_busy = 0;
 	    called_emsg = 0;
 	    did_emsg = FALSE;
-	    did_uncaught_emsg = FALSE;
 	    must_redraw = 0;
 	    trylevel = 0;
 	    did_throw = FALSE;
@@ -509,7 +556,7 @@ check_due_timer(void)
 	    did_one = TRUE;
 	    timer_busy = save_timer_busy;
 	    vgetc_busy = save_vgetc_busy;
-	    if (did_uncaught_emsg)
+	    if (uncaught_emsg > prev_uncaught_emsg)
 		++timer->tr_emsg_count;
 	    did_emsg = save_did_emsg;
 	    called_emsg = save_called_emsg;
@@ -549,7 +596,7 @@ check_due_timer(void)
     }
 
     if (did_one)
-	redraw_after_callback(need_update_screen);
+	redraw_after_callback(need_update_screen, FALSE);
 
 #ifdef FEAT_BEVAL_TERM
     if (bevalexpr_due_set)
@@ -650,7 +697,8 @@ add_timer_info(typval_T *rettv, timer_T *timer)
     dict_add_number(dict, "remaining", (long)remaining);
 
     dict_add_number(dict, "repeat",
-		    (long)(timer->tr_repeat < 0 ? -1 : timer->tr_repeat + 1));
+	    (long)(timer->tr_repeat < 0 ? -1
+			     : timer->tr_repeat + (timer->tr_firing ? 0 : 1)));
     dict_add_number(dict, "paused", (long)(timer->tr_paused));
 
     di = dictitem_alloc((char_u *)"callback");
@@ -725,10 +773,14 @@ f_timer_info(typval_T *argvars, typval_T *rettv)
 
     if (rettv_list_alloc(rettv) != OK)
 	return;
+
+    if (in_vim9script() && check_for_opt_number_arg(argvars, 0) == FAIL)
+	return;
+
     if (argvars[0].v_type != VAR_UNKNOWN)
     {
 	if (argvars[0].v_type != VAR_NUMBER)
-	    emsg(_(e_number_exp));
+	    emsg(_(e_number_expected));
 	else
 	{
 	    timer = find_timer((int)tv_get_number(&argvars[0]));
@@ -747,12 +799,17 @@ f_timer_info(typval_T *argvars, typval_T *rettv)
 f_timer_pause(typval_T *argvars, typval_T *rettv UNUSED)
 {
     timer_T	*timer = NULL;
-    int		paused = (int)tv_get_bool(&argvars[1]);
+
+    if (in_vim9script()
+	    && (check_for_number_arg(argvars, 0) == FAIL
+		|| check_for_bool_arg(argvars, 1) == FAIL))
+	return;
 
     if (argvars[0].v_type != VAR_NUMBER)
-	emsg(_(e_number_exp));
+	emsg(_(e_number_expected));
     else
     {
+	int	paused = (int)tv_get_bool(&argvars[1]);
 	timer = find_timer((int)tv_get_number(&argvars[0]));
 	if (timer != NULL)
 	    timer->tr_paused = paused;
@@ -765,7 +822,7 @@ f_timer_pause(typval_T *argvars, typval_T *rettv UNUSED)
     void
 f_timer_start(typval_T *argvars, typval_T *rettv)
 {
-    long	msec = (long)tv_get_number(&argvars[0]);
+    long	msec;
     timer_T	*timer;
     int		repeat = 0;
     callback_T	callback;
@@ -774,12 +831,19 @@ f_timer_start(typval_T *argvars, typval_T *rettv)
     rettv->vval.v_number = -1;
     if (check_secure())
 	return;
+
+    if (in_vim9script()
+	    && (check_for_number_arg(argvars, 0) == FAIL
+		|| check_for_opt_dict_arg(argvars, 2) == FAIL))
+	return;
+
+    msec = (long)tv_get_number(&argvars[0]);
     if (argvars[2].v_type != VAR_UNKNOWN)
     {
 	if (argvars[2].v_type != VAR_DICT
 				   || (dict = argvars[2].vval.v_dict) == NULL)
 	{
-	    semsg(_(e_invarg2), tv_get_string(&argvars[2]));
+	    semsg(_(e_invalid_argument_str), tv_get_string(&argvars[2]));
 	    return;
 	}
 	if (dict_find(dict, (char_u *)"repeat", -1) != NULL)
@@ -808,9 +872,12 @@ f_timer_stop(typval_T *argvars, typval_T *rettv UNUSED)
 {
     timer_T *timer;
 
+    if (in_vim9script() && check_for_number_arg(argvars, 0) == FAIL)
+	return;
+
     if (argvars[0].v_type != VAR_NUMBER)
     {
-	emsg(_(e_number_exp));
+	emsg(_(e_number_expected));
 	return;
     }
     timer = find_timer((int)tv_get_number(&argvars[0]));

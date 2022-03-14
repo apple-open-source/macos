@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -106,17 +106,9 @@ static int na_packet_pool_alloc_buf_sync(struct __kern_channel_ring *,
 static int na_packet_pool_free_buf_sync(struct __kern_channel_ring *,
     struct proc *, uint32_t);
 
-static void na_destroyer_final(struct nexus_adapter *);
-static void na_destroyer_enqueue(struct nexus_adapter *);
-static struct nexus_adapter *na_destroyer_dequeue(void);
-static int na_destroyer_thread_cont(int);
-static void na_destroyer_thread_func(void *, wait_result_t);
-
-extern kern_return_t thread_terminate(thread_t);
-
 #define NA_KRING_IDLE_TIMEOUT   (NSEC_PER_SEC * 30) /* 30 seconds */
 
-static ZONE_DECLARE(na_pseudo_zone, SKMEM_ZONE_PREFIX ".na.pseudo",
+static ZONE_DEFINE(na_pseudo_zone, SKMEM_ZONE_PREFIX ".na.pseudo",
     sizeof(struct nexus_adapter), ZC_ZFREE_CLEARMEM);
 
 static int __na_inited = 0;
@@ -186,12 +178,6 @@ extern uuid_t kernelcache_uuid;
 extern unsigned char *kernel_uuid;
 #endif /* XNU_TARGET_OS_OSX */
 
-/* The following are protected by sk_lock */
-static TAILQ_HEAD(, nexus_adapter) na_destroyer_head;
-static uint32_t na_destroyer_cnt;
-static void *na_destroyer_run; /* wait channel for destroyer thread */
-static thread_t na_destroyer_thread = THREAD_NULL;
-
 void
 na_init(void)
 {
@@ -227,14 +213,6 @@ na_init(void)
 	    kern_allocation_name_allocate(SKMEM_TAG_NX_SCRATCH, 0);
 	ASSERT(skmem_tag_nx_scratch != NULL);
 
-	TAILQ_INIT(&na_destroyer_head);
-	ASSERT(na_destroyer_thread == THREAD_NULL);
-	if (kernel_thread_start(na_destroyer_thread_func,
-	    NULL, &na_destroyer_thread) != KERN_SUCCESS) {
-		panic_plain("%s: couldn't create destroyer thread", __func__);
-		/* NOTREACHED */
-	}
-
 	__na_inited = 1;
 }
 
@@ -242,16 +220,6 @@ void
 na_fini(void)
 {
 	if (__na_inited) {
-		if (na_destroyer_thread != THREAD_NULL) {
-			/* for the extra refcnt from kernel_thread_start() */
-			thread_deallocate(na_destroyer_thread);
-			/* terminate it */
-			(void) thread_terminate(na_destroyer_thread);
-			na_destroyer_thread = THREAD_NULL;
-		}
-		ASSERT(TAILQ_EMPTY(&na_destroyer_head));
-		ASSERT(na_destroyer_cnt == 0);
-
 		if (skmem_tag_nx_rings != NULL) {
 			kern_allocation_name_release(skmem_tag_nx_rings);
 			skmem_tag_nx_rings = NULL;
@@ -2998,82 +2966,9 @@ na_release_locked(struct nexus_adapter *na)
 	}
 	ASSERT(na->na_channels == 0);
 
-#if CONFIG_NEXUS_FLOWSWITCH || CONFIG_NEXUS_NETIF
-	struct ifnet *ifp = na->na_ifp;
-	if (ifp != NULL) {
-		/*
-		 * Prevent threads from doing further data movement
-		 * on this interface; callee holds an I/O refcnt
-		 * which we'll release later during resume.
-		 */
-		ifnet_datamov_suspend(ifp);
-	}
-#endif /* !CONFIG_NEXUS_FLOWSWITCH & !CONFIG_NEXUS_NETIF */
-
-	if (na->na_flags & NAF_ASYNC_DTOR) {
-		na_destroyer_enqueue(na);
-	} else {
-		na_destroyer_final(na);
-	}
-
-	return 1;
-}
-
-static void
-na_destroyer_final(struct nexus_adapter *na)
-{
-	SK_LOCK_ASSERT_HELD();
-
-#if CONFIG_NEXUS_FLOWSWITCH || CONFIG_NEXUS_NETIF
-	struct ifnet *ifp = na->na_ifp;
-
-	if (ifp != NULL) {
-		SK_UNLOCK();
-		/*
-		 * Wait until all threads in the data paths are done.
-		 */
-		ifnet_datamov_drain(ifp);
-
-		if (na->na_type == NA_NETIF_DEV ||
-		    na->na_type == NA_NETIF_COMPAT_DEV) {
-			/* undo what nx_netif_attach() did */
-			ASSERT(na == (struct nexus_adapter *)ifp->if_na);
-			ifp->if_na_ops = NULL;
-			ifp->if_na = NULL;
-			membar_sync();
-
-			SKYWALK_CLEAR_CAPABLE(ifp, na);
-		}
-		SK_LOCK();
-	}
-#endif /* !CONFIG_NEXUS_FLOWSWITCH & !CONFIG_NEXUS_NETIF */
-
-	ASSERT(na->na_refcount == 0);
 	if (na->na_dtor != NULL) {
 		na->na_dtor(na);
 	}
-
-#if CONFIG_NEXUS_FLOWSWITCH || CONFIG_NEXUS_NETIF
-	if (na->na_ifp != NULL) {
-		ASSERT(ifp == na->na_ifp);
-		SK_DF(SK_VERB_REFCNT,
-		    "na \"%s\" (0x%llx) releasing %s [ioref %u]",
-		    na->na_name, SK_KVA(na), na->na_ifp->if_xname,
-		    (na->na_ifp->if_refio - 1));
-		ifnet_decr_iorefcnt(na->na_ifp);
-		na->na_ifp = NULL;
-	}
-
-	/*
-	 * Release reference during suspend and mark the interface
-	 * as data-ready; at this point it's safe to resume data
-	 * movement thru the interface.
-	 */
-	if (ifp != NULL) {
-		ifnet_datamov_resume(ifp);
-		ifp = NULL;
-	}
-#endif /* CONFIG_NEXUS_FLOWSWITCH || CONFIG_NEXUS_NETIF */
 
 	ASSERT(na->na_tx_rings == NULL && na->na_rx_rings == NULL);
 	ASSERT(na->na_slot_ctxs == NULL);
@@ -3091,82 +2986,7 @@ na_destroyer_final(struct nexus_adapter *na)
 	    na->na_name, SK_KVA(na));
 
 	NA_FREE(na);
-}
-
-static void
-na_destroyer_enqueue(struct nexus_adapter *na)
-{
-	SK_LOCK_ASSERT_HELD();
-
-	ASSERT(na->na_refcount == 0);
-	++na_destroyer_cnt;
-	VERIFY(na_destroyer_cnt != 0);
-	TAILQ_INSERT_TAIL(&na_destroyer_head, na, na_destroyer_link);
-	wakeup((caddr_t)&na_destroyer_run);
-}
-
-static struct nexus_adapter *
-na_destroyer_dequeue(void)
-{
-	struct nexus_adapter *na;
-
-	SK_LOCK_ASSERT_HELD();
-
-	na = TAILQ_FIRST(&na_destroyer_head);
-	VERIFY(na_destroyer_cnt != 0 || na == NULL);
-	if (na != NULL) {
-		VERIFY(na_destroyer_cnt != 0);
-		--na_destroyer_cnt;
-		TAILQ_REMOVE(&na_destroyer_head, na, na_destroyer_link);
-		na->na_destroyer_link.tqe_next = NULL;
-		na->na_destroyer_link.tqe_prev = NULL;
-	}
-	return na;
-}
-
-static int
-na_destroyer_thread_cont(int err)
-{
-#pragma unused(err)
-	struct nexus_adapter *na;
-
-	for (;;) {
-		SK_LOCK_ASSERT_HELD();
-		while (na_destroyer_cnt == 0) {
-			(void) msleep0(&na_destroyer_run, &sk_lock,
-			    (PZERO - 1), "na_destroyer_thread_cont", 0,
-			    na_destroyer_thread_cont);
-			/* NOTREACHED */
-		}
-
-		net_update_uptime();
-
-		VERIFY(TAILQ_FIRST(&na_destroyer_head) != NULL);
-
-		na = na_destroyer_dequeue();
-		if (na != NULL) {
-			na_destroyer_final(na);
-			SK_LOCK_ASSERT_HELD();
-		}
-	}
-}
-
-__dead2
-static void
-na_destroyer_thread_func(void *v, wait_result_t w)
-{
-#pragma unused(v, w)
-	SK_LOCK();
-	(void) msleep0(&na_destroyer_run, &sk_lock,
-	    (PZERO - 1), "na_destroyer", 0, na_destroyer_thread_cont);
-	/*
-	 * msleep0() shouldn't have returned as PCATCH was not set;
-	 * therefore assert in this case.
-	 */
-	SK_UNLOCK();
-	VERIFY(0);
-	/* NOTREACHED */
-	__builtin_unreachable();
+	return 1;
 }
 
 static struct nexus_adapter *

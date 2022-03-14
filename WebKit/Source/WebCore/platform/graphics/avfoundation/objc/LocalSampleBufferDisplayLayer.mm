@@ -41,6 +41,8 @@
 #import <wtf/MonotonicTime.h>
 #import <wtf/cf/TypeCastsCF.h>
 
+#import <pal/spi/cocoa/AVFoundationSPI.h>
+
 #import <pal/cocoa/AVFoundationSoftLink.h>
 
 using namespace WebCore;
@@ -62,7 +64,7 @@ using namespace WebCore;
     if (!(self = [super init]))
         return nil;
 
-    _parent = makeWeakPtr(parent);
+    _parent = parent;
 
     return self;
 }
@@ -318,7 +320,7 @@ void LocalSampleBufferDisplayLayer::enqueueSample(MediaSample& sample)
         return;
     }
 
-    m_processingQueue->dispatch([this, sample = makeRef(sample)] {
+    m_processingQueue->dispatch([this, sample = Ref { sample }] {
         if (![m_sampleBufferDisplayLayer isReadyForMoreMediaData]) {
             RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer::enqueueSample (%{public}s) not ready for more media data", m_logIdentifier.utf8().data());
             addSampleToPendingQueue(sample);
@@ -347,6 +349,11 @@ void LocalSampleBufferDisplayLayer::enqueueSampleBuffer(MediaSample& sample)
     [m_sampleBufferDisplayLayer enqueueSampleBuffer:sampleToEnqueue];
 
 #if !RELEASE_LOG_DISABLED
+    constexpr size_t frameCountPerLog = 1800; // log every minute at 30 fps
+    if (!(m_frameRateMonitor.frameCount() % frameCountPerLog)) {
+        if (auto* metrics = [m_sampleBufferDisplayLayer videoPerformanceMetrics])
+            RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer (%{public}s) metrics, total=%lu, dropped=%lu, corrupted=%lu, display-composited=%lu, non-display-composited=%lu (pending=%lu)", m_logIdentifier.utf8().data(), metrics.totalNumberOfVideoFrames, metrics.numberOfDroppedVideoFrames, metrics.numberOfCorruptedVideoFrames, metrics.numberOfDisplayCompositedVideoFrames, metrics.numberOfNonDisplayCompositedVideoFrames, m_pendingVideoSampleQueue.size());
+    }
     m_frameRateMonitor.update();
 #endif
 }
@@ -354,7 +361,7 @@ void LocalSampleBufferDisplayLayer::enqueueSampleBuffer(MediaSample& sample)
 #if !RELEASE_LOG_DISABLED
 void LocalSampleBufferDisplayLayer::onIrregularFrameRateNotification(MonotonicTime frameTime, MonotonicTime lastFrameTime)
 {
-    callOnMainThread([frameTime = frameTime.secondsSinceEpoch().value(), lastFrameTime = lastFrameTime.secondsSinceEpoch().value(), observedFrameRate = m_frameRateMonitor.observedFrameRate(), frameCount = m_frameRateMonitor.frameCount(), weakThis = makeWeakPtr(this)] {
+    callOnMainThread([frameTime = frameTime.secondsSinceEpoch().value(), lastFrameTime = lastFrameTime.secondsSinceEpoch().value(), observedFrameRate = m_frameRateMonitor.observedFrameRate(), frameCount = m_frameRateMonitor.frameCount(), weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
         RELEASE_LOG(WebRTC, "LocalSampleBufferDisplayLayer::enqueueSampleBuffer (%{public}s) at %f, previous frame was at %f, observed frame rate is %f, delay since last frame is %f ms, frame count is %lu", weakThis->m_logIdentifier.utf8().data(), frameTime, lastFrameTime, observedFrameRate, (frameTime - lastFrameTime) * 1000, frameCount);
@@ -400,7 +407,7 @@ void LocalSampleBufferDisplayLayer::clearEnqueuedSamples()
 
 void LocalSampleBufferDisplayLayer::requestNotificationWhenReadyForVideoData()
 {
-    auto weakThis = makeWeakPtr(*this);
+    WeakPtr weakThis { *this };
     [m_sampleBufferDisplayLayer requestMediaDataWhenReadyOnQueue:dispatch_get_main_queue() usingBlock:^{
         if (!weakThis)
             return;

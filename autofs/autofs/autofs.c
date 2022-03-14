@@ -398,8 +398,8 @@ kern_return_t autofs_stop(kmod_info_t *ki, void *d)
 		/*
 		 * Free up the root fnnode.
 		 */
-		FREE(fngp->fng_rootfnnodep->fn_name, M_AUTOFS);
-		FREE(fngp->fng_rootfnnodep, M_AUTOFS);
+		kfree_data(fngp->fng_rootfnnodep->fn_name, fngp->fng_rootfnnodep->fn_namelen + 1);
+		kfree_type(struct fnnode, fngp->fng_rootfnnodep);
 
 		lck_mtx_free(fngp->fng_flush_notification_lock, autofs_lck_grp);
 
@@ -410,10 +410,10 @@ kern_return_t autofs_stop(kmod_info_t *ki, void *d)
 		if (fngp->fng_rootfnnodep->fn_lock != NULL)
 			lck_mtx_free(fngp->fng_rootfnnodep->fn_lock, autofs_lck_grp);
 
-                FREE(fngp, M_AUTOFS);
-        }
+		kfree_type(struct autofs_globals, fngp);
+	}
 
-    unlock_autofs_locks();
+	unlock_autofs_locks();
 	lck_mtx_free(autofs_nodeid_lock, autofs_lck_grp);
 	lck_mtx_free(autofs_global_lock, autofs_lck_grp);
 	lck_rw_free(autofs_automounter_pid_rwlock, autofs_lck_grp);

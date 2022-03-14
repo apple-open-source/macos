@@ -8,6 +8,7 @@ extern OctagonState* const KeychainItemUpgradeRequestStateNothingToDo;
 extern OctagonState* const KeychainItemUpgradeRequestStateWaitForUnlock;
 extern OctagonState* const KeychainItemUpgradeRequestStateUpgradePersistentRef;
 extern OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade;
+extern OctagonState* const KeychainItemUpgradeRequestStateWaitForTrigger;
 
 @class CKKSLockStateTracker;
 @class CKKSNearFutureScheduler;

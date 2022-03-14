@@ -352,6 +352,7 @@ enum {NUM_RETRIES = 5};
          policySecrets:policySecrets
          syncUserControllableViews:syncUserControllableViews
          secureElementIdentity:secureElementIdentity
+         setting:setting
          signingPrivKeyPersistentRef:spkPr
          encPrivKeyPersistentRef:epkPr
          reply:reply];

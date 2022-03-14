@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>paste</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/paste?id=8790fe3058c83f624ca2155fb0dbaac23c641237</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-31</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>paste.c: handle invalid input or i/o errors (6555390)</string>
+			<string>paste.c: use __COPYRIGHT macro (80472034)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

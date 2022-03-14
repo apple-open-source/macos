@@ -1161,6 +1161,7 @@ struct omb_class_stat {
 	u_int32_t       mbcl_active;    /* # of active buffers */
 	u_int32_t       mbcl_infree;    /* # of available buffers */
 	u_int32_t       mbcl_slab_cnt;  /* # of available slabs */
+	u_int32_t       mbcl_pad;       /* padding */
 	u_int64_t       mbcl_alloc_cnt; /* # of times alloc is called */
 	u_int64_t       mbcl_free_cnt;  /* # of times free is called */
 	u_int64_t       mbcl_notified;  /* # of notified wakeups */
@@ -1176,7 +1177,9 @@ struct omb_class_stat {
 	u_int32_t       mbcl_mc_waiter_cnt;  /* # waiters on the cache */
 	u_int32_t       mbcl_mc_wretry_cnt;  /* # of wait retries */
 	u_int32_t       mbcl_mc_nwretry_cnt; /* # of no-wait retry attempts */
-	u_int64_t       mbcl_reserved[4];    /* for future use */
+	u_int32_t       mbcl_peak_reported; /* last usage peak reported */
+	u_int32_t       mbcl_reserved[7];    /* for future use */
+	u_int32_t       mbcl_pad2;       /* padding */
 } __attribute__((__packed__));
 #endif /* XNU_KERNEL_PRIVATE */
 
@@ -1218,6 +1221,7 @@ typedef struct mb_class_stat {
 /* For backwards compatibility with 32-bit userland process */
 struct omb_stat {
 	u_int32_t               mbs_cnt;        /* number of classes */
+	u_int32_t               mbs_pad;        /* padding */
 	struct omb_class_stat   mbs_class[1];   /* class array */
 } __attribute__((__packed__));
 #endif /* XNU_KERNEL_PRIVATE */
@@ -1485,6 +1489,7 @@ __private_extern__ struct mbuf *m_getcl(int, int, int);
 __private_extern__ caddr_t m_mclalloc(int);
 __private_extern__ int m_mclhasreference(struct mbuf *);
 __private_extern__ void m_copy_pkthdr(struct mbuf *, struct mbuf *);
+__private_extern__ int m_dup_pkthdr(struct mbuf *, struct mbuf *, int);
 __private_extern__ void m_copy_pftag(struct mbuf *, struct mbuf *);
 __private_extern__ void m_copy_necptag(struct mbuf *, struct mbuf *);
 __private_extern__ void m_copy_classifier(struct mbuf *, struct mbuf *);

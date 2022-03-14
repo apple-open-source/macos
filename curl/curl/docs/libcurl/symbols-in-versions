@@ -10,7 +10,7 @@
  for a few symbols the last version that featured it. The names appear in
  alphabetical order.
 
- Name                           Introduced  Deprecated  Removed
+ Name                           Introduced  Deprecated  Last
 
 CURLALTSVC_H1                   7.64.1
 CURLALTSVC_H2                   7.64.1
@@ -120,6 +120,7 @@ CURLE_RTSP_CSEQ_ERROR           7.20.0
 CURLE_RTSP_SESSION_ERROR        7.20.0
 CURLE_SEND_ERROR                7.10
 CURLE_SEND_FAIL_REWIND          7.12.3
+CURLE_SETOPT_OPTION_SYNTAX      7.78.0
 CURLE_SHARE_IN_USE              7.9.6         7.17.0
 CURLE_SSH                       7.16.1
 CURLE_SSL_CACERT                7.10          7.62.0
@@ -814,7 +815,7 @@ CURLSSLBACKEND_NSS              7.34.0
 CURLSSLBACKEND_OPENSSL          7.34.0
 CURLSSLBACKEND_POLARSSL         7.34.0       7.69.0
 CURLSSLBACKEND_RUSTLS           7.76.0
-CURLSSLBACKEND_QSOSSL           7.34.0        -           7.38.1
+CURLSSLBACKEND_QSOSSL           7.34.0        -           7.38.0
 CURLSSLBACKEND_SCHANNEL         7.34.0
 CURLSSLBACKEND_SECURETRANSPORT  7.64.1
 CURLSSLBACKEND_WOLFSSL          7.49.0
@@ -864,6 +865,7 @@ CURLUSESSL_ALL                  7.17.0
 CURLUSESSL_CONTROL              7.17.0
 CURLUSESSL_NONE                 7.17.0
 CURLUSESSL_TRY                  7.17.0
+CURLU_ALLOW_SPACE               7.78.0
 CURLU_APPENDQUERY               7.62.0
 CURLU_DEFAULT_PORT              7.62.0
 CURLU_DEFAULT_SCHEME            7.62.0

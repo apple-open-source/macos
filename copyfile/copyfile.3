@@ -1,7 +1,7 @@
 .\"
-.\" Copyright (c) 2002 Apple Computer, Inc.  All rights reserved.
+.\" Copyright (c) 2021 Apple Computer, Inc.  All rights reserved.
 .\"
-.Dd July 22, 2019
+.Dd May 19, 2021
 .Dt COPYFILE 3
 .Os
 .Sh NAME
@@ -355,6 +355,25 @@ parameter is a pointer to
 .Vt bool
 (type
 .Vt bool\ * ).
+.It Dv COPYFILE_STATE_SRC_BSIZE
+.It Dv COPYFILE_STATE_DST_BSIZE
+.It Dv COPYFILE_STATE_BSIZE
+Get or set the copy blocksize associated with the source or destination
+file (or both).
+The caller must ensure that its environment does not restrict
+a memory allocation of this size.
+If the copy blocksize for the destination file is specified to be larger
+than the copy blocksize for the source file, it will be ignored.
+If this has not been initialized by the caller, the value will be 0.
+The
+.Va dst
+parameter and the
+.Va src
+parameter
+are pointers to
+.Vt uint32_t
+(type
+.Vt uint32_t\ * ).
 .El
 .Sh Recursive Copies
 When given the
@@ -736,8 +755,4 @@ The
 .Fn copyfile
 API was introduced in Mac OS X 10.5.
 .Sh BUGS
-Both
-.Fn copyfile
-functions lack a way to set the input or output block size.
-.Pp
 Recursive copies do not honor hard links.

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,12 +33,12 @@
 #include <wtf/NeverDestroyed.h>
 
 #if PLATFORM(MAC)
-#include "ScreenDisplayCapturerMac.h"
-#include "WindowDisplayCapturerMac.h"
-#include <CoreGraphics/CGDirectDisplay.h>
+#include "CGDisplayStreamScreenCaptureSource.h"
 #endif
 
-#include "CoreVideoSoftLink.h"
+#if PLATFORM(IOS)
+#include "ReplayKitCaptureSource.h"
+#endif
 
 namespace WebCore {
 
@@ -61,21 +61,20 @@ const Vector<CaptureDevice>& DisplayCaptureManagerCocoa::captureDevices()
 void DisplayCaptureManagerCocoa::updateDisplayCaptureDevices()
 {
 #if PLATFORM(MAC)
-    ScreenDisplayCapturerMac::screenCaptureDevices(m_devices);
+    CGDisplayStreamScreenCaptureSource::screenCaptureDevices(m_devices);
+#elif PLATFORM(IOS)
+    ReplayKitCaptureSource::screenCaptureDevices(m_devices);
 #endif
 }
 
 void DisplayCaptureManagerCocoa::updateWindowCaptureDevices()
 {
-#if PLATFORM(MAC)
-    WindowDisplayCapturerMac::windowCaptureDevices(m_devices);
-#endif
 }
 
 std::optional<CaptureDevice> DisplayCaptureManagerCocoa::screenCaptureDeviceWithPersistentID(const String& deviceID)
 {
 #if PLATFORM(MAC)
-    return ScreenDisplayCapturerMac::screenCaptureDeviceWithPersistentID(deviceID);
+    return CGDisplayStreamScreenCaptureSource::screenCaptureDeviceWithPersistentID(deviceID);
 #else
     UNUSED_PARAM(deviceID);
     return std::nullopt;
@@ -84,12 +83,8 @@ std::optional<CaptureDevice> DisplayCaptureManagerCocoa::screenCaptureDeviceWith
 
 std::optional<CaptureDevice> DisplayCaptureManagerCocoa::windowCaptureDeviceWithPersistentID(const String& deviceID)
 {
-#if PLATFORM(MAC)
-    return WindowDisplayCapturerMac::windowCaptureDeviceWithPersistentID(deviceID);
-#else
     UNUSED_PARAM(deviceID);
     return std::nullopt;
-#endif
 }
 
 std::optional<CaptureDevice> DisplayCaptureManagerCocoa::captureDeviceWithPersistentID(CaptureDevice::DeviceType type, const String& id)

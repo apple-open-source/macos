@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -23,8 +23,8 @@
 static struct loption *pendopt;
 public int plusoption = FALSE;
 
-static char *optstring();
-static int flip_triple();
+static char *optstring LESSPARAMS((char *s, char **p_str, char *printopt, char *validchars));
+static int flip_triple LESSPARAMS((int val, int lc));
 
 extern int screen_trashed;
 extern int less_is_more;
@@ -70,8 +70,8 @@ propt(c)
 scan_option(s)
 	char *s;
 {
-	register struct loption *o;
-	register int optc;
+	struct loption *o;
+	int optc;
 	char *optname;
 	char *printopt;
 	char *str;
@@ -151,11 +151,14 @@ scan_option(s)
 			if (s == NULL)
 				return;
 			if (*str == '+')
-				every_first_cmd = save(str+1);
-			else
 			{
-				ungetcc(CHAR_END_COMMAND);
+				if (every_first_cmd != NULL)
+					free(every_first_cmd);
+				every_first_cmd = save(str+1);
+			} else
+			{
 				ungetsc(str);
+				ungetcc_back(CHAR_END_COMMAND);
 			}
 			free(str);
 			continue;
@@ -310,10 +313,10 @@ scan_option(s)
  * Toggle command line flags from within the program.
  * Used by the "-" and "_" commands.
  * how_toggle may be:
- *	OPT_NO_TOGGLE	just report the current setting, without changing it.
- *	OPT_TOGGLE	invert the current setting
- *	OPT_UNSET	set to the default value
- *	OPT_SET		set to the inverse of the default value
+ *      OPT_NO_TOGGLE   just report the current setting, without changing it.
+ *      OPT_TOGGLE      invert the current setting
+ *      OPT_UNSET       set to the default value
+ *      OPT_SET         set to the inverse of the default value
  */
 	public void
 toggle_option(o, lower, s, how_toggle)
@@ -322,7 +325,7 @@ toggle_option(o, lower, s, how_toggle)
 	char *s;
 	int how_toggle;
 {
-	register int num;
+	int num;
 	int no_prompt;
 	int err;
 	PARG parg;
@@ -397,10 +400,10 @@ toggle_option(o, lower, s, how_toggle)
 		case TRIPLE:
 			/*
 			 * Triple:
-			 *	If user gave the lower case letter, then switch 
-			 *	to 1 unless already 1, in which case make it 0.
-			 *	If user gave the upper case letter, then switch
-			 *	to 2 unless already 2, in which case make it 0.
+			 *      If user gave the lower case letter, then switch 
+			 *      to 1 unless already 1, in which case make it 0.
+			 *      If user gave the upper case letter, then switch
+			 *      to 2 unless already 2, in which case make it 0.
 			 */
 			switch (how_toggle)
 			{
@@ -418,7 +421,7 @@ toggle_option(o, lower, s, how_toggle)
 		case STRING:
 			/*
 			 * String: don't do anything here.
-			 *	The handling function will do everything.
+			 *      The handling function will do everything.
 			 */
 			switch (how_toggle)
 			{
@@ -540,6 +543,24 @@ opt_prompt(o)
 }
 
 /*
+ * If the specified option can be toggled, return NULL.
+ * Otherwise return an appropriate error message.
+ */
+	public char *
+opt_toggle_disallowed(c)
+	int c;
+{
+	switch (c)
+	{
+	case 'o':
+		if (ch_getflags() & CH_CANSEEK)
+			return "Input is not a pipe";
+		break;
+	}
+	return NULL;
+}
+
+/*
  * Return whether or not there is a string option pending;
  * that is, if the previous option was a string-valued option letter 
  * (like -P) without a following string.
@@ -547,7 +568,7 @@ opt_prompt(o)
  * the previous option.
  */
 	public int
-isoptpending()
+isoptpending(VOID_PARAM)
 {
 	return (pendopt != NULL);
 }
@@ -568,7 +589,7 @@ nostring(printopt)
  * Print error message if a STRING type option is not followed by a string.
  */
 	public void
-nopendopt()
+nopendopt(VOID_PARAM)
 {
 	nostring(opt_desc(pendopt));
 }
@@ -585,8 +606,8 @@ optstring(s, p_str, printopt, validchars)
 	char *printopt;
 	char *validchars;
 {
-	register char *p;
-	register char *out;
+	char *p;
+	char *out;
 
 	if (*s == '\0')
 	{
@@ -649,9 +670,9 @@ getnum(sp, printopt, errp)
 	char *printopt;
 	int *errp;
 {
-	register char *s;
-	register int n;
-	register int neg;
+	char *s;
+	int n;
+	int neg;
 
 	s = skipsp(*sp);
 	neg = FALSE;
@@ -686,7 +707,7 @@ getfraction(sp, printopt, errp)
 	char *printopt;
 	int *errp;
 {
-	register char *s;
+	char *s;
 	long frac = 0;
 	int fraclen = 0;
 
@@ -716,7 +737,7 @@ getfraction(sp, printopt, errp)
  * Get the value of the -e flag.
  */
 	public int
-get_quit_at_eof()
+get_quit_at_eof(VOID_PARAM)
 {
 	if (!less_is_more)
 		return quit_at_eof;

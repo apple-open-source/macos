@@ -38,7 +38,7 @@
 
 __BEGIN_DECLS
 
-typedef struct SecPathBuilder *SecPathBuilderRef;
+typedef struct _SecPathBuilder *SecPathBuilderRef;
 
 typedef struct OpaqueSecPVC *SecPVCRef;
 
@@ -62,13 +62,13 @@ typedef void(*SecPathBuilderCompleted)(const void *userData,
     SecTrustResultType result);
 
 /* Returns a new trust path builder and policy evaluation engine instance. */
-SecPathBuilderRef SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
+CF_RETURNS_RETAINED SecPathBuilderRef
+SecPathBuilderCreate(dispatch_queue_t builderQueue, CFDataRef clientAuditToken,
     CFArrayRef certificates, CFArrayRef anchors, bool anchorsOnly,
     bool keychainsAllowed, CFArrayRef policies, CFArrayRef ocspResponse,
     CFArrayRef signedCertificateTimestamps, CFArrayRef trustedLogs,
     CFAbsoluteTime verifyTime, CFArrayRef accessGroups, CFArrayRef exceptions,
     SecPathBuilderCompleted completed, const void *userData);
-void SecPathBuilderDestroy(SecPathBuilderRef builder);
 
 /* engine states exposed for testing */
 bool SecPathBuilderDidValidatePath(SecPathBuilderRef builder);

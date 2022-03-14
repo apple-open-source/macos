@@ -310,17 +310,17 @@ void InjectedBundle::removeAllWebNotificationPermissions(WebPage* page)
 #endif
 }
 
-uint64_t InjectedBundle::webNotificationID(JSContextRef jsContext, JSValueRef jsNotification)
+std::optional<UUID> InjectedBundle::webNotificationID(JSContextRef jsContext, JSValueRef jsNotification)
 {
 #if ENABLE(NOTIFICATIONS)
     WebCore::Notification* notification = JSNotification::toWrapped(toJS(jsContext)->vm(), toJS(toJS(jsContext), jsNotification));
     if (!notification)
-        return 0;
-    return WebProcess::singleton().supplement<WebNotificationManager>()->notificationIDForTesting(notification);
+        return std::nullopt;
+    return notification->identifier();
 #else
     UNUSED_PARAM(jsContext);
     UNUSED_PARAM(jsNotification);
-    return 0;
+    return std::nullopt;
 #endif
 }
 
@@ -338,14 +338,14 @@ InjectedBundle::DocumentIDToURLMap InjectedBundle::liveDocumentURLs(bool exclude
     DocumentIDToURLMap result;
 
     for (const auto* document : Document::allDocuments())
-        result.add(document->identifier().toUInt64(), document->url().string());
+        result.add(document->identifier().object().toUInt64(), document->url().string());
 
     if (excludeDocumentsInPageGroupPages) {
         Page::forEachPage([&](Page& page) {
             for (auto* frame = &page.mainFrame(); frame; frame = frame->tree().traverseNext()) {
                 if (!frame->document())
                     continue;
-                result.remove(frame->document()->identifier().toUInt64());
+                result.remove(frame->document()->identifier().object().toUInt64());
             }
         });
     }

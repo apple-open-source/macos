@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -71,10 +71,10 @@ static int __nx_fsw_inited = 0;
 static eventhandler_tag __nx_fsw_ifnet_eventhandler_tag = NULL;
 static eventhandler_tag __nx_fsw_protoctl_eventhandler_tag = NULL;
 
-static ZONE_DECLARE(nx_fsw_zone, SKMEM_ZONE_PREFIX ".nx.fsw",
+static ZONE_DEFINE(nx_fsw_zone, SKMEM_ZONE_PREFIX ".nx.fsw",
     sizeof(struct nx_flowswitch), ZC_ZFREE_CLEARMEM);
 
-static ZONE_DECLARE(nx_fsw_stats_zone, SKMEM_ZONE_PREFIX ".nx.fsw.stats",
+static ZONE_DEFINE(nx_fsw_stats_zone, SKMEM_ZONE_PREFIX ".nx.fsw.stats",
     sizeof(struct __nx_stats_fsw), ZC_ZFREE_CLEARMEM);
 
 #define SKMEM_TAG_FSW_PORTS     "com.apple.skywalk.fsw.ports"
@@ -577,19 +577,41 @@ fsw_dp_start(struct nx_flowswitch *fsw)
 }
 
 SK_NO_INLINE_ATTRIBUTE
-static void
-fsw_dp_stop(struct nx_flowswitch *fsw)
+static int
+fsw_dp_stop(struct nx_flowswitch *fsw, struct ifnet **ifpp)
 {
+	struct ifnet *ifp;
+
+	FSW_WLOCK(fsw);
+	if ((fsw->fsw_state_flags & FSW_STATEF_QUIESCED) != 0) {
+		FSW_WUNLOCK(fsw);
+		return EALREADY;
+	}
+	fsw->fsw_state_flags |= FSW_STATEF_QUIESCED;
+	FSW_WUNLOCK(fsw);
+
+	/*
+	 * For regular kernel-attached interfaces, quiescing is handled by
+	 * the ifnet detach thread, which calls dlil_quiesce_and_detach_nexuses().
+	 * For interfaces created by skywalk test cases, flowswitch/netif nexuses
+	 * are constructed on the fly and can also be torn down on the fly.
+	 * dlil_quiesce_and_detach_nexuses() won't help here because any nexus
+	 * can be detached while the interface is still attached.
+	 */
+	if ((ifp = fsw->fsw_ifp) != NULL &&
+	    ifnet_datamov_suspend_if_needed(ifp)) {
+		SK_UNLOCK();
+		ifnet_datamov_drain(ifp);
+		/* Reference will be released by caller */
+		*ifpp = ifp;
+		SK_LOCK();
+	}
 	ASSERT(fsw->fsw_dev_ch != NULL);
 	ASSERT(fsw->fsw_host_ch != NULL);
-
 	na_stop_spec(fsw->fsw_host_ch->ch_nexus, fsw->fsw_host_ch);
 	na_stop_spec(fsw->fsw_dev_ch->ch_nexus, fsw->fsw_dev_ch);
 	fsw_netif_clear_callbacks(fsw);
-
-	FSW_WLOCK(fsw);
-	fsw->fsw_state_flags |= FSW_STATEF_QUIESCED;
-	FSW_WUNLOCK(fsw);
+	return 0;
 }
 
 SK_NO_INLINE_ATTRIBUTE
@@ -756,12 +778,16 @@ static void
 fsw_cleanup(struct nx_flowswitch *fsw)
 {
 	int err;
+	struct ifnet *ifp = NULL;
 
 	if (fsw->fsw_dev_ch == NULL) {
 		ASSERT(fsw->fsw_host_ch == NULL);
 		return;
 	}
-	fsw_dp_stop(fsw);
+	err = fsw_dp_stop(fsw, &ifp);
+	if (err != 0) {
+		return;
+	}
 	err = fsw_host_teardown(fsw);
 	VERIFY(err == 0);
 
@@ -770,6 +796,10 @@ fsw_cleanup(struct nx_flowswitch *fsw)
 
 	err = fsw_devna_teardown(fsw);
 	VERIFY(err == 0);
+
+	if (ifp != NULL) {
+		ifnet_datamov_resume(ifp);
+	}
 }
 
 int

@@ -67,6 +67,8 @@ int MKBForegroundUserSessionID( CFErrorRef _Nullable * _Nullable error);
 @property (class) keybag_state_t keybag_state;
 
 + (bool)isLocked:(keyclass_t)key_class;
++ (bool)forceInvalidPersona;
++ (bool)forceUnwrapKeyDecodeFailure;
 + (bool)isSEPDown;
 + (bool)useGenerationCount;
 

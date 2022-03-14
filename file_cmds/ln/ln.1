@@ -13,7 +13,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,31 +30,40 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)ln.1	8.2 (Berkeley) 12/30/93
-.\" $FreeBSD: src/bin/ln/ln.1,v 1.31 2006/02/14 11:08:05 glebius Exp $
+.\" $FreeBSD$
 .\"
-.Dd July 12, 2019
+.Dd May 10, 2021
 .Dt LN 1
 .Os
 .Sh NAME
-.Nm link ,
-.Nm ln
-.Nd make links
-.Sh SYNOPSIS
-.Nm ln
-.Op Fl Ffhinsv
-.Ar source_file
-.Op Ar link_name
-.Nm ln
-.Op Fl Ffhinsv
-.Ar source_file ...
-.Ar link_dirname
+.Nm ln ,
 .Nm link
-.Ar source_file Ar link_name
+.Nd link files
+.Sh SYNOPSIS
+.Nm
+.Op Fl L | Fl P | Fl s Op Fl F
+.Op Fl f | iw
+.Op Fl hnv
+.Ar source_file
+.Op Ar target_file
+.Nm
+.Op Fl L | Fl P | Fl s Op Fl F
+.Op Fl f | iw
+.Op Fl hnv
+.Ar source_file ...
+.Ar target_dir
+.Nm link
+.Ar source_file Ar target_file
 .Sh DESCRIPTION
 The
-.Nm ln
-utility creates a new directory entry (linked file) which has the
-same modes as the original file.
+.Nm
+utility creates a new directory entry (linked file) for the file name
+specified by
+.Ar target_file .
+The
+.Ar target_file
+will be created with the same file modes as the
+.Ar source_file .
 It is useful for maintaining multiple copies of a file in many places
 at once without using up storage for the
 .Dq copies ;
@@ -68,9 +77,8 @@ to a file is one of the differences between a hard and symbolic link.
 .Pp
 The options are as follows:
 .Bl -tag -width flag
-.\" ==========
 .It Fl F
-If the proposed link (link_name) already exists and is a directory, then remove it
+If the target file already exists and is a directory, then remove it
 so that the link may occur.
 The
 .Fl F
@@ -79,74 +87,90 @@ option should be used with either
 or
 .Fl i
 options.
-If none is specified,
+If neither
+.Fl f
+nor
+.Fl i
+is specified,
 .Fl f
 is implied.
 The
 .Fl F
 option is a no-op unless
 .Fl s
-option is specified.
-.It Fl h
-If the
-.Ar link_name
-or
-.Ar link_dirname
-is a symbolic link, do not follow it.
-This is most useful with the
-.Fl f
-option, to replace a symlink which may point to a directory.
-.\" ==========
+is specified.
+.It Fl L
+When creating a hard link to a symbolic link,
+create a hard link to the target of the symbolic link.
+This is the default.
+This option cancels the
+.Fl P
+option.
+.It Fl P
+When creating a hard link to a symbolic link,
+create a hard link to the symbolic link itself.
+This option cancels the
+.Fl L
+option.
 .It Fl f
-If the proposed link (link_name) already exists,
+If the target file already exists,
 then unlink it so that the link may occur.
 (The
 .Fl f
 option overrides any previous
 .Fl i
+and
+.Fl w
 options.)
-.\" ==========
+.It Fl h
+If the
+.Ar target_file
+or
+.Ar target_dir
+is a symbolic link, do not follow it.
+This is most useful with the
+.Fl f
+option, to replace a symlink which may point to a directory.
 .It Fl i
 Cause
-.Nm ln
-to write a prompt to standard error if the proposed link exists.
+.Nm
+to write a prompt to standard error if the target file exists.
 If the response from the standard input begins with the character
 .Sq Li y
 or
 .Sq Li Y ,
-then unlink the proposed link so that the link may occur.
+then unlink the target file so that the link may occur.
 Otherwise, do not attempt the link.
 (The
 .Fl i
 option overrides any previous
 .Fl f
 options.)
-.\" ==========
 .It Fl n
 Same as
 .Fl h ,
 for compatibility with other
-.Nm ln
+.Nm
 implementations.
-.\" ==========
 .It Fl s
 Create a symbolic link.
-.\" ==========
 .It Fl v
 Cause
-.Nm ln
+.Nm
 to be verbose, showing files as they are processed.
+.It Fl w
+Warn if the source of a symbolic link does not currently exist.
 .El
 .Pp
 By default,
-.Nm ln
+.Nm
 makes
 .Em hard
 links.
 A hard link to a file is indistinguishable from the original directory entry;
 any changes to a file are effectively independent of the name used to reference
 the file.
-Hard links may not normally refer to directories and may not span file systems.
+Directories may not be hardlinked, and hard links may not span file systems.
 .Pp
 A symbolic link contains the name of the file to
 which it is linked.
@@ -164,13 +188,13 @@ call may be used to read the contents of a symbolic link.
 Symbolic links may span file systems and may refer to directories.
 .Pp
 Given one or two arguments,
-.Nm ln
+.Nm
 creates a link to an existing file
 .Ar source_file .
 If
-.Ar link_name
+.Ar target_file
 is given, the link has that name;
-.Ar link_name
+.Ar target_file
 may also be a directory in which to place the link;
 otherwise it is placed in the current directory.
 If only the directory is specified, the link will be made
@@ -178,9 +202,9 @@ to the last component of
 .Ar source_file .
 .Pp
 Given more than two arguments,
-.Nm ln
+.Nm
 makes links in
-.Ar link_dirname
+.Ar target_dir
 to all the named source files.
 The links made will have the same name as the files being linked to.
 .Pp
@@ -192,23 +216,88 @@ No options may be supplied in this simple mode of operation,
 which performs a
 .Xr link 2
 operation using the two passed arguments.
+.Sh EXAMPLES
+Create a symbolic link named
+.Pa /home/src
+and point it to
+.Pa /usr/src :
+.Pp
+.Dl # ln -s /usr/src /home/src
+.Pp
+Hard link
+.Pa /usr/local/bin/fooprog
+to file
+.Pa /usr/local/bin/fooprog-1.0 :
+.Pp
+.Dl # ln /usr/local/bin/fooprog-1.0 /usr/local/bin/fooprog
+.Pp
+As an exercise, try the following commands:
+.Bd -literal -offset indent
+# ls -i /bin/[
+11553 /bin/[
+# ls -i /bin/test
+11553 /bin/test
+.Ed
+.Pp
+Note that both files have the same inode; that is,
+.Pa /bin/[
+is essentially an alias for the
+.Xr test 1
+command.
+This hard link exists so
+.Xr test 1
+may be invoked from shell scripts, for example, using the
+.Li "if [ ]"
+construct.
+.Pp
+In the next example, the second call to
+.Nm
+removes the original
+.Pa foo
+and creates a replacement pointing to
+.Pa baz :
+.Bd -literal -offset indent
+# mkdir bar baz
+# ln -s bar foo
+# ln -shf baz foo
+.Ed
+.Pp
+Without the
+.Fl h
+option, this would instead leave
+.Pa foo
+pointing to
+.Pa bar
+and inside
+.Pa foo
+create a new symlink
+.Pa baz
+pointing to itself.
+This results from directory-walking.
+.Pp
+An easy rule to remember is that the argument order for
+.Nm
+is the same as for
+.Xr cp 1 :
+The first argument needs to exist, the second one is created.
 .Sh COMPATIBILITY
 The
 .Fl h ,
 .Fl i ,
-.Fl n
-and
+.Fl n ,
 .Fl v
+and
+.Fl w
 options are non-standard and their use in scripts is not recommended.
 They are provided solely for compatibility with other
-.Nm ln
+.Nm
 implementations.
 .Pp
 The
 .Fl F
-option is
+option is a
 .Fx
-extention and should not be used in portable scripts.
+extension and should not be used in portable scripts.
 .Sh SEE ALSO
 .Xr link 2 ,
 .Xr lstat 2 ,
@@ -218,7 +307,7 @@ extention and should not be used in portable scripts.
 .Xr symlink 7
 .Sh STANDARDS
 The
-.Nm ln
+.Nm
 utility conforms to
 .St -p1003.2-92 .
 .Pp
@@ -228,6 +317,6 @@ command conforms to
 .St -susv2 .
 .Sh HISTORY
 An
-.Nm ln
+.Nm
 command appeared in
 .At v1 .

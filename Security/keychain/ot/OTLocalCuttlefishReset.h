@@ -38,6 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithDependencies:(OTOperationDependencies*)deps
                        intendedState:(OctagonState*)intendedState
                           errorState:(OctagonState*)errorState;
+
 @end
 
 NS_ASSUME_NONNULL_END

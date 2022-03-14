@@ -27,7 +27,7 @@
 #import "WKPreferencesInternal.h"
 
 #import "APIArray.h"
-#import "PluginProcessManager.h"
+#import "Logging.h"
 #import "WKNSArray.h"
 #import "WebPreferences.h"
 #import "_WKExperimentalFeatureInternal.h"
@@ -151,6 +151,26 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 - (void)setTextInteractionEnabled:(BOOL)textInteractionEnabled
 {
     _preferences->setTextInteractionEnabled(textInteractionEnabled);
+}
+
+- (BOOL)isSiteSpecificQuirksModeEnabled
+{
+    return _preferences->needsSiteSpecificQuirks();
+}
+
+- (void)setSiteSpecificQuirksModeEnabled:(BOOL)enabled
+{
+    _preferences->setNeedsSiteSpecificQuirks(enabled);
+}
+
+- (BOOL)isElementFullscreenEnabled
+{
+    return _preferences->fullScreenEnabled();
+}
+
+- (void)setElementFullscreenEnabled:(BOOL)elementFullscreenEnabled
+{
+    _preferences->setFullScreenEnabled(elementFullscreenEnabled);
 }
 
 #pragma mark OS X-specific methods
@@ -1016,12 +1036,11 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 - (void)_setPageCacheSupportsPlugins:(BOOL)enabled
 {
-    _preferences->setBackForwardCacheSupportsPlugins(enabled);
 }
 
 - (BOOL)_pageCacheSupportsPlugins
 {
-    return _preferences->backForwardCacheSupportsPlugins();
+    return NO;
 }
 
 - (void)_setShouldPrintBackgrounds:(BOOL)enabled
@@ -1076,35 +1095,29 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 
 - (void)_setAsynchronousPluginInitializationEnabled:(BOOL)enabled
 {
-    _preferences->setAsynchronousPluginInitializationEnabled(enabled);
 }
 
 - (BOOL)_asynchronousPluginInitializationEnabled
 {
-    return _preferences->asynchronousPluginInitializationEnabled();
+    return NO;
 }
 
 - (void)_setArtificialPluginInitializationDelayEnabled:(BOOL)enabled
 {
-    _preferences->setArtificialPluginInitializationDelayEnabled(enabled);
 }
 
 - (BOOL)_artificialPluginInitializationDelayEnabled
 {
-    return _preferences->artificialPluginInitializationDelayEnabled();
+    return NO;
 }
 
 - (void)_setExperimentalPlugInSandboxProfilesEnabled:(BOOL)enabled
 {
-#if ENABLE(NETSCAPE_PLUGIN_API)
-    WebKit::PluginProcessManager::singleton().setExperimentalPlugInSandboxProfilesEnabled(enabled);
-#endif
-    _preferences->setExperimentalPlugInSandboxProfilesEnabled(enabled);
 }
 
 - (BOOL)_experimentalPlugInSandboxProfilesEnabled
 {
-    return _preferences->experimentalPlugInSandboxProfilesEnabled();
+    return NO;
 }
 
 - (void)_setCookieEnabled:(BOOL)enabled
@@ -1144,16 +1157,6 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
 - (NSString *)_standardFontFamily
 {
     return _preferences->standardFontFamily();
-}
-
-- (void)_setNotificationsEnabled:(BOOL)enabled
-{
-    _preferences->setNotificationsEnabled(enabled);
-}
-
-- (BOOL)_notificationsEnabled
-{
-    return _preferences->notificationsEnabled();
 }
 
 - (void)_setBackspaceKeyNavigationEnabled:(BOOL)enabled
@@ -1512,9 +1515,9 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     return _preferences->requiresPageVisibilityToPlayAudio();
 }
 
-- (void)_setRequiresPageVisibilityToPlayAudio:(BOOL)requires
+- (void)_setRequiresPageVisibilityToPlayAudio:(BOOL)requiresVisibility
 {
-    _preferences->setRequiresPageVisibilityToPlayAudio(requires);
+    _preferences->setRequiresPageVisibilityToPlayAudio(requiresVisibility);
 }
 
 - (BOOL)_fileSystemAccessEnabled
@@ -1547,8 +1550,27 @@ static WebCore::EditableLinkBehavior toEditableLinkBehavior(_WKEditableLinkBehav
     _preferences->setAccessHandleEnabled(accessHandleEnabled);
 }
 
-@end
+- (void)_setNotificationsEnabled:(BOOL)enabled
+{
+    _preferences->setNotificationsEnabled(enabled);
+}
 
+- (BOOL)_notificationsEnabled
+{
+    return _preferences->notificationsEnabled();
+}
+
+- (void)_setModelDocumentEnabled:(BOOL)enabled
+{
+    _preferences->setModelDocumentEnabled(enabled);
+}
+
+- (BOOL)_modelDocumentEnabled
+{
+    return _preferences->modelDocumentEnabled();
+}
+
+@end
 
 @implementation WKPreferences (WKDeprecated)
 

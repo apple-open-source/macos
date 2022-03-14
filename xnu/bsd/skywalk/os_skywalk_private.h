@@ -221,6 +221,7 @@ enum SK_VERB_FLAGS {
 #include <mach/vm_types.h>
 #include <mach/vm_param.h>
 #include <kern/cpu_number.h>
+#include <pexpert/pexpert.h>
 
 #if (DEVELOPMENT || DEBUG)
 #define SK_KVA(p)       ((uint64_t)(p))
@@ -241,25 +242,26 @@ enum SK_VERB_FLAGS {
 #define SK_LOG_ATTRIBUTE        __attribute__((noinline, cold, not_tail_called))
 
 #if SK_LOG
-__BEGIN_DECLS
 /*
- * Ideally we should include <pexpert/pexpert.h> instead, but we'd have to
- * define _FN_KPRINTF to disable kprintf() declaration since the compiler
- * doesn't know about %b format specifier.  For now just declare this here.
+ * Because the compiler doesn't know about the %b format specifier,
+ * most warnings for _SK_D are disabled by pragma.
  *
  * XXX adi@apple.com: This means the compiler will not warn us about
  * invalid parameters passed to kprintf(), so make sure to scrutinize
  * any changes made to code using any logging macros defined below.
  */
-extern void kprintf(const char *fmt, ...);
-__END_DECLS
 
 extern uint64_t sk_verbose;
 #define _SK_D(_flag, _fmt, ...) do {                                    \
 	if (__improbable(((_flag) && (sk_verbose & (_flag)) == (_flag)) || \
 	    (_flag) == SK_VERB_ERROR)) {                                \
+	        _Pragma("clang diagnostic push")                        \
+	        _Pragma("clang diagnostic ignored \"-Wformat-invalid-specifier\"") \
+	        _Pragma("clang diagnostic ignored \"-Wformat-extra-args\"") \
+	        _Pragma("clang diagnostic ignored \"-Wformat\"") \
 	        kprintf("SK[%u]: %-30s " _fmt "\n",                     \
 	            cpu_number(), __FUNCTION__, ##__VA_ARGS__);         \
+	        _Pragma("clang diagnostic pop")                         \
 	}                                                               \
 } while (0)
 

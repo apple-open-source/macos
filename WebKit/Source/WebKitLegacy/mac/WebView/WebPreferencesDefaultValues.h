@@ -64,6 +64,7 @@ bool defaultLoadDeferringEnabled();
 bool defaultWindowFocusRestricted();
 bool defaultUsePreHTML5ParserQuirks();
 bool defaultNeedsAdobeFrameReloadingQuirk();
+bool defaultScrollAnimatorEnabled();
 bool defaultTreatsAnyTextCSSLinkAsStylesheet();
 bool defaultNeedsFrameNameFallbackToIdQuirk();
 bool defaultNeedsKeyboardEventDisambiguationQuirks();
@@ -83,7 +84,10 @@ bool defaultWheelEventGesturesBecomeNonBlocking();
 
 #if ENABLE(MEDIA_SOURCE)
 bool defaultWebMParserEnabled();
-bool defaultWebMWebAudioEnabled();
+#endif
+
+#if ENABLE(MEDIA_SOURCE) && PLATFORM(IOS_FAMILY)
+bool defaultMediaSourceEnabled();
 #endif
 
 #if ENABLE(VP9)

@@ -47,33 +47,6 @@ en_DK{
                 hmsv{"h.mm.ss a v"}
                 hmv{"h.mm a v"}
                 ms{"mm.ss"}
-                
-                // The following are all copied over from en_001.txt to work around the horizontal-inheritance
-                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
-                // bug is fixed.
-                Bhms{"h:mm:ss B"}
-                EBhm{"E, h:mm B"}
-                EBhms{"E, h:mm:ss B"}
-                Ed{"E d"}
-                GyMMMEd{"E, d MMM y G"}
-                GyMMMd{"d MMM y G"}
-                H{"HH"}
-                M{"LL"}
-                MEd{"E, dd/MM"}
-                MMMEd{"E, d MMM"}
-                MMMMd{"d MMMM"}
-                MMMd{"d MMM"}
-                Md{"dd/MM"}
-                h{"h a"}
-                y{"y G"}
-                yyyy{"y G"}
-                yyyyM{"MM/y GGGGG"}
-                yyyyMEd{"E, dd/MM/y GGGGG"}
-                yyyyMMM{"MMM y G"}
-                yyyyMMMEd{"E, d MMM y G"}
-                yyyyMMMM{"MMMM y G"}
-                yyyyMMMd{"d MMM y G"}
-                yyyyMd{"dd/MM/y GGGGG"}
             }
         }
         gregorian{

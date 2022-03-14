@@ -1,6 +1,6 @@
 {
     "$schema": "https://valid.apple.com/ct/log_list/schema_versions/log_list_schema_v3.json",
-    "assetVersion": 16,
+    "assetVersion": 17,
     "operators": [
         {
             "email": [
@@ -734,9 +734,9 @@
                     "log_id": "VhQGmi/XwuzT9eG9RLI+x0Z2ubyZEVzA75SYVdaJ0N0=",
                     "mmd": 86400,
                     "state": {
-                        "usable": {
-                            "timestamp": "2015-12-02T22:55:17Z",
-                            "version": "1"
+                        "retired": {
+                            "timestamp": "2022-01-24T00:00:00Z",
+                            "version": "107"
                         }
                     },
                     "url": "https://ct1.digicert-ct.com/log/"
@@ -926,9 +926,9 @@
                     "log_id": "BZwB0yDgB4QTlYBJjRF8kDJmr69yULWvO0akPhGEDUo=",
                     "mmd": 86400,
                     "state": {
-                        "qualified": {
-                            "timestamp": "2021-07-20T20:14:50Z",
-                            "version": "102"
+                        "usable": {
+                            "timestamp": "2021-11-15T19:49:20Z",
+                            "version": "106"
                         }
                     },
                     "temporal_interval": {
@@ -1144,5 +1144,5 @@
             "name": "TrustAsia"
         }
     ],
-    "version": "105"
+    "version": "107"
 }

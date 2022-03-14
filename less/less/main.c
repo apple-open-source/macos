@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -14,6 +14,7 @@
 
 #include "less.h"
 #if MSDOS_COMPILER==WIN32C
+#define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #endif
 
@@ -23,21 +24,19 @@
 #define COMPAT_MODE(func, mode) 1
 #endif
 
-
-public char *	every_first_cmd = NULL;
-public int	new_file;
-public int	is_tty;
-public IFILE	curr_ifile = NULL_IFILE;
-public IFILE	old_ifile = NULL_IFILE;
+public char *   every_first_cmd = NULL;
+public int      new_file;
+public int      is_tty;
+public IFILE    curr_ifile = NULL_IFILE;
+public IFILE    old_ifile = NULL_IFILE;
 public struct scrpos initial_scrpos;
-public int	any_display = FALSE;
-public POSITION	start_attnpos = NULL_POSITION;
-public POSITION	end_attnpos = NULL_POSITION;
-public int	wscroll;
-public char *	progname;
-public int	quitting;
-public int	secure;
-public int	dohelp;
+public POSITION start_attnpos = NULL_POSITION;
+public POSITION end_attnpos = NULL_POSITION;
+public int      wscroll;
+public char *   progname;
+public int      quitting;
+public int      secure;
+public int      dohelp;
 
 public int	file_errors = 0;
 public int	unix2003_compat = 0;
@@ -45,30 +44,34 @@ public int	add_newline = 0;
 public char *	active_dashp_command = NULL;
 public char *	dashp_commands = NULL;
 #if LOGFILE
-public int	logfile = -1;
-public int	force_logfile = FALSE;
-public char *	namelogfile = NULL;
+public int      logfile = -1;
+public int      force_logfile = FALSE;
+public char *   namelogfile = NULL;
 #endif
 
 #if EDITOR
-public char *	editor;
-public char *	editproto;
+public char *   editor;
+public char *   editproto;
 #endif
 
 #if TAGS
-extern char *	tags;
-extern char *	tagoption;
-extern int	jump_sline;
+extern char *   tags;
+extern char *   tagoption;
+extern int      jump_sline;
 #endif
 
 #ifdef WIN32
 static char consoleTitle[256];
 #endif
 
-extern int	less_is_more;
-extern int	missing_cap;
-extern int	know_dumb;
-extern int	pr_type;
+public int      one_screen;
+extern int      less_is_more;
+extern int      missing_cap;
+extern int      know_dumb;
+extern int      pr_type;
+extern int      quit_if_one_screen;
+extern int      no_init;
+extern int errmsgs;
 
 
 /*
@@ -93,10 +96,14 @@ main(argc, argv)
 	progname = *argv++;
 	argc--;
 
+#if SECURE
+	secure = 1;
+#else
 	secure = 0;
 	s = lgetenv("LESSSECURE");
-	if (s != NULL && *s != '\0')
+	if (!isnullenv(s))
 		secure = 1;
+#endif
 
 #ifdef WIN32
 	if (getenv("HOME") == NULL)
@@ -121,8 +128,9 @@ main(argc, argv)
 #endif /* WIN32 */
 
 	is_tty = isatty(1);
-	get_term();
+	init_mark();
 	init_cmds();
+	get_term();
 	init_charset();
 	init_line();
 	init_cmdhist();
@@ -133,11 +141,7 @@ main(argc, argv)
 	 * If the name of the executable program is "more",
 	 * act like LESS_IS_MORE is set.
 	 */
-	for (s = progname + strlen(progname);  s > progname;  s--)
-	{
-		if (s[-1] == PATHNAME_SEP[0])
-			break;
-	}
+	s = last_component(progname);
 	if (strcmp(s, "more") == 0)
 		less_is_more = 1;
 	else
@@ -156,7 +160,7 @@ main(argc, argv)
 	if (s != NULL)
 		scan_option(save(s));
 
-#define	isoptstring(s)	(((s)[0] == '-' || (s)[0] == '+') && (s)[1] != '\0')
+#define isoptstring(s)  (((s)[0] == '-' || (s)[0] == '+') && (s)[1] != '\0')
 	while (argc > 0 && (isoptstring(*argv) || isoptpending()))
 	{
 		s = *argv++;
@@ -177,21 +181,22 @@ main(argc, argv)
 		quit(QUIT_OK);
 	}
 
+	expand_cmd_tables();
+
 #if EDITOR
 	editor = lgetenv("VISUAL");
 	if (editor == NULL || *editor == '\0')
 	{
 		editor = lgetenv("EDITOR");
-		if (editor == NULL || *editor == '\0')
+		if (isnullenv(editor))
 			editor = EDIT_PGM;
 	}
 	editproto = lgetenv("LESSEDIT");
-	if (editproto == NULL || *editproto == '\0')
-	{
+	if (isnullenv(editproto)) {
 		if (unix2003_compat) {
 			editproto = "%E ?l+%l. %f";
 		} else {
-			editproto = "%E ?lm+%lm. %f";
+			editproto = "%E ?lm+%lm. %g";
 		}
 	}
 #endif
@@ -211,7 +216,6 @@ main(argc, argv)
 		ifile = get_ifile(FAKE_HELPFILE, ifile);
 	while (argc-- > 0)
 	{
-		char *filename;
 #if (MSDOS_COMPILER && MSDOS_COMPILER != DJGPPC)
 		/*
 		 * Because the "shell" doesn't expand filename patterns,
@@ -220,25 +224,24 @@ main(argc, argv)
 		 * Expand the pattern and iterate over the expanded list.
 		 */
 		struct textlist tlist;
+		char *filename;
 		char *gfilename;
+		char *qfilename;
 		
 		gfilename = lglob(*argv++);
 		init_textlist(&tlist, gfilename);
 		filename = NULL;
 		while ((filename = forw_textlist(&tlist, filename)) != NULL)
 		{
-			(void) get_ifile(filename, ifile);
+			qfilename = shell_unquote(filename);
+			(void) get_ifile(qfilename, ifile);
+			free(qfilename);
 			ifile = prev_ifile(NULL_IFILE);
 		}
 		free(gfilename);
 #else
-		filename = shell_quote(*argv);
-		if (filename == NULL)
-			filename = *argv;
-		argv++;
-		(void) get_ifile(filename, ifile);
+		(void) get_ifile(*argv++, ifile);
 		ifile = prev_ifile(NULL_IFILE);
-		free(filename);
 #endif
 	}
 	/*
@@ -250,30 +253,20 @@ main(argc, argv)
 		 * Output is not a tty.
 		 * Just copy the input file(s) to output.
 		 */
+		set_output(1); /* write to stdout */
 		SET_BINARY(1);
-		if (nifile() == 0)
-		{
-			if (edit_stdin() == 0)
-				cat_file();
-			else
-				file_errors++;
-		} else if (edit_first() == 0)
+		if (edit_first() == 0)
 		{
 			do {
 				cat_file();
 			} while (edit_next(1) == 0);
 		} else
 			file_errors++;
-		if (file_errors) {
-			if (unix2003_compat) 
-				quit(QUIT_ERROR);
-		}
 		quit(QUIT_OK);
 	}
 
 	if (missing_cap && !know_dumb && !less_is_more)
 		error("WARNING: terminal is not fully functional", NULL_PARG);
-	init_mark();
 	open_getchr();
 	raw_mode(1);
 	init_signals(1);
@@ -320,22 +313,37 @@ main(argc, argv)
 	}
 	else
 #endif
-	if (nifile() == 0)
 	{
-		if (edit_stdin())  /* Edit standard input */
+		if (edit_first())
 			quit(QUIT_ERROR);
-	} else 
-	{
-		if (edit_first())  /* Edit first valid file in cmd line */
-			quit(QUIT_ERROR);
+		/*
+		 * See if file fits on one screen to decide whether 
+		 * to send terminal init. But don't need this 
+		 * if -X (no_init) overrides this (see init()).
+		 */
+		if (quit_if_one_screen)
+		{
+			if (nifile() > 1) /* If more than one file, -F cannot be used */
+				quit_if_one_screen = FALSE;
+			else if (!no_init)
+				one_screen = get_one_screen();
+		}
 	}
 
+	if (errmsgs > 0)
+	{
+		/*
+		 * We displayed some messages on error output
+		 * (file descriptor 2; see flush()).
+		 * Before erasing the screen contents, wait for a keystroke.
+		 */
+		less_printf("Press RETURN to continue ", NULL_PARG);
+		get_return();
+		putchr('\n');
+	}
+	set_output(1);
 	init();
 	commands();
-	if (file_errors) {
-		if (unix2003_compat) 
-			quit(QUIT_ERROR);
-	}
 	quit(QUIT_OK);
 	/*NOTREACHED*/
 	return (0);
@@ -347,9 +355,9 @@ main(argc, argv)
  */
 	public char *
 save(s)
-	char *s;
+	constant char *s;
 {
-	register char *p;
+	char *p;
 
 	p = (char *) ecalloc(strlen(s)+1, sizeof(char));
 	strcpy(p, s);
@@ -365,7 +373,7 @@ ecalloc(count, size)
 	int count;
 	unsigned int size;
 {
-	register VOID_POINTER p;
+	VOID_POINTER p;
 
 	p = (VOID_POINTER) calloc(count, size);
 	if (p != NULL)
@@ -381,9 +389,9 @@ ecalloc(count, size)
  */
 	public char *
 skipsp(s)
-	register char *s;
+	char *s;
 {
-	while (*s == ' ' || *s == '\t')	
+	while (*s == ' ' || *s == '\t')
 		s++;
 	return (s);
 }
@@ -399,9 +407,9 @@ sprefix(ps, s, uppercase)
 	char *s;
 	int uppercase;
 {
-	register int c;
-	register int sc;
-	register int len = 0;
+	int c;
+	int sc;
+	int len = 0;
 
 	for ( ;  *s != '\0';  s++, ps++)
 	{
@@ -433,6 +441,13 @@ quit(status)
 	static int save_status;
 
 	/*
+	 * rdar://problem/3857890 - for proper unix2003 more(1) conformance, file
+	 * errors should trigger a proper erroroneous exit.
+	 */
+	if (status == QUIT_OK && file_errors && unix2003_compat)
+		status = QUIT_ERROR;
+
+	/*
 	 * Put cursor at bottom left corner, clear the line,
 	 * reset the terminal modes, and exit.
 	 */
@@ -440,10 +455,13 @@ quit(status)
 		status = save_status;
 	else
 		save_status = status;
+#if LESSTEST
+	rstat('Q');
+#endif /*LESSTEST*/
 	quitting = 1;
 	edit((char*)NULL);
 	save_cmdhist();
-	if (any_display && is_tty)
+	if (interactive())
 		clear_bot();
 	deinit();
 	flush();

@@ -512,7 +512,7 @@ bool IOAudioEngine::init(OSDictionary *properties)
 		
 		numActiveUserClients = 0;
 
-		reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+		reserved = IOMallocType (ExpansionData);
 		if ( reserved )
 		{
 			reserved->pauseCount = 0;
@@ -600,7 +600,7 @@ void IOAudioEngine::free()
 			reserved->streams = NULL;
 		}
 		
-		IOFree (reserved, sizeof(struct ExpansionData));
+		IOFreeType (reserved, ExpansionData);
 	}
 
     if (outputStreams) {
@@ -842,10 +842,9 @@ OSString *IOAudioEngine::getGlobalUniqueID()
         uniqueIDSize += localID->getLength();
     }
         
-    uniqueIDStr = (char *)IOMallocAligned(uniqueIDSize, sizeof (char));
+    uniqueIDStr = (char *)IOMallocZeroData(uniqueIDSize);
     
     if (uniqueIDStr) {
-		bzero(uniqueIDStr, uniqueIDSize);
 
         if (className) {
             snprintf(uniqueIDStr, uniqueIDSize, "%s:", className);
@@ -863,7 +862,7 @@ OSString *IOAudioEngine::getGlobalUniqueID()
         
         uniqueID = OSString::withCString(uniqueIDStr);
         
-        IOFreeAligned(uniqueIDStr, uniqueIDSize);
+        IOFreeData(uniqueIDStr, uniqueIDSize);
     }
 
     return uniqueID;
@@ -1610,11 +1609,11 @@ void IOAudioEngine::updateChannelNumbers()
 	audioDebugIOLog(3, "  o=%ld i=%ld\n", (long int)maxNumOutputChannels, (long int)maxNumInputChannels);
 	
     if (maxNumOutputChannels > 0) {
-        outputChannelNumbers = (SInt32 *)IOMallocAligned(maxNumOutputChannels * sizeof(SInt32), sizeof (SInt32));
+        outputChannelNumbers = (SInt32 *)IONewData(SInt32, maxNumOutputChannels);
     }
     
     if (maxNumInputChannels > 0) {
-        inputChannelNumbers = (SInt32 *)IOMallocAligned(maxNumInputChannels * sizeof(SInt32), sizeof (SInt32));
+        inputChannelNumbers = (SInt32 *)IONewData(SInt32, maxNumInputChannels);
     }
     
     currentChannelID = 1;
@@ -1761,11 +1760,11 @@ void IOAudioEngine::updateChannelNumbers()
     }
     
     if (outputChannelNumbers && (maxNumOutputChannels > 0)) {
-        IOFreeAligned(outputChannelNumbers, maxNumOutputChannels * sizeof(SInt32));
+        IODeleteData(outputChannelNumbers, SInt32, maxNumOutputChannels);
     }
     
     if (inputChannelNumbers && (maxNumInputChannels > 0)) {
-        IOFreeAligned(inputChannelNumbers, maxNumInputChannels * sizeof(SInt32));
+        IODeleteData(inputChannelNumbers, SInt32, maxNumInputChannels);
     }
 
 	audioDebugIOLog ( 3, "- IOAudioEngine[%p]::updateChannelNumbers ()\n", this );

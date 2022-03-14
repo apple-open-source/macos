@@ -26,6 +26,7 @@
 #pragma once
 
 #include "JSDOMConvert.h"
+#include "JSDOMIterator.h"
 #include "JSDOMPromise.h"
 #include "JSDOMPromiseDeferred.h"
 #include <JavaScriptCore/AsyncIteratorPrototype.h>
@@ -37,19 +38,6 @@
 
 namespace WebCore {
 
-void addValueIterableMethods(JSC::JSGlobalObject&, JSC::JSObject&);
-
-enum class JSDOMAsyncIteratorType { Set, Map };
-
-// struct IteratorTraits {
-//     static constexpr JSDOMAsyncIteratorType type = [Map|Set];
-//     using KeyType = [IDLType|void];
-//     using ValueType = [IDLType];
-// };
-
-template<typename T, typename U = void> using EnableIfMapIterator = typename std::enable_if<T::type == JSDOMAsyncIteratorType::Map, U>::type;
-template<typename T, typename U = void> using EnableIfSetIterator = typename std::enable_if<T::type == JSDOMAsyncIteratorType::Set, U>::type;
-
 // https://webidl.spec.whatwg.org/#es-asynchronous-iterator-prototype-object
 template<typename JSWrapper, typename IteratorTraits, typename JSIterator> class JSDOMAsyncIteratorPrototype final : public JSC::JSNonFinalObject {
 public:
@@ -60,13 +48,13 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSDOMAsyncIteratorPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     static JSDOMAsyncIteratorPrototype* create(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::Structure* structure)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSDOMAsyncIteratorPrototype, JSDOMAsyncIteratorPrototype::Base);
-        JSDOMAsyncIteratorPrototype* prototype = new (NotNull, JSC::allocateCell<JSDOMAsyncIteratorPrototype>(vm.heap)) JSDOMAsyncIteratorPrototype(vm, structure);
+        JSDOMAsyncIteratorPrototype* prototype = new (NotNull, JSC::allocateCell<JSDOMAsyncIteratorPrototype>(vm)) JSDOMAsyncIteratorPrototype(vm, structure);
         prototype->finishCreation(vm, globalObject);
         return prototype;
     }
@@ -88,8 +76,6 @@ private:
 
     void finishCreation(JSC::VM&, JSC::JSGlobalObject*);
 };
-
-using IterationKind = JSC::IterationKind;
 
 template<typename JSWrapper, typename IteratorTraits, typename JSIterator> class JSDOMAsyncIteratorBase : public JSDOMObject {
 public:
@@ -132,32 +118,8 @@ protected:
     RefPtr<DOMPromise> m_ongoingPromise;
 };
 
-inline JSC::JSValue toJSPair(JSC::JSGlobalObject&, JSDOMGlobalObject& globalObject, JSC::JSValue value1, JSC::JSValue value2)
-{
-    JSC::MarkedArgumentBuffer arguments;
-    arguments.append(value1);
-    arguments.append(value2);
-    ASSERT(!arguments.hasOverflowed());
-    return constructArray(&globalObject, static_cast<JSC::ArrayAllocationProfile*>(nullptr), arguments);
-}
-
-template<typename FirstType, typename SecondType, typename T, typename U>
-inline JSC::JSValue toJSPair(JSC::JSGlobalObject& lexicalGlobalObject, JSDOMGlobalObject& globalObject, const T& value1, const U& value2)
-{
-    return toJSPair(lexicalGlobalObject, globalObject, toJS<FirstType>(lexicalGlobalObject, globalObject, value1), toJS<SecondType>(lexicalGlobalObject, globalObject, value2));
-}
-
-template<typename JSIterator> JSC::JSValue createIterator(typename JSIterator::Wrapper&, IterationKind);
-
-template<typename JSIterator> JSC::JSValue createIterator(typename JSIterator::Wrapper& thisObject, IterationKind kind)
-{
-    ASSERT(thisObject.globalObject());
-    JSDOMGlobalObject& globalObject = *thisObject.globalObject();
-    return JSIterator::create(globalObject.vm(), getDOMStructure<JSIterator>(globalObject.vm(), globalObject), thisObject, kind);
-}
-
 template<typename IteratorValue, typename IteratorTraits>
-inline EnableIfMapIterator<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlobalObject& globalObject, JSDOMGlobalObject& domGlobalObject, IteratorValue& value, IteratorTraits, IterationKind kind)
+inline EnableIfMap<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlobalObject& globalObject, JSDOMGlobalObject& domGlobalObject, IteratorValue& value, IteratorTraits, IterationKind kind)
 {
     JSC::VM& vm = globalObject.vm();
     Locker<JSC::JSLock> locker(vm.apiLock());
@@ -168,7 +130,7 @@ inline EnableIfMapIterator<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlob
     case IterationKind::Values:
         return toJS<typename IteratorTraits::ValueType>(globalObject, domGlobalObject, value.value);
     case IterationKind::Entries:
-        return toJSPair<typename IteratorTraits::KeyType, typename IteratorTraits::ValueType>(globalObject, domGlobalObject, value.key, value.value);
+        return jsPair<typename IteratorTraits::KeyType, typename IteratorTraits::ValueType>(globalObject, domGlobalObject, value.key, value.value);
     };
 
     ASSERT_NOT_REACHED();
@@ -176,7 +138,7 @@ inline EnableIfMapIterator<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlob
 }
 
 template<typename IteratorValue, typename IteratorTraits>
-inline EnableIfSetIterator<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlobalObject& globalObject, JSDOMGlobalObject& domGlobalObject, IteratorValue& value, IteratorTraits, IterationKind kind)
+inline EnableIfSet<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlobalObject& globalObject, JSDOMGlobalObject& domGlobalObject, IteratorValue& value, IteratorTraits, IterationKind kind)
 {
     JSC::VM& vm = globalObject.vm();
     Locker<JSC::JSLock> locker(vm.apiLock());
@@ -187,7 +149,7 @@ inline EnableIfSetIterator<IteratorTraits, JSC::JSValue> convertToJS(JSC::JSGlob
     case IterationKind::Values:
         return result;
     case IterationKind::Entries:
-        return toJSPair(globalObject, domGlobalObject, result, result);
+        return jsPair(globalObject, domGlobalObject, result, result);
     };
 
     ASSERT_NOT_REACHED();

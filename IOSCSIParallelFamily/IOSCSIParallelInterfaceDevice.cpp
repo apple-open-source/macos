@@ -308,7 +308,7 @@ IOSCSIParallelInterfaceDevice::free ( void )
 	if ( fHBAData != NULL )
 	{
 		
-		IOFree ( fHBAData, fHBADataSize );
+		IOFreeData ( fHBAData, fHBADataSize );
 		fHBAData		= NULL;
 		fHBADataSize	= 0;
 		
@@ -613,9 +613,8 @@ IOSCSIParallelInterfaceDevice::InitTarget (
 	{
 		
 		// Allocate the HBA specific data for the device object
-		fHBAData = IOMalloc ( sizeOfHBAData );
+		fHBAData = IOMallocZeroData ( sizeOfHBAData );
 		require_nonzero ( fHBAData, HBA_DATA_ALLOC_FAILURE );		
-		bzero ( fHBAData, sizeOfHBAData );
 		
 	}
 	

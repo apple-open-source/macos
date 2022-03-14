@@ -15,6 +15,16 @@
 #define IN_LIBXML
 #include "libxml.h"
 
+#ifdef LIBXML_THREAD_ENABLED
+#ifdef HAVE_PTHREAD_H
+#include <pthread.h>
+#elif defined(HAVE_WIN32_THREADS)
+#include <windows.h>
+#elif defined(HAVE_BEOS_THREADS)
+#include <OS.h>
+#endif
+#endif
+
 #ifdef LIBXML_CATALOG_ENABLED
 #ifdef HAVE_SYS_TYPES_H
 #include <sys/types.h>
@@ -204,9 +214,22 @@ static xmlCatalogPtr xmlDefaultCatalog = NULL;
 static xmlRMutexPtr xmlCatalogMutex = NULL;
 
 /*
- * Whether the catalog support was initialized.
+ * Initialize catalog mutex only once.
  */
-static int xmlCatalogInitialized = 0;
+#ifdef LIBXML_THREAD_ENABLED
+#ifdef HAVE_PTHREAD_H
+static pthread_once_t once_control = PTHREAD_ONCE_INIT;
+#elif defined(HAVE_WIN32_THREADS)
+static struct {
+    DWORD done;
+    DWORD control;
+} run_once = {0, 0};
+#elif defined(HAVE_BEOS_THREADS)
+static int32 run_once_init = 0;
+#endif
+#endif
+
+static void _xmlInitializeCatalogData(void);
 
 /************************************************************************
  *									*
@@ -3082,32 +3105,65 @@ xmlCatalogIsEmpty(xmlCatalogPtr catal) {
  *
  * Do the catalog initialization only of global data, doesn't try to load
  * any catalog actually.
- * this function is not thread safe, catalog initialization should
+ * this function is thread safe, but catalog initialization should
  * preferably be done once at startup
  */
 static void
 xmlInitializeCatalogData(void) {
-    if (xmlCatalogInitialized != 0)
-	return;
+    if (xmlCatalogMutex)
+        return;
 
+#ifdef LIBXML_THREAD_ENABLED
+#ifdef HAVE_PTHREAD_H
+    pthread_once(&once_control, _xmlInitializeCatalogData);
+#elif defined(HAVE_WIN32_THREADS)
+    if (!run_once.done) {
+        if (InterlockedIncrement(&run_once.control) == 1) {
+            _xmlInitializeCatalogData();
+            run_once.done = 1;
+        } else {
+            /* Another thread is working; give up our slice and
+             * wait until they're done. */
+            while (!run_once.done)
+                Sleep(0);
+        }
+    }
+#elif defined(HAVE_BEOS_THREADS)
+    if (atomic_add(&run_once_init, 1) == 0)
+        _xmlInitializeCatalogData();
+    else
+        atomic_add(&run_once_init, -1);
+#endif
+#else
+    _xmlInitializeCatalogData();
+#endif
+}
+
+/*
+ * _xmlInitializeCatalogData
+ *
+ * This function is not public.
+ * Called exactly once to initialize global xmlCatalogMutex and
+ * xmlDebugCatalogs.
+ */
+static void _xmlInitializeCatalogData(void)
+{
     if (getenv("XML_DEBUG_CATALOG"))
 	xmlDebugCatalogs = 1;
-    xmlCatalogMutex = xmlNewRMutex();
 
-    xmlCatalogInitialized = 1;
+    xmlCatalogMutex = xmlNewRMutex();
 }
+
 /**
  * xmlInitializeCatalog:
  *
  * Do the catalog initialization.
- * this function is not thread safe, catalog initialization should
- * preferably be done once at startup
+ * This function is thread safe, but will only set up the
+ * default catalog once the first time it is called when
+ * LIBXML_THREAD_ENABLED is set.
  */
 void
 xmlInitializeCatalog(void) {
-    if (xmlCatalogInitialized != 0)
-	return;
-
     xmlInitializeCatalogData();
     xmlRMutexLock(xmlCatalogMutex);
 
@@ -3202,7 +3258,7 @@ xmlLoadCatalog(const char *filename)
     int ret;
     xmlCatalogPtr catal;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalogData();
 
     xmlRMutexLock(xmlCatalogMutex);
@@ -3275,10 +3331,12 @@ xmlLoadCatalogs(const char *pathss) {
  * xmlCatalogCleanup:
  *
  * Free up all the memory associated with catalogs
+ * Does not free the catalog mutex if LIBXML_THREAD_ENABLED is
+ * set since that can not be done safely.
  */
 void
 xmlCatalogCleanup(void) {
-    if (xmlCatalogInitialized == 0)
+    if (!xmlCatalogMutex)
         return;
 
     xmlRMutexLock(xmlCatalogMutex);
@@ -3293,9 +3351,11 @@ xmlCatalogCleanup(void) {
 	xmlFreeCatalog(xmlDefaultCatalog);
     xmlDefaultCatalog = NULL;
     xmlDebugCatalogs = 0;
-    xmlCatalogInitialized = 0;
     xmlRMutexUnlock(xmlCatalogMutex);
+#ifndef LIBXML_THREAD_ENABLED
     xmlFreeRMutex(xmlCatalogMutex);
+    xmlCatalogMutex = NULL;
+#endif
 }
 
 /**
@@ -3311,7 +3371,7 @@ xmlChar *
 xmlCatalogResolveSystem(const xmlChar *sysID) {
     xmlChar *ret;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     ret = xmlACatalogResolveSystem(xmlDefaultCatalog, sysID);
@@ -3331,7 +3391,7 @@ xmlChar *
 xmlCatalogResolvePublic(const xmlChar *pubID) {
     xmlChar *ret;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     ret = xmlACatalogResolvePublic(xmlDefaultCatalog, pubID);
@@ -3352,7 +3412,7 @@ xmlChar *
 xmlCatalogResolve(const xmlChar *pubID, const xmlChar *sysID) {
     xmlChar *ret;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     ret = xmlACatalogResolve(xmlDefaultCatalog, pubID, sysID);
@@ -3372,7 +3432,7 @@ xmlChar *
 xmlCatalogResolveURI(const xmlChar *URI) {
     xmlChar *ret;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     ret = xmlACatalogResolveURI(xmlDefaultCatalog, URI);
@@ -3391,7 +3451,7 @@ xmlCatalogDump(FILE *out) {
     if (out == NULL)
 	return;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     xmlACatalogDump(xmlDefaultCatalog, out);
@@ -3415,7 +3475,7 @@ int
 xmlCatalogAdd(const xmlChar *type, const xmlChar *orig, const xmlChar *replace) {
     int res = -1;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalogData();
 
     xmlRMutexLock(xmlCatalogMutex);
@@ -3451,7 +3511,7 @@ int
 xmlCatalogRemove(const xmlChar *value) {
     int res;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     xmlRMutexLock(xmlCatalogMutex);
@@ -3471,7 +3531,7 @@ int
 xmlCatalogConvert(void) {
     int res = -1;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     xmlRMutexLock(xmlCatalogMutex);
@@ -3602,7 +3662,7 @@ void
 xmlCatalogFreeLocal(void *catalogs) {
     xmlCatalogEntryPtr catal;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     catal = (xmlCatalogEntryPtr) catalogs;
@@ -3624,7 +3684,7 @@ void *
 xmlCatalogAddLocal(void *catalogs, const xmlChar *URL) {
     xmlCatalogEntryPtr catal, add;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     if (URL == NULL)
@@ -3667,7 +3727,7 @@ xmlCatalogLocalResolve(void *catalogs, const xmlChar *pubID,
     xmlCatalogEntryPtr catal;
     xmlChar *ret;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     if ((pubID == NULL) && (sysID == NULL))
@@ -3711,7 +3771,7 @@ xmlCatalogLocalResolveURI(void *catalogs, const xmlChar *URI) {
     xmlCatalogEntryPtr catal;
     xmlChar *ret;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     if (URI == NULL)
@@ -3750,7 +3810,7 @@ xmlCatalogGetSystem(const xmlChar *sysID) {
     static xmlChar result[1000];
     static int msg = 0;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     if (msg == 0) {
@@ -3794,7 +3854,7 @@ xmlCatalogGetPublic(const xmlChar *pubID) {
     static xmlChar result[1000];
     static int msg = 0;
 
-    if (!xmlCatalogInitialized)
+    if (!xmlCatalogMutex)
 	xmlInitializeCatalog();
 
     if (msg == 0) {

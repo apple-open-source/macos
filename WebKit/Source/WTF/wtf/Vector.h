@@ -654,6 +654,9 @@ public:
             TypeOperations::uninitializedCopy(data, data + dataSize, begin());
     }
 
+    Vector(Span<const T> span)
+        : Vector(span.data(), span.size()) { }
+
     Vector(std::initializer_list<T> initializerList)
     {
         reserveInitialCapacity(initializerList.size());
@@ -707,6 +710,7 @@ public:
     static ptrdiff_t sizeMemoryOffset() { return OBJECT_OFFSETOF(Vector, m_size); }
     size_t capacity() const { return Base::capacity(); }
     bool isEmpty() const { return !size(); }
+    Span<const T> span() const { return { data(), size() }; }
 
     T& at(size_t i)
     {
@@ -754,7 +758,8 @@ public:
     template<typename U> size_t find(const U&) const;
     template<typename MatchFunction> size_t findMatching(const MatchFunction&) const;
     template<typename U> size_t reverseFind(const U&) const;
-    
+    template<typename MatchFunction> size_t reverseFindMatching(const MatchFunction&) const;
+
     template<typename U> bool appendIfNotContains(const U&);
 
     void shrink(size_t size);
@@ -838,7 +843,11 @@ public:
 
     void checkConsistency();
 
-    template<typename MapFunction, typename R = typename std::result_of<MapFunction(const T&)>::type> Vector<R> map(MapFunction) const;
+    template<typename ResultVector, typename MapFunction>
+    auto map(MapFunction&&) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, ResultVector>;
+
+    template<typename MapFunction>
+    auto map(MapFunction&&) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, Vector<typename std::invoke_result_t<MapFunction, const T&>>>;
 
     bool isHashTableDeletedValue() const { return m_size == std::numeric_limits<decltype(m_size)>::max(); }
 
@@ -1012,6 +1021,18 @@ size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseF
     for (size_t i = 1; i <= size(); ++i) {
         const size_t index = size() - i;
         if (at(index) == value)
+            return index;
+    }
+    return notFound;
+}
+
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename MatchFunction>
+size_t Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::reverseFindMatching(const MatchFunction& matches) const
+{
+    for (size_t i = 1; i <= size(); ++i) {
+        const size_t index = size() - i;
+        if (matches(at(index)))
             return index;
     }
     return notFound;
@@ -1558,14 +1579,21 @@ inline void Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::rev
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
-template<typename MapFunction, typename R>
-inline Vector<R> Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction mapFunction) const
+template<typename ResultVector, typename MapFunction>
+inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, ResultVector>
 {
-    Vector<R> result;
+    ResultVector result;
     result.reserveInitialCapacity(size());
     for (size_t i = 0; i < size(); ++i)
         result.uncheckedAppend(mapFunction(at(i)));
     return result;
+}
+
+template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
+template<typename MapFunction>
+inline auto Vector<T, inlineCapacity, OverflowHandler, minCapacity, Malloc>::map(MapFunction&& mapFunction) const -> std::enable_if_t<std::is_invocable_v<MapFunction, const T&>, Vector<typename std::invoke_result_t<MapFunction, const T&>>>
+{
+    return map<Vector<typename std::invoke_result_t<MapFunction, const T&>>, MapFunction>(std::forward<MapFunction>(mapFunction));
 }
 
 template<typename T, size_t inlineCapacity, typename OverflowHandler, size_t minCapacity, typename Malloc>
@@ -1675,7 +1703,7 @@ struct CollectionInspector {
 template<typename MapFunction, typename SourceType, typename Enable = void>
 struct Mapper {
     using SourceItemType = typename CollectionInspector<SourceType>::SourceItemType;
-    using DestinationItemType = typename std::result_of<MapFunction(SourceItemType&)>::type;
+    using DestinationItemType = typename std::invoke_result<MapFunction, SourceItemType&>::type;
 
     static Vector<DestinationItemType> map(SourceType source, const MapFunction& mapFunction)
     {
@@ -1691,7 +1719,7 @@ struct Mapper {
 template<typename MapFunction, typename SourceType>
 struct Mapper<MapFunction, SourceType, typename std::enable_if<std::is_rvalue_reference<SourceType&&>::value>::type> {
     using SourceItemType = typename CollectionInspector<SourceType>::SourceItemType;
-    using DestinationItemType = typename std::result_of<MapFunction(SourceItemType&&)>::type;
+    using DestinationItemType = typename std::invoke_result<MapFunction, SourceItemType&&>::type;
 
     static Vector<DestinationItemType> map(SourceType&& source, const MapFunction& mapFunction)
     {
@@ -1734,7 +1762,7 @@ struct CompactMapTraits<RefPtr<T>> {
 template<typename MapFunction, typename SourceType, typename Enable = void>
 struct CompactMapper {
     using SourceItemType = typename CollectionInspector<SourceType>::SourceItemType;
-    using ResultItemType = typename std::result_of<MapFunction(SourceItemType&)>::type;
+    using ResultItemType = typename std::invoke_result<MapFunction, SourceItemType&>::type;
     using DestinationItemType = typename CompactMapTraits<ResultItemType>::ItemType;
 
     static Vector<DestinationItemType> compactMap(SourceType source, const MapFunction& mapFunction)
@@ -1753,7 +1781,7 @@ struct CompactMapper {
 template<typename MapFunction, typename SourceType>
 struct CompactMapper<MapFunction, SourceType, typename std::enable_if<std::is_rvalue_reference<SourceType&&>::value>::type> {
     using SourceItemType = typename CollectionInspector<SourceType>::SourceItemType;
-    using ResultItemType = typename std::result_of<MapFunction(SourceItemType&&)>::type;
+    using ResultItemType = typename std::invoke_result<MapFunction, SourceItemType&&>::type;
     using DestinationItemType = typename CompactMapTraits<ResultItemType>::ItemType;
 
     static Vector<DestinationItemType> compactMap(SourceType source, const MapFunction& mapFunction)

@@ -36,6 +36,9 @@ NS_ASSUME_NONNULL_BEGIN
 // CKKS should not try to write these views, or to parse their keys.
 @property (readonly) NSSet<CKKSKeychainViewState*>* allExternalManagedViews;
 
+// allPriorityViews contains every view that the current policy claims is Priority
+@property (readonly) NSSet<CKKSKeychainViewState*>* allPriorityViews;
+
 // allViews contains every view+CKZone that CKKS currently knows about
 @property (readonly) NSSet<CKKSKeychainViewState*>* allViews;
 
@@ -104,6 +107,8 @@ NS_ASSUME_NONNULL_BEGIN
 // Helper methods to configure the views property
 - (void)operateOnSelectViews:(NSSet<CKKSKeychainViewState*>*)views;
 - (void)operateOnAllViews;
+
+- (void)limitOperationToPriorityViews;
 
 - (void)setStateForActiveZones:(CKKSZoneKeyState*)newZoneKeyState;
 - (void)setStateForActiveCKKSManagedViews:(CKKSZoneKeyState*)newZoneKeyState;

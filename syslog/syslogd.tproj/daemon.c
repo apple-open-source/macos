@@ -1182,7 +1182,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 	/* check for "sender:" or sender[pid]:"  */
 	if (colon != NULL)
 	{
-		if ((brace != NULL) && (brace < colon))
+		if ((brace != NULL) && (brace < colon) && *(colon - 1) == ']')
 		{
 			n = brace - p;
 			sval = malloc(n + 1);

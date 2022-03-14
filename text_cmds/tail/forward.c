@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,11 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -61,8 +59,13 @@ static const char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
 
 #include "extern.h"
 
-static void rlines(FILE *, off_t, struct stat *);
-static void show(file_info_t *);
+#ifndef __APPLE__
+#include <libcasper.h>
+#include <casper/cap_fileargs.h>
+#endif
+
+static void rlines(FILE *, const char *fn, off_t, struct stat *);
+static int show(file_info_t *);
 static void set_events(file_info_t *files);
 
 /* defines for inner loop actions */
@@ -70,9 +73,9 @@ static void set_events(file_info_t *files);
 #define USE_KQUEUE	1
 #define ADD_EVENTS	2
 
-struct kevent *ev;
-int action = USE_SLEEP;
-int kq;
+static struct kevent *ev;
+static int action = USE_SLEEP;
+static int kq;
 
 static const file_info_t *last;
 
@@ -99,7 +102,7 @@ static const file_info_t *last;
  *	NOREG	cyclically read lines into a wrap-around array of buffers
  */
 void
-forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
+forward(FILE *fp, const char *fn, enum STYLE style, off_t off, struct stat *sbp)
 {
 	int ch;
 
@@ -111,13 +114,13 @@ forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
 			if (sbp->st_size < off)
 				off = sbp->st_size;
 			if (fseeko(fp, off, SEEK_SET) == -1) {
-				ierr();
+				ierr(fn);
 				return;
 			}
 		} else while (off--)
 			if ((ch = getc(fp)) == EOF) {
 				if (ferror(fp)) {
-					ierr();
+					ierr(fn);
 					return;
 				}
 				break;
@@ -129,7 +132,7 @@ forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
 		for (;;) {
 			if ((ch = getc(fp)) == EOF) {
 				if (ferror(fp)) {
-					ierr();
+					ierr(fn);
 					return;
 				}
 				break;
@@ -142,36 +145,36 @@ forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
 		if (S_ISREG(sbp->st_mode)) {
 			if (sbp->st_size >= off &&
 			    fseeko(fp, -off, SEEK_END) == -1) {
-				ierr();
+				ierr(fn);
 				return;
 			}
 		} else if (off == 0) {
 			while (getc(fp) != EOF);
 			if (ferror(fp)) {
-				ierr();
+				ierr(fn);
 				return;
 			}
 		} else
-			if (bytes(fp, off))
+			if (bytes(fp, fn, off))
 				return;
 		break;
 	case RLINES:
 		if (S_ISREG(sbp->st_mode))
 			if (!off) {
 				if (fseeko(fp, (off_t)0, SEEK_END) == -1) {
-					ierr();
+					ierr(fn);
 					return;
 				}
 			} else
-				rlines(fp, off, sbp);
+				rlines(fp, fn, off, sbp);
 		else if (off == 0) {
 			while (getc(fp) != EOF);
 			if (ferror(fp)) {
-				ierr();
+				ierr(fn);
 				return;
 			}
 		} else
-			if (lines(fp, off))
+			if (lines(fp, fn, off))
 				return;
 		break;
 	default:
@@ -182,7 +185,7 @@ forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
 		if (putchar(ch) == EOF)
 			oerr();
 	if (ferror(fp)) {
-		ierr();
+		ierr(fn);
 		return;
 	}
 	(void)fflush(stdout);
@@ -192,10 +195,7 @@ forward(FILE *fp, enum STYLE style, off_t off, struct stat *sbp)
  * rlines -- display the last offset lines of the file.
  */
 static void
-rlines(fp, off, sbp)
-	FILE *fp;
-	off_t off;
-	struct stat *sbp;
+rlines(FILE *fp, const char *fn, off_t off, struct stat *sbp)
 {
 #ifdef __APPLE__
 	/* Using mmap on network filesystems can frequently lead
@@ -219,7 +219,7 @@ rlines(fp, off, sbp)
 	flockfile(fp);
 
 	if (found_at == NULL) {
-		ierr();
+		ierr(fn);
 		goto done;
 	}
 
@@ -231,7 +231,7 @@ rlines(fp, off, sbp)
 	 * and if not, subtract one from the number of \n we need to search for.
 	 */
 	if (0 != fseeko(fp, sbp->st_size - 1, SEEK_SET)) {
-		ierr();
+		ierr(fn);
 		goto done;
 	}
 	if ('\n' != getc_unlocked(fp)) {
@@ -250,7 +250,7 @@ rlines(fp, off, sbp)
 		}
 
 		if (0 != fseeko(fp, try_at, SEEK_SET)) {
-			ierr();
+			ierr(fn);
 			goto done;
 		}
 
@@ -293,7 +293,7 @@ rlines(fp, off, sbp)
 			}
 
 			if (0 != fseeko(fp, target, SEEK_SET)) {
-				ierr();
+				ierr(fn);
 				goto done;
 			}
 
@@ -332,7 +332,7 @@ done:
 	curoff = size - 2;
 	while (curoff >= 0) {
 		if (curoff < map.mapoff && maparound(&map, curoff) != 0) {
-			ierr();
+			ierr(fn);
 			return;
 		}
 		for (i = curoff - map.mapoff; i >= 0; i--)
@@ -345,44 +345,45 @@ done:
 	}
 	curoff++;
 	if (mapprint(&map, curoff, size - curoff) != 0) {
-		ierr();
+		ierr(fn);
 		exit(1);
 	}
 
 	/* Set the file pointer to reflect the length displayed. */
 	if (fseeko(fp, sbp->st_size, SEEK_SET) == -1) {
-		ierr();
+		ierr(fn);
 		return;
 	}
 	if (map.start != NULL && munmap(map.start, map.maplen)) {
-		ierr();
+		ierr(fn);
 		return;
 	}
 #endif
 }
 
-static void
+static int
 show(file_info_t *file)
 {
-    int ch;
+	int ch;
 
-    while ((ch = getc(file->fp)) != EOF) {
-	if (last != file && no_files > 1) {
-		if (!qflag)
-			(void)printf("\n==> %s <==\n", file->file_name);
-		last = file;
+	while ((ch = getc(file->fp)) != EOF) {
+		if (last != file && no_files > 1) {
+			if (!qflag)
+				printfn(file->file_name, 1);
+			last = file;
+		}
+		if (putchar(ch) == EOF)
+			oerr();
 	}
-	if (putchar(ch) == EOF)
-		oerr();
-    }
-    (void)fflush(stdout);
-    if (ferror(file->fp)) {
-	    file->fp = NULL;
-	    fname = file->file_name;
-	    ierr();
-	    fname = NULL;
-    } else
-	    clearerr(file->fp);
+	(void)fflush(stdout);
+	if (ferror(file->fp)) {
+		fclose(file->fp);
+		file->fp = NULL;
+		ierr(file->file_name);
+		return 0;
+	}
+	clearerr(file->fp);
+	return 1;
 }
 
 static void
@@ -430,9 +431,10 @@ set_events(file_info_t *files)
 void
 follow(file_info_t *files, enum STYLE style, off_t off)
 {
-	int active, i, n = -1;
+	int active, ev_change, i, n = -1;
 	struct stat sb2;
 	file_info_t *file;
+	FILE *ftmp;
 	struct timespec ts;
 
 	/* Position each of the files */
@@ -445,15 +447,13 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 			active = 1;
 			n++;
 			if (no_files > 1 && !qflag)
-				(void)printf("\n==> %s <==\n", file->file_name);
-			fname = file->file_name;
-			forward(file->fp, style, off, &file->st);
-			fname = NULL;
+				printfn(file->file_name, 1);
+			forward(file->fp, file->file_name, style, off, &file->st);
 			if (Fflag && fileno(file->fp) != STDIN_FILENO)
-			    n++;
+				n++;
 		}
 	}
-	if (! active)
+	if (!Fflag && !active)
 		return;
 
 	last = --file;
@@ -467,27 +467,71 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 	set_events(files);
 
 	for (;;) {
-		for (i = 0, file = files; i < no_files; i++, file++) {
-			if (! file->fp)
-				continue;
-			if (Fflag && file->fp && fileno(file->fp) != STDIN_FILENO) {
-				if (stat(file->file_name, &sb2) == 0 &&
-				    (sb2.st_ino != file->st.st_ino ||
-				     sb2.st_dev != file->st.st_dev ||
-				     sb2.st_nlink == 0)) {
-					show(file);
-					file->fp = freopen(file->file_name, "r", file->fp);
-					if (file->fp == NULL) {
-						ierr();
-						continue;
-					} else {
-						memcpy(&file->st, &sb2, sizeof(struct stat));
-						set_events(files);
+		ev_change = 0;
+		if (Fflag) {
+			for (i = 0, file = files; i < no_files; i++, file++) {
+				if (!file->fp) {
+					file->fp =
+#ifndef __APPLE__
+					    fileargs_fopen(fa, file->file_name,
+#else
+					    fopen(file->file_name,
+#endif
+					    "r");
+					if (file->fp != NULL &&
+					    fstat(fileno(file->fp), &file->st)
+					    == -1) {
+						fclose(file->fp);
+						file->fp = NULL;
 					}
+					if (file->fp != NULL)
+						ev_change++;
+					continue;
+				}
+				if (fileno(file->fp) == STDIN_FILENO)
+					continue;
+#ifndef __APPLE__
+				ftmp = fileargs_fopen(fa, file->file_name, "r");
+#else
+				ftmp = fopen(file->file_name, "r");
+#endif
+				if (ftmp == NULL ||
+				    fstat(fileno(ftmp), &sb2) == -1) {
+					if (errno != ENOENT)
+						ierr(file->file_name);
+					show(file);
+					if (file->fp != NULL) {
+						fclose(file->fp);
+						file->fp = NULL;
+					}
+					if (ftmp != NULL) {
+						fclose(ftmp);
+					}
+					ev_change++;
+					continue;
+				}
+
+				if (sb2.st_ino != file->st.st_ino ||
+				    sb2.st_dev != file->st.st_dev ||
+				    sb2.st_nlink == 0) {
+					show(file);
+					fclose(file->fp);
+					file->fp = ftmp;
+					memcpy(&file->st, &sb2,
+					    sizeof(struct stat));
+					ev_change++;
+				} else {
+					fclose(ftmp);
 				}
 			}
-			show(file);
 		}
+
+		for (i = 0, file = files; i < no_files; i++, file++)
+			if (file->fp && !show(file))
+				ev_change++;
+
+		if (ev_change)
+			set_events(files);
 
 		switch (action) {
 		case USE_KQUEUE:
@@ -504,9 +548,9 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 				/* timeout */
 				break;
 			} else if (ev->filter == EVFILT_READ && ev->data < 0) {
-				 /* file shrank, reposition to end */
+				/* file shrank, reposition to end */
 				if (lseek(ev->ident, (off_t)0, SEEK_END) == -1) {
-					ierr();
+					ierr(file->file_name);
 					continue;
 				}
 			}

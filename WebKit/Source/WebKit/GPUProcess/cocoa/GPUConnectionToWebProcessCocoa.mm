@@ -29,15 +29,19 @@
 #if ENABLE(GPU_PROCESS)
 
 #import "MediaPermissionUtilities.h"
-#import "SystemStatusSPI.h"
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/RealtimeMediaSourceCenter.h>
 #import <WebCore/RegistrableDomain.h>
 #import <WebCore/SecurityOrigin.h>
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
+#import <wtf/OSObjectPtr.h>
+
+#if HAVE(SYSTEM_STATUS)
+#import "SystemStatusSPI.h"
+#import <pal/ios/SystemStatusSoftLink.h>
+#endif
 
 #import "TCCSoftLink.h"
-#import <pal/ios/SystemStatusSoftLink.h>
 
 namespace WebKit {
 
@@ -56,7 +60,7 @@ bool GPUConnectionToWebProcess::setCaptureAttributionString()
     if (!visibleName)
         visibleName = gpuProcess().applicationVisibleName();
 
-    RetainPtr<NSString> formatString = [NSString stringWithFormat:WEB_UI_STRING("“%@” in “%%@”", "The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only)."), visibleName];
+    RetainPtr<NSString> formatString = [NSString stringWithFormat:WEB_UI_NSSTRING(@"“%@” in “%%@”", "The domain and application using the camera and/or microphone. The first argument is domain, the second is the application name (iOS only)."), visibleName];
 
     [PAL::getSTDynamicActivityAttributionPublisherClass() setCurrentAttributionStringWithFormat:formatString.get() auditToken:auditToken.value()];
 #endif
@@ -68,6 +72,7 @@ bool GPUConnectionToWebProcess::setCaptureAttributionString()
 #if ENABLE(APP_PRIVACY_REPORT)
 void GPUConnectionToWebProcess::setTCCIdentity()
 {
+#if !PLATFORM(MACCATALYST)
     auto auditToken = gpuProcess().parentProcessConnection()->getAuditToken();
     if (!auditToken)
         return;
@@ -77,16 +82,14 @@ void GPUConnectionToWebProcess::setTCCIdentity()
     if (error)
         return;
 
-    tcc_identity_t identity = nil;
-    identity = tcc_identity_create(TCC_IDENTITY_CODE_BUNDLE_ID, [bundleProxy.bundleIdentifier UTF8String]);
+    auto identity = adoptOSObject(tcc_identity_create(TCC_IDENTITY_CODE_BUNDLE_ID, [bundleProxy.bundleIdentifier UTF8String]));
     if (!identity)
         return;
 
-#if !PLATFORM(MACCATALYST)
-    WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(identity);
-#endif
+    WebCore::RealtimeMediaSourceCenter::singleton().setIdentity(WTFMove(identity));
+#endif // !PLATFORM(MACCATALYST)
 }
-#endif
+#endif // ENABLE(APP_PRIVACY_REPORT)
 } // namespace WebKit
 
 #endif // ENABLE(GPU_PROCESS)

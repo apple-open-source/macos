@@ -25,7 +25,7 @@
 #include "CellState.h"
 #include "CollectionScope.h"
 #include "CollectorPhase.h"
-#include "DFGDoesGCCheck.h"
+#include "CompleteSubspace.h"
 #include "DeleteAllCodeEffort.h"
 #include "GCConductor.h"
 #include "GCIncomingRefCountedSet.h"
@@ -34,6 +34,11 @@
 #include "HandleSet.h"
 #include "HeapFinalizerCallback.h"
 #include "HeapObserver.h"
+#include "IsoCellSet.h"
+#include "IsoHeapCellType.h"
+#include "IsoInlinedHeapCellType.h"
+#include "IsoSubspace.h"
+#include "JSDestructibleObjectHeapCellType.h"
 #include "MarkedBlock.h"
 #include "MarkedSpace.h"
 #include "MutatorState.h"
@@ -59,9 +64,11 @@ class CollectingScope;
 class ConservativeRoots;
 class GCDeferralContext;
 class EdenGCActivityCallback;
+class FastMallocAlignedMemoryAllocator;
 class FullGCActivityCallback;
 class GCActivityCallback;
 class GCAwareJITStubRoutine;
+class GigacageAlignedMemoryAllocator;
 class Heap;
 class HeapProfiler;
 class HeapVerifier;
@@ -70,8 +77,8 @@ class JITStubRoutine;
 class JITStubRoutineSet;
 class JSCell;
 class JSImmutableButterfly;
+class JSString;
 class JSValue;
-class LLIntOffsetsExtractor;
 class MachineThreads;
 class MarkStackArray;
 class MarkStackMergingConstraint;
@@ -98,14 +105,6 @@ class JSCGLibWrapperObject;
 namespace DFG {
 class SpeculativeJIT;
 }
-
-#if ENABLE(DFG_JIT) && ASSERT_ENABLED
-#define ENABLE_DFG_DOES_GC_VALIDATION 1
-#else
-#define ENABLE_DFG_DOES_GC_VALIDATION 0
-#endif
-
-constexpr bool validateDFGDoesGC = ENABLE_DFG_DOES_GC_VALIDATION;
 
 typedef HashCountedSet<JSCell*> ProtectCountSet;
 typedef HashCountedSet<const char*> TypeCountSet;
@@ -136,9 +135,7 @@ public:
     void writeBarrier(const JSCell* from);
     void writeBarrier(const JSCell* from, JSValue to);
     void writeBarrier(const JSCell* from, JSCell* to);
-    
-    void writeBarrierWithoutFence(const JSCell* from);
-    
+
     void mutatorFence();
     
     // Take this if you know that from->cellState() < barrierThreshold.
@@ -173,7 +170,7 @@ public:
 
     // We're always busy on the collection threads. On the main thread, this returns true if we're
     // helping heap.
-    JS_EXPORT_PRIVATE bool isCurrentThreadBusy();
+    JS_EXPORT_PRIVATE bool currentThreadIsDoingGCWork();
     
     typedef void (*CFinalizer)(JSCell*);
     JS_EXPORT_PRIVATE void addFinalizer(JSCell*, CFinalizer);
@@ -307,18 +304,6 @@ public:
     unsigned barrierThreshold() const { return m_barrierThreshold; }
     const unsigned* addressOfBarrierThreshold() const { return &m_barrierThreshold; }
 
-#if ENABLE(DFG_DOES_GC_VALIDATION)
-    DoesGCCheck* addressOfDoesGC() { return &m_doesGC; }
-    void setDoesGCExpectation(bool expectDoesGC, unsigned nodeIndex, unsigned nodeOp) { m_doesGC.set(expectDoesGC, nodeIndex, nodeOp); }
-    void setDoesGCExpectation(bool expectDoesGC, DoesGCCheck::Special special) { m_doesGC.set(expectDoesGC, special); }
-    void verifyCanGC() { m_doesGC.verifyCanGC(vm()); }
-#else
-    DoesGCCheck* addressOfDoesGC() { UNREACHABLE_FOR_PLATFORM(); return nullptr; }
-    void setDoesGCExpectation(bool, unsigned, unsigned) { }
-    void setDoesGCExpectation(bool, DoesGCCheck::Special) { }
-    void verifyCanGC() { }
-#endif
-
     // If true, the GC believes that the mutator is currently messing with the heap. We call this
     // "having heap access". The GC may block if the mutator is in this state. If false, the GC may
     // currently be doing things to the heap that make the heap unsafe to access for the mutator.
@@ -447,7 +432,6 @@ private:
         void finalize(Handle<Unknown>, void* context) final;
     };
 
-    JS_EXPORT_PRIVATE bool isValidAllocation(size_t);
     JS_EXPORT_PRIVATE void reportExtraMemoryAllocatedSlowCase(size_t);
     JS_EXPORT_PRIVATE void deprecatedReportExtraMemorySlowCase(size_t);
     
@@ -611,17 +595,12 @@ private:
     Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_collectionScope;
     Markable<CollectionScope, EnumMarkableTraits<CollectionScope>> m_lastCollectionScope;
     Lock m_raceMarkStackLock;
-#if ENABLE(DFG_DOES_GC_VALIDATION)
-    DoesGCCheck m_doesGC;
-#endif
 
     StructureIDTable m_structureIDTable;
     MarkedSpace m_objectSpace;
     GCIncomingRefCountedSet<ArrayBuffer> m_arrayBuffers;
     size_t m_extraMemorySize { 0 };
     size_t m_deprecatedExtraMemorySize { 0 };
-
-    HashSet<const JSCell*> m_copyingRememberedSet;
 
     ProtectCountSet m_protectedValues;
     std::unique_ptr<HashSet<MarkedArgumentBufferBase*>> m_markListSet;
@@ -657,7 +636,6 @@ private:
 
     unsigned m_barrierThreshold { Options::forceFencedBarrier() ? tautologicalThreshold : blackThreshold };
 
-    VM& m_vm;
     Seconds m_lastFullGCLength { 10_ms };
     Seconds m_lastEdenGCLength { 10_ms };
 
@@ -712,7 +690,6 @@ private:
     static constexpr unsigned mutatorWaitingBit = 1u << 4u; // Allows the mutator to use this as a condition variable.
     Atomic<unsigned> m_worldState;
     bool m_worldIsStopped { false };
-    Lock m_visitRaceLock;
     Lock m_markingMutex;
     Condition m_markingConditionVariable;
 
@@ -730,7 +707,6 @@ private:
     CollectorPhase m_nextPhase { CollectorPhase::NotRunning };
     bool m_collectorThreadIsRunning { false };
     bool m_threadShouldStop { false };
-    bool m_threadIsStopping { false };
     bool m_mutatorDidRun { true };
     bool m_didDeferGCWork { false };
     bool m_shouldStopCollectingContinuously { false };
@@ -761,6 +737,314 @@ private:
     bool m_parallelMarkersShouldExit { false };
     Lock m_collectContinuouslyLock;
     Condition m_collectContinuouslyCondition;
+
+public:
+    // HeapCellTypes
+    HeapCellType auxiliaryHeapCellType;
+    HeapCellType immutableButterflyHeapCellType;
+    HeapCellType cellHeapCellType;
+    HeapCellType destructibleCellHeapCellType;
+    IsoHeapCellType apiGlobalObjectHeapCellType;
+    IsoHeapCellType callbackConstructorHeapCellType;
+    IsoHeapCellType callbackGlobalObjectHeapCellType;
+    IsoHeapCellType callbackObjectHeapCellType;
+    IsoHeapCellType customGetterFunctionHeapCellType;
+    IsoHeapCellType customSetterFunctionHeapCellType;
+    IsoHeapCellType dateInstanceHeapCellType;
+    IsoHeapCellType errorInstanceHeapCellType;
+    IsoHeapCellType finalizationRegistryCellType;
+    IsoHeapCellType globalLexicalEnvironmentHeapCellType;
+    IsoHeapCellType globalObjectHeapCellType;
+    IsoHeapCellType injectedScriptHostSpaceHeapCellType;
+    IsoHeapCellType javaScriptCallFrameHeapCellType;
+    IsoHeapCellType jsModuleRecordHeapCellType;
+    IsoHeapCellType moduleNamespaceObjectHeapCellType;
+    IsoHeapCellType nativeStdFunctionHeapCellType;
+    IsoInlinedHeapCellType<JSString> stringHeapCellType;
+    IsoHeapCellType weakMapHeapCellType;
+    IsoHeapCellType weakSetHeapCellType;
+    JSDestructibleObjectHeapCellType destructibleObjectHeapCellType;
+#if JSC_OBJC_API_ENABLED
+    IsoHeapCellType apiWrapperObjectHeapCellType;
+    IsoHeapCellType objCCallbackFunctionHeapCellType;
+#endif
+#ifdef JSC_GLIB_API_ENABLED
+    IsoHeapCellType apiWrapperObjectHeapCellType;
+    IsoHeapCellType callbackAPIWrapperGlobalObjectHeapCellType;
+    IsoHeapCellType jscCallbackFunctionHeapCellType;
+#endif
+    IsoHeapCellType intlCollatorHeapCellType;
+    IsoHeapCellType intlDateTimeFormatHeapCellType;
+    IsoHeapCellType intlDisplayNamesHeapCellType;
+    IsoHeapCellType intlListFormatHeapCellType;
+    IsoHeapCellType intlLocaleHeapCellType;
+    IsoHeapCellType intlNumberFormatHeapCellType;
+    IsoHeapCellType intlPluralRulesHeapCellType;
+    IsoHeapCellType intlRelativeTimeFormatHeapCellType;
+    IsoHeapCellType intlSegmentIteratorHeapCellType;
+    IsoHeapCellType intlSegmenterHeapCellType;
+    IsoHeapCellType intlSegmentsHeapCellType;
+#if ENABLE(WEBASSEMBLY)
+    IsoHeapCellType webAssemblyExceptionHeapCellType;
+    IsoHeapCellType webAssemblyFunctionHeapCellType;
+    IsoHeapCellType webAssemblyGlobalHeapCellType;
+    IsoHeapCellType webAssemblyInstanceHeapCellType;
+    IsoHeapCellType webAssemblyMemoryHeapCellType;
+    IsoHeapCellType webAssemblyModuleHeapCellType;
+    IsoHeapCellType webAssemblyModuleRecordHeapCellType;
+    IsoHeapCellType webAssemblyTableHeapCellType;
+    IsoHeapCellType webAssemblyTagHeapCellType;
+#endif
+
+    // AlignedMemoryAllocators
+    std::unique_ptr<FastMallocAlignedMemoryAllocator> fastMallocAllocator;
+    std::unique_ptr<GigacageAlignedMemoryAllocator> primitiveGigacageAllocator;
+    std::unique_ptr<GigacageAlignedMemoryAllocator> jsValueGigacageAllocator;
+
+    // Subspaces
+    CompleteSubspace primitiveGigacageAuxiliarySpace; // Typed arrays, strings, bitvectors, etc go here.
+    CompleteSubspace jsValueGigacageAuxiliarySpace; // Butterflies, arrays of JSValues, etc go here.
+    CompleteSubspace immutableButterflyJSValueGigacageAuxiliarySpace; // JSImmutableButterfly goes here.
+
+    // We make cross-cutting assumptions about typed arrays being in the primitive Gigacage and butterflies
+    // being in the JSValue gigacage. For some types, it's super obvious where they should go, and so we
+    // can hardcode that fact. But sometimes it's not clear, so we abstract it by having a Gigacage::Kind
+    // constant somewhere.
+    // FIXME: Maybe it would be better if everyone abstracted this?
+    // https://bugs.webkit.org/show_bug.cgi?id=175248
+    ALWAYS_INLINE CompleteSubspace& gigacageAuxiliarySpace(Gigacage::Kind kind)
+    {
+        switch (kind) {
+        case Gigacage::Primitive:
+            return primitiveGigacageAuxiliarySpace;
+        case Gigacage::JSValue:
+            return jsValueGigacageAuxiliarySpace;
+        case Gigacage::NumberOfKinds:
+            break;
+        }
+        RELEASE_ASSERT_NOT_REACHED();
+        return primitiveGigacageAuxiliarySpace;
+    }
+    
+    // Whenever possible, use subspaceFor<CellType>(vm) to get one of these subspaces.
+    CompleteSubspace cellSpace;
+    CompleteSubspace variableSizedCellSpace; // FIXME: This space is problematic because we have things in here like DirectArguments and ScopedArguments; those should be split into JSValueOOB cells and JSValueStrict auxiliaries. https://bugs.webkit.org/show_bug.cgi?id=182858
+    CompleteSubspace destructibleObjectSpace;
+
+    IsoSubspace arraySpace;
+    IsoSubspace bigIntSpace;
+    IsoSubspace calleeSpace;
+    IsoSubspace clonedArgumentsSpace;
+    IsoSubspace customGetterSetterSpace;
+    IsoSubspace dateInstanceSpace;
+    IsoSubspace domAttributeGetterSetterSpace;
+    IsoSubspace exceptionSpace;
+    IsoSubspace executableToCodeBlockEdgeSpace;
+    IsoSubspace functionSpace;
+    IsoSubspace getterSetterSpace;
+    IsoSubspace globalLexicalEnvironmentSpace;
+    IsoSubspace internalFunctionSpace;
+    IsoSubspace jsProxySpace;
+    IsoSubspace nativeExecutableSpace;
+    IsoSubspace numberObjectSpace;
+    IsoSubspace plainObjectSpace;
+    IsoSubspace promiseSpace;
+    IsoSubspace propertyNameEnumeratorSpace;
+    IsoSubspace propertyTableSpace;
+    IsoSubspace regExpSpace;
+    IsoSubspace regExpObjectSpace;
+    IsoSubspace ropeStringSpace;
+    IsoSubspace scopedArgumentsSpace;
+    IsoSubspace sparseArrayValueMapSpace;
+    IsoSubspace stringSpace;
+    IsoSubspace stringObjectSpace;
+    IsoSubspace structureChainSpace;
+    IsoSubspace structureRareDataSpace;
+    IsoSubspace structureSpace;
+    IsoSubspace brandedStructureSpace;
+    IsoSubspace symbolTableSpace;
+
+#define DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(name) \
+    template<SubspaceAccess mode> \
+    IsoSubspace* name() \
+    { \
+        if (m_##name || mode == SubspaceAccess::Concurrently) \
+            return m_##name.get(); \
+        return name##Slow(); \
+    } \
+    JS_EXPORT_PRIVATE IsoSubspace* name##Slow(); \
+    std::unique_ptr<IsoSubspace> m_##name;
+
+
+#if JSC_OBJC_API_ENABLED
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiWrapperObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(objCCallbackFunctionSpace)
+#endif
+#ifdef JSC_GLIB_API_ENABLED
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiWrapperObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(jscCallbackFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackAPIWrapperGlobalObjectSpace)
+#endif
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiGlobalObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(apiValueWrapperSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(arrayBufferSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(arrayIteratorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(asyncGeneratorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(bigInt64ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(bigIntObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(bigUint64ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(booleanObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(boundFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackConstructorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackGlobalObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(callbackObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(customGetterFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(customSetterFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(dataViewSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(debuggerScopeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(errorInstanceSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(float32ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(float64ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(functionRareDataSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(generatorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(globalObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(injectedScriptHostSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int8ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int16ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(int32ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(javaScriptCallFrameSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(jsModuleRecordSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(mapBucketSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(mapIteratorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(mapSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(moduleNamespaceObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(nativeStdFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(proxyObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(proxyRevokeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scopedArgumentsTableSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scriptFetchParametersSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(scriptFetcherSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(setBucketSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(setIteratorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(setSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(shadowRealmSpace);
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(strictEvalActivationSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(stringIteratorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(sourceCodeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(symbolSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(symbolObjectSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(templateObjectDescriptorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalCalendarSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalDurationSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalInstantSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalPlainTimeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(temporalTimeZoneSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint8ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint8ClampedArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint16ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(uint32ArraySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedEvalCodeBlockSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedFunctionCodeBlockSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedModuleProgramCodeBlockSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(unlinkedProgramCodeBlockSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(finalizationRegistrySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(weakObjectRefSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(weakSetSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(weakMapSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(withScopeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlCollatorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlDateTimeFormatSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlDisplayNamesSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlListFormatSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlLocaleSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlNumberFormatSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlPluralRulesSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlRelativeTimeFormatSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlSegmentIteratorSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlSegmenterSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(intlSegmentsSpace)
+#if ENABLE(WEBASSEMBLY)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(jsToWasmICCalleeSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyExceptionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyFunctionSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyGlobalSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyInstanceSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyMemorySpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyModuleSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyModuleRecordSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyTableSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyTagSpace)
+    DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER(webAssemblyWrapperFunctionSpace)
+#endif
+
+#undef DYNAMIC_ISO_SUBSPACE_DEFINE_MEMBER
+    
+    IsoCellSet executableToCodeBlockEdgesWithConstraints;
+    IsoCellSet executableToCodeBlockEdgesWithFinalizers;
+
+#define DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER(name) \
+    template<SubspaceAccess mode> \
+    IsoSubspace* name() \
+    { \
+        if (auto* spaceAndSet = m_##name.get()) \
+            return &spaceAndSet->space; \
+        if (mode == SubspaceAccess::Concurrently) \
+            return nullptr; \
+        return name##Slow(); \
+    } \
+    IsoSubspace* name##Slow(); \
+    std::unique_ptr<SpaceAndSet> m_##name;
+    
+    struct SpaceAndSet {
+        WTF_MAKE_STRUCT_FAST_ALLOCATED;
+
+        IsoSubspace space;
+        IsoCellSet set;
+        
+        template<typename... Arguments>
+        SpaceAndSet(Arguments&&... arguments)
+            : space(std::forward<Arguments>(arguments)...)
+            , set(space)
+        {
+        }
+        
+        static IsoCellSet& setFor(Subspace& space)
+        {
+            return *bitwise_cast<IsoCellSet*>(
+                bitwise_cast<char*>(&space) -
+                OBJECT_OFFSETOF(SpaceAndSet, space) +
+                OBJECT_OFFSETOF(SpaceAndSet, set));
+        }
+    };
+    
+    SpaceAndSet codeBlockSpace;
+
+    template<typename Func>
+    void forEachCodeBlockSpace(const Func& func)
+    {
+        func(codeBlockSpace);
+    }
+
+    DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER(evalExecutableSpace)
+    DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER(moduleProgramExecutableSpace)
+    SpaceAndSet functionExecutableSpace;
+    SpaceAndSet programExecutableSpace;
+
+    template<typename Func>
+    void forEachScriptExecutableSpace(const Func& func)
+    {
+        if (m_evalExecutableSpace)
+            func(*m_evalExecutableSpace);
+        func(functionExecutableSpace);
+        if (m_moduleProgramExecutableSpace)
+            func(*m_moduleProgramExecutableSpace);
+        func(programExecutableSpace);
+    }
+
+    SpaceAndSet unlinkedFunctionExecutableSpace;
+
+#undef DYNAMIC_SPACE_AND_SET_DEFINE_MEMBER
 };
 
 } // namespace JSC

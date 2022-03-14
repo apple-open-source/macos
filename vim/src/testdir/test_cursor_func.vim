@@ -38,6 +38,18 @@ func Test_move_cursor()
   quit!
 endfunc
 
+func Test_curswant_maxcol()
+  new
+  call setline(1, 'foo')
+
+  " Test that after "$" command curswant is set to the same value as v:maxcol.
+  normal! 1G$
+  call assert_equal(v:maxcol, getcurpos()[4])
+  call assert_equal(v:maxcol, winsaveview().curswant)
+
+  quit!
+endfunc
+
 " Very short version of what matchparen does.
 function s:Highlight_Matching_Pair()
   let save_cursor = getcurpos()
@@ -101,9 +113,25 @@ func Test_screenpos()
 	\ 'col': wincol + 9,
 	\ 'curscol': wincol + 9,
 	\ 'endcol': wincol + 9}, screenpos(winid, 2, 22))
+
+  let wininfo = getwininfo(winid)[0]
+  call setline(3, ['x']->repeat(wininfo.height))
+  call setline(line('$') + 1, 'x'->repeat(wininfo.width * 3))
+  setlocal nonumber display=lastline so=0
+  exe "normal G\<C-Y>\<C-Y>"
+  redraw
+  call assert_equal({'row': winrow + wininfo.height - 1,
+	\ 'col': wincol + 7,
+	\ 'curscol': wincol + 7,
+	\ 'endcol': wincol + 7}, winid->screenpos(line('$'), 8))
+  call assert_equal({'row': winrow - 1, 'col': 0, 'curscol': 0, 'endcol': 0},
+        \ winid->screenpos(line('$'), 22))
+
   close
   call assert_equal({}, screenpos(999, 1, 1))
+
   bwipe!
+  set display&
 
   call assert_equal({'col': 1, 'row': 1, 'endcol': 1, 'curscol': 1}, screenpos(win_getid(), 1, 1))
   nmenu WinBar.TEST :

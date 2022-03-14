@@ -159,7 +159,7 @@ void IOAudioControlUserClient::free()
     audioDebugIOLog(4, "+- IOAudioControlUserClient[%p]::free()\n", this);
     
     if (notificationMessage) {
-        IOFreeAligned(notificationMessage, sizeof(IOAudioNotificationMessage));
+        IOFreeType(notificationMessage, IOAudioNotificationMessage);
         notificationMessage = 0;
     }
 
@@ -169,7 +169,7 @@ void IOAudioControlUserClient::free()
 	}
 
 	if (reserved) {
-		IOFree (reserved, sizeof(struct ExpansionData));
+		IOFreeType (reserved, ExpansionData);
 	}
 
     super::free();
@@ -210,11 +210,10 @@ IOReturn IOAudioControlUserClient::registerNotificationPort(mach_port_t port,
 
     if (!isInactive()) {
         if (notificationMessage == 0) {
-            IOAudioNotificationMessage *m = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
+            IOAudioNotificationMessage *m = IOMallocType(IOAudioNotificationMessage);
             if (m == 0) {
                 return kIOReturnNoMemory;
             }
-            bzero( m, sizeof(IOAudioNotificationMessage) );
             m->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
             m->messageHeader.msgh_size = sizeof(IOAudioNotificationMessage);
             m->messageHeader.msgh_local_port = MACH_PORT_NULL;

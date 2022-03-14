@@ -352,7 +352,7 @@ vi{
         mgh{"Tiếng Makhuwa-Meetto"}
         mgo{"Tiếng Meta’"}
         mh{"Tiếng Marshall"}
-        mi{"Tiếng Maori"}
+        mi{"Tiếng Māori"}
         mic{"Tiếng Micmac"}
         min{"Tiếng Minangkabau"}
         mk{"Tiếng Macedonia"}

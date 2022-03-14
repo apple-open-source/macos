@@ -10,7 +10,7 @@ from lib.constants import (
 )
 from lib.general import (
     docmd, docmd_stdout, startup, teardown, test_begin, test_end,
-    convert_text_to_dmg,
+    convert_text_to_dmg, syscall_unmount,
 )
 from lib.file_system import FileSystem
 
@@ -18,7 +18,8 @@ TESTDIR_BASE = '/tmp/test_ntfs/'
 TESTDIR = TESTDIR_BASE + str(os.getpid()) + '/'
 LOGFILE = TESTDIR + 'test_ntfs.log'
 BATS_LOGFILE = TESTDIR_BASE + 'test_ntfs_bats.log'
-SUITE_PRESUBMIT = 'presubmit'
+SUITE_USERFS = 'suite_userfs'
+SUITE_KEXT = 'suite_kext'
 NTFS_DEFAULT_DMG = '/tmp/NTFSvol.dmg'
 MTREESPEC = 'mtreeSpec.txt'
 EXC_FILE = TESTDIR + 'mtree_exclude'
@@ -30,12 +31,9 @@ EXC_FILE = TESTDIR + 'mtree_exclude'
 
 def test_readonly(obj, kext=False):
     """Check the mounted NTFS volume is read-only and can not write."""
-    obj.unmount(kext)
-    if obj.mount(kext) != 0:
+    obj.unmount(kext=kext)
+    if obj.mount(kext=kext) != 0:
         logging.error("test_readonly FAIL: mount Fail")
-        return FAIL
-    if not obj.is_mounted_fs(kext):
-        logging.error("test_readonly FAIL: not mounted as expected fs type")
         return FAIL
     if not obj.is_readonly():
         logging.error("test_readonly FAIL: is not readonly")
@@ -45,13 +43,11 @@ def test_readonly(obj, kext=False):
     if docmd(["touch", touchfile], should_fail=True) != 0:
         logging.error("test_readonly FAIL: should not be able to write")
         return FAIL
-    if obj.unmount(kext) != 0:
-        logging.error("test_readonly FAIL: Failed to unmount")
-        return FAIL
     return SUCCESS
 
 
 def test_readonly_kext(obj):
+    """Check the mounted NTFS volume is read-only via kext."""
     return test_readonly(obj, kext=True)
 
 
@@ -62,7 +58,7 @@ def test_mtree(obj, kext=False):
     exfile.close()
 
     obj.unmount()
-    if obj.mount(kext) != 0:
+    if obj.mount(kext=kext) != 0:
         logging.error("test_mtree FAIL: Fail to mount")
         return FAIL
     mtree_spec = obj.fsmntpt + '/' + MTREESPEC
@@ -78,7 +74,89 @@ def test_mtree(obj, kext=False):
 
 
 def test_mtree_kext(obj):
+    """Check the mtree being read is correct via kext."""
     return test_mtree(obj, kext=True)
+
+
+def test_mount_unmount(obj, kext=False):
+    """mount/unmount a couple of times."""
+    obj.unmount()
+    for i in range(3):
+        if obj.mount(kext=kext) != 0:
+            logging.error('Mount Fail')
+            return FAIL
+        if obj.fstype == NTFS and obj.is_readonly is False:
+            logging.error('NTFS should be mounted as read-only by default')
+            return FAIL
+        if obj.unmount(kext=kext) != 0:
+            logging.error('Unmount Fail')
+            return FAIL
+    return SUCCESS
+
+
+def test_mount_unmount_kext(obj):
+    """mount/unmount a couple of times via kext."""
+    return test_mount_unmount(obj, kext=True)
+
+
+def test_unmount_busy_neg(obj, kext=False):
+    """unmount a busy filesystem should fail."""
+    logging.debug("'os.chdir' to make mountpoint busy")
+    current_dir = os.getcwd()
+    os.chdir(obj.fsmntpt)
+    if kext is True:
+        # XXX work around rdar://80480997
+        err = syscall_unmount(mntpt=obj.fsmntpt)
+    else:
+        err = obj.unmount()
+    os.chdir(current_dir)
+    if err == 0:
+        logging.error("unmount a busy filesystem should fail")
+        return FAIL
+    return SUCCESS
+
+
+def test_unmount_busy_neg_kext(obj):
+    """unmount a busy filesystem should fail via kext."""
+    return test_unmount_busy_neg(obj, kext=True)
+
+
+def test_mount_userfs_unmount_kext(obj):
+    """umount(8) a UserFS mounted filesystem should succeed."""
+    obj.unmount()
+    if obj.mount() != 0:
+        logging.error("mount via UserFS Fail")
+        return FAIL
+    if obj.unmount(kext=True) != 0:
+        logging.error("umount(8) an UserFS mounted device Fail")
+        return FAIL
+    return SUCCESS
+
+
+def test_mount_userfs_mount_kext_neg(obj):
+    """mount(8) an already mounted UserFS device should fail."""
+    obj.unmount()
+    if obj.mount() != 0:
+        logging.error("mount via UserFS Fail")
+        return FAIL
+    if obj.mount(kext=True) == 0:
+        logging.error("mount(8) an already mounted device should Fail")
+        return FAIL
+    return SUCCESS
+
+
+def test_unmount_2nd_neg(obj, kext=False):
+    """2nd unmount should fail."""
+    obj.unmount(kext=kext)
+    if obj.unmount(kext=kext) == 0:
+        logging.error('2nd unmount should Fail')
+        return FAIL
+    return SUCCESS
+
+
+def test_unmount_2nd_neg_kext(obj):
+    """2nd unmount should fail via kext."""
+    return test_unmount_2nd_neg(obj, kext=True)
 
 
 # ============================================
@@ -88,23 +166,63 @@ def test_mtree_kext(obj):
 TESTS = {
     'readonly': {
         'func': test_readonly,
-        'suite': SUITE_PRESUBMIT,
+        'suite': SUITE_USERFS,
         'description': 'check the mounted NTFS volume via UserFS is readonly',
     },
     'readonly_kext': {
         'func': test_readonly_kext,
-        'suite': SUITE_PRESUBMIT,
-        'description': 'check the mounted NTFS volume via Kext is readonly',
+        'suite': SUITE_KEXT,
+        'description': 'check the mounted NTFS volume via kext is readonly',
     },
     'mtree': {
         'func': test_mtree,
-        'suite': SUITE_PRESUBMIT,
+        'suite': SUITE_USERFS,
         'description': 'check the mtree on NTFS volume via UserFS is correct',
     },
     'mtree_kext': {
         'func': test_mtree_kext,
-        'suite': SUITE_PRESUBMIT,
-        'description': 'check the mtree on NTFS volume via Kext is correct',
+        'suite': SUITE_KEXT,
+        'description': 'check the mtree on NTFS volume via kext is correct',
+    },
+    'mount_unmount': {
+        'func': test_mount_unmount,
+        'suite': SUITE_USERFS,
+        'description': 'mount/unmount a couple of times',
+    },
+    'mount_unmount_kext': {
+        'func': test_mount_unmount_kext,
+        'suite': SUITE_KEXT,
+        'description': 'mount/unmount a couple of times via kext',
+    },
+    'mount_userfs_unmount_kext': {
+        'func': test_mount_userfs_unmount_kext,
+        'suite': SUITE_USERFS,
+        'description': 'umount(8) an UserFS mounted device should succeed',
+    },
+    'mount_userfs_mount_kext_neg': {
+        'func': test_mount_userfs_mount_kext_neg,
+        'suite': SUITE_USERFS,
+        'description': 'mount(8) an already UserFS mounted device should fail',
+    },
+    'unmount_busy_neg': {
+        'func': test_unmount_busy_neg,
+        'suite': SUITE_USERFS,
+        'description': 'unmount a busy filesystem should fail',
+    },
+    'unmount_busy_neg_kext': {
+        'func': test_unmount_busy_neg_kext,
+        'suite': SUITE_KEXT,
+        'description': 'unmount a busy filesystem should fail via kext',
+    },
+    'unmount_2nd_neg': {
+        'func': test_unmount_2nd_neg,
+        'suite': SUITE_USERFS,
+        'description': '2nd unmount should fail',
+    },
+    'unmount_2nd_neg_kext': {
+        'func': test_unmount_2nd_neg_kext,
+        'suite': SUITE_KEXT,
+        'description': '2nd unmount should fail via kext',
     },
 }
 
@@ -117,17 +235,21 @@ def cleanup():
 
 def list_tests():
     """List all test names."""
-    print('')
     for key in TESTS:
         descrip = TESTS[key]['description']
         suite = TESTS[key]['suite']
         print(f'{key}: {descrip} ({suite})')
-    print('')
 
 
 def run_one_test(testname, args):
     """Run a single test case."""
+    func = TESTS[testname]['func']
     descrip = TESTS[testname]['description']
+    suite = TESTS[testname]['suite']
+    kext = False
+    if suite == SUITE_KEXT:
+        kext = True
+
     test_begin(testname, descrip, args.debug)
 
     fstype = NTFS
@@ -139,10 +261,9 @@ def run_one_test(testname, args):
         dmg = args.diskimage
     else:
         dmg = NTFS_DEFAULT_DMG
-    func = TESTS[testname]['func']
 
     obj = FileSystem(fstype, disktype, dmg)
-    err = obj.setup()
+    err = obj.setup(kext=kext)
     if err == 0:
         err = func(obj)
     obj.release(err)
@@ -165,21 +286,22 @@ def run_all(args):
 def cli_usage():
     """Set the parser for this CLI program."""
     parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="CLI test program to test NTFS on macOS.")
     parser.add_argument('-t', '--tests', default='all',
-                        help='run one or a suite of tests (default:%(default)s)')
+                        help='run one or a suite of tests')
     parser.add_argument('-e', '--external', action='store_true',
                         help='use the attached external drive')
     parser.add_argument('-l', '--list_tests', action='store_true',
                         help='list all tests')
     parser.add_argument('-d', '--debug', action='store_true',
-                        help=f'print commands/error and keep {NTFS_DEFAULT_DMG}')
+                        help=f'print out commands and error')
     parser.add_argument('-c', '--cleanup', action='store_true',
-                        help='clean up all log dir/files')
+                        help='clean up all log dirs/files')
     parser.add_argument('-n', '--num_times', default=1, type=int,
                         help='loop the test <num_times>')
     parser.add_argument('-dmg', '--diskimage', default=NTFS_DEFAULT_DMG,
-                        help=f'disk image to use (default:%(default)s)')
+                        help=f'disk image to use')
     return parser
 
 
@@ -204,19 +326,15 @@ def main():
     for i in range(loopcnt):
         if testname == 'all':
             run_all(args)
-        elif testname == SUITE_PRESUBMIT:
+        elif testname == SUITE_USERFS or testname == SUITE_KEXT:
             run_suite(testname, args)
         elif testname in TESTS:
             run_one_test(testname, args)
         else:
             print('Unknown test name : ' + testname)
-            docmd(["rm", NTFS_DEFAULT_DMG])
             exit(1)
 
     run(["cp", LOGFILE, BATS_LOGFILE])
-    # Keep NTFS_DEFAULT_DMG around for debugging with -v option
-    if not args.debug:
-        docmd(["rm", NTFS_DEFAULT_DMG])
     teardown(LOGFILE, args.debug)
 
 main()

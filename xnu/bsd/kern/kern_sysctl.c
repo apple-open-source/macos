@@ -1152,6 +1152,8 @@ sysctl_kdebug_ops SYSCTL_HANDLER_ARGS
 	case KERN_KDCPUMAP:
 	case KERN_KDCPUMAP_EXT:
 	case KERN_KDWRITETR_V3:
+	case KERN_KDSET_EDM:
+	case KERN_KDGET_EDM:
 		ret = kdbg_control(name, namelen, oldp, oldlenp);
 		break;
 	default:
@@ -1400,7 +1402,8 @@ sysctl_procargsx(int *name, u_int namelen, user_addr_t where,
 
 	arg_addr = user_stack - arg_size;
 
-	ret = kmem_alloc_flags(kernel_map, &copy_start, arg_size, VM_KERN_MEMORY_BSD, KMA_ZERO);
+	ret = kernel_memory_allocate(kernel_map, &copy_start, arg_size,
+	    0, KMA_ZERO, VM_KERN_MEMORY_BSD);
 	if (ret != KERN_SUCCESS) {
 		error = ENOMEM;
 		goto finish;

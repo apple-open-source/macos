@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 46;
+	objectVersion = 53;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -2502,6 +2502,7 @@
 		08FB7793FE84155DC02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 0710;
 				TargetAttributes = {
 					07828B591E3FDD25009D2106 = {
@@ -3478,6 +3479,7 @@
 					"CONFIG_HFS_TRIM=1",
 					"DEBUG_BUILD=0",
 				);
+				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
@@ -5276,6 +5278,7 @@
 					"CONFIG_HFS_TRIM=1",
 					"DEBUG_BUILD=0",
 				);
+				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;
@@ -5525,6 +5528,7 @@
 					"CONFIG_HFS_TRIM=1",
 					"DEBUG_BUILD=0",
 				);
+				INSTALLHDRS_COPY_PHASE = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx.internal;
 				SKIP_INSTALL = YES;

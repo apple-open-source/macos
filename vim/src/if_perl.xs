@@ -175,11 +175,13 @@ typedef int perl_key;
 #  define load_dll(n) dlopen((n), RTLD_LAZY|RTLD_GLOBAL)
 #  define symbol_from_dll dlsym
 #  define close_dll dlclose
+#  define load_dll_error dlerror
 # else
 #  define PERL_PROC FARPROC
 #  define load_dll vimLoadLib
 #  define symbol_from_dll GetProcAddress
 #  define close_dll FreeLibrary
+#  define load_dll_error GetWin32Error
 # endif
 /*
  * Wrapper defines
@@ -700,12 +702,41 @@ S_POPMARK(pTHX)
 /* perl-5.32 needs Perl_POPMARK */
 # if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
 #  define Perl_POPMARK S_POPMARK
+# endif
+
+/* perl-5.34 needs Perl_SvTRUE_common; used in SvTRUE_nomg_NN */
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 34)
+PERL_STATIC_INLINE bool
+Perl_SvTRUE_common(pTHX_ SV * sv, const bool sv_2bool_is_fallback)
+{
+    if (UNLIKELY(SvIMMORTAL_INTERP(sv)))
+	return SvIMMORTAL_TRUE(sv);
+
+    if (! SvOK(sv))
+	return FALSE;
+
+    if (SvPOK(sv))
+	return SvPVXtrue(sv);
+
+    if (SvIOK(sv))
+	return SvIVX(sv) != 0; /* casts to bool */
+
+    if (SvROK(sv) && !(SvOBJECT(SvRV(sv)) && HvAMAGIC(SvSTASH(SvRV(sv)))))
+	return TRUE;
+
+    if (sv_2bool_is_fallback)
+	return sv_2bool_nomg(sv);
+
+    return isGV_with_GP(sv);
+}
+# endif
 
 /* perl-5.32 needs Perl_SvTRUE */
+# if (PERL_REVISION == 5) && (PERL_VERSION >= 32)
 PERL_STATIC_INLINE bool
 Perl_SvTRUE(pTHX_ SV *sv) {
     if (!LIKELY(sv))
-        return FALSE;
+	return FALSE;
     SvGETMAGIC(sv);
     return SvTRUE_nomg_NN(sv);
 }
@@ -742,7 +773,7 @@ perl_runtime_link_init(char *libname, int verbose)
 	    close_dll(hPerlLib);
 	    hPerlLib = NULL;
 	    if (verbose)
-		semsg((const char *)_(e_loadfunc), perl_funcname_table[i].name);
+		semsg((const char *)_(e_could_not_load_library_function_str), perl_funcname_table[i].name);
 	    return FAIL;
 	}
     }

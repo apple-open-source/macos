@@ -47,9 +47,9 @@ static void TestOptions(void);
 static void TestGetFieldDisplayNames(void);
 static void TestGetDefaultHourCycle(void);
 static void TestGetDefaultHourCycleOnEmptyInstance(void);
+static void TestEras(void);
 static void TestJapaneseCalendarItems(void); // rdar://52042600
 static void TestCountryFallback(void);  // rdar://problem/26911014
-static void TestEras(void);
 static void TestAdlam(void);
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
@@ -60,9 +60,9 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestGetFieldDisplayNames);
     TESTCASE(TestGetDefaultHourCycle);
     TESTCASE(TestGetDefaultHourCycleOnEmptyInstance);
+    TESTCASE(TestEras);
     TESTCASE(TestJapaneseCalendarItems);
     TESTCASE(TestCountryFallback);
-    TESTCASE(TestEras);
     TESTCASE(TestAdlam);
 }
 
@@ -547,7 +547,7 @@ static void TestGetDefaultHourCycle() {
         { "fi",       UDAT_HOUR_CYCLE_23 },
         { "fr",       UDAT_HOUR_CYCLE_23 },
         { "ja_JP",    UDAT_HOUR_CYCLE_23 },
-        { "zh_CN",    UDAT_HOUR_CYCLE_12 },
+        { "zh_CN",    UDAT_HOUR_CYCLE_23 },
         { "zh_HK",    UDAT_HOUR_CYCLE_12 },
         { "zh_TW",    UDAT_HOUR_CYCLE_12 },
         { "ko_KR",    UDAT_HOUR_CYCLE_12 },
@@ -564,7 +564,7 @@ static void TestGetDefaultHourCycle() {
         } else {
             UDateFormatHourCycle actual = udatpg_getDefaultHourCycle(dtpgen, &status);
             if (U_FAILURE(status) || testDataPtr->expected != actual) {
-                log_err("ERROR dtpgen locale %s udatpg_getDefaultHourCycle expecte to get %d but get %d\n",
+                log_err("ERROR dtpgen locale %s udatpg_getDefaultHourCycle expected to get %d but get %d\n",
                         testDataPtr->locale, testDataPtr->expected, actual);
             }
             udatpg_close(dtpgen);
@@ -572,7 +572,7 @@ static void TestGetDefaultHourCycle() {
     }
 }
 
-// Ensure that calling udatpg_getDefaultHourCycle on an empty instance doesn't call UPRV_UNREACHABLE/abort.
+// Ensure that calling udatpg_getDefaultHourCycle on an empty instance doesn't call UPRV_UNREACHABLE_EXIT/abort.
 static void TestGetDefaultHourCycleOnEmptyInstance() {
     UErrorCode status = U_ZERO_ERROR;
     UDateTimePatternGenerator * dtpgen = udatpg_openEmpty(&status);
@@ -594,6 +594,38 @@ static void TestGetDefaultHourCycleOnEmptyInstance() {
     }
 
     udatpg_close(dtpgen);
+}
+
+// Test for ICU-21202: Make sure DateTimePatternGenerator supplies an era field for year formats using the
+// Buddhist and Japanese calendars for all English-speaking locales.
+static void TestEras(void) {
+    const char* localeIDs[] = {
+        "en_US@calendar=japanese",
+        "en_GB@calendar=japanese",
+        "en_150@calendar=japanese",
+        "en_001@calendar=japanese",
+        "en@calendar=japanese",
+        "en_US@calendar=buddhist",
+        "en_GB@calendar=buddhist",
+        "en_150@calendar=buddhist",
+        "en_001@calendar=buddhist",
+        "en@calendar=buddhist",
+    };
+    
+    UErrorCode err = U_ZERO_ERROR;
+    for (int32_t i = 0; i < UPRV_LENGTHOF(localeIDs); i++) {
+        const char* locale = localeIDs[i];
+        UDateTimePatternGenerator* dtpg = udatpg_open(locale, &err);
+        if (U_SUCCESS(err)) {
+            UChar pattern[200];
+            udatpg_getBestPattern(dtpg, u"y", 1, pattern, 200, &err);
+            
+            if (u_strchr(pattern, u'G') == NULL) {
+                log_err("missing era field for locale %s\n", locale);
+            }
+        }
+        udatpg_close(dtpg);
+    }
 }
 
 enum { kUFmtMax = 64, kBFmtMax = 128 };
@@ -658,7 +690,7 @@ static void TestCountryFallback(void) {
         u"ar_US", u"GyMMMM", u"MMMM y G",
         // Tests for situations where the original locale ID specifies a script:
         u"sr_Cyrl_SA", u"GyMMMM", u"MMMM y. G",
-        u"ru_Cyrl_BA", u"GyMMMM", u"LLLL y G",
+        u"ru_Cyrl_BA", u"GyMMMM", u"LLLL y 'г'. G",
         // And these are just a few additional arbitrary combinations:
         u"ja_US", u"GyMMMM", u"Gy年M月",
         u"fr_DE", u"GyMMMM", u"MMMM y G",
@@ -683,7 +715,7 @@ static void TestCountryFallback(void) {
         u"en_SA", u"yMEd", u"EEE, dd/MM/y GGGGG",
         // Tests for situations where the default calendar is different depending on whether you
         // fall back by language or by country:
-        u"ar_US", u"yMEd", u"EEE, M/d/y",
+        u"ar_US", u"yMEd", u"EEE، d/‏M/‏y",
         // Tests for situations where the original locale ID specifies a script:
         u"sr_Cyrl_SA", u"yMEd", u"EEE, d.M.y. GGGGG",
         u"ru_Cyrl_BA", u"yMEd", u"EEE, dd.MM.y.",
@@ -705,7 +737,7 @@ static void TestCountryFallback(void) {
         u"en_MD", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
         u"en_VA", u"Ejm", u"EEE HH:mm", // rdar://problem/29299919
         u"fr_GB", u"Ejm", u"EEE HH:mm", // rdar://problem/36020946
-        u"fr_CN", u"Ejm", u"EEE h:mm a", // rdar://problem/50083902
+        u"fr_CN", u"Ejm", u"EEE HH:mm", // rdar://problem/50083902
         u"es_IE", u"Ejm", u"EEE, H:mm", // rdar://problem/58733843
         // Special for en_SA, date formats should match en_001, other items should match en
         u"en_SA", u"Ejm", u"EEE, h:mm a",
@@ -761,38 +793,6 @@ static void TestCountryFallback(void) {
     }
 }
 
-// Test for rdar://65281358: Make sure DateTimePatternGenerator supplies an era field for year formats using the
-// Buddhist and Japanese calendars for all English-speaking locales.
-static void TestEras(void) {
-    char* localeIDs[] = {
-        "en_US@calendar=japanese",
-        "en_GB@calendar=japanese",
-        "en_150@calendar=japanese",
-        "en_001@calendar=japanese",
-        "en@calendar=japanese",
-        "en_US@calendar=buddhist",
-        "en_GB@calendar=buddhist",
-        "en_150@calendar=buddhist",
-        "en_001@calendar=buddhist",
-        "en@calendar=buddhist",
-    };
-    
-    UErrorCode err = U_ZERO_ERROR;
-    for (int32_t i = 0; i < UPRV_LENGTHOF(localeIDs); i++) {
-        char* locale = localeIDs[i];
-        UDateTimePatternGenerator* dtpg = udatpg_open(locale, &err);
-        if (U_SUCCESS(err)) {
-            UChar pattern[200];
-            udatpg_getBestPattern(dtpg, u"y", 1, pattern, 200, &err);
-            
-            if (u_strchr(pattern, u'G') == NULL) {
-                log_err("missing era field for locale %s\n", locale);
-            }
-        }
-        udatpg_close(dtpg);
-    }
-}
-
 // Test for rdar://80593890
 static void TestAdlam(void) {
     UErrorCode err = U_ZERO_ERROR;
@@ -801,7 +801,7 @@ static void TestAdlam(void) {
         log_data_err("udatpg_open failed for locale ff_Adlm: %s\n", u_errorName(err));
         return;
     }
-    static const UChar* uexpect = u"EEE⹁ d MMM";
+    static const UChar* uexpect = u"EEE d MMM";
     UChar upattern[kUFmtMax];
     udatpg_getBestPattern(dtpg, u"MMMEd", -1, upattern, kUFmtMax, &err);
     if (U_FAILURE(err)) {

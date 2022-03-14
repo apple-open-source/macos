@@ -27,12 +27,9 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/ed/re.c,v 1.20 2003/07/20 10:24:09 ru Exp $");
+__FBSDID("$FreeBSD$");
 
 #include "ed.h"
-
-
-extern int patlock;
 
 const char *errmsg = "";
 
@@ -92,7 +89,7 @@ extract_pattern(int delimiter)
 		default:
 			break;
 		case '[':
-			if ((nd = parse_char_class(++nd)) == NULL) {
+			if ((nd = parse_char_class(nd + 1)) == NULL) {
 				errmsg = "unbalanced brackets ([])";
 				return NULL;
 			}

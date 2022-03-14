@@ -466,29 +466,18 @@ bpf_make_dev_t(int maj)
 
 	/* need to grow bpf_dtab first */
 	if (nbpfilter == bpf_dtab_size) {
-		int new_dtab_size;
+		unsigned int new_dtab_size;
 		struct bpf_d **new_dtab = NULL;
-		struct bpf_d **old_dtab = NULL;
 
 		new_dtab_size = bpf_dtab_size + NBPFILTER;
-		new_dtab = (struct bpf_d **)_MALLOC(
-			sizeof(struct bpf_d *) * new_dtab_size, M_DEVBUF, M_WAIT);
+		new_dtab = krealloc_type(struct bpf_d *,
+		    bpf_dtab_size, new_dtab_size, bpf_dtab, Z_WAITOK | Z_ZERO);
 		if (new_dtab == 0) {
 			printf("bpf_make_dev_t: malloc bpf_dtab failed\n");
 			goto done;
 		}
-		if (bpf_dtab) {
-			bcopy(bpf_dtab, new_dtab,
-			    sizeof(struct bpf_d *) * bpf_dtab_size);
-		}
-		bzero(new_dtab + bpf_dtab_size,
-		    sizeof(struct bpf_d *) * NBPFILTER);
-		old_dtab = bpf_dtab;
 		bpf_dtab = new_dtab;
 		bpf_dtab_size = new_dtab_size;
-		if (old_dtab != NULL) {
-			_FREE(old_dtab, M_DEVBUF);
-		}
 	}
 	i = nbpfilter++;
 	(void) devfs_make_node(makedev(maj, i),

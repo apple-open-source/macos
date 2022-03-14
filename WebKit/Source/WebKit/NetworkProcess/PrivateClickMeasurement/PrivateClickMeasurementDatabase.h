@@ -26,11 +26,10 @@
 #pragma once
 
 #include "DatabaseUtilities.h"
+#include <WebCore/PrivateClickMeasurement.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
-namespace WebKit {
-
-namespace PCM {
+namespace WebKit::PCM {
 
 struct DebugInfo;
 
@@ -52,7 +51,7 @@ public:
     void clearExpiredPrivateClickMeasurement();
     void clearSentAttribution(WebCore::PrivateClickMeasurement&&, WebCore::PrivateClickMeasurement::AttributionReportEndpoint);
 
-    String privateClickMeasurementToStringForTesting();
+    String privateClickMeasurementToStringForTesting() const;
     void markAllUnattributedPrivateClickMeasurementAsExpiredForTesting();
     void markAttributedPrivateClickMeasurementsAsExpiredForTesting();
 
@@ -77,11 +76,11 @@ private:
     std::optional<DomainID> domainID(const WebCore::RegistrableDomain&);
     String getDomainStringFromDomainID(DomainID) const final;
 
-    void addBundleIDColumnIfNecessary();
-    bool needsUpdatedSchema() final;
+    void addDestinationTokenColumnsIfNecessary();
+    bool needsUpdatedSchema() final { return false; };
     bool createUniqueIndices() final;
     const MemoryCompactLookupOnlyRobinHoodHashMap<String, TableAndIndexPair>& expectedTableAndIndexQueries() final;
-    const Vector<String>& sortedTables() final;
+    Span<const ASCIILiteral> sortedTables() final;
 
     Vector<String> columnsForTable(const String& tableName);
     void addMissingColumnToTable(const String& tableName, const String& columnName);
@@ -103,6 +102,4 @@ private:
     mutable Statement m_insertObservedDomainStatement;
 };
 
-} // namespace PCM
-
-} // namespace WebKit
+} // namespace WebKit::PCM

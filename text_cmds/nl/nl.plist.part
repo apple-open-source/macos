@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>nl</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-07-27</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/nl?id=43ad0e153d614689d77a6a4b341f2b163e213b4d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-01</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>nl.c - change delimlen to size_t to silence warning (80472620)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

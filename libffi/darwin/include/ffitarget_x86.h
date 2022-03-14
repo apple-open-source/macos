@@ -39,6 +39,13 @@
 /* ---- System specific configurations ----------------------------------- */
 
 /* For code common to all platforms on x86 and x86_64. */
+#define X86_ANY
+
+#if defined (X86_64) && defined (__i386__)
+#undef X86_64
+#define X86
+#endif
+
 #ifdef X86_WIN64
 #define FFI_SIZEOF_ARG 8
 #define USE_BUILTIN_FFS 0 /* not yet implemented in mingw-64 */
@@ -84,7 +91,7 @@ typedef enum ffi_abi {
   FFI_DEFAULT_ABI = FFI_WIN64
 #endif  
 
-#elif defined (__x86_64__)
+#elif defined(X86_64) || (defined (__x86_64__) && defined (X86_DARWIN))
   FFI_FIRST_ABI = 1,
   FFI_UNIX64,
   FFI_WIN64,
@@ -130,7 +137,8 @@ typedef enum ffi_abi {
 #define FFI_TYPE_SMALL_STRUCT_4B (FFI_TYPE_LAST + 3)
 #define FFI_TYPE_MS_STRUCT       (FFI_TYPE_LAST + 4)
 
-#if defined (__x86_64__)
+#if defined (X86_64) || defined(X86_WIN64) \
+    || (defined (__x86_64__) && defined (X86_DARWIN))
 # define FFI_TRAMPOLINE_SIZE 24
 # define FFI_NATIVE_RAW_API 0
 #else

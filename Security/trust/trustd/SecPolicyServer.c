@@ -1787,30 +1787,6 @@ static bool is_ct_excepted(SecPVCRef pvc) {
     return result;
 }
 
-/* <rdar://45466778> some Apple servers not getting certs with embedded SCTs */
-static bool is_ct_allowlisted_cert(SecCertificateRef leaf) {
-    if (CFPreferencesGetAppBooleanValue(CFSTR("DisableCTAllowlist"), CFSTR("com.apple.security"), NULL) ||
-        CFPreferencesGetAppBooleanValue(CFSTR("DisableCTAllowlistApple"), CFSTR("com.apple.security"), NULL)) {
-        return false;
-    }
-
-    /* subject:/CN=basejumper.apple.com/OU=management:idms.group.110621/O=Apple Inc./ST=California/C=US */
-    /* issuer :/CN=Apple IST CA 2 - G1/OU=Certification Authority/O=Apple Inc./C=US */
-    static const uint8_t basejumper_hash[] = {
-        0x23, 0x32, 0x0b, 0x5a, 0x24, 0xd8, 0x4d, 0x27, 0x8c, 0x43, 0xc9, 0xed, 0x22, 0xed, 0x87, 0xb7,
-        0xc5, 0x51, 0x43, 0x55, 0xa9, 0x84, 0x79, 0x5a, 0x77, 0xb9, 0xad, 0x0f, 0x88, 0x14, 0x61, 0xac,
-    };
-
-    bool result = false;
-    CFDataRef leaf_fingerprint = SecCertificateCopySHA256Digest(leaf);
-    const uint8_t *dp = CFDataGetBytePtr(leaf_fingerprint);
-    if (dp && !memcmp(basejumper_hash, dp, CC_SHA256_DIGEST_LENGTH)) {
-        result = true;
-    }
-    CFReleaseNull(leaf_fingerprint);
-    return result;
-}
-
 static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     SecCertificateSourceRef appleAnchorSource = NULL;
     SecCertificatePathVCRef path = SecPathBuilderGetPath(pvc->builder);
@@ -1843,8 +1819,7 @@ static void SecPolicyCheckSystemTrustedCTRequired(SecPVCRef pvc) {
     appleAnchorSource = SecMemoryCertificateSourceCreate(SecGetAppleTrustAnchors(false));
     require_quiet(SecPathBuilderIsAnchored(pvc->builder), out);
     require_quiet((SecCertificateSourceContains(kSecSystemAnchorSource, root) &&
-                   appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root) &&
-                   !is_ct_allowlisted_cert(leaf)) ||
+                   appleAnchorSource && !SecCertificateSourceContains(appleAnchorSource, root)) ||
                   is_configured_test_system_root(root, CFSTR("TestCTRequiredSystemRoot")), out);
 
     if (!SecCertificatePathVCIsCT(path) && !is_ct_excepted(pvc)) {

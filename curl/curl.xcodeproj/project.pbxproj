@@ -540,7 +540,6 @@
 		FD60D0F01B5492930084FA3C /* curl_endian.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0EB1B5492560084FA3C /* curl_endian.c */; };
 		FD60D0F11B5492960084FA3C /* curl_des.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0E91B5492560084FA3C /* curl_des.c */; };
 		FD60D0F61B5492E70084FA3C /* schannel.c in Sources */ = {isa = PBXBuildFile; fileRef = FD60D0F41B5492D00084FA3C /* schannel.c */; };
-		FD7F96D3169E6E53000707BF /* tool_metalink.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96D1169E6E53000707BF /* tool_metalink.c */; };
 		FD7F96D9169E6F73000707BF /* amigaos.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96D6169E6F68000707BF /* amigaos.c */; };
 		FD7F96E6169E6FE3000707BF /* curl_multibyte.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96DC169E6FE3000707BF /* curl_multibyte.c */; };
 		FD7F96E8169E6FE3000707BF /* curl_sasl.c in Sources */ = {isa = PBXBuildFile; fileRef = FD7F96DE169E6FE3000707BF /* curl_sasl.c */; };
@@ -1923,8 +1922,6 @@
 		FD60D0ED1B5492560084FA3C /* curl_printf.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = curl_printf.h; sourceTree = "<group>"; };
 		FD60D0F41B5492D00084FA3C /* schannel.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = schannel.c; sourceTree = "<group>"; };
 		FD60D0F51B5492D00084FA3C /* schannel.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = schannel.h; sourceTree = "<group>"; };
-		FD7F96D1169E6E53000707BF /* tool_metalink.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tool_metalink.c; sourceTree = "<group>"; };
-		FD7F96D2169E6E53000707BF /* tool_metalink.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_metalink.h; sourceTree = "<group>"; };
 		FD7F96D4169E6E69000707BF /* tool_setup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = tool_setup.h; sourceTree = "<group>"; };
 		FD7F96D6169E6F68000707BF /* amigaos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = amigaos.c; sourceTree = "<group>"; };
 		FD7F96D7169E6F68000707BF /* amigaos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = amigaos.h; sourceTree = "<group>"; };
@@ -2718,8 +2715,6 @@
 				FDC61BF2149833D2005BBE36 /* tool_libinfo.h */,
 				FDC61BF3149833D2005BBE36 /* tool_main.c */,
 				FDC61BF4149833D2005BBE36 /* tool_main.h */,
-				FD7F96D1169E6E53000707BF /* tool_metalink.c */,
-				FD7F96D2169E6E53000707BF /* tool_metalink.h */,
 				FDC61BF7149833D2005BBE36 /* tool_msgs.c */,
 				FDC61BF8149833D2005BBE36 /* tool_msgs.h */,
 				FDC61BF9149833D2005BBE36 /* tool_operate.c */,
@@ -3819,7 +3814,6 @@
 				FD560D69173C6CA200A6E968 /* tool_hugehelp.c in Sources */,
 				FDC61C29149833D2005BBE36 /* tool_libinfo.c in Sources */,
 				FDC61C2A149833D2005BBE36 /* tool_main.c in Sources */,
-				FD7F96D3169E6E53000707BF /* tool_metalink.c in Sources */,
 				FDC61C2C149833D2005BBE36 /* tool_msgs.c in Sources */,
 				FDC61C2D149833D2005BBE36 /* tool_operate.c in Sources */,
 				FDC61C2E149833D2005BBE36 /* tool_operhlp.c in Sources */,

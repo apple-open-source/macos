@@ -28,27 +28,29 @@ import os.log
 let containerMap = ContainerMap(ckCodeOperationRunnerCreator: CuttlefishCKOperationRunnerCreator(),
                                 darwinNotifier: CKKSNotifyPostNotifier.self)
 
+private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "main")
+
 class ServiceDelegate: NSObject, NSXPCListenerDelegate {
     func listener(_ listener: NSXPCListener, shouldAcceptNewConnection newConnection: NSXPCConnection) -> Bool {
         let tphEntitlement = "com.apple.private.trustedpeershelper.client"
 
-        os_log("Received a new client: %{public}@", log: tplogDebug, type: .default, newConnection)
+        logger.debug("Received a new client: \(newConnection, privacy: .public)")
         switch newConnection.value(forEntitlement: tphEntitlement) {
         case 1 as Int:
-            os_log("client has entitlement '%{public}@'", log: tplogDebug, type: .default, tphEntitlement)
+            logger.debug("client has entitlement '\(tphEntitlement, privacy: .public)'")
         case true as Bool:
-            os_log("client has entitlement '%{public}@'", log: tplogDebug, type: .default, tphEntitlement)
+            logger.debug("client has entitlement '\(tphEntitlement, privacy: .public)'")
 
         case let someInt as Int:
-            os_log("client(%{public}@) has wrong integer value for '%{public}@' (%d), rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement, someInt)
+            logger.debug("client(\(newConnection, privacy: .public) has wrong integer value for '\(tphEntitlement, privacy: .public)' (\(someInt)), rejecting")
             return false
 
         case let someBool as Bool:
-            os_log("client(%{public}@) has wrong boolean value for '%{public}@' (%d), rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement, someBool)
+            logger.debug("client(\(newConnection, privacy: .public) has wrong boolean value for '\(tphEntitlement, privacy: .public)' (\(someBool)), rejecting")
             return false
 
         default:
-            os_log("client(%{public}@) is missing entitlement '%{public}@', rejecting", log: tplogDebug, type: .default, newConnection, tphEntitlement)
+            logger.debug("client(\(newConnection, privacy: .public) is missing entitlement '\(tphEntitlement, privacy: .public)'")
             return false
         }
 
@@ -83,15 +85,15 @@ withArrayOfCStrings(["HOME", NSHomeDirectory()]) { parameters in
     let rc = sandbox_init_with_parameters("com.apple.TrustedPeersHelper", UInt64(SANDBOX_NAMED), parameters, &sandboxErrors)
     guard rc == 0 else {
         let printableMessage = sandboxErrors.map { String(cString: $0 ) }
-        os_log("Unable to enter sandbox. Error code:%d message: %@", log: tplogDebug, type: .default, rc, printableMessage ?? "no printable message")
+        logger.debug("Unable to enter sandbox. Error code:\(rc) message: \(String(describing: printableMessage), privacy: .public)")
         sandbox_free_error(sandboxErrors)
         abort()
     }
-    os_log("Sandbox entered", log: tplogDebug, type: .default)
+    logger.debug("Sandbox entered")
 }
 #endif
 
-os_log("Starting up", log: tplogDebug, type: .default)
+logger.debug("Starting up")
 
 ValueTransformer.setValueTransformer(SetValueTransformer(), forName: SetValueTransformer.name)
 

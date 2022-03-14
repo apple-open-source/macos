@@ -410,16 +410,6 @@ uameasfmt_getUnitsForUsage( const char*     locale,
         return 0;
     }
 
-    // Remap consumption/vehicle-fuel for US/CA/GB to use consumption-inverse; this has to
-    // be done after resolveLocaleRegion (so it cannot be combined with resolveUsageAlias)
-    // rdar://73253930
-    if ( uprv_strcmp(resolvedCategory.data(), "consumption") == 0 &&
-         uprv_strcmp(resolvedUsage.data(), "vehicle-fuel") == 0 &&
-         (uprv_strcmp(region,"US")==0 || uprv_strcmp(region,"GB")==0 || uprv_strcmp(region,"CA")==0) ) {
-        resolvedCategory.clear();
-        resolvedCategory.append("consumption-inverse", *status);
-    }
-
     LocalPointer<UnitPreferences> prefsGetter(new UnitPreferences(*status), *status);
     if (U_FAILURE(*status)) {
         return 0;

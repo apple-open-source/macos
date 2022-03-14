@@ -151,7 +151,8 @@ hfs_idhash_init (struct hfsmount *hfsmp) {
 void
 hfs_idhash_destroy (struct hfsmount *hfsmp) {
 	/* during failed mounts & unmounts */
-	FREE(hfsmp->hfs_idhashtbl, M_TEMP);
+	hashdestroy(hfsmp->hfs_idhashtbl, M_TEMP, hfsmp->hfs_idhash);
+	hfsmp->hfs_idhashtbl = NULL;
 }
 
 /*
@@ -264,15 +265,15 @@ nextid:
 	}
 
 	/* Check to see if a thread record exists for the target ID we just got */
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	buildthreadkey(nextCNID, (CatalogKey *)&iterator->key);
 
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
 
 	result = BTSearchRecord(hfsmp->hfs_catalog_cp->c_datafork, iterator, &btdata, &datasize, iterator);
-	hfs_free(recp, sizeof(CatalogRecord));
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(recp, CatalogRecord);
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	if (result == btNotFound) {
 		/* Good.  File ID was not in use. Move on to checking EA B-Tree */
@@ -479,7 +480,7 @@ cat_lookup(struct hfsmount *hfsmp, struct cat_desc *descp, int wantrsrc, int for
 
 	flags = force_casesensitive_lookup ? HFS_LOOKUP_CASESENSITIVE : 0;
 
-	keyp = hfs_malloc(sizeof(CatalogKey));
+	keyp = hfs_malloc_type(CatalogKey);
 
 	result = buildkey(hfsmp, descp, (HFSPlusCatalogKey *)keyp, 1);
 	if (result)
@@ -503,7 +504,7 @@ cat_lookup(struct hfsmount *hfsmp, struct cat_desc *descp, int wantrsrc, int for
 		}
 	}
 exit:	
-	hfs_free(keyp, sizeof(*keyp));
+	hfs_free_type(keyp, CatalogKey);
 
 	return (result);
 }
@@ -523,7 +524,7 @@ cat_insertfilethread(struct hfsmount *hfsmp, struct cat_desc *descp)
 
 	fcb = GetFileControlBlock(HFSTOVCB(hfsmp)->catalogRefNum);
 
-	iterator = hfs_mallocz(2 * sizeof(*iterator));
+	iterator = hfs_new_zero(struct BTreeIterator, 2);
 	result = buildkey(hfsmp, descp, (HFSPlusCatalogKey *)&iterator[0].key, 0);
 	if (result)
 		goto exit;
@@ -556,7 +557,7 @@ cat_insertfilethread(struct hfsmount *hfsmp, struct cat_desc *descp)
 	}	
 exit:
 	(void) BTFlushPath(fcb);
-	hfs_free(iterator, 2 * sizeof(*iterator));
+	hfs_delete(iterator, struct BTreeIterator, 2);
 
 	return MacToVFSError(result);
 }
@@ -583,11 +584,11 @@ cat_findname(struct hfsmount *hfsmp, cnid_t cnid, struct cat_desc *outdescp)
 
 	isdir = 0;
 
-	iterator = hfs_malloc(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	buildthreadkey(cnid, (CatalogKey *)&iterator->key);
 	iterator->hint.nodeNum = 0;
 
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
 
 	result = BTSearchRecord(VTOF(hfsmp->hfs_catalog_vp), iterator, &btdata, NULL, NULL);
@@ -611,8 +612,8 @@ cat_findname(struct hfsmount *hfsmp, cnid_t cnid, struct cat_desc *outdescp)
 	builddesc((HFSPlusCatalogKey *)keyp, cnid, 0, 0, isdir, outdescp);
 
 exit:
-	hfs_free(recp, sizeof(*recp));
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(recp, CatalogRecord);
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	return MacToVFSError(result);
 }
@@ -634,10 +635,10 @@ cat_idlookup(struct hfsmount *hfsmp, cnid_t cnid, int allow_system_files, int wa
 	CatalogRecord * recp;
 	int result;
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	buildthreadkey(cnid, (CatalogKey *)&iterator->key);
 
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
 
 	result = BTSearchRecord(VTOF(HFSTOVCB(hfsmp)->catalogRefNum), iterator,
@@ -684,8 +685,8 @@ cat_idlookup(struct hfsmount *hfsmp, cnid_t cnid, int allow_system_files, int wa
 		}
 	}
 exit:
-	hfs_free(recp, sizeof(*recp));
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(recp, CatalogRecord);
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	return MacToVFSError(result);
 }
@@ -773,9 +774,9 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 	u_int32_t encoding = 0;
 	cnid_t parentid = 0;
 
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	iterator->hint.nodeNum = hint;
 	bcopy(keyp, &iterator->key, sizeof(CatalogKey));
 
@@ -984,8 +985,8 @@ cat_lookupbykey(struct hfsmount *hfsmp, CatalogKey *keyp, int flags, u_int32_t h
 	    *desc_cnid = cnid;
 	}
 exit:
-	hfs_free(iterator, sizeof(*iterator));
-	hfs_free(recp, sizeof(*recp));
+	hfs_free_type(iterator, struct BTreeIterator);
+	hfs_free_type(recp, CatalogRecord);
 
 	return MacToVFSError(result);
 }
@@ -1020,7 +1021,7 @@ cat_create(struct hfsmount *hfsmp, cnid_t new_fileid, struct cat_desc *descp, st
 	/* The caller is expected to reserve a CNID before calling this function! */
 	
 	/* Get space for iterator, key and data */	
-	bto = hfs_malloc(sizeof(struct btobj));
+	bto = hfs_malloc_type(struct btobj);
 	bto->iterator.hint.nodeNum = 0;
 
 	result = buildkey(hfsmp, descp, &bto->key, 0);
@@ -1082,13 +1083,12 @@ cat_create(struct hfsmount *hfsmp, cnid_t new_fileid, struct cat_desc *descp, st
 
 		builddesc(pluskey, new_fileid, bto->iterator.hint.nodeNum,
 			encoding, S_ISDIR(attrp->ca_mode), out_descp);
-
 	}
 	attrp->ca_fileid = new_fileid;
 
 exit:
 	(void) BTFlushPath(fcb);
-	hfs_free(bto, sizeof(*bto));
+	hfs_free_type(bto, struct btobj);
 
 	return MacToVFSError(result);
 }
@@ -1138,16 +1138,16 @@ cat_rename (
 	if (from_cdp->cd_namelen == 0 || to_cdp->cd_namelen == 0)
 		return (EINVAL);
 
-	from_iterator = hfs_mallocz(sizeof(*from_iterator));
+	from_iterator = hfs_malloc_type(struct BTreeIterator);
 	if ((result = buildkey(hfsmp, from_cdp, (HFSPlusCatalogKey *)&from_iterator->key, 0)))
 		goto exit;	
 
-	to_iterator = hfs_mallocz(sizeof(*to_iterator));
+	to_iterator = hfs_malloc_type(struct BTreeIterator);
 	if ((result = buildkey(hfsmp, to_cdp, (HFSPlusCatalogKey *)&to_iterator->key, 0)))
 		goto exit;	
 
 	to_key = (HFSPlusCatalogKey *)&to_iterator->key;
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
 
 	/*
@@ -1167,7 +1167,7 @@ cat_rename (
 			goto exit;
 		}
 		/* now allocate the dir_iterator */
-		dir_iterator = hfs_mallocz(sizeof(struct BTreeIterator));
+		dir_iterator = hfs_malloc_type(struct BTreeIterator);
 
 		/*
 		 * Traverse destination path all the way back to the root
@@ -1178,17 +1178,17 @@ cat_rename (
 			buildthreadkey(pathcnid, (CatalogKey *)&dir_iterator->key);
 			result = BTSearchRecord(fcb, dir_iterator, &btdata, &datasize, NULL);
 			if (result) {
-				hfs_free(dir_iterator, sizeof(*dir_iterator));
+				hfs_free_type(dir_iterator, struct BTreeIterator);
 				goto exit;
 			}
 			pathcnid = getparentcnid(recp);
 			if (pathcnid == cnid || pathcnid == 0) {
 				result = EINVAL;
-				hfs_free(dir_iterator, sizeof(*dir_iterator));
+				hfs_free_type(dir_iterator, struct BTreeIterator);
 				goto exit;
 			}
 		}
-		hfs_free(dir_iterator, sizeof(*dir_iterator));
+		hfs_free_type(dir_iterator, struct BTreeIterator);
 	}
 
 	/*
@@ -1385,11 +1385,11 @@ cat_rename (
 exit:
 	(void) BTFlushPath(fcb);
 	if (from_iterator)
-		hfs_free(from_iterator, sizeof(*from_iterator));
+		hfs_free_type(from_iterator, struct BTreeIterator);
 	if (to_iterator)
-		hfs_free(to_iterator, sizeof(*to_iterator));
+		hfs_free_type(to_iterator, struct BTreeIterator);
 	if (recp)
-		hfs_free(recp, sizeof(*recp));
+		hfs_free_type(recp, CatalogRecord);
 	return MacToVFSError(result);
 }
 
@@ -1856,7 +1856,7 @@ cat_check_link_ancestry(struct hfsmount *hfsmp, cnid_t cnid, cnid_t pointed_at_c
 
 	invalid = 0;
 	BDINIT(btdata, &folder);
-	ip = hfs_malloc(sizeof(*ip));
+	ip = hfs_malloc_type(BTreeIterator);
 	keyp = (HFSPlusCatalogKey *)&ip->key;
 	fcb = hfsmp->hfs_catalog_cp->c_datafork;
 
@@ -1883,7 +1883,7 @@ cat_check_link_ancestry(struct hfsmount *hfsmp, cnid_t cnid, cnid_t pointed_at_c
 		}
 		cnid = keyp->parentID;
 	}
-	hfs_free(ip, sizeof(*ip));
+	hfs_free_type(ip, BTreeIterator);
 	return (invalid);
 }
 
@@ -1939,7 +1939,7 @@ cat_update_siblinglinks(struct hfsmount *hfsmp, cnid_t linkfileid, cnid_t prevli
 	state.nextlinkid = nextlinkid;
 
 	/* Create an iterator for use by us temporarily */
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	result = getkey(hfsmp, linkfileid, (CatalogKey *)&iterator->key);
 	if (result == 0) {
@@ -1949,7 +1949,7 @@ cat_update_siblinglinks(struct hfsmount *hfsmp, cnid_t linkfileid, cnid_t prevli
 		printf("hfs: cat_update_siblinglinks: couldn't resolve cnid=%d, vol=%s\n", linkfileid, hfsmp->vcbVN);
 	}
 	
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 	return MacToVFSError(result);
 }
 
@@ -1968,7 +1968,7 @@ cat_lookuplink(struct hfsmount *hfsmp, struct cat_desc *descp, cnid_t *linkfilei
 	fcb = hfsmp->hfs_catalog_cp->c_datafork;
 
 	/* Create an iterator for use by us temporarily */
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	if ((result = buildkey(hfsmp, descp, (HFSPlusCatalogKey *)&iterator->key, 0))) {
 		goto exit;
@@ -1992,7 +1992,7 @@ cat_lookuplink(struct hfsmount *hfsmp, struct cat_desc *descp, cnid_t *linkfilei
 		*nextlinkid = 0;
 	}
 exit:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 	return MacToVFSError(result);
 }
 
@@ -2012,7 +2012,7 @@ cat_lookup_siblinglinks(struct hfsmount *hfsmp, cnid_t linkfileid, cnid_t *prevl
 	fcb = hfsmp->hfs_catalog_cp->c_datafork;
 
 	/* Create an iterator for use by us temporarily */
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	if ((result = getkey(hfsmp, linkfileid, (CatalogKey *)&iterator->key))) {
 		goto exit;
@@ -2043,7 +2043,7 @@ cat_lookup_siblinglinks(struct hfsmount *hfsmp, cnid_t linkfileid, cnid_t *prevl
 		*nextlinkid = 0;
 	}
 exit:
-	hfs_free(iterator, sizeof(*iterator));		
+	hfs_free_type(iterator, BTreeIterator);
 	return MacToVFSError(result);
 }
 
@@ -2067,7 +2067,7 @@ cat_lookup_lastlink(struct hfsmount *hfsmp, cnid_t linkfileid,
 	fcb = hfsmp->hfs_catalog_cp->c_datafork;
 	
 	/* Create an iterator for use by us temporarily */
-	iterator = hfs_malloc(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	while ((foundlast == 0) && (itercount < HFS_LINK_MAX )) {
 		itercount++;
@@ -2146,7 +2146,7 @@ exit:
 		}
 	}
 
-	hfs_free(iterator, sizeof(*iterator));		
+	hfs_free_type(iterator, BTreeIterator);
 	return MacToVFSError(result);
 }
 
@@ -2187,7 +2187,7 @@ cat_createlink(struct hfsmount *hfsmp, struct cat_desc *descp, struct cat_attr *
 	}
 
 	/* Get space for iterator, key and data */	
-	bto = hfs_malloc(sizeof(struct btobj));
+	bto = hfs_malloc_type(struct btobj);
 	bto->iterator.hint.nodeNum = 0;
 	rsrcforkp = &bto->data.hfsPlusFile.resourceFork;
 
@@ -2262,7 +2262,7 @@ exit:
 		}
 	}
 	(void) BTFlushPath(fcb);
-	hfs_free(bto, sizeof(*bto));
+	hfs_free_type(bto, struct btobj);
 
 	return MacToVFSError(result);
 }
@@ -2608,7 +2608,7 @@ cat_getentriesattr(struct hfsmount *hfsmp, directoryhint_t *dirhint, struct cat_
 	state.dir_cnid = parentcnid;
 	state.error = 0;
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 	key = (CatalogKey *)&iterator->key;
 	have_key = 0;
 	iterator->hint.nodeNum = dirhint->dh_desc.cd_hint;
@@ -2729,7 +2729,7 @@ cat_getentriesattr(struct hfsmount *hfsmp, directoryhint_t *dirhint, struct cat_
 	}
 
 exit:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 	*reachedeof = reached_eof;
 	return MacToVFSError(result);
 }
@@ -3039,7 +3039,7 @@ encodestr:
 				bufsize = 1 + utf8_encodelen(cnp->ustr.unicode,
 				                             cnp->ustr.length * sizeof(UniChar),
 				                             ':', 0);
-				new_nameptr = hfs_malloc(bufsize);
+				new_nameptr = hfs_malloc_data(bufsize);
 				result = utf8_encodestr(cnp->ustr.unicode,
 				                        cnp->ustr.length * sizeof(UniChar),
 				                        new_nameptr, &tmp_namelen, bufsize, ':', 0);
@@ -3047,7 +3047,7 @@ encodestr:
 				state->cbs_desc->cd_namelen = tmp_namelen;
 				bcopy(new_nameptr, state->cbs_namebuf, tmp_namelen + 1);
 			
-				hfs_free(new_nameptr, bufsize);
+				hfs_free_data(new_nameptr, bufsize);
 			} 
 		}
 		if (state->cbs_hasprevdirentry) {
@@ -3149,7 +3149,7 @@ cat_getdirentries(struct hfsmount *hfsmp, u_int32_t entrycnt, directoryhint_t *d
 	if (extended) {
 		bufsize += 2*sizeof(struct direntry);
 	}
-	buffer = hfs_mallocz(bufsize);
+	buffer = hfs_malloc_zero_data(bufsize);
 
 	state.cbs_flags = flags;
 	state.cbs_hasprevdirentry = false;
@@ -3367,7 +3367,7 @@ cat_getdirentries(struct hfsmount *hfsmp, u_int32_t entrycnt, directoryhint_t *d
 	}
 
 cleanup:
-	hfs_free(buffer, bufsize);
+	hfs_free_data(buffer, bufsize);
 
 	return (result);
 }
@@ -3544,7 +3544,7 @@ cat_resolvelink(struct hfsmount *hfsmp, u_int32_t linkref, int isdirlink, struct
 	}
 
 	/* Get space for iterator */	
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	/* Build a descriptor for private dir. */	
 	idesc.cd_parentcnid = parentcnid;
@@ -3566,7 +3566,7 @@ cat_resolvelink(struct hfsmount *hfsmp, u_int32_t linkref, int isdirlink, struct
 		printf("hfs: cat_resolvelink: can't find inode=%s on vol=%s\n", inodename, hfsmp->vcbVN);
 	}
 
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	return (result ? ENOENT : 0);
 }
@@ -3609,10 +3609,10 @@ getkey(struct hfsmount *hfsmp, cnid_t cnid, CatalogKey * key)
 	CatalogRecord * recp;
 	int result;
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	buildthreadkey(cnid, (CatalogKey *)&iterator->key);
 
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
 
 	result = BTSearchRecord(VTOF(HFSTOVCB(hfsmp)->catalogRefNum), iterator,
@@ -3636,8 +3636,8 @@ getkey(struct hfsmount *hfsmp, cnid_t cnid, CatalogKey * key)
 	}
 
 exit:
-	hfs_free(iterator, sizeof(*iterator));
-	hfs_free(recp, sizeof(*recp));
+	hfs_free_type(iterator, struct BTreeIterator);
+	hfs_free_type(recp, CatalogRecord);
 
 	return MacToVFSError(result);
 }
@@ -3765,7 +3765,7 @@ builddesc(const HFSPlusCatalogKey *key, cnid_t cnid, u_int32_t hint, u_int32_t e
 	/* guess a size... */
 	bufsize = (3 * key->nodeName.length) + 1;
 	if (bufsize >= sizeof(tmpbuff) - 1) {
-	    nameptr = hfs_malloc(bufsize);
+	    nameptr = hfs_malloc_data(bufsize);
 	} else {
 	    nameptr = &tmpbuff[0];
 	}
@@ -3777,11 +3777,11 @@ builddesc(const HFSPlusCatalogKey *key, cnid_t cnid, u_int32_t hint, u_int32_t e
 
 	if (result == ENAMETOOLONG) {
 		if (nameptr != &tmpbuff[0])
-			hfs_free(nameptr, bufsize);
+			hfs_free_data(nameptr, bufsize);
 		bufsize = 1 + utf8_encodelen(key->nodeName.unicode,
 		                             key->nodeName.length * sizeof(UniChar),
 		                             ':', 0);
-		nameptr = hfs_malloc(bufsize);
+		nameptr = hfs_malloc_data(bufsize);
 
 		result = utf8_encodestr(key->nodeName.unicode,
 		                        key->nodeName.length * sizeof(UniChar),
@@ -3798,7 +3798,7 @@ builddesc(const HFSPlusCatalogKey *key, cnid_t cnid, u_int32_t hint, u_int32_t e
 		descp->cd_flags |= CD_ISDIR;	
 	descp->cd_encoding = encoding;
 	if (nameptr != &tmpbuff[0]) {
-	    hfs_free(nameptr, bufsize);
+	    hfs_free_data(nameptr, bufsize);
 	}
 	return result;
 }
@@ -4058,10 +4058,10 @@ cat_lookup_dirlink(struct hfsmount *hfsmp, cnid_t dirlink_id,
 		return ENOTSUP;
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	buildthreadkey(dirlink_id, (CatalogKey *)&iterator->key);
 
-	recp = hfs_malloc(sizeof(CatalogRecord));
+	recp = hfs_malloc_type(CatalogRecord);
 	BDINIT(btdata, recp);
 
 	error = BTSearchRecord(VTOF(HFSTOVCB(hfsmp)->catalogRefNum), iterator,
@@ -4099,9 +4099,9 @@ cat_lookup_dirlink(struct hfsmount *hfsmp, cnid_t dirlink_id,
 
 out:
 	if (recp) {
-		hfs_free(recp, sizeof(*recp));
+		hfs_free_type(recp, CatalogRecord);
 	}
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	return MacToVFSError(error);
 }

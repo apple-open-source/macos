@@ -128,6 +128,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2A95BB3E26FD9B8400A7928E /* users.cc in Sources */ = {isa = PBXBuildFile; fileRef = 2A95BB3D26FD9B8400A7928E /* users.cc */; };
 		C686857A154725700025D623 /* systime.c in Sources */ = {isa = PBXBuildFile; fileRef = C6868579154725700025D623 /* systime.c */; };
 		C686857C154725700025D623 /* systime.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = C686857B154725700025D623 /* systime.1 */; };
 		D39B190C25B1218100C43A96 /* regress.bwidth.out in CopyFiles */ = {isa = PBXBuildFile; fileRef = D39B190B25B1216000C43A96 /* regress.bwidth.out */; };
@@ -219,7 +220,6 @@
 		FCBA14F214A1448F00AA698B /* chroot.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA134F14A141A300AA698B /* chroot.8 */; };
 		FCBA14F314A1449A00AA698B /* date.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA135314A141A300AA698B /* date.1 */; };
 		FCBA14F414A1449C00AA698B /* date.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA135414A141A300AA698B /* date.c */; };
-		FCBA14F514A144AF00AA698B /* netdate.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA135714A141A300AA698B /* netdate.c */; };
 		FCBA14F614A144B200AA698B /* vary.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA135814A141A300AA698B /* vary.c */; };
 		FCBA14F714A144C700AA698B /* dirname.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA135B14A141A300AA698B /* dirname.c */; };
 		FCBA14F814A144CB00AA698B /* dirname.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA134C14A141A300AA698B /* dirname.1 */; };
@@ -245,7 +245,6 @@
 		FCBA164D14A146A200AA698B /* w.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA141614A141A300AA698B /* w.c */; };
 		FCBA164E14A146A500AA698B /* uptime.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA141414A141A300AA698B /* uptime.1 */; };
 		FCBA164F14A146A700AA698B /* w.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA141514A141A300AA698B /* w.1 */; };
-		FCBA165014A146BE00AA698B /* users.c in Sources */ = {isa = PBXBuildFile; fileRef = FCBA140D14A141A300AA698B /* users.c */; };
 		FCBA165114A146C100AA698B /* users.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA140C14A141A300AA698B /* users.1 */; };
 		FCE30EA814B5105200CC0294 /* pwd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA13D814A141A300AA698B /* pwd.1 */; };
 		FCE30EBA14B532D900CC0294 /* com.apple.locate.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FCBA13A414A141A300AA698B /* com.apple.locate.plist */; };
@@ -1544,6 +1543,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2A95BB3D26FD9B8400A7928E /* users.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = users.cc; sourceTree = "<group>"; };
 		6C1C283E22FB822900E0AC67 /* su_entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = su_entitlements.plist; sourceTree = "<group>"; };
 		C6868576154725700025D623 /* systime */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = systime; sourceTree = BUILT_PRODUCTS_DIR; };
 		C6868579154725700025D623 /* systime.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = systime.c; sourceTree = "<group>"; };
@@ -1553,6 +1553,7 @@
 		CE799E6324B3982200E73238 /* builtins.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = builtins.txt; sourceTree = "<group>"; };
 		CE799E6424B3982200E73238 /* builtins-manpages.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "builtins-manpages.txt"; sourceTree = "<group>"; };
 		D39B190B25B1216000C43A96 /* regress.bwidth.out */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = regress.bwidth.out; sourceTree = "<group>"; };
+		E1FB170727137F9C006E2F23 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
 		FC5D636814B9808E00123E48 /* conv.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = conv.c; sourceTree = "<group>"; };
 		FC5D636914B9808E00123E48 /* display.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = display.c; sourceTree = "<group>"; };
 		FC5D636A14B9808E00123E48 /* hexdump.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = hexdump.1; sourceTree = "<group>"; };
@@ -1578,8 +1579,6 @@
 		FCBA135014A141A300AA698B /* chroot.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = chroot.c; sourceTree = "<group>"; };
 		FCBA135314A141A300AA698B /* date.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = date.1; sourceTree = "<group>"; };
 		FCBA135414A141A300AA698B /* date.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = date.c; sourceTree = "<group>"; };
-		FCBA135514A141A300AA698B /* extern.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
-		FCBA135714A141A300AA698B /* netdate.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = netdate.c; sourceTree = "<group>"; };
 		FCBA135814A141A300AA698B /* vary.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = vary.c; sourceTree = "<group>"; };
 		FCBA135914A141A300AA698B /* vary.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = vary.h; sourceTree = "<group>"; };
 		FCBA135B14A141A300AA698B /* dirname.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = dirname.c; sourceTree = "<group>"; };
@@ -1674,7 +1673,6 @@
 		FCBA140814A141A300AA698B /* uname.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = uname.1; sourceTree = "<group>"; };
 		FCBA140914A141A300AA698B /* uname.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = uname.c; sourceTree = "<group>"; };
 		FCBA140C14A141A300AA698B /* users.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = users.1; sourceTree = "<group>"; };
-		FCBA140D14A141A300AA698B /* users.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = users.c; sourceTree = "<group>"; };
 		FCBA140F14A141A300AA698B /* extern.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = extern.h; sourceTree = "<group>"; };
 		FCBA141014A141A300AA698B /* fmt.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = fmt.c; sourceTree = "<group>"; };
 		FCBA141214A141A300AA698B /* pr_time.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = pr_time.c; sourceTree = "<group>"; };
@@ -2400,8 +2398,6 @@
 			children = (
 				FCBA135314A141A300AA698B /* date.1 */,
 				FCBA135414A141A300AA698B /* date.c */,
-				FCBA135514A141A300AA698B /* extern.h */,
-				FCBA135714A141A300AA698B /* netdate.c */,
 				FCBA135814A141A300AA698B /* vary.c */,
 				FCBA135914A141A300AA698B /* vary.h */,
 			);
@@ -2767,7 +2763,7 @@
 			isa = PBXGroup;
 			children = (
 				FCBA140C14A141A300AA698B /* users.1 */,
-				FCBA140D14A141A300AA698B /* users.c */,
+				2A95BB3D26FD9B8400A7928E /* users.cc */,
 			);
 			path = users;
 			sourceTree = "<group>";
@@ -2789,6 +2785,7 @@
 		FCBA141714A141A300AA698B /* whereis */ = {
 			isa = PBXGroup;
 			children = (
+				E1FB170727137F9C006E2F23 /* pathnames.h */,
 				FCBA141914A141A300AA698B /* whereis.1 */,
 				FCBA141A14A141A300AA698B /* whereis.c */,
 			);
@@ -4098,7 +4095,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FCBA14F614A144B200AA698B /* vary.c in Sources */,
-				FCBA14F514A144AF00AA698B /* netdate.c in Sources */,
 				FCBA14F414A1449C00AA698B /* date.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -4380,7 +4376,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				FCBA165014A146BE00AA698B /* users.c in Sources */,
+				2A95BB3E26FD9B8400A7928E /* users.cc in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -5118,6 +5114,7 @@
 			buildSettings = {
 				CLANG_ENABLE_OBJC_WEAK = YES;
 				INSTALL_PATH = /bin;
+				OTHER_CFLAGS = "-fwrapv";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

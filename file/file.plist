@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>file</string>
 	<key>OpenSourceVersion</key>
-	<string>5.40</string>
+	<string>5.41</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://www.darwinsys.com/file/</string>
+	<string>https://www.darwinsys.com/file/</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/file/file-5.40.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/file/file-5.41.tar.gz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>ef83cf60a313e655f3282b31665c84b86439946dbc8ab9e4a3213662fa8146a6</string>
+	<string>37e9811cbdc479e9b55b3c0414f1c0391cc85ac68d30621b628c42d66079a022</string>
 	<key>OpenSourceImportDate</key>
-	<string>2021-04-04</string>
+	<string>2021-10-18</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Correct error in sun magic file (2504403).</string>

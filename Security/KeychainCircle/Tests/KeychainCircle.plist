@@ -15,7 +15,7 @@
 	<array>
 		<dict>
 			<key>TestName</key>
-			<string>KCDer</string>
+			<string>KCDerTest</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/Security</string>
 			<key>Arch</key>
@@ -36,7 +36,7 @@
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>KCAESGCM</string>
+			<string>KCJoiningSessionTest</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/Security</string>
 			<key>Arch</key>
@@ -51,13 +51,13 @@
 				<string>-ApplePersistenceIgnoreState</string>
 				<string>YES</string>
 				<string>-XCTest</string>
-				<string>testAESGCMDuplex</string>
+				<string>KCJoiningSessionTest</string>
 				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>KCAESGCMCoding</string>
+			<string>KCTLKRequestTest</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/Security</string>
 			<key>Arch</key>
@@ -72,13 +72,13 @@
 				<string>-ApplePersistenceIgnoreState</string>
 				<string>YES</string>
 				<string>-XCTest</string>
-				<string>testAESGCMDuplexCoding</string>
+				<string>KCTLKRequestTest</string>
 				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>JoiningSession</string>
+			<string>KCSRPTests</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/Security</string>
 			<key>Arch</key>
@@ -93,13 +93,13 @@
 				<string>-ApplePersistenceIgnoreState</string>
 				<string>YES</string>
 				<string>-XCTest</string>
-				<string>testJoiningSession</string>
+				<string>KCSRPTests</string>
 				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>
 		<dict>
 			<key>TestName</key>
-			<string>JoiningSessionRetry</string>
+			<string>KCAESGCMTest</string>
 			<key>WorkingDirectory</key>
 			<string>/AppleInternal/Tests/Security</string>
 			<key>Arch</key>
@@ -114,28 +114,7 @@
 				<string>-ApplePersistenceIgnoreState</string>
 				<string>YES</string>
 				<string>-XCTest</string>
-				<string>testJoiningSessionRetry</string>
-				<string>KeychainCircleTests.xctest</string>
-			</array>
-		</dict>
-		<dict>
-			<key>TestName</key>
-			<string>JoiningSessionCodeChange</string>
-			<key>WorkingDirectory</key>
-			<string>/AppleInternal/Tests/Security</string>
-			<key>Arch</key>
-			<string>platform-native</string>
-			<key>AsRoot</key>
-			<false/>
-			<key>Command</key>
-			<array>
-				<string>BATS_XCTEST_CMD</string>
-				<string>-NSTreatUnknownArgumentsAsOpen</string>
-				<string> NO</string>
-				<string>-ApplePersistenceIgnoreState</string>
-				<string>YES </string>
-				<string>-XCTest</string>
-				<string>testJoiningSessionCodeChange</string>
+				<string>KCAESGCMTest</string>
 				<string>KeychainCircleTests.xctest</string>
 			</array>
 		</dict>

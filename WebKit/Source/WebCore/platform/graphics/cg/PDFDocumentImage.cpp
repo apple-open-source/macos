@@ -319,7 +319,7 @@ void PDFDocumentImage::destroyDecodedData(bool)
 
 void PDFDocumentImage::createPDFDocument()
 {
-    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data()->createCFData().get()));
+    RetainPtr<CGDataProviderRef> dataProvider = adoptCF(CGDataProviderCreateWithCFData(data()->makeContiguous()->createCFData().get()));
     m_document = adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get()));
 }
 
@@ -362,38 +362,15 @@ void PDFDocumentImage::drawPDFPage(GraphicsContext& context)
 
     context.translate(-m_cropBox.location());
 
-#if USE(DIRECT2D)
-    notImplemented();
-#else
     // CGPDF pages are indexed from 1.
 #if PLATFORM(COCOA)
     CGContextDrawPDFPageWithAnnotations(context.platformContext(), CGPDFDocumentGetPage(m_document.get(), 1), nullptr);
 #else
     CGContextDrawPDFPage(context.platformContext(), CGPDFDocumentGetPage(m_document.get(), 1));
 #endif
-#endif
 }
 
 #endif // !USE(PDFKIT_FOR_PDFDOCUMENTIMAGE)
-
-#if PLATFORM(MAC)
-
-RetainPtr<CFMutableDataRef> PDFDocumentImage::convertPostScriptDataToPDF(RetainPtr<CFDataRef>&& postScriptData)
-{
-    // Convert PostScript to PDF using the Quartz 2D API.
-    // http://developer.apple.com/documentation/GraphicsImaging/Conceptual/drawingwithquartz2d/dq_ps_convert/chapter_16_section_1.html
-
-    CGPSConverterCallbacks callbacks = { };
-    auto converter = adoptCF(CGPSConverterCreate(0, &callbacks, 0));
-    auto provider = adoptCF(CGDataProviderCreateWithCFData(postScriptData.get()));
-    auto pdfData = adoptCF(CFDataCreateMutable(kCFAllocatorDefault, 0));
-    auto consumer = adoptCF(CGDataConsumerCreateWithCFData(pdfData.get()));
-
-    CGPSConverterConvert(converter.get(), provider.get(), consumer.get(), 0);
-    return pdfData;
-}
-
-#endif
 
 void PDFDocumentImage::dump(TextStream& ts) const
 {

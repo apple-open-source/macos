@@ -44,6 +44,9 @@
 
 #include "hfs_encodings.h"
 #include "../core/hfs_macos_defs.h"
+#include "../core/hfs.h"
+
+uint64_t hfs_allocated __attribute__((aligned(8)));
 
 lck_grp_t * encodinglst_lck_grp;
 lck_grp_attr_t * encodinglst_lck_grp_attr;
@@ -114,7 +117,7 @@ void hfs_converterdone(void)
 int
 hfs_addconverter(int id, u_int32_t encoding, hfs_to_unicode_func_t get_unicode, unicode_to_hfs_func_t get_hfsname)
 {
-	struct hfs_encoding *encp = (struct hfs_encoding *)IOMalloc(sizeof(*encp));
+	struct hfs_encoding *encp = hfs_malloc_type(struct hfs_encoding);
 
 	lck_mtx_lock(&encodinglst_mutex);
 
@@ -161,7 +164,7 @@ hfs_remconverter(int id, u_int32_t encoding)
 				SLIST_REMOVE(&hfs_encoding_list, encp, hfs_encoding, link);
 				lck_mtx_unlock(&encodinglst_mutex);
 				OSKextReleaseKextWithLoadTag(encp->kmod_id);
-				IOFree(encp, sizeof(*encp));
+                hfs_free_type(encp, struct hfs_encoding);
 				return (0);
  			} else {
  				lck_mtx_unlock(&encodinglst_mutex);
@@ -229,7 +232,7 @@ hfs_relconverter(u_int32_t encoding)
 				lck_mtx_unlock(&encodinglst_mutex);
  
 				OSKextReleaseKextWithLoadTag(encp->kmod_id);
-				IOFree(encp, sizeof(*encp));
+                hfs_free_type(encp, struct hfs_encoding);
 				return (0);
 			}
 			lck_mtx_unlock(&encodinglst_mutex);

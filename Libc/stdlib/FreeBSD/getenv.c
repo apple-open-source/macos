@@ -39,9 +39,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/getenv.c,v 1.8 2007/05/01 16:02:41 ache 
 #include <string.h>
 #include <crt_externs.h>
 
+#include "libc_private.h"
+
 __private_extern__ char *__findenv_locked(const char *, int *, char **);
-__private_extern__ void __environ_lock(void);
-__private_extern__ void __environ_unlock(void);
 
 /*
  * __findenv_locked --
@@ -80,14 +80,14 @@ __findenv_locked(name, offset, environ)
 }
 
 static os_unfair_lock __environ_lock_obj = OS_UNFAIR_LOCK_INIT;
-__private_extern__ void
-__environ_lock(void)
+void
+environ_lock_np(void)
 {
 	os_unfair_lock_lock_with_options(
 			&__environ_lock_obj, OS_UNFAIR_LOCK_DATA_SYNCHRONIZATION);
 }
-__private_extern__ void
-__environ_unlock(void)
+void
+environ_unlock_np(void)
 {
 	os_unfair_lock_unlock(&__environ_lock_obj);
 }
@@ -107,9 +107,9 @@ _getenvp(const char *name, char ***envp, void *state __unused)
 {
 	// envp is passed as an argument, so the lock is not protecting everything
 	int offset;
-	__environ_lock();
+	environ_lock_np();
 	char *result = (__findenv_locked(name, &offset, *envp));
-	__environ_unlock();
+	environ_unlock_np();
 	return result;
 }
 
@@ -122,8 +122,8 @@ getenv(name)
 	const char *name;
 {
 	int offset;
-	__environ_lock();
+	environ_lock_np();
 	char *result = __findenv_locked(name, &offset, *_NSGetEnviron());
-	__environ_unlock();
+	environ_unlock_np();
 	return result;
 }

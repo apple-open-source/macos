@@ -192,6 +192,17 @@ CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0SubviewSet, subViewSet, (^{
     *subViewSet = SOSViewCopyViewSet(kViewSetV0);
 }));
 
+CFSetRef SOSViewsGetUserVisibleSet(void) {
+    static CFMutableSetRef subViewSet = NULL;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        subViewSet = SOSViewCopyViewSet(kViewSetV0);
+        CFSetRemoveValue(subViewSet, kSOSViewiCloudIdentity);
+        CFSetRemoveValue(subViewSet, kSOSViewBackupBagV0);
+    });
+    return subViewSet;
+}
+
 CFGiblisGetSingleton(CFSetRef, SOSViewsGetV0BackupViewSet, defaultViewSet, ^{
     const void *values[] = { kSOSViewKeychainV0_tomb };
     *defaultViewSet = CFSetCreate(kCFAllocatorDefault, values, array_size(values), &kCFTypeSetCallBacks);
@@ -553,6 +564,16 @@ bool SOSPeerInfoV0ViewsEnabled(SOSPeerInfoRef pi) {
     }
     CFSetRef piViews = SOSPeerInfoCopyEnabledViews(pi);
     bool retval = SOSViewSetIntersectsV0(piViews);
+    CFReleaseNull(piViews);
+    return retval;
+}
+
+bool SOSPeerInfoHasUserVisibleViewsEnabled(SOSPeerInfoRef pi) {
+    if(!pi) {
+        return false;
+    }
+    CFSetRef piViews = SOSPeerInfoCopyEnabledViews(pi);
+    bool retval =  CFSetIntersects(piViews, SOSViewsGetUserVisibleSet());
     CFReleaseNull(piViews);
     return retval;
 }

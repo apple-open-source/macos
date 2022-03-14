@@ -4,6 +4,7 @@
 en_TH{
     %%Parent{"en_001"}
     calendar{
+        default{"buddhist"}
         generic{
             DateTimePatterns{
                 "HH:mm:ss zzzz",

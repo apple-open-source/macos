@@ -35,6 +35,8 @@ static void TestPerUnitInArabic(void);
 // Apple rdar://79621279
 static void TestPressureUnits(void);
 
+static void Test21674_State(void);
+
 void addUNumberFormatterTest(TestNode** root);
 
 #define TESTCASE(x) addTest(root, &x, "tsformat/unumberformatter/" #x)
@@ -48,6 +50,7 @@ void addUNumberFormatterTest(TestNode** root) {
     TESTCASE(TestToDecimalNumber);
     TESTCASE(TestPerUnitInArabic);
     TESTCASE(TestPressureUnits);  // rdar://79621279
+    TESTCASE(Test21674_State);
 }
 
 
@@ -415,5 +418,46 @@ static void TestPressureUnits(void) {
         unumf_close(nf);
     }
 }
+
+static void Test21674_State() {
+    UErrorCode status = U_ZERO_ERROR;
+    UNumberFormatter* nf = NULL;
+    UFormattedNumber* result = NULL;
+
+    nf = unumf_openForSkeletonAndLocale(u"precision-increment/0.05/w", -1, "en", &status);
+    if (!assertSuccess("unumf_openForSkeletonAndLocale", &status)) { goto cleanup; }
+
+    result = unumf_openResult(&status);
+    if (!assertSuccess("unumf_openResult", &status)) { goto cleanup; }
+
+    typedef struct TestCase {
+        double num;
+        const UChar* expected;
+    } TestCase;
+    TestCase cases[] = {
+        { 1.975, u"2" },
+        { 1.97, u"1.95" },
+        { 1.975, u"2" },
+    };
+    for (int i=0; i<3; i++) {
+        unumf_formatDouble(nf, cases[i].num, result, &status);
+        if (!assertSuccess("unumf_formatDouble", &status)) { goto cleanup; }
+
+        const UFormattedValue* formattedValue = unumf_resultAsValue(result, &status);
+        if (!assertSuccess("unumf_resultAsValue", &status)) { goto cleanup; }
+
+        int32_t length;
+        const UChar* str = ufmtval_getString(formattedValue, &length, &status);
+        if (!assertSuccess("ufmtval_getString", &status)) { goto cleanup; }
+
+        char message[] = {i + '0', '\0'};
+        assertUEquals(message, cases[i].expected, str);
+    }
+
+cleanup:
+    unumf_close(nf);
+    unumf_closeResult(result);
+}
+
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

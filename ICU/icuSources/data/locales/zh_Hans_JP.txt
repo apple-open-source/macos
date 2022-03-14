@@ -1,0 +1,24 @@
+﻿// © 2016 and later: Unicode, Inc. and others.
+// License & terms of use: http://www.unicode.org/copyright.html
+// Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
+zh_Hans_JP{
+    calendar{
+        gregorian{
+            DateTimePatterns{
+                "zzzz H:mm:ss",
+                "z H:mm:ss",
+                "H:mm:ss",
+                "H:mm",
+                "y年M月d日 EEEE",
+                "y年M月d日",
+                "y年M月d日",
+                "y/M/d",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+        }
+    }
+}

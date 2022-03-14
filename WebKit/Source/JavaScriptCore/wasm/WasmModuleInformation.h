@@ -74,6 +74,7 @@ struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
     uint32_t importFunctionCount() const { return importFunctionSignatureIndices.size(); }
     uint32_t internalFunctionCount() const { return internalFunctionSignatureIndices.size(); }
     uint32_t importExceptionCount() const { return importExceptionSignatureIndices.size(); }
+    uint32_t internalExceptionCount() const { return internalExceptionSignatureIndices.size(); }
 
     // Currently, our wasm implementation allows only one memory and table.
     // If we need to remove this limitation, we would have MemoryInformation and TableInformation in the Vectors.
@@ -118,7 +119,6 @@ struct ModuleInformation : public ThreadSafeRefCounted<ModuleInformation> {
 
     BitVector m_declaredFunctions;
     BitVector m_declaredExceptions;
-    BitVector m_functionDoesNotUseExceptions;
     mutable BitVector m_referencedFunctions;
 };
 

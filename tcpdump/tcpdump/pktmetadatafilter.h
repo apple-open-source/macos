@@ -40,6 +40,7 @@ struct pkt_meta_data {
 	pid_t epid;
 	const char *dir;
 	const char *svc;
+	uint32_t flowid;
 };
 
 

@@ -33,7 +33,7 @@ public:
     using DOMWrapped = PaintWorkletGlobalScope;
     static JSPaintWorkletGlobalScope* create(JSC::VM& vm, JSC::Structure* structure, Ref<PaintWorkletGlobalScope>&& impl, JSC::JSProxy* proxy)
     {
-        JSPaintWorkletGlobalScope* ptr = new (NotNull, JSC::allocateCell<JSPaintWorkletGlobalScope>(vm.heap)) JSPaintWorkletGlobalScope(vm, structure, WTFMove(impl));
+        JSPaintWorkletGlobalScope* ptr = new (NotNull, JSC::allocateCell<JSPaintWorkletGlobalScope>(vm)) JSPaintWorkletGlobalScope(vm, structure, WTFMove(impl));
         ptr->finishCreation(vm, proxy);
         return ptr;
     }
@@ -72,7 +72,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSPaintWorkletGlobalScopePrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSPaintWorkletGlobalScopePrototype* ptr = new (NotNull, JSC::allocateCell<JSPaintWorkletGlobalScopePrototype>(vm.heap)) JSPaintWorkletGlobalScopePrototype(vm, globalObject, structure);
+        JSPaintWorkletGlobalScopePrototype* ptr = new (NotNull, JSC::allocateCell<JSPaintWorkletGlobalScopePrototype>(vm)) JSPaintWorkletGlobalScopePrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -82,7 +82,7 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSPaintWorkletGlobalScopePrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {

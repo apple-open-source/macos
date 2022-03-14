@@ -66,49 +66,49 @@
 #include <nfs/nfs.h>
 
 struct nfs_conf_client {
-    int access_cache_timeout;
-    int access_for_getattr;
-    int allow_async;
-    int callback_port;
-    int initialdowndelay;
-    int iosize;
-    int nextdowndelay;
-    int nfsiod_thread_max;
-    int statfs_rate_limit;
-    int is_mobile;
-    int squishy_flags;
-    int root_steals_gss_context;
-    int mount_timeout;
-    int mount_quick_timeout;
-    char *default_nfs4domain;
+	int access_cache_timeout;
+	int access_for_getattr;
+	int allow_async;
+	int callback_port;
+	int initialdowndelay;
+	int iosize;
+	int nextdowndelay;
+	int nfsiod_thread_max;
+	int statfs_rate_limit;
+	int is_mobile;
+	int squishy_flags;
+	int root_steals_gss_context;
+	int mount_timeout;
+	int mount_quick_timeout;
+	char *default_nfs4domain;
 };
 
 extern struct nfs_conf_client config;
 
 struct nfs_options_client {
-        int             mntflags;                               /* MNT_* flags */
-        uint32_t        mattrs[NFS_MATTR_BITMAP_LEN];           /* what attrs are set */
-        uint32_t        mflags_mask[NFS_MFLAG_BITMAP_LEN];      /* what flags are set */
-        uint32_t        mflags[NFS_MFLAG_BITMAP_LEN];           /* set flag values */
-        uint32_t        nfs_version, nfs_minor_version;         /* NFS version */
-        uint32_t        nfs_max_vers, nfs_min_vers;              /* NFS min and max packed version */
-        uint32_t        rsize, wsize, readdirsize, readahead;   /* I/O values */
-        struct timespec acregmin, acregmax, acdirmin, acdirmax; /* attrcache values */
-        uint32_t        lockmode;                               /* advisory file locking mode */
-        struct nfs_sec  sec;                                    /* security flavors */
-        struct nfs_etype etype;                                 /* Kerberos session key encryption types to use */
-        uint32_t        maxgrouplist;                           /* max AUTH_SYS groups */
-        int             socket_type, socket_family;             /* socket info */
-        uint32_t        nfs_port, mount_port;                   /* port info */
-        struct timespec request_timeout;                        /* NFS request timeout */
-        uint32_t        soft_retry_count;                       /* soft retrans count */
-        struct timespec dead_timeout;                           /* dead timeout value */
-        fhandle_t       fh;                                     /* initial file handle */
-        char *          realm;                                  /* realm of the client. use for setting up kerberos creds */
-        char *          principal;                              /* inital GSS pincipal */
-        char *          sprinc;                                 /* principal of the server */
-        char *          local_nfs_port;                         /* unix domain address "port" for nfs protocol */
-        char *          local_mount_port;                       /* unix domain address "port" for mount protocol */
+	int             mntflags;                               /* MNT_* flags */
+	uint32_t        mattrs[NFS_MATTR_BITMAP_LEN];           /* what attrs are set */
+	uint32_t        mflags_mask[NFS_MFLAG_BITMAP_LEN];      /* what flags are set */
+	uint32_t        mflags[NFS_MFLAG_BITMAP_LEN];           /* set flag values */
+	uint32_t        nfs_version, nfs_minor_version;         /* NFS version */
+	uint32_t        nfs_max_vers, nfs_min_vers;              /* NFS min and max packed version */
+	uint32_t        rsize, wsize, readdirsize, readahead;   /* I/O values */
+	struct timespec acregmin, acregmax, acdirmin, acdirmax; /* attrcache values */
+	uint32_t        lockmode;                               /* advisory file locking mode */
+	struct nfs_sec  sec;                                    /* security flavors */
+	struct nfs_etype etype;                                 /* Kerberos session key encryption types to use */
+	uint32_t        maxgrouplist;                           /* max AUTH_SYS groups */
+	int             socket_type, socket_family;             /* socket info */
+	uint32_t        nfs_port, mount_port;                   /* port info */
+	struct timespec request_timeout;                        /* NFS request timeout */
+	uint32_t        soft_retry_count;                       /* soft retrans count */
+	struct timespec dead_timeout;                           /* dead timeout value */
+	fhandle_t       fh;                                     /* initial file handle */
+	char *          realm;                                  /* realm of the client. use for setting up kerberos creds */
+	char *          principal;                              /* inital GSS pincipal */
+	char *          sprinc;                                 /* principal of the server */
+	char *          local_nfs_port;                         /* unix domain address "port" for nfs protocol */
+	char *          local_mount_port;                       /* unix domain address "port" for mount protocol */
 };
 
 extern struct nfs_options_client options;
@@ -117,16 +117,16 @@ extern struct nfs_options_client options;
  * NFS file system location structures
  */
 struct nfs_fs_server {
-    struct nfs_fs_server *    ns_next;
-    char *                    ns_name;    /* name of server */
-    struct addrinfo *         ns_ailist;    /* list of addresses for server */
+	struct nfs_fs_server *    ns_next;
+	char *                    ns_name;/* name of server */
+	struct addrinfo *         ns_ailist;/* list of addresses for server */
 };
 
 struct nfs_fs_location {
-    struct nfs_fs_location    *nl_next;
-    struct nfs_fs_server      *nl_servers;    /* list of server pointers */
-    char *                    nl_path;    /* file system path */
-    uint32_t                  nl_servcnt;    /* # servers in list */
+	struct nfs_fs_location    *nl_next;
+	struct nfs_fs_server      *nl_servers;/* list of server pointers */
+	char *                    nl_path;/* file system path */
+	uint32_t                  nl_servcnt;/* # servers in list */
 };
 
 int config_read(const char *confpath, struct nfs_conf_client *);

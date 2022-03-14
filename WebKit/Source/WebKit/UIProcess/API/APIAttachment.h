@@ -39,6 +39,7 @@ OBJC_CLASS NSString;
 
 namespace WebCore {
 class SharedBuffer;
+class FragmentedSharedBuffer;
 }
 
 namespace WebKit {
@@ -82,7 +83,7 @@ public:
 
     bool isEmpty() const;
 
-    RefPtr<WebCore::SharedBuffer> enclosingImageData() const;
+    RefPtr<WebCore::FragmentedSharedBuffer> enclosingImageData() const;
     std::optional<uint64_t> fileSizeForDisplay() const;
 
     void setHasEnclosingImage(bool hasEnclosingImage) { m_hasEnclosingImage = hasEnclosingImage; }

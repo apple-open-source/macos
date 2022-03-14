@@ -694,6 +694,7 @@
 				C47BB91525C1BE8A00DB38E2 /* nfsclntTests.m */,
 				C47BB93025C1BEEE00DB38E2 /* nfsclntTests_utils.m */,
 				C47BB95425C1BF2A00DB38E2 /* nfsclntTests_utils.h */,
+				C47ACD5D2631583700D8F2A9 /* nfsclntTests.xctestplan */,
 				C47BB91725C1BE8A00DB38E2 /* Info.plist */,
 			);
 			path = nfsclntTests;
@@ -703,7 +704,6 @@
 			isa = PBXGroup;
 			children = (
 				C45987C22631B3B10000FA32 /* NFS.plist */,
-				C47ACD5D2631583700D8F2A9 /* nfsclntTests.xctestplan */,
 				D6EA4A781FB96539002AF776 /* files */,
 				D6C194071FA4022100FA298E /* nfs_fs */,
 				D6354A461FA3CDDB00AACC99 /* mount_nfs */,

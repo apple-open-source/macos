@@ -55,7 +55,7 @@
 
 /* Begin PBXBuildFile section */
 		44258B5E1E241DA500DEB7B7 /* Libxml2XCTests.m in Sources */ = {isa = PBXBuildFile; fileRef = 44258B5D1E241DA500DEB7B7 /* Libxml2XCTests.m */; };
-		442840BC2005CF1E003C405B /* module.modulemap in Install module map */ = {isa = PBXBuildFile; fileRef = 442840BA2005CE80003C405B /* module.modulemap */; };
+		442840BC2005CF1E003C405B /* module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 442840BA2005CE80003C405B /* module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		442F406D1E09F172004826DD /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
 		443AB8FB1E31678A005C2ED8 /* runtest.c in Sources */ = {isa = PBXBuildFile; fileRef = 442F40601E09EC71004826DD /* runtest.c */; };
 		443AB8FF1E3167B0005C2ED8 /* libxml2_runtest.dylib in Resources */ = {isa = PBXBuildFile; fileRef = 443AB8F41E316782005C2ED8 /* libxml2_runtest.dylib */; };
@@ -498,17 +498,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		442840BB2005CEF0003C405B /* Install module map */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/include/libxml;
-			dstSubfolderSpec = 0;
-			files = (
-				442840BC2005CF1E003C405B /* module.modulemap in Install module map */,
-			);
-			name = "Install module map";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		44877C921EADB79900B105D1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1304,6 +1293,7 @@
 				5D58B0A514F8261200BE69D8 /* HTMLtree.h in Headers */,
 				4491DFC71CE67BD500002B02 /* libxml.h in Headers */,
 				5D58B0A614F8261200BE69D8 /* list.h in Headers */,
+				442840BC2005CF1E003C405B /* module.modulemap in Headers */,
 				5D58B0A714F8261200BE69D8 /* nanoftp.h in Headers */,
 				5D58B0A814F8261200BE69D8 /* nanohttp.h in Headers */,
 				5D58B0A914F8261200BE69D8 /* parser.h in Headers */,
@@ -1697,7 +1687,6 @@
 				5DB38B1C14F8828C0060A507 /* Install License File */,
 				5DB38B1F14F882CA0060A507 /* Install Open Source Property List */,
 				5DB38B2614F884D60060A507 /* Install libxml Man Page */,
-				442840BB2005CEF0003C405B /* Install module map */,
 				5DB38B2A14F886B60060A507 /* Install xml2-config */,
 				5DB38B2D14F8872A0060A507 /* Install xml2-config Man Page */,
 			);
@@ -1909,7 +1898,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ln -sf libxml2.2.dylib \"${BUILT_PRODUCTS_DIR}/libxml2.dylib\"\nln -sf libxml2.2.tbd \"${BUILT_PRODUCTS_DIR}/libxml2.tbd\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxml2.2.dylib \"${DSTROOT}${INSTALL_PATH}/libxml2.dylib\";\n    ln -sf libxml2.2.tbd \"${DSTROOT}${INSTALL_PATH}/libxml2.tbd\";\nfi;\n";
+			shellScript = "set -e\n\nln -sf libxml2.2.dylib \"${BUILT_PRODUCTS_DIR}/libxml2.dylib\"\nln -sf libxml2.2.tbd \"${BUILT_PRODUCTS_DIR}/libxml2.tbd\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxml2.2.dylib \"${DSTROOT}${INSTALL_PATH}/libxml2.dylib\";\n    ln -sf libxml2.2.tbd \"${DSTROOT}${INSTALL_PATH}/libxml2.tbd\";\nfi;\n";
 		};
 		5DB38B2314F883700060A507 /* Rename License File */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1925,7 +1914,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "cp libxml2/Copyright \"${BUILT_PRODUCTS_DIR}/libxml2.txt\"\n";
+			shellScript = "set -e\n\ncp libxml2/Copyright \"${BUILT_PRODUCTS_DIR}/libxml2.txt\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

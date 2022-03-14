@@ -159,7 +159,7 @@ void MediaPlayerPrivateAVFoundation::setNeedsRenderingModeChanged()
 
     ALWAYS_LOG(LOGIDENTIFIER);
 
-    queueTaskOnEventLoop([weakThis = makeWeakPtr(*this)] {
+    queueTaskOnEventLoop([weakThis = WeakPtr { *this }] {
         if (weakThis)
             weakThis->renderingModeChanged();
     });
@@ -657,7 +657,7 @@ void MediaPlayerPrivateAVFoundation::seekCompleted(bool finished)
 
     m_seeking = false;
 
-    WTF::Function<void()> pendingSeek;
+    Function<void()> pendingSeek;
     std::swap(pendingSeek, m_pendingSeek);
 
     if (pendingSeek) {
@@ -783,7 +783,7 @@ void MediaPlayerPrivateAVFoundation::scheduleMainThreadNotification(Notification
         if (delayDispatch && !m_mainThreadCallPending) {
             m_mainThreadCallPending = true;
 
-            callOnMainThread([weakThis = makeWeakPtr(*this)] {
+            callOnMainThread([weakThis = WeakPtr { *this }] {
                 if (!weakThis)
                     return;
 
@@ -815,7 +815,7 @@ void MediaPlayerPrivateAVFoundation::dispatchNotification()
         }
         
         if (!m_queuedNotifications.isEmpty() && !m_mainThreadCallPending) {
-            callOnMainThread([weakThis = makeWeakPtr(*this)] {
+            callOnMainThread([weakThis = WeakPtr { *this }] {
                 if (!weakThis)
                     return;
 
@@ -1095,7 +1095,7 @@ WTFLogChannel& MediaPlayerPrivateAVFoundation::logChannel() const
 
 const HashSet<String, ASCIICaseInsensitiveHash>& MediaPlayerPrivateAVFoundation::staticMIMETypeList()
 {
-    static const auto cache = makeNeverDestroyed(HashSet<String, ASCIICaseInsensitiveHash> {
+    static NeverDestroyed cache = HashSet<String, ASCIICaseInsensitiveHash> {
         "application/vnd.apple.mpegurl"_s,
         "application/x-mpegurl"_s,
         "audio/3gpp"_s,
@@ -1127,7 +1127,7 @@ const HashSet<String, ASCIICaseInsensitiveHash>& MediaPlayerPrivateAVFoundation:
         "video/x-m4v"_s,
         "video/x-mpeg"_s,
         "video/x-mpg"_s,
-    });
+    };
     return cache;
 }
 

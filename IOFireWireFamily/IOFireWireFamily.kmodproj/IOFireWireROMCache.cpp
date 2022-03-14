@@ -517,7 +517,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 			//
 			
 			bufLen = romEnd - romLength;
-			buff = (UInt32 *)IOMalloc(bufLen);
+			buff = (UInt32 *)IOMallocData(bufLen);
 			cmd = fOwner->createReadQuadCommand( FWAddress(kCSRRegisterSpaceBaseAddressHi, kFWBIBHeaderAddress+romLength),
 												buff, bufLen/sizeof(UInt32), NULL, NULL, true );
 			cmd->setMaxSpeed( kFWSpeed100MBit );
@@ -570,7 +570,7 @@ IOReturn IOFireWireROMCache::updateROMCache( UInt32 offset, UInt32 length )
 				setROMState( kROMStateInvalid );	
 			}
 			
-			IOFree( buff, bufLen );
+			IOFreeData( buff, bufLen );
 		}
 	}
 	

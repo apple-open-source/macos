@@ -76,7 +76,7 @@ RB_PROTOTYPE_PREV(protons_token_tree, protons_token, pt_link, pt_cmp);
 RB_GENERATE_PREV(protons_token_tree, protons_token, pt_link, pt_cmp);
 static struct protons_token_tree protons_tokens;
 
-static ZONE_DECLARE(protons_token_zone, SKMEM_ZONE_PREFIX ".protons.token",
+static ZONE_DEFINE(protons_token_zone, SKMEM_ZONE_PREFIX ".protons.token",
     sizeof(struct protons_token), ZC_NONE);
 
 static struct protons_token *
@@ -94,7 +94,7 @@ protons_token_alloc(bool can_block)
 	memset(pt, 0, sizeof(*pt));
 	os_ref_init(&pt->pt_refcnt, &protons_token_refgrp);
 
-	SK_DF(SK_VERB_NS_PROTO, "token %p alloc", SK_KVA(pt));
+	SK_DF(SK_VERB_NS_PROTO, "token %p alloc", (void *)SK_KVA(pt));
 
 	return pt;
 }
@@ -104,7 +104,7 @@ protons_token_free(struct protons_token *pt)
 {
 	PROTONS_LOCK_ASSERT_HELD();
 
-	SK_DF(SK_VERB_NS_PROTO, "token %p free", SK_KVA(pt));
+	SK_DF(SK_VERB_NS_PROTO, "token %p free", (void *)SK_KVA(pt));
 	ASSERT(os_ref_get_count(&pt->pt_refcnt) == 0);
 	zfree(protons_token_zone, pt);
 }
@@ -153,7 +153,7 @@ protons_token_release(struct protons_token *pt)
 
 	SK_DF(SK_VERB_NS_PROTO,
 	    "token %p proto %u released by pid %d epid %d, curr use %u",
-	    SK_KVA(pt), pt->pt_protocol, pt->pt_pid, pt->pt_epid,
+	    (void *)SK_KVA(pt), pt->pt_protocol, pt->pt_pid, pt->pt_epid,
 	    protons_token_get_use_count(pt));
 
 	if (refcnt == 1) {
@@ -203,7 +203,7 @@ protons_reserve_locked(struct protons_token **ptp, pid_t pid, pid_t epid,
 
 	SK_DF(SK_VERB_NS_PROTO,
 	    "token %p proto %u reserved by pid %d epid %d, curr use %u",
-	    SK_KVA(pt), proto, pid, epid, protons_token_get_use_count(pt));
+	    (void *)SK_KVA(pt), proto, pid, epid, protons_token_get_use_count(pt));
 	*ptp = pt;
 
 	return 0;

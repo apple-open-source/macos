@@ -172,6 +172,7 @@ static void kqueue_threadreq_initiate(struct kqueue *kq, workq_threadreq_t, kq_i
 static void kqworkq_unbind(proc_t p, workq_threadreq_t);
 static thread_qos_t kqworkq_unbind_locked(struct kqworkq *kqwq, workq_threadreq_t, thread_t thread);
 static workq_threadreq_t kqworkq_get_request(struct kqworkq *kqwq, kq_index_t qos_index);
+static void kqueue_update_iotier_override(kqueue_t kqu);
 
 static void kqworkloop_unbind(struct kqworkloop *kwql);
 
@@ -238,13 +239,13 @@ static void knote_drop(kqueue_t kqu, struct knote *kn, struct knote_lock_ctx *kn
 static void knote_adjust_qos(struct kqueue *kq, struct knote *kn, int result);
 static void knote_reset_priority(kqueue_t kqu, struct knote *kn, pthread_priority_t pp);
 
-static ZONE_DECLARE(knote_zone, "knote zone",
+static ZONE_DEFINE(knote_zone, "knote zone",
     sizeof(struct knote), ZC_CACHING | ZC_ZFREE_CLEARMEM);
-static ZONE_DECLARE(kqfile_zone, "kqueue file zone",
+static ZONE_DEFINE(kqfile_zone, "kqueue file zone",
     sizeof(struct kqfile), ZC_ZFREE_CLEARMEM | ZC_NOTBITAG);
-static ZONE_DECLARE(kqworkq_zone, "kqueue workq zone",
+static ZONE_DEFINE(kqworkq_zone, "kqueue workq zone",
     sizeof(struct kqworkq), ZC_ZFREE_CLEARMEM | ZC_NOTBITAG);
-static ZONE_DECLARE(kqworkloop_zone, "kqueue workloop zone",
+static ZONE_DEFINE(kqworkloop_zone, "kqueue workloop zone",
     sizeof(struct kqworkloop), ZC_CACHING | ZC_ZFREE_CLEARMEM | ZC_NOTBITAG);
 
 #define KN_HASH(val, mask)      (((val) ^ (val >> 8)) & (mask))
@@ -810,6 +811,10 @@ knote_post(struct knote *kn, long hint)
 	kqlock(kq);
 
 	dropping = (kn->kn_status & KN_DROPPING);
+
+	if (!dropping && (result & FILTER_ADJUST_EVENT_IOTIER_BIT)) {
+		kqueue_update_iotier_override(kq);
+	}
 
 	if (!dropping && (result & FILTER_ACTIVE)) {
 		knote_activate(kq, kn, result);
@@ -3178,6 +3183,37 @@ kqworkloop_hash_init(struct filedesc *fdp)
 	}
 }
 
+/*
+ * kqueue iotier override is only supported for kqueue that has
+ * only one port as a mach port source. Updating the iotier
+ * override on the mach port source will update the override
+ * on kqueue as well. Since kqueue with iotier override will
+ * only have one port attached, there is no logic for saturation
+ * like qos override, the iotier override of mach port source
+ * would be reflected in kevent iotier override.
+ */
+void
+kqueue_set_iotier_override(kqueue_t kqu, uint8_t iotier_override)
+{
+	if (!(kqu.kq->kq_state & KQ_WORKLOOP)) {
+		return;
+	}
+
+	struct kqworkloop *kqwl = kqu.kqwl;
+	os_atomic_store(&kqwl->kqwl_iotier_override, iotier_override, relaxed);
+}
+
+uint8_t
+kqueue_get_iotier_override(kqueue_t kqu)
+{
+	if (!(kqu.kq->kq_state & KQ_WORKLOOP)) {
+		return THROTTLE_LEVEL_END;
+	}
+
+	struct kqworkloop *kqwl = kqu.kqwl;
+	return os_atomic_load(&kqwl->kqwl_iotier_override, relaxed);
+}
+
 #if CONFIG_PREADOPT_TG
 /*
  * This function is called with a borrowed reference on the thread group without
@@ -3356,6 +3392,7 @@ kqworkloop_init(struct kqworkloop *kqwl, proc_t p,
 	}
 	kqwl->kqwl_request.tr_state = WORKQ_TR_STATE_IDLE;
 	kqwl->kqwl_request.tr_flags = tr_flags;
+	os_atomic_store(&kqwl->kqwl_iotier_override, (uint8_t)THROTTLE_LEVEL_END, relaxed);
 #if CONFIG_PREADOPT_TG
 	if (task_is_app(current_task())) {
 		/* Apps will never adopt a thread group that is not their own. This is a
@@ -4166,6 +4203,11 @@ knote_process(struct knote *kn, kevent_ctx_t kectx,
 	if (result & FILTER_ADJUST_EVENT_QOS_BIT) {
 		knote_adjust_qos(kq, kn, result);
 	}
+
+	if (result & FILTER_ADJUST_EVENT_IOTIER_BIT) {
+		kqueue_update_iotier_override(kq);
+	}
+
 	kev.qos = _pthread_priority_combine(kn->kn_qos, kn->kn_qos_override);
 
 	if (kev.flags & EV_ONESHOT) {
@@ -5174,6 +5216,7 @@ kqueue_threadreq_bind(struct proc *p, workq_threadreq_t kqr, thread_t thread,
 			os_atomic_store(&kqu.kqwl->kqwl_preadopt_tg_needs_redrive, KQWL_PREADOPT_TG_CLEAR_REDRIVE, relaxed);
 		}
 #endif
+		kqueue_update_iotier_override(kqu);
 	} else {
 		assert(kqr->tr_kq_override_index == 0);
 
@@ -5454,6 +5497,20 @@ recompute:
 }
 
 static void
+kqworkloop_update_iotier_override(struct kqworkloop *kqwl)
+{
+	workq_threadreq_t kqr = &kqwl->kqwl_request;
+	thread_t servicer = kqr_thread(kqr);
+	uint8_t iotier = os_atomic_load(&kqwl->kqwl_iotier_override, relaxed);
+
+	kqlock_held(kqwl);
+
+	if (servicer) {
+		thread_update_servicer_iotier_override(servicer, iotier);
+	}
+}
+
+static void
 kqworkloop_wakeup(struct kqworkloop *kqwl, kq_index_t qos)
 {
 	if (qos <= kqwl->kqwl_wakeup_qos) {
@@ -5630,6 +5687,14 @@ kqworkq_update_override(struct kqworkq *kqwq, struct knote *kn,
 }
 
 static void
+kqueue_update_iotier_override(kqueue_t kqu)
+{
+	if (kqu.kq->kq_state & KQ_WORKLOOP) {
+		kqworkloop_update_iotier_override(kqu.kqwl);
+	}
+}
+
+static void
 kqueue_update_override(kqueue_t kqu, struct knote *kn, thread_qos_t qos)
 {
 	if (kqu.kq->kq_state & KQ_WORKLOOP) {
@@ -5685,6 +5750,7 @@ kqworkloop_unbind_locked(struct kqworkloop *kqwl, thread_t thread,
 		thread_set_preadopt_thread_group(thread, NULL);
 	}
 #endif
+	thread_update_servicer_iotier_override(thread, THROTTLE_LEVEL_END);
 
 	kqr->tr_thread = THREAD_NULL;
 	kqr->tr_state = WORKQ_TR_STATE_IDLE;
@@ -6283,6 +6349,10 @@ kq_remove_knote(struct kqueue *kq, struct knote *kn, struct proc *p,
 	SLIST_REMOVE(list, kn, knote, kn_link);
 
 	kqlock(kq);
+
+	/* Update the servicer iotier override */
+	kqueue_update_iotier_override(kq);
+
 	kq_state = kq->kq_state;
 	if (knlc) {
 		knote_unlock_cancel(kq, kn, knlc);
@@ -6522,6 +6592,10 @@ knote_apply_touch(kqueue_t kqu, struct knote *kn, struct kevent_qos_s *kev,
 				knote_unsuppress_noqueue(kqu, kn);
 			}
 		}
+	}
+
+	if (result & FILTER_ADJUST_EVENT_IOTIER_BIT) {
+		kqueue_update_iotier_override(kqu);
 	}
 
 	if ((result & FILTER_UPDATE_REQ_QOS) && kev->qos && kev->qos != kn->kn_qos) {
@@ -8066,7 +8140,7 @@ struct kern_event_head kern_event_head;
 
 static u_int32_t static_event_id = 0;
 
-static ZONE_DECLARE(ev_pcb_zone, "kerneventpcb",
+static ZONE_DEFINE(ev_pcb_zone, "kerneventpcb",
     sizeof(struct kern_event_pcb), ZC_ZFREE_CLEARMEM);
 
 /*

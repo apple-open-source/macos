@@ -115,7 +115,7 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
     });
     CFReleaseNull(oldRecoveryKey);
 
-    rkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, pubData, error);
+    rkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, pubData, NULL);
     SOSAccountSetRecoveryKeyBagEntry(kCFAllocatorDefault, account, rkbg, NULL);
     SOSAccountUpdateRecoveryRing(account, error, ^SOSRingRef(SOSRingRef existing, CFErrorRef *error) {
         SOSRingRef newRing = NULL;
@@ -125,13 +125,21 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
         });
         SOSRingSetPeerIDs(existing, peerInfoIDs);
         if(rkbg) {
-            SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, rkbg, error);
+            if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, rkbg, error)) {
+                result = true;
+            }
         } else {
             SOSRecoveryKeyBagRef ringrkbg = SOSRecoveryKeyBagCreateForAccount(kCFAllocatorDefault, (__bridge CFTypeRef)account, SOSRKNullKey(), error);
-            SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, ringrkbg, error);
-            CFRelease(ringrkbg);
+            if (ringrkbg != NULL) {
+                if (SOSRingSetRecoveryKeyBag(existing, account.fullPeerInfo, ringrkbg, error)) {
+                    result = true;
+                }
+            }
+            CFReleaseNull(ringrkbg);
         }
-        SOSRingGenerationSign(existing, NULL, account.trust.fullPeerInfo, error);
+        if (result && !SOSRingGenerationSign(existing, NULL, account.trust.fullPeerInfo, error)) {
+            result = false;
+        }
         newRing = CFRetainSafe(existing);
         return newRing;
     });
@@ -141,7 +149,6 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
         SOSAccountProcessBackupRings(account);
     }
     account.circle_rings_retirements_need_attention = true;
-    result = true;
 
     SOSClearErrorIfTrue(result, error);
     if (!result) {

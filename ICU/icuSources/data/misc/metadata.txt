@@ -160,6 +160,10 @@ metadata:table(nofallback){
                 reason{"deprecated"}
                 replacement{"fbl"}
             }
+            bic{
+                reason{"deprecated"}
+                replacement{"bir"}
+            }
             bih{
                 reason{"overlong"}
                 replacement{"bho"}
@@ -179,6 +183,10 @@ metadata:table(nofallback){
             bkb{
                 reason{"deprecated"}
                 replacement{"ebk"}
+            }
+            blg{
+                reason{"deprecated"}
+                replacement{"iba"}
             }
             bod{
                 reason{"overlong"}
@@ -1148,10 +1156,6 @@ metadata:table(nofallback){
                 reason{"deprecated"}
                 replacement{"ngv"}
             }
-            no{
-                reason{"legacy"}
-                replacement{"nb"}
-            }
             no_bok{
                 reason{"deprecated"}
                 replacement{"nb"}
@@ -1178,7 +1182,7 @@ metadata:table(nofallback){
             }
             nor{
                 reason{"overlong"}
-                replacement{"nb"}
+                replacement{"no"}
             }
             npi{
                 reason{"macrolanguage"}
@@ -1231,6 +1235,10 @@ metadata:table(nofallback){
             pan{
                 reason{"overlong"}
                 replacement{"pa"}
+            }
+            pat{
+                reason{"deprecated"}
+                replacement{"kxr"}
             }
             pbu{
                 reason{"macrolanguage"}
@@ -5092,6 +5100,7 @@ metadata:table(nofallback){
     }
     defaultContent{
         "aa_ET",
+        "ab_GE",
         "af_ZA",
         "agq_CM",
         "ain_JP",
@@ -5108,6 +5117,9 @@ metadata:table(nofallback){
         "az_Latn",
         "az_Latn_AZ",
         "ba_RU",
+        "bal_Arab",
+        "bal_Arab_PK",
+        "bal_Latn_PK",
         "bas_CM",
         "be_BY",
         "bem_ZM",
@@ -5187,6 +5199,8 @@ metadata:table(nofallback){
         "he_IL",
         "hi_IN",
         "hi_Latn_IN",
+        "hnj_Hmnp",
+        "hnj_Hmnp_US",
         "hr_HR",
         "hsb_DE",
         "hu_HU",
@@ -5275,6 +5289,7 @@ metadata:table(nofallback){
         "myv_RU",
         "mzn_IR",
         "naq_NA",
+        "nb",
         "nb_NO",
         "nd_ZW",
         "nds_DE",
@@ -5367,6 +5382,7 @@ metadata:table(nofallback){
         "tk_TM",
         "tn_ZA",
         "to_TO",
+        "tpi_PG",
         "tr_TR",
         "trv_TW",
         "trw_PK",
@@ -5398,6 +5414,7 @@ metadata:table(nofallback){
         "yav_CM",
         "yi_001",
         "yo_NG",
+        "yrl_BR",
         "yue_Hans_CN",
         "yue_Hant",
         "yue_Hant_HK",

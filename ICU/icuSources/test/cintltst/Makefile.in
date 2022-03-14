@@ -56,7 +56,8 @@ hpmufn.o tracetst.o reapits.o uregiontest.o ulistfmttest.o\
 utexttst.o ucsdetst.o spooftest.o \
 cbiditransformtst.o \
 cgendtst.o \
-unumberformattertst.o uformattedvaluetst.o unumberrangeformattertst.o
+unumberformattertst.o uformattedvaluetst.o unumberrangeformattertst.o \
+uadatadumper.o
 
 DEPS = $(OBJECTS:.o=.d)
 

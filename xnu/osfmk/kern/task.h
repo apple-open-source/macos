@@ -91,13 +91,13 @@
 #ifndef _KERN_TASK_H_
 #define _KERN_TASK_H_
 
-#include <kern/btlog.h>
 #include <kern/kern_types.h>
 #include <kern/task_ref.h>
 #include <mach/mach_types.h>
 #include <sys/cdefs.h>
 
 #ifdef XNU_KERNEL_PRIVATE
+#include <kern/btlog.h>
 #include <kern/kern_cdata.h>
 #include <mach/sfi_class.h>
 #include <kern/counter.h>
@@ -587,6 +587,7 @@ extern lck_grp_t       task_lck_grp;
 struct task_watchport_elem {
 	task_t                          twe_task;
 	ipc_port_t                      twe_port;     /* (Space lock) */
+	ipc_port_t XNU_PTRAUTH_SIGNED_PTR("twe_pdrequest") twe_pdrequest;
 };
 
 struct task_watchports {
@@ -604,6 +605,7 @@ struct task_watchports {
 do {                                               \
 	(elem)->twe_task = (task);                 \
 	(elem)->twe_port = (port);                 \
+	(elem)->twe_pdrequest = IP_NULL;           \
 } while(0)
 
 #define task_watchport_elem_clear(elem) task_watchport_elem_init((elem), NULL, NULL)

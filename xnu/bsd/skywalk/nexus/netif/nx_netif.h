@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2015-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -370,14 +370,14 @@ SYSCTL_DECL(_kern_skywalk_netif);
 #define SKYWALK_CAPABLE(ifp)                                            \
 	(NA(ifp) != NULL && (ifnet_capabilities_supported(ifp) & IFCAP_SKYWALK))
 
-#define SKYWALK_SET_CAPABLE(ifp, na) do {                               \
+#define SKYWALK_SET_CAPABLE(ifp) do {                                   \
 	ifnet_lock_exclusive(ifp);                                      \
 	(ifp)->if_capabilities |= IFCAP_SKYWALK;                        \
 	(ifp)->if_capenable |= IFCAP_SKYWALK;                           \
 	ifnet_lock_done(ifp);                                           \
 } while (0)
 
-#define SKYWALK_CLEAR_CAPABLE(ifp, na) do {                             \
+#define SKYWALK_CLEAR_CAPABLE(ifp) do {                                 \
 	ifnet_lock_exclusive(ifp);                                      \
 	(ifp)->if_capabilities &= ~IFCAP_SKYWALK;                       \
 	(ifp)->if_capenable &= ~IFCAP_SKYWALK;                          \

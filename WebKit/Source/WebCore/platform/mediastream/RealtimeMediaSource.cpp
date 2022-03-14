@@ -142,7 +142,7 @@ void RealtimeMediaSource::setInterruptedForTesting(bool interrupted)
 void RealtimeMediaSource::forEachObserver(const Function<void(Observer&)>& apply)
 {
     ASSERT(isMainThread());
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
     m_observers.forEach(apply);
 }
 
@@ -181,7 +181,7 @@ void RealtimeMediaSource::updateHasStartedProducingData()
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
-    callOnMainThread([protectedThis = makeRef(*this)] {
+    callOnMainThread([protectedThis = Ref { *this }] {
         if (protectedThis->m_hasStartedProducingData)
             return;
         protectedThis->m_hasStartedProducingData = true;
@@ -191,7 +191,7 @@ void RealtimeMediaSource::updateHasStartedProducingData()
     });
 }
 
-void RealtimeMediaSource::videoSampleAvailable(MediaSample& mediaSample)
+void RealtimeMediaSource::videoSampleAvailable(MediaSample& mediaSample, VideoSampleMetadata metadata)
 {
 #if !RELEASE_LOG_DISABLED
     ++m_frameCount;
@@ -211,7 +211,7 @@ void RealtimeMediaSource::videoSampleAvailable(MediaSample& mediaSample)
 
     Locker locker { m_videoSampleObserversLock };
     for (auto* observer : m_videoSampleObservers)
-        observer->videoSampleAvailable(mediaSample);
+        observer->videoSampleAvailable(mediaSample, metadata);
 }
 
 void RealtimeMediaSource::audioSamplesAvailable(const MediaTime& time, const PlatformAudioData& audioData, const AudioStreamDescription& description, size_t numberOfFrames)
@@ -275,7 +275,7 @@ void RealtimeMediaSource::end(Observer* callingObserver)
 
     ALWAYS_LOG_IF(m_logger, LOGIDENTIFIER);
 
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     stop();
     m_isEnded = true;
@@ -1000,7 +1000,7 @@ void RealtimeMediaSource::setIntrinsicSize(const IntSize& size, bool notifyObser
     }
 }
 
-const IntSize RealtimeMediaSource::intrinsicSize() const
+IntSize RealtimeMediaSource::intrinsicSize() const
 {
     return m_intrinsicSize;
 }
@@ -1095,7 +1095,7 @@ void RealtimeMediaSource::setEchoCancellation(bool echoCancellation)
 void RealtimeMediaSource::scheduleDeferredTask(Function<void()>&& function)
 {
     ASSERT(function);
-    callOnMainThread([protectedThis = makeRef(*this), function = WTFMove(function)] {
+    callOnMainThread([protectedThis = Ref { *this }, function = WTFMove(function)] {
         function();
     });
 }
@@ -1103,9 +1103,7 @@ void RealtimeMediaSource::scheduleDeferredTask(Function<void()>&& function)
 const String& RealtimeMediaSource::hashedId() const
 {
 #ifndef NDEBUG
-    auto deviceType = this->deviceType();
-    if (deviceType != CaptureDevice::DeviceType::Screen && deviceType != CaptureDevice::DeviceType::Window)
-        ASSERT(!m_hashedID.isEmpty());
+    ASSERT(!m_hashedID.isEmpty());
 #endif
     return m_hashedID;
 }

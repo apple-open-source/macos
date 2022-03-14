@@ -21,7 +21,10 @@
 
 // Make writable
 @property NSSet<CKKSKeychainViewState*>* allViews;
+@property NSSet<CKKSKeychainViewState*>* allPriorityViews;
 @property (nullable) TPSyncingPolicy* syncingPolicy;
+
+@property BOOL limitOperationToPriorityViewsSet;
 
 @end
 
@@ -60,13 +63,23 @@
 
         _keysetProviderOperations = [NSHashTable weakObjectsHashTable];
         _currentFetchReasons = [NSMutableSet set];
+
+        _limitOperationToPriorityViewsSet = NO;
     }
     return self;
 }
 
 - (NSSet<CKKSKeychainViewState*>*)views
 {
-    return self.viewsOverride ?: self.allViews;
+    if(self.viewsOverride != nil) {
+        return self.viewsOverride;
+    }
+
+    if(self.limitOperationToPriorityViewsSet) {
+        return self.allPriorityViews;
+    } else {
+        return self.allViews;
+    }
 }
 
 - (NSSet<CKKSKeychainViewState*>*)activeManagedViews
@@ -152,11 +165,23 @@
         NSAssert([viewNames isSubsetOfSet:allViewNames], @"Can only operate on views previously known");
     }
     self.viewsOverride = views;
+
+    ckksnotice_global("ckksviews", "Limited view operation to %@", self.views);
 }
 
 - (void)operateOnAllViews
 {
     self.viewsOverride = nil;
+    self.limitOperationToPriorityViewsSet = NO;
+
+    ckksnotice_global("ckksviews", "Expanded view operation to %@", self.views);
+}
+
+- (void)limitOperationToPriorityViews
+{
+    self.limitOperationToPriorityViewsSet = YES;
+
+    ckksnotice_global("ckksviews", "Limited view operation to priority views %@", self.views);
 }
 
 - (NSSet<CKKSKeychainViewState*>*)viewsInState:(CKKSZoneKeyState*)state
@@ -215,7 +240,17 @@
                    viewStates:(NSSet<CKKSKeychainViewState*>*)viewStates
 {
     self.syncingPolicy = policy;
+
+    NSMutableSet<CKKSKeychainViewState*>* priorityViews = [NSMutableSet set];
+    for(CKKSKeychainViewState* viewState in viewStates) {
+        if([policy.priorityViews containsObject:viewState.zoneName]) {
+            [priorityViews addObject:viewState];
+        }
+    }
+
+    self.allPriorityViews = priorityViews;
     self.allViews = viewStates;
+
     self.viewsOverride = nil;
 }
 

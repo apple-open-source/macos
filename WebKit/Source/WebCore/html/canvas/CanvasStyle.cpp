@@ -102,12 +102,12 @@ CanvasStyle::CanvasStyle(const SRGBA<float>& colorComponents)
 }
 
 CanvasStyle::CanvasStyle(CanvasGradient& gradient)
-    : m_style(makeRefPtr(gradient))
+    : m_style(&gradient)
 {
 }
 
 CanvasStyle::CanvasStyle(CanvasPattern& pattern)
-    : m_style(makeRefPtr(pattern))
+    : m_style(&pattern)
 {
 }
 
@@ -142,15 +142,15 @@ CanvasStyle CanvasStyle::createFromStringWithOverrideAlpha(const String& colorSt
 
 bool CanvasStyle::isEquivalentColor(const CanvasStyle& other) const
 {
-    if (WTF::holds_alternative<Color>(m_style) && WTF::holds_alternative<Color>(other.m_style))
-        return WTF::get<Color>(m_style) == WTF::get<Color>(other.m_style);
+    if (std::holds_alternative<Color>(m_style) && std::holds_alternative<Color>(other.m_style))
+        return std::get<Color>(m_style) == std::get<Color>(other.m_style);
 
     return false;
 }
 
 bool CanvasStyle::isEquivalent(const SRGBA<float>& components) const
 {
-    return WTF::holds_alternative<Color>(m_style) && WTF::get<Color>(m_style) == convertColor<SRGBA<uint8_t>>(components);
+    return std::holds_alternative<Color>(m_style) && std::get<Color>(m_style) == convertColor<SRGBA<uint8_t>>(components);
 }
 
 void CanvasStyle::applyStrokeColor(GraphicsContext& context) const

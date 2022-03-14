@@ -26,6 +26,7 @@
 #include <dispatch/dispatch.h>
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
 #include <Security/SecureObjectSync/SOSCloudCircleInternal.h>
+#include "keychain/securityd/SOSCloudCircleServer.h"
 #include "keychain/SecureObjectSync/SOSInternal.h"
 #include <notify.h>
 
@@ -60,6 +61,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
 @property CKContainer* container; // used only for fetching the CKAccountStatus
 @property bool firstCKAccountFetch;
+@property bool forceReload;
 
 // make writable
 @property (nullable) OTCliqueStatusWrapper* octagonStatus;
@@ -89,6 +91,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
         _queue = dispatch_queue_create("ck-account-state", DISPATCH_QUEUE_SERIAL_WITH_AUTORELEASE_POOL);
 
         _firstCKAccountFetch = false;
+        _forceReload = false;
 
         _finishedInitialDispatches = [[CKKSCondition alloc] init];
         _ckdeviceIDInitialized = [[CKKSCondition alloc] init];
@@ -224,7 +227,13 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
     WEAKIFY(self);
 
-    [self.container accountInfoWithCompletionHandler:^(CKAccountInfo* ckAccountInfo, NSError * _Nullable error) {
+    __block bool reload = false;
+    dispatch_sync(self.queue, ^{
+        reload = self.forceReload;
+        self.forceReload = false;
+    });
+
+    void (^block)(CKAccountInfo* ckAccountInfo, NSError * _Nullable error) = ^(CKAccountInfo* ckAccountInfo, NSError * _Nullable error) {
         STRONGIFY(self);
 
         if(error) {
@@ -239,7 +248,23 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
             ckksnotice_global("ckksaccount", "received CK Account info: %@", ckAccountInfo);
             [self _onqueueUpdateAccountState:ckAccountInfo deliveredSemaphore:finishedSema];
         });
-    }];
+    };
+
+    if (reload) {
+        [self.container reloadAccountWithCompletionHandler:^(NSError *_Nullable error) {
+                STRONGIFY(self);
+
+                if (error) {
+                    ckkserror_global("ckksaccount", "error reloading account info: %@", error);
+                    [self.fetchCKAccountStatusScheduler trigger];
+                    dispatch_semaphore_signal(finishedSema);
+                    return;
+                }
+                [self.container accountInfoWithCompletionHandler:block];
+            }];
+    } else {
+        [self.container accountInfoWithCompletionHandler:block];
+    }
 
     return finishedSema;
 }
@@ -309,10 +334,7 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 + (void)fetchCirclePeerID:(void (^)(NSString* _Nullable peerID, NSError* _Nullable error))callback {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         CFErrorRef cferror = nil;
-        SOSPeerInfoRef egoPeerInfo = SOSCCCopyMyPeerInfo(&cferror);
-        NSString* egoPeerID = egoPeerInfo ? (NSString*)CFBridgingRelease(CFRetainSafe(SOSPeerInfoGetPeerID(egoPeerInfo))) : nil;
-        CFReleaseNull(egoPeerInfo);
-
+        NSString* egoPeerID = (NSString*)CFBridgingRelease(SOSCCCopyMyPID_Server(&cferror));
         callback(egoPeerID, CFBridgingRelease(cferror));
     });
 }
@@ -439,6 +461,10 @@ NSString* CKKSAccountStatusToString(CKKSAccountStatus status)
 
 - (void)recheckCKAccountStatus
 {
+    dispatch_sync(self.queue, ^{
+        self.forceReload = true;
+    });
+
     [self.fetchCKAccountStatusScheduler trigger];
 }
 

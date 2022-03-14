@@ -669,13 +669,9 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_alloc(probename, size, flags, tag)                          \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
-	VM_ALLOC_SITE_STATIC(VM_TAG_BT, VM_KERN_MEMORY_SKYWALK);        \
-	ret = kalloc_ext(KHEAP_DEFAULT, (size), Z_ZERO | (flags),       \
-	    &site).addr;                                                \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = kheap_alloc_site(KHEAP_DEFAULT, (size), Z_ZERO | (flags), \
+	    (tag));                                                     \
 	DTRACE_SKYWALK3(probename, size_t, (size), int, (flags),        \
 	    void *, ret);                                               \
 	ret;                                                            \
@@ -684,12 +680,9 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_realloc(probename, elem, oldsize, newsize, flags, tag)      \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
-	ret = krealloc_tag_bt((elem), (oldsize), (newsize),             \
-	    Z_ZERO | (flags), VM_KERN_MEMORY_SKYWALK);                  \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = krealloc_ext(KHEAP_DEFAULT, (elem), (oldsize), (newsize), \
+	    Z_ZERO | (flags), (tag)).addr;                              \
 	DTRACE_SKYWALK5(probename, void *, (elem), size_t, (oldsize),   \
 	    size_t, (newsize), int, (flags), void *, ret);              \
 	ret;                                                            \
@@ -698,19 +691,15 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_free(probename, elem, size)                                 \
 {                                                                       \
 	DTRACE_SKYWALK2(probename, void *, (elem), size_t, (size));     \
-	kfree((elem), (size));                                          \
+	kheap_free(KHEAP_DEFAULT, (elem), (size));                      \
 }
 
 #define _sk_alloc_type(probename, type, flags, tag)                     \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
 	/* XXX Modify this to use KT_PRIV_ACCT later  */                \
-	ret = kalloc_type_tag(type, Z_ZERO | (flags),                   \
-	    VM_KERN_MEMORY_SKYWALK);                                    \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = kalloc_type_site(type, Z_ZERO | (flags), (tag));          \
 	DTRACE_SKYWALK3(probename, char *, #type, int, (flags),         \
 	    void *, ret);                                               \
 	ret;                                                            \
@@ -719,12 +708,8 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_alloc_type_array(probename, type, count, flags, tag)        \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
-	ret = kalloc_type_tag_bt(type, (count), Z_ZERO | (flags),       \
-	    VM_KERN_MEMORY_SKYWALK);                                    \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = kalloc_type_site(type, (count), Z_ZERO | (flags), (tag)); \
 	DTRACE_SKYWALK4(probename, char *, #type, size_t, (count),      \
 	    int, (flags), void *, ret);                                 \
 	ret;                                                            \
@@ -733,12 +718,9 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_alloc_type_header_array(probename, htype, type, count, flags, tag) \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
-	ret = kalloc_type_tag_bt(htype, type, (count), Z_ZERO | (flags),\
-	    VM_KERN_MEMORY_SKYWALK);                                    \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = kalloc_type_site(htype, type, (count), Z_ZERO | (flags),  \
+	    (tag));                                                     \
 	DTRACE_SKYWALK5(probename, char *, #htype, char *, #type,       \
 	    size_t, (count), int, (flags), void *, ret);                \
 	ret;                                                            \
@@ -767,12 +749,8 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_alloc_data(probename, size, flags, tag)                     \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
-	ret = kalloc_data_tag_bt((size), Z_ZERO | (flags),              \
-	    VM_KERN_MEMORY_SKYWALK);                                    \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = kalloc_data_site((size), Z_ZERO | (flags), (tag));        \
 	DTRACE_SKYWALK3(probename, size_t, (size), int, (flags),        \
 	    void *, ret);                                               \
 	ret;                                                            \
@@ -781,12 +759,9 @@ sk_copy64_64x(uint64_t *src, uint64_t *dst, size_t l)
 #define _sk_realloc_data(probename, elem, oldsize, newsize, flags, tag) \
 ({                                                                      \
 	void *ret;                                                      \
-	kern_allocation_name_t prior;                                   \
                                                                         \
-	prior = thread_set_allocation_name((tag));                      \
-	ret = krealloc_data_tag_bt((elem), (oldsize), (newsize),        \
-	    Z_ZERO | (flags), VM_KERN_MEMORY_SKYWALK);                  \
-	(void) thread_set_allocation_name(prior);                       \
+	ret = krealloc_data_site((elem), (oldsize), (newsize),          \
+	    Z_ZERO | (flags), (tag));                                   \
 	DTRACE_SKYWALK5(probename, void *, (elem), size_t, (oldsize),   \
 	    size_t, (newsize), int, (flags), void *, ret);              \
 	ret;                                                            \

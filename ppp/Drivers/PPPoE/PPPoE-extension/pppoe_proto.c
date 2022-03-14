@@ -529,16 +529,11 @@ int pppoe_accept(struct socket *so, struct sockaddr **nam)
         error = EINVAL; // XXX ???
     else {
         // pppoe_rfc_getboundaddr(pcb->rfc, addr.ac_name, addr.service);
-        addr = (struct sockaddr_pppoe *)_MALLOC(sizeof (struct sockaddr_pppoe), M_SONAME, M_WAITOK);
-        if (addr) {
-            addr->ppp.ppp_len = sizeof(struct sockaddr_pppoe);
-            addr->ppp.ppp_family = AF_PPP;
-            addr->ppp.ppp_proto = PPPPROTO_PPPOE;
-            addr->ppp.ppp_cookie = 0;
-            addr->pppoe_ac_name[0] = 0;
-            addr->pppoe_service[0] = 0;
-            *nam = (struct sockaddr *)addr;
-        }
+        addr = kalloc_data(sizeof (struct sockaddr_pppoe), Z_WAITOK | Z_ZERO | Z_NOFAIL);
+        addr->ppp.ppp_len = sizeof(struct sockaddr_pppoe);
+        addr->ppp.ppp_family = AF_PPP;
+        addr->ppp.ppp_proto = PPPPROTO_PPPOE;
+        *nam = (struct sockaddr *)addr;
     }
 
     return error;

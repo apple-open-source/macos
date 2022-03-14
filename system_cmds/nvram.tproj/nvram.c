@@ -57,6 +57,7 @@ static io_registry_entry_t gOptionsRef;
 static io_registry_entry_t gSystemOptionsRef;
 static io_registry_entry_t gSelectedOptionsRef;
 static bool                gUseXML;
+static bool                gPrintInHex;
 static bool                gUseForceSync;
 
 #if TARGET_OS_BRIDGE /* Stuff for nvram bridge -> intel */
@@ -121,8 +122,24 @@ int main(int argc, char **argv)
             PrintOFVariables();
             break;
 
+          case 'h' :
+            UsageMessage("");
+            break;
+
           case 'x' :
+            if (gPrintInHex) {
+                fprintf(stderr, "-x not supported with -X hex mode.\n");
+                return 1;
+            }
             gUseXML = true;
+            break;
+                
+          case 'X' :
+            if (gUseXML) {
+                fprintf(stderr, "-X hex mode not supported with -x XMLmode.\n");
+                return 1;
+            }
+            gPrintInHex = true;
             break;
 
           case 'f':
@@ -211,7 +228,11 @@ int main(int argc, char **argv)
 
   // radar:25206371
   if (argcount == 0 && gUseForceSync == true) {
-    NVRamSyncNow();
+      NVRamSyncNow();
+  }
+
+  if (argc == 1) {
+      UsageMessage("no arguments specified");
   }
 
   IOObjectRelease(gOptionsRef);
@@ -231,8 +252,10 @@ static void UsageMessage(const char *message)
 {
   warnx("(usage: %s)", message);
 
-  printf("nvram [-x] [-p] [-f filename] [-d name] [-c] name[=value] ...\n");
+  printf("nvram [-x|-X] [-p] [-f filename] [-d name] [-c] name[=value] ...\n");
   printf("\t-x         use XML format for printing or reading variables\n");
+  printf("\t           (must appear before -p or -f)\n");
+  printf("\t-X         use HEX format for printing or reading variables\n");
   printf("\t           (must appear before -p or -f)\n");
   printf("\t-p         print all firmware variables\n");
   printf("\t-f         set firmware variables from a text file\n");
@@ -889,7 +912,7 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
   } else if (typeID == CFNumberGetTypeID()) {
     CFNumberGetValue(value, kCFNumberSInt32Type, &number);
     if (number == 0xFFFFFFFF) sprintf(numberBuffer, "-1");
-    else if (number < 1000) sprintf(numberBuffer, "%d", number);
+    else if (!gPrintInHex && number < 1000) sprintf(numberBuffer, "%d", number);
     else sprintf(numberBuffer, "0x%x", number);
     valueString = numberBuffer;
   } else if (typeID == CFStringGetTypeID()) {
@@ -906,12 +929,20 @@ static void PrintOFVariable(const void *key, const void *value, void *context)
     length = CFDataGetLength(value);
     if (length == 0) valueString = "";
     else {
-      dataBuffer = malloc(length * 3 + 1);
+      dataBuffer = malloc(length * 3 + 3);
       if (dataBuffer != 0) {
         dataPtr = CFDataGetBytePtr(value);
-        for (cnt = cnt2 = 0; cnt < length; cnt++) {
+        cnt = cnt2 = 0;
+        if (gPrintInHex) {
+            sprintf(dataBuffer, "0x");
+            cnt2 += 2;
+        }
+        for (; cnt < length; cnt++) {
           dataChar = dataPtr[cnt];
-          if (isprint(dataChar) && dataChar != '%') {
+          if (gPrintInHex) {
+              sprintf(dataBuffer + cnt2, "%02x", dataChar);
+              cnt2 += 2;
+          } else if (!gPrintInHex && isprint(dataChar) && dataChar != '%') {
             dataBuffer[cnt2++] = dataChar;
           } else {
             sprintf(dataBuffer + cnt2, "%%%02x", dataChar);

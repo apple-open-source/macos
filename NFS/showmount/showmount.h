@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -59,32 +59,32 @@
 #define __SHOWMOUNT_H
 
 /* Constant defs */
-#define MOUNTSHOWHOSTS	0
-#define MOUNTSHOWALL	1
-#define MOUNTSHOWDIRS	2
+#define MOUNTSHOWHOSTS  0
+#define MOUNTSHOWALL    1
+#define MOUNTSHOWDIRS   2
 
 #define DODUMP          0x1
 #define DOEXPORTS       0x2
 
 struct mountlist {
-        struct mountlist *ml_left;
-        struct mountlist *ml_right;
-        char    ml_host[RPCMNT_NAMELEN+1];
-        char    ml_dirp[RPCMNT_PATHLEN+1];
+	struct mountlist *ml_left;
+	struct mountlist *ml_right;
+	char    ml_host[RPCMNT_NAMELEN + 1];
+	char    ml_dirp[RPCMNT_PATHLEN + 1];
 };
 
 struct grouplist {
 	TAILQ_ENTRY(grouplist) gr_link;
-        char    gr_name[RPCMNT_NAMELEN+1];
+	char    gr_name[RPCMNT_NAMELEN + 1];
 };
 
 struct exportslist {
 	TAILQ_ENTRY(exportslist) ex_link;
 	TAILQ_HEAD(grouplisthead, grouplist) ex_groups;
-        char    ex_dirp[RPCMNT_PATHLEN+1];
+	char    ex_dirp[RPCMNT_PATHLEN + 1];
 };
 
-int	do_print(const char *host);
-int	browse(void);
+int     do_print(const char *host);
+int     browse(void);
 
 #endif /* __SHOWMOUNT_H */

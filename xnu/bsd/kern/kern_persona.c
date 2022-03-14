@@ -83,7 +83,7 @@ LCK_MTX_DECLARE(all_personas_lock, &persona_lck_grp);
 
 os_refgrp_decl(static, persona_refgrp, "persona", NULL);
 
-static ZONE_DECLARE(persona_zone, "personas", sizeof(struct persona), ZC_ZFREE_CLEARMEM);
+static ZONE_DEFINE_TYPE(persona_zone, "personas", struct persona, ZC_ZFREE_CLEARMEM);
 
 static SECURITY_READ_ONLY_LATE(kauth_cred_t) g_default_persona_cred;
 

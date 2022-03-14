@@ -20,6 +20,48 @@ class OctagonErrorUtilsTest: OctagonTestsBase {
         print(ckError)
         XCTAssertTrue(ckError.isRetryable(), "CK/NSURLErrorNotConnectedToInternet should be retryable")
     }
+
+    func testRetryIntervalCKError() throws {
+        let error = NSError(domain: CKErrorDomain, code: 17, userInfo: nil)
+        print(error)
+        XCTAssertEqual(2, error.retryInterval(), "expect CKError default retry to 2")
+    }
+
+    func testRetryIntervalCKErrorRetry() throws {
+        let error = NSError(domain: CKErrorDomain, code: 17, userInfo: [CKErrorRetryAfterKey: 17])
+        print(error)
+        XCTAssertEqual(17, error.retryInterval(), "expect CKError default retry to 17")
+    }
+
+    func testRetryIntervalCKErrorRetryBad() throws {
+        let error = NSError(domain: CKErrorDomain, code: 17, userInfo: [CKErrorRetryAfterKey: "foo"])
+        print(error)
+        XCTAssertEqual(2, error.retryInterval(), "expect CKError default retry to 2")
+    }
+
+    func testRetryIntervalCKErrorPartial() throws {
+        let suberror = NSError(domain: CKErrorDomain, code: 1, userInfo: [CKErrorRetryAfterKey: "4711"])
+
+        let error = NSError(domain: CKErrorDomain, code: CKError.partialFailure.rawValue, userInfo: [CKPartialErrorsByItemIDKey: ["foo": suberror]])
+        print(error)
+        XCTAssertEqual(4711, error.retryInterval(), "expect CKError default retry to 4711")
+    }
+
+    func testRetryIntervalCuttlefish() throws {
+        let cuttlefishError = CKPrettyError(domain: CuttlefishErrorDomain,
+                                            code: 17,
+                                            userInfo: [CuttlefishErrorRetryAfterKey: 101])
+        let internalError = CKPrettyError(domain: CKInternalErrorDomain,
+                                          code: CKInternalErrorCode.errorInternalPluginError.rawValue,
+                                          userInfo: [NSUnderlyingErrorKey: cuttlefishError, ])
+        let ckError = CKPrettyError(domain: CKErrorDomain,
+                                    code: CKError.serverRejectedRequest.rawValue,
+                                    userInfo: [NSUnderlyingErrorKey: internalError,
+                                               CKErrorServerDescriptionKey: "Fake: FunctionError domain: CuttlefishError, 17",
+                                               ])
+        print(ckError)
+        XCTAssertEqual(101, ckError.retryInterval(), "cuttlefish retry should be 101")
+    }
 }
 
 #endif

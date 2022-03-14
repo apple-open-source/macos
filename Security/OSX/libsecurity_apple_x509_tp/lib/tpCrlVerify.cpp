@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2012,2022 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -295,7 +295,11 @@ CSSM_RETURN tpGetCrlStatusForCert(
 	if(crtn || !serialNumber) {
 		return CSSMERR_TP_INTERNAL_ERROR;
 	}
+#if OCSPD_ENABLED
 	crtn = ocspdCRLStatus(*serialNumber, issuers, subject.issuerName(), NULL);
+#else
+	crtn = CSSMERR_TP_INTERNAL_ERROR; /* no ocspd */
+#endif
 	subject.freeField(&CSSMOID_X509V1SerialNumber, serialNumber);
 	return crtn;
 }

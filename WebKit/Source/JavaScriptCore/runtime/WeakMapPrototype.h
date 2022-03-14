@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Apple, Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,12 +41,12 @@ public:
     static IsoSubspace* subspaceFor(VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(WeakMapPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     static WeakMapPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
-        WeakMapPrototype* prototype = new (NotNull, allocateCell<WeakMapPrototype>(vm.heap)) WeakMapPrototype(vm, structure);
+        WeakMapPrototype* prototype = new (NotNull, allocateCell<WeakMapPrototype>(vm)) WeakMapPrototype(vm, structure);
         prototype->finishCreation(vm, globalObject);
         return prototype;
     }

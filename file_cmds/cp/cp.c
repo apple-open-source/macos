@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1988, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -13,7 +15,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -42,7 +44,7 @@ static char sccsid[] = "@(#)cp.c	8.2 (Berkeley) 4/1/94";
 #endif /* not lint */
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/cp/cp.c,v 1.52 2005/09/05 04:36:08 csjp Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * Cp copies source files to target files.
@@ -82,20 +84,21 @@ __FBSDID("$FreeBSD: src/bin/cp/cp.c,v 1.52 2005/09/05 04:36:08 csjp Exp $");
 #include "extern.h"
 
 #define	STRIP_TRAILING_SLASH(p) {					\
-        while ((p).p_end > (p).p_path + 1 && (p).p_end[-1] == '/')	\
-                *--(p).p_end = 0;					\
+	while ((p).p_end > (p).p_path + 1 && (p).p_end[-1] == '/')	\
+	*--(p).p_end = 0;						\
 }
 
 static char emptystring[] = "";
 
 PATH_T to = { to.p_path, emptystring, "" };
 
-int fflag, iflag, nflag, pflag, vflag;
+int fflag, iflag, lflag, nflag, pflag, sflag, vflag;
+int unix2003_compat;
 #ifdef __APPLE__
+int cflag;
 int Xflag;
 #endif /* __APPLE__ */
 static int Rflag, rflag;
-	int cflag = 0;
 volatile sig_atomic_t info;
 
 enum op { FILE_TO_FILE, FILE_TO_DIR, DIR_TO_DNE };
@@ -108,47 +111,64 @@ main(int argc, char *argv[])
 {
 	struct stat to_stat, tmp_stat;
 	enum op type;
-	int Hflag, Lflag, Pflag, ch, fts_options, r, have_trailing_slash;
+	int Hflag, Lflag, ch, fts_options, r, have_trailing_slash;
 	char *target;
 
-	Hflag = Lflag = Pflag = 0;
-	while ((ch = getopt(argc, argv, "cHLPRXafinprv")) != -1)
+	unix2003_compat = COMPAT_MODE("bin/cp", "unix2003");
+	fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
+	Hflag = Lflag = 0;
+#ifdef __APPLE__
+	while ((ch = getopt(argc, argv, "cHLPRXafilnprsvx")) != -1)
+#else
+	while ((ch = getopt(argc, argv, "HLPRafilnprsvx")) != -1)
+#endif
 		switch (ch) {
+#ifdef __APPLE__
 		case 'c':
 			cflag = 1;
 			break;
+#endif
 		case 'H':
 			Hflag = 1;
-			Lflag = Pflag = 0;
+			Lflag = 0;
 			break;
 		case 'L':
 			Lflag = 1;
-			Hflag = Pflag = 0;
+			Hflag = 0;
 			break;
 		case 'P':
-			Pflag = 1;
 			Hflag = Lflag = 0;
 			break;
 		case 'R':
 			Rflag = 1;
 			break;
+#ifdef __APPLE__
 		case 'X':
 			Xflag = 1;
+			break;
+#endif
+		case 'a':
+			pflag = 1;
+			Rflag = 1;
+			Hflag = Lflag = 0;
 			break;
 		case 'f':
 			fflag = 1;
 			/* Determine if the STD is SUSv3 or Legacy */
-			if (COMPAT_MODE("bin/cp", "unix2003"))
+			if (unix2003_compat)
 				nflag = 0;	/* reset nflag, but not iflag */
 			else
 				iflag = nflag = 0;	/* reset both */
 			break;
 		case 'i':
 			iflag = 1;
-			if (COMPAT_MODE("bin/cp", "unix2003"))
+			if (unix2003_compat)
 				nflag = 0;	/* reset nflag, but not fflag */
 			else
 				fflag = nflag = 0;
+			break;
+		case 'l':
+			lflag = 1;
 			break;
 		case 'n':
 			nflag = 1;
@@ -158,15 +178,17 @@ main(int argc, char *argv[])
 			pflag = 1;
 			break;
 		case 'r':
-			rflag = 1;
+			rflag = Lflag = 1;
+			Hflag = 0;
+			break;
+		case 's':
+			sflag = 1;
 			break;
 		case 'v':
 			vflag = 1;
 			break;
-		case 'a':
-			pflag = 1;
-			Pflag = 1;
-			Rflag = 1;
+		case 'x':
+			fts_options |= FTS_XDEV;
 			break;
 		default:
 			usage();
@@ -178,21 +200,18 @@ main(int argc, char *argv[])
 	if (argc < 2)
 		usage();
 
+#ifdef __APPLE__
 	if (cflag && Xflag) {
 		errx(1, "the -c and -X options may not be specified together");
 	}
+#endif
 
-	fts_options = FTS_NOCHDIR | FTS_PHYSICAL;
-	if (rflag) {
-		if (Rflag)
-			errx(1,
-		    "the -R and -r options may not be specified together.");
-		if (Hflag || Lflag || Pflag)
-			errx(1,
-	"the -H, -L, and -P options may not be specified with the -r option.");
-		fts_options &= ~FTS_PHYSICAL;
-		fts_options |= FTS_LOGICAL;
-	}
+	if (Rflag && rflag)
+		errx(1, "the -R and -r options may not be specified together");
+	if (lflag && sflag)
+		errx(1, "the -l and -s options may not be specified together");
+	if (rflag)
+		Rflag = 1;
 	if (Rflag) {
 		if (Hflag)
 			fts_options |= FTS_COMFOLLOW;
@@ -211,7 +230,7 @@ main(int argc, char *argv[])
 	if (strlcpy(to.p_path, target, sizeof(to.p_path)) >= sizeof(to.p_path))
 		errx(1, "%s: name too long", target);
 	to.p_end = to.p_path + strlen(to.p_path);
-        if (to.p_path == to.p_end) {
+	if (to.p_path == to.p_end) {
 		*to.p_end++ = '.';
 		*to.p_end = 0;
 	}
@@ -244,10 +263,9 @@ main(int argc, char *argv[])
 		/*
 		 * Case (1).  Target is not a directory.
 		 */
-		if (argc > 1) {
-			usage();
-			exit(1);
-		}
+		if (argc > 1)
+			errx(1, "%s is not a directory", to.p_path);
+
 		/*
 		 * Need to detect the case:
 		 *	cp -R dir foo
@@ -256,12 +274,12 @@ main(int argc, char *argv[])
 		 * the initial mkdir().
 		 */
 		if (r == -1) {
-			if (rflag || (Rflag && (Lflag || Hflag)))
+			if (Rflag && (Lflag || Hflag))
 				stat(*argv, &tmp_stat);
 			else
 				lstat(*argv, &tmp_stat);
 
-			if (S_ISDIR(tmp_stat.st_mode) && (Rflag || rflag))
+			if (S_ISDIR(tmp_stat.st_mode) && Rflag)
 				type = DIR_TO_DNE;
 			else
 				type = FILE_TO_FILE;
@@ -269,10 +287,10 @@ main(int argc, char *argv[])
 			type = FILE_TO_FILE;
 
 		if (have_trailing_slash && type == FILE_TO_FILE) {
-			if (r == -1)
+			if (r == -1) {
 				errx(1, "directory %s does not exist",
-				     to.p_path);
-			else
+				    to.p_path);
+			} else
 				errx(1, "%s is not a directory", to.p_path);
 		}
 	} else
@@ -304,18 +322,19 @@ copy(char *argv[], enum op type, int fts_options)
 
 	if ((ftsp = fts_open(argv, fts_options, NULL)) == NULL)
 		err(1, "fts_open");
-	for (badcp = rval = 0; (curr = fts_read(ftsp)) != NULL; badcp = 0) {
+	for (badcp = rval = 0; (void)(errno = 0), (curr = fts_read(ftsp)) != NULL;
+             badcp = 0) {
 		switch (curr->fts_info) {
 		case FTS_NS:
 		case FTS_DNR:
 		case FTS_ERR:
 			warnx("%s: %s",
 			    curr->fts_path, strerror(curr->fts_errno));
-			rval = 1;
+			badcp = rval = 1;
 			continue;
 		case FTS_DC:			/* Warn, continue. */
 			warnx("%s: directory causes a cycle", curr->fts_path);
-			rval = 1;
+			badcp = rval = 1;
 			continue;
 		default:
 			;
@@ -352,8 +371,8 @@ copy(char *argv[], enum op type, int fts_options)
 #endif /* __APPLE__ */
 		/*
 		 * If we are in case (2) or (3) above, we need to append the
-                 * source name to the target name.
-                 */
+		 * source name to the target name.
+		 */
 		if (type != FILE_TO_FILE) {
 			/*
 			 * Need to remember the roots of traversals to create
@@ -396,7 +415,7 @@ copy(char *argv[], enum op type, int fts_options)
 			if (target_mid - to.p_path + nlen >= PATH_MAX) {
 				warnx("%s%s: name too long (not copied)",
 				    to.p_path, p);
-				rval = 1;
+				badcp = rval = 1;
 				continue;
 			}
 			(void)strncat(target_mid, p, nlen);
@@ -438,7 +457,8 @@ copy(char *argv[], enum op type, int fts_options)
 				mode = curr->fts_statp->st_mode;
 				if ((mode & (S_ISUID | S_ISGID | S_ISTXT)) ||
 				    ((mode | S_IRWXU) & mask) != (mode & mask))
-					if (chmod(to.p_path, mode & mask) != 0){
+					if (chmod(to.p_path, mode & mask) !=
+					    0) {
 						warn("chmod: %s", to.p_path);
 						rval = 1;
 					}
@@ -446,7 +466,7 @@ copy(char *argv[], enum op type, int fts_options)
 			continue;
 		}
 
-		/* Not an error but need to remember it happened */
+		/* Not an error but need to remember it happened. */
 		if (stat(to.p_path, &to_stat) == -1)
 			dne = 1;
 		else {
@@ -454,7 +474,7 @@ copy(char *argv[], enum op type, int fts_options)
 			    to_stat.st_ino == curr->fts_statp->st_ino) {
 				warnx("%s and %s are identical (not copied).",
 				    to.p_path, curr->fts_path);
-				rval = 1;
+				badcp = rval = 1;
 				if (S_ISDIR(curr->fts_statp->st_mode))
 					(void)fts_set(ftsp, curr, FTS_SKIP);
 				continue;
@@ -464,7 +484,7 @@ copy(char *argv[], enum op type, int fts_options)
 				warnx("cannot overwrite directory %s with "
 				    "non-directory %s",
 				    to.p_path, curr->fts_path);
-				rval = 1;
+				badcp = rval = 1;
 				continue;
 			}
 			dne = 0;
@@ -472,7 +492,7 @@ copy(char *argv[], enum op type, int fts_options)
 
 		switch (curr->fts_statp->st_mode & S_IFMT) {
 		case S_IFLNK:
-			/* Catch special case of a non-dangling symlink */
+			/* Catch special case of a non-dangling symlink. */
 			if ((fts_options & FTS_LOGICAL) ||
 			    ((fts_options & FTS_COMFOLLOW) &&
 			    curr->fts_level == 0)) {
@@ -484,7 +504,7 @@ copy(char *argv[], enum op type, int fts_options)
 			}
 			break;
 		case S_IFDIR:
-			if (!Rflag && !rflag) {
+			if (!Rflag) {
 				warnx("%s is a directory (not copied).",
 				    curr->fts_path);
 				(void)fts_set(ftsp, curr, FTS_SKIP);
@@ -497,12 +517,12 @@ copy(char *argv[], enum op type, int fts_options)
 			 * modified by the umask.  Trade-off between being
 			 * able to write the directory (if from directory is
 			 * 555) and not causing a permissions race.  If the
-			 * umask blocks owner writes, we fail..
+			 * umask blocks owner writes, we fail.
 			 */
 			if (dne) {
 				if (mkdir(to.p_path,
 					  curr->fts_statp->st_mode | S_IRWXU) < 0) {
-					if (COMPAT_MODE("bin/cp", "unix2003")) {
+					if (unix2003_compat) {
 						warn("%s", to.p_path);
 					} else {
 						err(1, "%s", to.p_path);
@@ -510,7 +530,7 @@ copy(char *argv[], enum op type, int fts_options)
 				}
 			} else if (!S_ISDIR(to_stat.st_mode)) {
 				errno = ENOTDIR;
-				if (COMPAT_MODE("bin/cp", "unix2003")) {
+				if (unix2003_compat) {
 					warn("%s", to.p_path);
 				} else {
 					err(1, "%s", to.p_path);
@@ -532,7 +552,7 @@ copy(char *argv[], enum op type, int fts_options)
 			break;
 		case S_IFBLK:
 		case S_IFCHR:
-			if (Rflag) {
+			if (Rflag && !sflag) {
 				if (copy_special(curr->fts_statp, !dne))
 					badcp = rval = 1;
 			} else {
@@ -540,8 +560,12 @@ copy(char *argv[], enum op type, int fts_options)
 					badcp = rval = 1;
 			}
 			break;
+		case S_IFSOCK:
+			warnx("%s is a socket (not copied).",
+			    curr->fts_path);
+			break;
 		case S_IFIFO:
-			if (Rflag) {
+			if (Rflag && !sflag) {
 				if (copy_fifo(curr->fts_statp, !dne))
 					badcp = rval = 1;
 			} else {

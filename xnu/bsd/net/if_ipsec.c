@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2012-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -278,7 +278,7 @@ ipsec_flag_isset(struct ipsec_pcb *pcb, uint32_t flag)
 
 TAILQ_HEAD(ipsec_list, ipsec_pcb) ipsec_head;
 
-static ZONE_DECLARE(ipsec_pcb_zone, "net.if_ipsec",
+static ZONE_DEFINE(ipsec_pcb_zone, "net.if_ipsec",
     sizeof(struct ipsec_pcb), ZC_ZFREE_CLEARMEM);
 
 #define IPSECQ_MAXLEN 256
@@ -3011,8 +3011,12 @@ ipsec_ctl_disconnect(__unused kern_ctl_ref      kctlref,
 			 */
 			if_down(ifp);
 
-			/* Increment refcnt, but detach interface */
-			ifnet_incr_iorefcnt(ifp);
+			/*
+			 * Suspend data movement and wait for IO threads to exit.
+			 * We can't rely on the logic in dlil_quiesce_and_detach_nexuses() to
+			 * do this because ipsec nexuses are attached/detached separately.
+			 */
+			ifnet_datamov_suspend_and_drain(ifp);
 			if ((result = ifnet_detach(ifp)) != 0) {
 				panic("ipsec_ctl_disconnect - ifnet_detach failed: %d", result);
 				/* NOT REACHED */
@@ -3035,8 +3039,8 @@ ipsec_ctl_disconnect(__unused kern_ctl_ref      kctlref,
 
 			ipsec_nexus_detach(pcb);
 
-			/* Decrement refcnt to finish detaching and freeing */
-			ifnet_decr_iorefcnt(ifp);
+			/* Decrement refcnt added by ifnet_datamov_suspend_and_drain(). */
+			ifnet_datamov_resume(ifp);
 		} else
 #endif // IPSEC_NEXUS
 		{

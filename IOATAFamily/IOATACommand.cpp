@@ -81,7 +81,7 @@ OSDefineAbstractStructors( IOATACommand, IOCommand )
 bool
 IOATACommand::init()
 {
-	fExpansionData = (ExpansionData*) IOMalloc( sizeof( ExpansionData) ); 
+	fExpansionData = (ExpansionData*) IOMallocType( IOATACommand::ExpansionData );
 	fExpansionData->extLBA = IOExtendedLBA::createIOExtendedLBA( this );
 	
 	if( ! super::init() || fExpansionData == NULL || fExpansionData->extLBA == NULL )
@@ -103,7 +103,7 @@ IOATACommand::free()
 {
 
 	getExtendedLBA()->release();
-	IOFree( fExpansionData, sizeof( ExpansionData) );
+	IOFreeType( fExpansionData, IOATACommand::ExpansionData );
 	super::free();
 
 }

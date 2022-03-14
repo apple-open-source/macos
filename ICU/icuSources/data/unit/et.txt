@@ -105,16 +105,73 @@ et{
             }
         }
         compound{
+            1024p1{"kibi{0}"}
+            1024p2{"mebi{0}"}
+            1024p3{"gibi{0}"}
+            1024p4{"tebi{0}"}
+            1024p5{"pebi{0}"}
+            1024p6{"eksbi{0}"}
+            1024p7{"zebi{0}"}
+            1024p8{"jobe{0}"}
+            10p-1{"detsi{0}"}
+            10p-12{"piko{0}"}
+            10p-15{"femto{0}"}
+            10p-18{"ato{0}"}
+            10p-2{"senti{0}"}
+            10p-21{"zepto{0}"}
+            10p-24{"jokto{0}"}
+            10p-3{"milli{0}"}
+            10p-6{"mikro{0}"}
+            10p-9{"nano{0}"}
+            10p1{"deka{0}"}
+            10p12{"tera{0}"}
+            10p15{"peta{0}"}
+            10p18{"eksa{0}"}
+            10p2{"hekto{0}"}
+            10p21{"zeta{0}"}
+            10p24{"jota{0}"}
+            10p3{"kilo{0}"}
+            10p6{"mega{0}"}
+            10p9{"giga{0}"}
             per{"{0} {1} kohta"}
+            power2{
+                one{
+                    _{
+                        _{"ruut{0}"}
+                    }
+                }
+                other{
+                    _{
+                        _{"ruut{0}"}
+                    }
+                }
+            }
+            power3{
+                one{
+                    _{
+                        _{"kuup{0}"}
+                    }
+                }
+                other{
+                    _{
+                        _{"kuup{0}"}
+                    }
+                }
+            }
             times{"{0}⋅{1}"}
         }
         concentr{
+            item{
+                dnam{"üksus"}
+                one{"{0} üksus"}
+                other{"{0} üksust"}
+            }
             karat{
                 dnam{"karaadid"}
                 one{"{0} karaat"}
                 other{"{0} karaati"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"milligrammid detsiliitri kohta"}
                 one{"{0} milligramm detsiliitri kohta"}
                 other{"{0} milligrammi detsiliitri kohta"}
@@ -153,7 +210,7 @@ et{
         consumption{
             liter-per-100-kilometer{
                 dnam{"liitrid 100 kilomeetri kohta"}
-                one{"liiter 100 kilomeetri kohta"}
+                one{"{0} liiter 100 kilomeetri kohta"}
                 other{"{0} liitrit 100 kilomeetri kohta"}
             }
             liter-per-kilometer{
@@ -375,6 +432,11 @@ et{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"kilovatt-tunnid 100 kilomeetri kohta"}
+                one{"{0} kilovatt-tund 100 kilomeetri kohta"}
+                other{"{0} kilovatt-tundi 100 kilomeetri kohta"}
+            }
             newton{
                 dnam{"njuutonid"}
                 one{"{0} njuuton"}
@@ -585,6 +647,8 @@ et{
             }
             solar-luminosity{
                 dnam{"Päikese heledus"}
+                one{"{0} Päikese heledus"}
+                other{"{0} Päikese heledust"}
             }
         }
         mass{
@@ -787,8 +851,8 @@ et{
             }
             generic{
                 dnam{"°"}
-                one{"{0}°"}
-                other{"{0}°"}
+                one{"{0} kraad"}
+                other{"{0} kraadi"}
             }
             kelvin{
                 dnam{"kelvinid"}
@@ -990,8 +1054,6 @@ et{
         acceleration{
             g-force{
                 dnam{"Maa raskuskiirendus"}
-                one{"{0}G"}
-                other{"{0}G"}
             }
         }
         angle{
@@ -1027,9 +1089,17 @@ et{
             times{"{0}⋅{1}"}
         }
         concentr{
+            item{
+                dnam{"üksus"}
+                one{"{0} üksus"}
+                other{"{0} üksust"}
+            }
             karat{
                 one{"{0} ct"}
                 other{"{0} ct"}
+            }
+            mole{
+                dnam{"mol"}
             }
             percent{
                 dnam{"%"}
@@ -1042,6 +1112,14 @@ et{
                 dnam{"l/100 km"}
                 one{"{0} l/100km"}
                 other{"{0} l/100km"}
+            }
+            mile-per-gallon{
+                dnam{"mpg"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"mpg UK"}
+                one{"{0} m/gUK"}
+                other{"{0} m/gUK"}
             }
         }
         coordinate{
@@ -1098,6 +1176,15 @@ et{
                 dnam{"a"}
                 one{"{0} a"}
                 other{"{0} a"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                one{"{0}kWh/100km"}
+                other{"{0}kWh/100km"}
+            }
+            newton{
+                dnam{"N"}
             }
         }
         length{
@@ -1203,14 +1290,6 @@ et{
                 one{"{0} hj"}
                 other{"{0} hj"}
             }
-            kilowatt{
-                one{"{0}kW"}
-                other{"{0}kW"}
-            }
-            watt{
-                one{"{0}W"}
-                other{"{0}W"}
-            }
         }
         pressure{
             hectopascal{
@@ -1265,10 +1344,34 @@ et{
                 one{"{0} km³"}
                 other{"{0} km³"}
             }
+            dram{
+                dnam{"d. ved."}
+                one{"{0} d. ved."}
+                other{"{0} d. ved."}
+            }
+            fluid-ounce-imperial{
+                dnam{"Imp fl oz"}
+                one{"{0} fl oz Im"}
+                other{"{0} fl oz Im"}
+            }
+            gallon-imperial{
+                one{"{0} gal Im"}
+                other{"{0} gal Im"}
+            }
             liter{
                 dnam{"liiter"}
                 one{"{0} l"}
                 other{"{0} l"}
+            }
+            pinch{
+                dnam{"näp."}
+                one{"{0} näp."}
+                other{"{0} näp."}
+            }
+            quart-imperial{
+                dnam{"qt Imp"}
+                one{"{0} qt Imp."}
+                other{"{0} qt Imp."}
             }
         }
     }
@@ -1374,12 +1477,17 @@ et{
             times{"{0}⋅{1}"}
         }
         concentr{
+            item{
+                dnam{"üksus"}
+                one{"{0} üksus"}
+                other{"{0} üksust"}
+            }
             karat{
                 dnam{"karaat"}
                 one{"{0} ct"}
                 other{"{0} ct"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dl"}
                 one{"{0} mg/dl"}
                 other{"{0} mg/dl"}
@@ -1640,6 +1748,11 @@ et{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"kWh / 100 km"}
+                one{"{0} kWh / 100 km"}
+                other{"{0} kWh / 100 km"}
+            }
             newton{
                 dnam{"njuuton"}
                 one{"{0} N"}
@@ -1767,9 +1880,9 @@ et{
                 per{"{0}/m"}
             }
             micrometer{
-                dnam{"µm"}
-                one{"{0} µm"}
-                other{"{0} µm"}
+                dnam{"μm"}
+                one{"{0} μm"}
+                other{"{0} μm"}
             }
             mile{
                 dnam{"mi"}
@@ -1873,9 +1986,9 @@ et{
                 other{"{0} t"}
             }
             microgram{
-                dnam{"µg"}
-                one{"{0} µg"}
-                other{"{0} µg"}
+                dnam{"μg"}
+                one{"{0} μg"}
+                other{"{0} μg"}
             }
             milligram{
                 dnam{"mg"}

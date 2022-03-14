@@ -557,8 +557,9 @@ cpu_data_startup_init(void)
 		return;
 	}
 
-	kr = kmem_alloc_flags(kernel_map, &percpu_base.start,
-	    round_page(size) + 2 * PAGE_SIZE, VM_KERN_MEMORY_CPU, flags);
+	kr = kernel_memory_allocate(kernel_map, &percpu_base.start,
+	    round_page(size) + 2 * PAGE_SIZE, 0,
+	    flags, VM_KERN_MEMORY_CPU);
 	if (kr != KERN_SUCCESS) {
 		panic("percpu: kmem_alloc failed (%d)", kr);
 	}

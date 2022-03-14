@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 2002, 2005 Networks Associates Technologies, Inc.
  * All rights reserved.
  *
@@ -40,11 +42,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -74,7 +72,7 @@ static char sccsid[] = "@(#)su.c	8.3 (Berkeley) 4/2/94";
 #endif
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/su/su.c,v 1.91 2009/12/13 03:14:06 delphij Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/time.h>
@@ -159,7 +157,7 @@ int
 main(int argc, char *argv[])
 {
 	static char	*cleanenv;
-	struct passwd	*pwd;
+	struct passwd	*pwd = NULL;
 	struct pam_conv	conv = { openpam_ttyconv, NULL };
 	enum tristate	iscsh;
 #ifndef __APPLE__
@@ -191,7 +189,7 @@ main(int argc, char *argv[])
 	char		avshellbuf[MAXPATHLEN];
 #endif /* __APPLE__ */
 
-	shell = class = cleanenv = NULL;
+	p = shell = class = cleanenv = NULL;
 	asme = asthem = fastlogin = statusp = 0;
 	user = "root";
 	iscsh = UNSET;
@@ -280,8 +278,9 @@ main(int argc, char *argv[])
 	/* get current login name, real uid and shell */
 	ruid = getuid();
 	username = getlogin();
-	pwd = getpwnam(username);
-	if (username == NULL || pwd == NULL || pwd->pw_uid != ruid)
+	if (username != NULL)
+		pwd = getpwnam(username);
+	if (pwd == NULL || pwd->pw_uid != ruid)
 		pwd = getpwuid(ruid);
 	if (pwd == NULL) {
 #ifdef USE_BSM_AUDIT
@@ -299,9 +298,9 @@ main(int argc, char *argv[])
 	if (asme) {
 		if (pwd->pw_shell != NULL && *pwd->pw_shell != '\0') {
 			/* must copy - pwd memory is recycled */
-			shell = strncpy(shellbuf, pwd->pw_shell,
+			strlcpy(shellbuf, pwd->pw_shell,
 			    sizeof(shellbuf));
-			shellbuf[sizeof(shellbuf) - 1] = '\0';
+			shell = shellbuf;
 		}
 		else {
 			shell = _PATH_BSHELL;
@@ -398,6 +397,8 @@ main(int argc, char *argv[])
 		}
 		lc = login_getclass(class);
 		if (lc == NULL)
+			err(1, "login_getclass");
+		if (lc->lc_class == NULL || strcmp(class, lc->lc_class) != 0)
 			errx(1, "unknown class: %s", class);
 	}
 #endif /* !__APPLE__ */
@@ -410,8 +411,8 @@ main(int argc, char *argv[])
 	else if (pwd->pw_shell && *pwd->pw_shell) {
 #ifdef __APPLE__
 		/* 3825554 */
-		shell = strncpy(shellbuf, pwd->pw_shell, sizeof(shellbuf));
-		shellbuf[sizeof(shellbuf) - 1] = '\0';
+		strlcpy(shellbuf, pwd->pw_shell, sizeof(shellbuf));
+		shell = shellbuf;
 #else
 		shell = pwd->pw_shell;
 #endif /* __APPLE__ */
@@ -463,7 +464,6 @@ main(int argc, char *argv[])
         }
 	}
 #endif /* __APPLE__ */
-
 	retcode = pam_setcred(pamh, PAM_ESTABLISH_CRED);
 	if (retcode != PAM_SUCCESS) {
 		syslog(LOG_ERR, "pam_setcred: %s",

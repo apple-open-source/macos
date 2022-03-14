@@ -41,8 +41,8 @@
 
 #if ENABLE(INSPECTOR_EXTENSIONS)
 namespace Inspector {
-using ExtensionID = WTF::String;
-using ExtensionTabID = WTF::String;
+using ExtensionID = String;
+using ExtensionTabID = String;
 }
 #endif
 
@@ -106,8 +106,8 @@ public:
 
     WEBCORE_EXPORT virtual void openURLExternally(const String& url) = 0;
     virtual bool canSave() = 0;
-    virtual void save(const WTF::String& url, const WTF::String& content, bool base64Encoded, bool forceSaveAs) = 0;
-    virtual void append(const WTF::String& url, const WTF::String& content) = 0;
+    virtual void save(const String& url, const String& content, bool base64Encoded, bool forceSaveAs) = 0;
+    virtual void append(const String& url, const String& content) = 0;
 
     virtual void inspectedURLChanged(const String&) = 0;
     virtual void showCertificate(const CertificateInfo&) = 0;
@@ -122,6 +122,8 @@ public:
     virtual bool supportsWebExtensions() { return false; }
     virtual void didShowExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) { }
     virtual void didHideExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) { }
+    virtual void didNavigateExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&, const URL&) { }
+    virtual void inspectedPageDidNavigate(const URL&) { }
 #endif
 
     WEBCORE_EXPORT virtual void sendMessageToBackend(const String&) = 0;

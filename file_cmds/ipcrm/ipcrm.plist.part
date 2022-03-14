@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>ipcrm</string>
+		<key>OpenSourceVersion</key>
+		<string>2018-03-02</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/ipcrm?id=75c1df31cff84d203a3711e12c3ab54057b4c89c</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-08-06</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>ipcrm.1, ipcrm.c: remove unsupported -W/-v options (81181638)</string>
+			<string>ipcrm.c: fix getopt() usage (81181638)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

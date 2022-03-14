@@ -55,44 +55,6 @@
     return false;
 }
 
-- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishErrorCode
-{
-    NSError *error = self;
-
-    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest) {
-        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
-
-        if([underlyingError.domain isEqualToString:CKInternalErrorDomain] && underlyingError.code == CKErrorInternalPluginError) {
-            NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
-
-            if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain] && cuttlefishError.code == cuttlefishErrorCode) {
-                return YES;
-            }
-        }
-    }
-    return NO;
-}
-
-- (NSTimeInterval)cuttlefishRetryAfter {
-    NSError *error = self;
-
-    if ([error.domain isEqualToString:CKErrorDomain] && error.code == CKErrorServerRejectedRequest) {
-        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
-
-        if([underlyingError.domain isEqualToString:CKInternalErrorDomain] && underlyingError.code == CKErrorInternalPluginError) {
-            NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
-
-            if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain]) {
-                NSNumber* val = cuttlefishError.userInfo[CuttlefishErrorRetryAfterKey];
-                if (val != nil) {
-                    return (NSTimeInterval)val.doubleValue;
-                }
-            }
-        }
-    }
-    return 0;
-}
-
 - (BOOL)isCKKSServerPluginError:(NSInteger)code
 {
     NSError* underlyingError = self.userInfo[NSUnderlyingErrorKey];

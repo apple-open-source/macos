@@ -127,11 +127,11 @@ unsigned int _MachineStateCount[] = {
 	[x86_PAGEIN_STATE]              = x86_PAGEIN_STATE_COUNT
 };
 
-ZONE_DECLARE(iss_zone, "x86_64 saved state",
-    sizeof(x86_saved_state_t), ZC_NONE);
+ZONE_DEFINE_TYPE(iss_zone, "x86_64 saved state",
+    x86_saved_state_t, ZC_NONE);
 
-ZONE_DECLARE(ids_zone, "x86_64 debug state",
-    sizeof(x86_debug_state64_t), ZC_NONE);
+ZONE_DEFINE_TYPE(ids_zone, "x86_64 debug state",
+    x86_debug_state64_t, ZC_NONE);
 
 /* Forward */
 
@@ -830,7 +830,8 @@ machine_thread_state_convert_to_user(
 	__unused thread_t thread,
 	__unused thread_flavor_t flavor,
 	__unused thread_state_t tstate,
-	__unused mach_msg_type_number_t *count)
+	__unused mach_msg_type_number_t *count,
+	__unused thread_set_status_flags_t tssf_flags)
 {
 	// No conversion to userspace representation on this platform
 	return KERN_SUCCESS;
@@ -841,7 +842,10 @@ machine_thread_state_convert_from_user(
 	__unused thread_t thread,
 	__unused thread_flavor_t flavor,
 	__unused thread_state_t tstate,
-	__unused mach_msg_type_number_t count)
+	__unused mach_msg_type_number_t count,
+	__unused thread_state_t old_tstate,
+	__unused mach_msg_type_number_t old_count,
+	__unused thread_set_status_flags_t tssf_flags)
 {
 	// No conversion from userspace representation on this platform
 	return KERN_SUCCESS;

@@ -75,6 +75,7 @@
 	X(TOK_EPID)		\
 	X(TOK_SVC)		\
 	X(TOK_DIR)		\
+	X(TOK_FLOWID)	\
 	X(TOK_EQ)		\
 	X(TOK_NEQ)		\
 	X(TOK_STR)		\
@@ -106,6 +107,7 @@ struct token tokens[] = {
 	{ TOK_EPID, "epid", 0 },
 	{ TOK_SVC, "svc", 0 },
 	{ TOK_DIR, "dir", 0 },
+	{ TOK_FLOWID, "flowid", 0 },
 	{ TOK_EQ, "=", 0 },
     { TOK_NEQ, "!=", 0 },
 
@@ -120,7 +122,7 @@ struct token tokens[] = {
 struct node {
 	int	id;
 	char *str;
-	int num;
+	uint32_t num;
 	int op;
 	struct node *left_node;
 	struct node *right_node;
@@ -331,6 +333,7 @@ parse_term_expression(const char **ptr)
 		case TOK_EPID:
 		case TOK_SVC:
 		case TOK_DIR:
+		case TOK_FLOWID:
 			term_node = alloc_node(lex_token.tok_id);
 			get_token(ptr);
 			
@@ -342,7 +345,7 @@ parse_term_expression(const char **ptr)
 			}
 			get_token(ptr);
 			if (lex_token.tok_id != TOK_STR) {
-				warnx("missig comparison string at: %s", *ptr);
+				warnx("missing comparison string at: %s", *ptr);
 				goto fail;
 			}
 			/*
@@ -352,8 +355,9 @@ parse_term_expression(const char **ptr)
 			
 			term_node->str = strdup(lex_token.tok_label);
 			
-			if (term_node->id == TOK_PID || term_node->id == TOK_EPID)
-				term_node->num = atoi(term_node->str);
+			if (term_node->id == TOK_PID || term_node->id == TOK_EPID || term_node->id == TOK_FLOWID) {
+				term_node->num = (uint32_t)strtoul(term_node->str, NULL, 0);
+			}
 			break;
 			
 		default:
@@ -581,6 +585,11 @@ evaluate_expression(node_t *expression, struct pkt_meta_data *p)
 			if (expression->op == TOK_NEQ)
 				match = !match;
 			break;
+		case TOK_FLOWID:
+			match = (p->flowid == expression->num);
+			if (expression->op == TOK_NEQ)
+				match = !match;
+			break;
 		default:
 			break;
 	}
@@ -622,6 +631,7 @@ print_expression(node_t *expression)
 		case TOK_EPID:
 		case TOK_SVC:
 		case TOK_DIR:
+		case TOK_FLOWID:
 			switch (expression->id) {
 				case TOK_IF:
 					printf("if");
@@ -643,6 +653,9 @@ print_expression(node_t *expression)
 					break;
 				case TOK_DIR:
 					printf("dir");
+					break;
+				case TOK_FLOWID:
+					printf("flowid");
 					break;
 			}
 			switch (expression->op) {

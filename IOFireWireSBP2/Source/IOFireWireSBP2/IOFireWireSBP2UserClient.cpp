@@ -1995,7 +1995,7 @@ IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
 	
 	if( status == kIOReturnSuccess )
 	{
-		rangeBytes = (IOAddressRange*)IOMalloc( rangeSize );
+		rangeBytes = IONew( IOAddressRange, withCount );
 		if( rangeBytes == NULL )
 			status = kIOReturnNoMemory;
 	}
@@ -2027,7 +2027,7 @@ IOReturn IOFireWireSBP2UserClient::setCommandBuffersAsRanges
 
 	if( rangeBytes )
 	{
-		IOFree( rangeBytes, rangeSize );
+		IODelete( rangeBytes, IOAddressRange, withCount );
 	}
 	    
 	if( rangeDesc )

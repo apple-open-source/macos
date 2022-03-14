@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>alias</string>
+		<key>OpenSourceVersion</key>
+		<string>2015-06-13</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/alias?id=ccfb965433c67f3bda935a3cdf334be2e3c4348d</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-23</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>generic.sh: lowercase invoked command name (5416312)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

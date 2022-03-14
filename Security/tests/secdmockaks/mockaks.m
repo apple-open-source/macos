@@ -148,6 +148,16 @@ static int _operationsUntilUnlock = -1;      // -1: don't care, 0: be unlocked, 
     return isLocked;
 }
 
++ (bool)forceInvalidPersona
+{
+    return false;
+}
+
++ (bool)forceUnwrapKeyDecodeFailure
+{
+    return false;
+}
+
 + (bool)isSEPDown 
 {
     return false;
@@ -373,6 +383,9 @@ aks_unwrap_key(const void * wrapped_key, int wrapped_key_size, keyclass_t key_cl
 
     [SecMockAKS updateOperationsUntilUnlock];
 
+    if ([SecMockAKS forceUnwrapKeyDecodeFailure]) {
+        return kAKSReturnDecodeError;
+    }
     if ([SecMockAKS isLocked:key_class]) {
         return kAKSReturnNoPermission;
     }
@@ -463,6 +476,10 @@ aks_ref_key_create(keybag_handle_t handle, keyclass_t key_class, aks_key_type_t 
     @autoreleasepool {
         [SecMockAKS trapdoor];
         NSError *error = NULL;
+
+        if ([SecMockAKS forceInvalidPersona]) {
+            return kAKSReturnInvalidPersona;
+        }
 
         if ([SecMockAKS isLocked:key_class]) {
             return kAKSReturnNoPermission;

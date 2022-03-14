@@ -57,9 +57,10 @@ namespace WebCore {
 
 class AlternativeTextController;
 class ArchiveResource;
-class DataTransfer;
 class CompositeEditCommand;
+class SharedBuffer;
 class CustomUndoStep;
+class DataTransfer;
 class DeleteButtonController;
 class EditCommand;
 class EditCommandComposition;
@@ -74,7 +75,7 @@ class KillRing;
 class Pasteboard;
 class PasteboardWriterData;
 class RenderLayer;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 class Font;
 class SpellCheckRequest;
 class SpellChecker;
@@ -197,11 +198,13 @@ public:
     enum class FromMenuOrKeyBinding : bool { No, Yes };
     WEBCORE_EXPORT void cut(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
     WEBCORE_EXPORT void copy(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
+    void copyFont(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
 
     WEBCORE_EXPORT void paste(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
     void paste(Pasteboard&, FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
     WEBCORE_EXPORT void pasteAsPlainText(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
     void pasteAsQuotation(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
+    void pasteFont(FromMenuOrKeyBinding = FromMenuOrKeyBinding::No);
     WEBCORE_EXPORT void performDelete();
 
     WEBCORE_EXPORT void copyURL(const URL&, const String& title);
@@ -563,7 +566,7 @@ public:
 
 #if ENABLE(ATTACHMENT_ELEMENT)
     WEBCORE_EXPORT void insertAttachment(const String& identifier, std::optional<uint64_t>&& fileSize, const String& fileName, const String& contentType);
-    void registerAttachmentIdentifier(const String&, const String& contentType, const String& preferredFileName, Ref<SharedBuffer>&& fileData);
+    void registerAttachmentIdentifier(const String&, const String& contentType, const String& preferredFileName, Ref<FragmentedSharedBuffer>&& fileData);
     void registerAttachments(Vector<SerializedAttachmentData>&&);
     void registerAttachmentIdentifier(const String&, const String& contentType, const String& filePath);
     void registerAttachmentIdentifier(const String&);
@@ -591,6 +594,9 @@ private:
     void pasteAsPlainTextWithPasteboard(Pasteboard&);
     void pasteWithPasteboard(Pasteboard*, OptionSet<PasteOption>);
     String plainTextFromPasteboard(const PasteboardPlainText&);
+
+    void platformCopyFont();
+    void platformPasteFont();
 
     void quoteFragmentForPasting(DocumentFragment&);
 
@@ -625,7 +631,6 @@ private:
     static RefPtr<SharedBuffer> dataInRTFDFormat(NSAttributedString *);
     static RefPtr<SharedBuffer> dataInRTFFormat(NSAttributedString *);
 #endif
-    void platformFontAttributesAtSelectionStart(FontAttributes&, const RenderStyle&) const;
 
     void scheduleEditorUIUpdate();
 

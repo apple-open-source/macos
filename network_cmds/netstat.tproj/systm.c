@@ -111,7 +111,7 @@ systmpr(uint32_t proto,
 	
 	switch (proto) {
 		case SYSPROTO_EVENT:
-                        mibvar = "net.systm.kevt.pcblist";
+			mibvar = "net.systm.kevt.pcblist";
 			break;
 		case SYSPROTO_CONTROL:
 			mibvar = "net.systm.kctl.pcblist";
@@ -152,9 +152,10 @@ systmpr(uint32_t proto,
 	for (next = buf + ROUNDUP64(xig->xg_len); next < buf + len;
 	     next += ROUNDUP64(xgn->xgn_len)) {
 		xgn = (struct xgen_n*)next;
-		if (xgn->xgn_len <= sizeof(struct xsystmgen))
+		if (xgn->xgn_len <= sizeof(struct xgen_n)) {
+			warn("bad xgn_len: %u, expected %lu", xgn->xgn_len, sizeof(struct xgen_n));
 			break;
-		
+		}
 		if ((which & xgn->xgn_kind) == 0) {
 			which |= xgn->xgn_kind;
 			switch (xgn->xgn_kind) {
@@ -180,14 +181,23 @@ systmpr(uint32_t proto,
 					kevb = (struct xkevtpcb *)xgn;
 					break;
 				default:
-					printf("unexpected kind %d\n", xgn->xgn_kind);
+					/* It's OK to have some extra bytes at the end */
+					if (which != 0) {
+						printf("unexpected kind %d which 0x%x\n", xgn->xgn_kind, which);
+					}
 					break;
 			}
 		} else {
 			if (vflag)
 				printf("got %d twice\n", xgn->xgn_kind);
 		}
-		
+
+		if ((proto == 0 && which != ALL_XGN_KIND_KCREG) ||
+			(proto == SYSPROTO_EVENT && which != ALL_XGN_KIND_EVT) ||
+			(proto == SYSPROTO_CONTROL && which != ALL_XGN_KIND_KCB)) {
+			continue;
+		}
+
 		if (which == ALL_XGN_KIND_KCREG) {
 			which = 0;
 			
@@ -276,7 +286,7 @@ systmpr(uint32_t proto,
 				       "Proto", "Recv-Q", "Send-Q");
 				printf("%6.6s ", "vendor");
 				printf("%6.6s ", "class");
-				printf("%6.6s", "subclass");
+				printf("%6.6s", "subcl");
 				if (bflag > 0)
 					printf("%10.10s %10.10s ",
 					       "rxbytes", "txbytes");

@@ -30,8 +30,8 @@
 #include "BitmapTextureGL.h"
 #include "TextureMapperGLHeaders.h"
 #include "TextureMapperPlatformLayer.h"
+#include <variant>
 #include <wtf/MonotonicTime.h>
-#include <wtf/Variant.h>
 
 namespace WebCore {
 
@@ -56,7 +56,7 @@ public:
     struct ExternalOESTexture {
         GLuint id;
     };
-    using TextureVariant = WTF::Variant<RGBTexture, YUVTexture, ExternalOESTexture>;
+    using TextureVariant = std::variant<RGBTexture, YUVTexture, ExternalOESTexture>;
 
     TextureMapperPlatformLayerBuffer(TextureVariant&&, const IntSize&, TextureMapperGL::Flags, GLint internalFormat);
 

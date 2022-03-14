@@ -364,27 +364,49 @@ typedef struct BTreeIterator { } BTreeIterator;
 
 #define HFS_SYSCTL(...)
 
-static void *hfs_malloc(size_t size)
-{
-    return malloc(size);
-}
-
-static void hfs_free(void *ptr, __unused size_t size)
-{
-    return free(ptr);
-}
-
-static void *hfs_mallocz(size_t size)
-{
-    return calloc(1, size);
-}
-
 bool panic_on_assert = true;
 
 void hfs_assert_fail(const char *file, unsigned line, const char *expr)
 {
 	assert_fail_(file, line, "%s", expr);
 }
+
+#define _hfs_malloc(size)                                      \
+({                                                             \
+        void *_ptr = NULL;                                     \
+        typeof(size) _size = size;                             \
+        _ptr = malloc(_size);                                  \
+        _ptr;                                                  \
+})
+
+#define _hfs_malloc_zero(size)                                 \
+({                                                             \
+        void *_ptr = NULL;                                     \
+        typeof(size) _size = size;                             \
+        _ptr = calloc(1, _size);                               \
+        _ptr;                                                  \
+})
+
+#define _hfs_free(ptr, size)                                   \
+({                                                             \
+        __unused typeof(size) _size = size;                    \
+        typeof(ptr) _ptr = ptr;                                \
+        if (_ptr) {                                            \
+                free(_ptr);                                    \
+        }                                                      \
+})
+
+#define hfs_malloc_type(type) _hfs_malloc_zero(sizeof(type))
+#define hfs_malloc(size)  _hfs_malloc(size)
+#define hfs_malloc_zero(size) _hfs_malloc_zero(size)
+#define hfs_malloc_data(size) _hfs_malloc(size)
+#define hfs_malloc_zero_data(size) _hfs_malloc_zero(size)
+#define hfs_new_data(type, count) _hfs_malloc((sizeof(type) * count))
+
+#define hfs_free_type(ptr, type) _hfs_free(ptr, sizeof(type))
+#define hfs_free(ptr, size) _hfs_free(ptr, size)
+#define hfs_free_data(ptr, size) _hfs_free(ptr, size)
+#define hfs_delete_data(ptr, type, count) _hfs_free(ptr, (sizeof(type) * count))
 
 #include "../core/VolumeAllocation.c"
 #include "../core/rangelist.c"

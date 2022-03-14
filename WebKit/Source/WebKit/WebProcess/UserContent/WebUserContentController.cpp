@@ -274,7 +274,7 @@ private:
                 return;
             }
 
-            auto value = SerializedScriptValue::createFromWireBytes(resultValue.vector());
+            auto value = SerializedScriptValue::createFromWireBytes({ resultValue });
             completionHandler(value.ptr(), { });
         };
 
@@ -367,7 +367,7 @@ void WebUserContentController::removeUserScriptMessageHandlerInternal(InjectedBu
     if (it == m_userMessageHandlers.end())
         return;
 
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     auto& userMessageHandlers = it->value;
     bool userMessageHandlersChanged = userMessageHandlers.removeFirstMatching([userScriptMessageHandlerIdentifier](auto& pair) {
@@ -385,12 +385,14 @@ void WebUserContentController::removeUserScriptMessageHandlerInternal(InjectedBu
 #endif
 
 #if ENABLE(CONTENT_EXTENSIONS)
-void WebUserContentController::addContentRuleLists(Vector<std::pair<String, WebCompiledContentRuleListData>>&& contentRuleLists)
+void WebUserContentController::addContentRuleLists(Vector<std::pair<WebCompiledContentRuleListData, URL>>&& contentRuleLists)
 {
-    for (auto&& contentRuleList : contentRuleLists) {
-        auto compiledContentRuleList = WebCompiledContentRuleList::create(WTFMove(contentRuleList.second));
+    for (auto&& pair : contentRuleLists) {
+        auto&& contentRuleList = WTFMove(pair.first);
+        String identifier = contentRuleList.identifier;
+        auto compiledContentRuleList = WebCompiledContentRuleList::create(WTFMove(contentRuleList));
 
-        m_contentExtensionBackend.addContentExtension(contentRuleList.first, WTFMove(compiledContentRuleList));
+        m_contentExtensionBackend.addContentExtension(identifier, WTFMove(compiledContentRuleList), WTFMove(pair.second));
     }
 }
 

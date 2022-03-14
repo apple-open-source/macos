@@ -48,7 +48,6 @@ SOFT_LINK_CLASS_FOR_HEADER(PAL, AVAssetWriterInput)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVContentKeyReportGroup)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVContentKeyResponse)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVContentKeySession)
-SOFT_LINK_CLASS_FOR_HEADER(PAL, AVDelegatingPlaybackCoordinator)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVMediaSelectionGroup)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVMediaSelectionOption)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVMetadataItem)
@@ -69,6 +68,10 @@ SOFT_LINK_CLASS_FOR_HEADER(PAL, AVSampleBufferVideoOutput)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVStreamDataParser)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVURLAsset)
 
+#if HAVE(AV_DELEGATING_PLAYBACK_COORDINATOR)
+SOFT_LINK_CLASS_FOR_HEADER(PAL, AVDelegatingPlaybackCoordinator)
+#endif
+
 #if HAVE(AVSTREAMSESSION) && ENABLE(LEGACY_ENCRYPTED_MEDIA)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVStreamSession)
 #endif
@@ -76,6 +79,9 @@ SOFT_LINK_CLASS_FOR_HEADER(PAL, AVStreamSession)
 #if PLATFORM(IOS_FAMILY)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVAudioSession)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVPersistableContentKeyRequest)
+#endif
+
+#if PLATFORM(COCOA)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVSpeechSynthesisVoice)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVSpeechSynthesizer)
 SOFT_LINK_CLASS_FOR_HEADER(PAL, AVSpeechUtterance)
@@ -161,8 +167,13 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaCharacteristicLegible, N
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly, NSString *)
 #define AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly PAL::get_AVFoundation_AVPlayerItemLegibleOutputTextStylingResolutionSourceAndRulesOnly()
 
+
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVAssetChapterMetadataGroupsDidChangeNotification, NSString *)
+#define AVAssetChapterMetadataGroupsDidChangeNotification PAL::get_AVFoundation_AVAssetChapterMetadataGroupsDidChangeNotification()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMetadataCommonKeyTitle, NSString *)
 #define AVMetadataCommonKeyTitle PAL::get_AVFoundation_AVMetadataCommonKeyTitle()
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMetadataCommonKeyArtwork, NSString *)
+#define AVMetadataCommonKeyArtwork PAL::get_AVFoundation_AVMetadataCommonKeyArtwork()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMetadataKeySpaceCommon, NSString *)
 #define AVMetadataKeySpaceCommon PAL::get_AVFoundation_AVMetadataKeySpaceCommon()
 SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVMediaTypeSubtitle, NSString *)
@@ -323,7 +334,7 @@ SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVRouteDetectorMultipleRoutesDe
 #endif // HAVE(WATCHOS)
 
 #if HAVE(AVROUTEPICKERVIEW)
-SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVOutputContextOutputDevicesDidChangeNotification, NSString *)
+SOFT_LINK_CONSTANT_FOR_HEADER(PAL, AVFoundation, AVOutputContextOutputDevicesDidChangeNotification, NSNotificationName)
 #define AVOutputContextOutputDevicesDidChangeNotification PAL::get_AVFoundation_AVOutputContextOutputDevicesDidChangeNotification()
 #endif // HAVE(AVROUTEPICKERVIEW)
 

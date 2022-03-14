@@ -56,6 +56,7 @@ static void TestParseErrorReturnValue(void);
 static void TestFormatForFields(void);
 static void TestForceGannenNumbering(void);
 static void TestMapDateToCalFields(void);
+static void TestNarrowQuarters(void);
 static void TestStandardPatterns(void);
 static void TestApplyPatnOverridesTimeSep(void);
 static void Test12HrFormats(void);
@@ -74,7 +75,6 @@ static void WriteCountryFallbackResults(void); /* Apple <rdar://problem/26911014
 #endif
 static void TestCountryFallback(void); /* Apple <rdar://problem/26911014> */
 static void TestSpanishDayPeriods(void);    /* Apple <rdar://72624367> */
-static void TestNarrowQuarters(void);   /* Apple <rdar://79238094> */
 
 void addDateForTest(TestNode** root);
 
@@ -99,6 +99,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestFormatForFields);
     TESTCASE(TestForceGannenNumbering);
     TESTCASE(TestMapDateToCalFields);
+    TESTCASE(TestNarrowQuarters);
     TESTCASE(TestStandardPatterns);
     TESTCASE(TestApplyPatnOverridesTimeSep);
     TESTCASE(Test12HrFormats);
@@ -296,7 +297,7 @@ static void TestDateFormat()
         log_err("FAIL: Error in parsing using udat_parse(.....) %s\n", myErrorName(status) );
     }
     else
-        log_verbose("PASS: parsing succesful\n");
+        log_verbose("PASS: parsing successful\n");
     /*format it back and check for equality */
 
 
@@ -314,7 +315,7 @@ static void TestDateFormat()
         log_err("FAIL: udat_parse(\"bad string\") passed when it should have failed\n");
     }
     else
-        log_verbose("PASS: parsing succesful\n");
+        log_verbose("PASS: parsing successful\n");
 
 
 
@@ -329,7 +330,7 @@ static void TestDateFormat()
             myErrorName(status) );
     }
     else
-        log_verbose("PASS: creating dateformat using udat_openPattern() succesful\n");
+        log_verbose("PASS: creating dateformat using udat_openPattern() successful\n");
 
 
         /*Testing applyPattern and toPattern */
@@ -407,7 +408,7 @@ static void TestDateFormat()
     if(u_strcmp(myNumformat(numformat1, num), myNumformat(numformat2, num)) !=0)
         log_err("FAIL: error in setNumberFormat or getNumberFormat()\n");
     else
-        log_verbose("PASS:setNumberFormat and getNumberFormat succesful\n");
+        log_verbose("PASS:setNumberFormat and getNumberFormat successful\n");
 
     /*Test getNumberFormat() and adoptNumberFormat() */
     log_verbose("\nTesting the get and adopt NumberFormat properties of date format\n");
@@ -417,7 +418,7 @@ static void TestDateFormat()
     if(u_strcmp(myNumformat(adoptNF, num), myNumformat(numformat2, num)) !=0)
         log_err("FAIL: error in adoptNumberFormat or getNumberFormat()\n");
     else
-        log_verbose("PASS:adoptNumberFormat and getNumberFormat succesful\n");
+        log_verbose("PASS:adoptNumberFormat and getNumberFormat successful\n");
 
     /*try setting the number format to another format */
     numformat1=udat_getNumberFormat(def);
@@ -426,7 +427,7 @@ static void TestDateFormat()
     if(u_strcmp(myNumformat(numformat1, num), myNumformat(numformat2, num)) !=0)
         log_err("FAIL: error in setNumberFormat or getNumberFormat()\n");
     else
-        log_verbose("PASS: setNumberFormat and getNumberFormat succesful\n");
+        log_verbose("PASS: setNumberFormat and getNumberFormat successful\n");
 
 
 
@@ -730,7 +731,7 @@ static void TestSymbols()
         log_err("FAIL: Error in udat_getSymbols().... %s\n", myErrorName(status) );
     }
     else
-        log_verbose("PASS: getSymbols succesful\n");
+        log_verbose("PASS: getSymbols successful\n");
 
     if(u_strcmp(result, pattern)==0)
         log_verbose("PASS: getSymbols retrieved the right value\n");
@@ -756,6 +757,7 @@ static void TestSymbols()
     VerifygetSymbols(fr, UDAT_SHORT_QUARTERS, 1, "T2");
     VerifygetSymbols(def, UDAT_SHORT_QUARTERS, 2, "Q3");
     VerifygetSymbols(esMX, UDAT_NARROW_QUARTERS, 1, "2T");
+    VerifygetSymbols(esMX, UDAT_STANDALONE_NARROW_QUARTERS, 1, "2T");
     VerifygetSymbols(def, UDAT_NARROW_QUARTERS, 2, "3");
     VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_ABBREVIATED, 0, "\\u7532\\u5B50");
     VerifygetSymbols(zhChiCal, UDAT_CYCLIC_YEARS_NARROW, 59, "\\u7678\\u4EA5");
@@ -858,7 +860,7 @@ free(pattern);
         log_err("FAIL: error in retrieving the value using getSymbols i.e roundtrip\n");
 
     if(u_strcmp(result, value)!=0)
-        log_data_err("FAIL: Error in settting and getting symbols\n");
+        log_data_err("FAIL: Error in setting and getting symbols\n");
     else
         log_verbose("PASS: setSymbols successful\n");
 
@@ -2086,6 +2088,65 @@ static void TestMapDateToCalFields(void){
     }
 }
 
+static void TestNarrowQuarters(void) {
+    // Test for rdar://79238094
+    const UChar* testCases[] = {
+        u"en_US", u"QQQQ y",  u"1st quarter 1970",
+        u"en_US", u"QQQ y",   u"Q1 1970",
+        u"en_US", u"QQQQQ y", u"1 1970",
+        u"es_MX", u"QQQQ y",  u"1er. trimestre 1970",
+        u"es_MX", u"QQQ y",   u"1er. trim. 1970",
+        u"es_MX", u"QQQQQ y", u"1T 1970",
+        u"en_US", u"qqqq",    u"1st quarter",
+        u"en_US", u"qqq",     u"Q1",
+        u"en_US", u"qqqqq",   u"1",
+        u"es_MX", u"qqqq",    u"1er. trimestre",
+        u"es_MX", u"qqq",     u"T1",
+        u"es_MX", u"qqqqq",   u"1T",
+    };
+    
+    UErrorCode err = U_ZERO_ERROR;
+    UChar result[100];
+    UDate parsedDate = 0;
+    UDate expectedFormatParsedDate = 0;
+    UDate expectedStandaloneParsedDate = 0;
+    
+    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 3) {
+        const UChar* localeID = testCases[i];
+        const UChar* pattern = testCases[i + 1];
+        const UChar* expectedResult = testCases[i + 2];
+        
+        err = U_ZERO_ERROR;
+        
+        UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, austrdup(localeID), u"UTC", 0, pattern, -1, &err);
+        
+        udat_format(df, 0, result, 100, NULL, &err);
+        
+        if (assertSuccess("Formatting date failed", &err)) {
+            assertUEquals("Wrong formatting result", expectedResult, result);
+        }
+        
+        bool patternIsStandaloneQuarter = u_strchr(pattern, u'q') != NULL;
+        
+        parsedDate = udat_parse(df, expectedResult, -1, NULL, &err);
+        if (!patternIsStandaloneQuarter && expectedFormatParsedDate == 0) {
+            expectedFormatParsedDate = parsedDate;
+        } else if (patternIsStandaloneQuarter && expectedStandaloneParsedDate == 0) {
+            expectedStandaloneParsedDate = parsedDate;
+        }
+        
+        if (assertSuccess("Parsing date failed", &err)) {
+            if (patternIsStandaloneQuarter) {
+                assertDoubleEquals("Wrong parsing result", expectedStandaloneParsedDate, parsedDate);
+            } else {
+                assertDoubleEquals("Wrong parsing result", expectedFormatParsedDate, parsedDate);
+            }
+        }
+        
+        udat_close(df);
+    }
+}
+
 /* defined above
 static const UChar zoneGMT[] = { 0x47,0x4D,0x54,0 }; // "GMT"
 static const UDate date2015Feb25 = 1424841000000.0; // Wednesday, February 25, 2015 at 5:10:00 AM GMT
@@ -2100,7 +2161,7 @@ typedef struct {
 
 static const StandardPatternItem stdPatternItems[] = {
     { "en_JP", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 5:10" },
-    { "en_CN", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 at 5:10 AM" },
+    { "en_CN", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 at 05:10" },
     { "en_TW", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 at 5:10 AM" },
     { "en_KR", UDAT_MEDIUM, UDAT_SHORT, u"Feb 25, 2015 5:10 AM" },
     // Add test for Apple <rdar://problem/83597941>
@@ -2119,10 +2180,10 @@ static const StandardPatternItem stdPatternItems[] = {
     { "ur_Arab_IN", UDAT_MEDIUM, UDAT_SHORT, u"۲۵ فرو، ۲۰۱۵ ۵:۱۰ ق.د." },
     { "ur_Aran_IN", UDAT_MEDIUM, UDAT_SHORT, u"۲۵ فرو، ۲۰۱۵ ۵:۱۰ ق.د." },
     // Add tests for Apple <rdar://problem/59940681>
-    { "zh@calendar=buddhist",      UDAT_NONE, UDAT_MEDIUM, u"上午5:10:00" },
-    { "zh@calendar=buddhist",      UDAT_NONE, UDAT_SHORT,  u"上午5:10" },
-    { "zh_Hant@calendar=buddhist", UDAT_NONE, UDAT_MEDIUM, u"上午5:10:00" },
-    { "zh_Hant@calendar=buddhist", UDAT_NONE, UDAT_SHORT,  u"上午5:10" },
+    { "zh@calendar=buddhist",      UDAT_NONE, UDAT_MEDIUM, u"05:10:00" },
+    { "zh@calendar=buddhist",      UDAT_NONE, UDAT_SHORT,  u"05:10" },
+    { "zh_Hant@calendar=buddhist", UDAT_NONE, UDAT_MEDIUM, u"清晨5:10:00" },
+    { "zh_Hant@calendar=buddhist", UDAT_NONE, UDAT_SHORT,  u"清晨5:10" },
     // Add tests for Apple <rdar://problem/43349838>
     { "pl", UDAT_FULL,   UDAT_SHORT, u"środa, 25 lutego 2015 o 05:10" },
     { "pl", UDAT_LONG,   UDAT_SHORT, u"25 lutego 2015 o 05:10" },
@@ -2148,7 +2209,7 @@ static const StandardPatternItem stdPatternItems[] = {
     { "en_GB@calendar=japanese",      UDAT_NONE, UDAT_MEDIUM, u"05:10:00" },
     { "en_GB@calendar=japanese",      UDAT_NONE, UDAT_SHORT,  u"05:10" },
     // Add tests for Apple <rdar://problem/80593890>
-    { "ff_Adlm", UDAT_FULL,   UDAT_NONE, u"𞤐𞤶𞤫𞤧𞤤𞤢𞥄𞤪𞤫⹁ 𞥒𞥕 𞤕𞤮𞤤𞤼𞤮⹁ 𞥒𞥐𞥑𞥕" },
+    { "ff_Adlm", UDAT_FULL,   UDAT_NONE, u"𞤐𞤶𞤫𞤧𞤤𞤢𞥄𞤪𞤫 𞥒𞥕 𞤕𞤮𞤤𞤼𞤮⹁ 𞥒𞥐𞥑𞥕" },
     { "ff_Adlm", UDAT_LONG,   UDAT_NONE, u"𞥒𞥕 𞤕𞤮𞤤𞤼𞤮⹁ 𞥒𞥐𞥑𞥕" },
     { "ff_Adlm", UDAT_MEDIUM, UDAT_NONE, u"𞥒𞥕 𞤕𞤮𞤤𞤼𞤮⹁ 𞥒𞥐𞥑𞥕" },
     { "ff_Adlm", UDAT_SHORT,  UDAT_NONE, u"𞥒𞥕-𞥒-𞥒𞥐𞥑𞥕" },
@@ -2370,15 +2431,15 @@ static const UChar* skeletons12Hr[] = {
 
 static const UChar* patterns12Hr_zh_buddhist[] = {
     u"ah时",
-    u"ah时",
+    u"H时",
     u"ah:mm",
-    u"ah:mm",
+    u"HH:mm",
     u"ah:mm:ss",
-    u"ah:mm:ss",
+    u"HH:mm:ss",
     u"z ah:mm",
-    u"z ah:mm",
+    u"z HH:mm",
     u"EEE ah:mm",
-    u"EEE ah:mm",
+    u"EEE HH:mm",
     NULL
 };
 
@@ -4126,63 +4187,6 @@ static void TestSpanishDayPeriods(void) {
         
         udat_close(df);
         udatpg_close(dtpg);
-    }
-}
-
-static void TestNarrowQuarters(void) {
-    // Test for rdar://79238094
-    UChar* testCases[] = {
-        u"en_US", u"QQQQ y",  u"1st quarter 1970",
-        u"en_US", u"QQQ y",   u"Q1 1970",
-        u"en_US", u"QQQQQ y", u"1 1970",
-        u"es_MX", u"QQQQ y",  u"1er. trimestre 1970",
-        u"es_MX", u"QQQ y",   u"1er. trim. 1970",
-        u"es_MX", u"QQQQQ y", u"1T 1970",
-        u"en_US", u"qqqq",    u"1st quarter",
-        u"en_US", u"qqq",     u"Q1",
-        u"en_US", u"qqqqq",   u"1",
-        u"es_MX", u"qqqq",    u"1er. trimestre",
-        u"es_MX", u"qqq",     u"T1",
-        u"es_MX", u"qqqqq",   u"1T",
-    };
-    
-    UErrorCode err = U_ZERO_ERROR;
-    UChar result[100];
-    UDate parsedDate;
-    UDate expectedFormatParsedDate;
-    UDate expectedStandaloneParsedDate;
-    
-    for (int32_t i = 0; i < UPRV_LENGTHOF(testCases); i += 3) {
-        const UChar* localeID = testCases[i];
-        const UChar* pattern = testCases[i + 1];
-        const UChar* expectedResult = testCases[i + 2];
-        
-        UDateFormat* df = udat_open(UDAT_PATTERN, UDAT_PATTERN, austrdup(localeID), u"UTC", -1, pattern, -1, &err);
-        
-        udat_format(df, 0, result, 100, NULL, &err);
-        
-        if (assertSuccess("Formatting date failed", &err)) {
-            assertUEquals("Wrong formatting result", expectedResult, result);
-        }
-        
-        bool patternIsStandaloneQuarter = u_strchr(pattern, u'q') != NULL;
-        
-        parsedDate = udat_parse(df, expectedResult, -1, NULL, &err);
-        if (!patternIsStandaloneQuarter && expectedFormatParsedDate == 0) {
-            expectedFormatParsedDate = parsedDate;
-        } else if (patternIsStandaloneQuarter && expectedStandaloneParsedDate == 0) {
-            expectedStandaloneParsedDate = parsedDate;
-        }
-        
-        if (assertSuccess("Parsing date failed", &err)) {
-            if (patternIsStandaloneQuarter) {
-                assertIntEquals("Wrong parsing result", expectedStandaloneParsedDate, parsedDate);
-            } else {
-                assertIntEquals("Wrong parsing result", expectedFormatParsedDate, parsedDate);
-            }
-        }
-        
-        udat_close(df);
     }
 }
 

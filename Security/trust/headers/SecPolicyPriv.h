@@ -179,8 +179,6 @@ extern const CFStringRef kSecPolicyAppleComponentCertificate
     API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 extern const CFStringRef kSecPolicyAppleKeyTransparency
     API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
-extern const CFStringRef kSecPolicyAppleLegacySSL
-    API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 extern const CFStringRef kSecPolicyAppleAlisha
     API_AVAILABLE(macos(10.15.4), ios(13.4), watchos(6.2), tvos(13.4));
 extern const CFStringRef kSecPolicyAppleMeasuredBootPolicySigning
@@ -1731,25 +1729,6 @@ SecPolicyRef SecPolicyCreateAppleComponentCertificate(CFDataRef __nullable testR
 __nullable CF_RETURNS_RETAINED
 SecPolicyRef SecPolicyCreateAppleKeyTransparency(CFStringRef applicationId)
     API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
-
-/*!
- @function SecPolicyCreateLegacySSL
- @abstract Returns a policy object for evaluating legacy SSL certificate chains that don't meet
- SecPolicyCreateSSL.
- @param server Passing true for this parameter creates a policy for SSL
- server certificates.
- @param hostname (Optional) If present, the policy will require the specified
- hostname to match the hostname in the leaf certificate.
- @result A policy object. The caller is responsible for calling CFRelease
- on this when it is no longer needed.
- @discussion Use of this policy will be audited. Passing false for the server parameter will
- result in a SecPolicy object with the same requirements as SecPolicyCreateSSL with a false
- server parameter (i.e. the client authentication verification performed by this policy is
- identical to the client authentication verification performed by SecPolicyCreateSSL).
- */
-__nullable CF_RETURNS_RETAINED
-SecPolicyRef SecPolicyCreateLegacySSL(Boolean server, CFStringRef __nullable hostname)
-    SPI_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0));
 
 /*!
  @function SecPolicyCreateAlisha

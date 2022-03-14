@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 #include "ArithProfile.h"
 #include "ArrayConstructor.h"
 #include "CacheableIdentifierInlines.h"
+#include "CodeBlockInlines.h"
 #include "CommonSlowPathsInlines.h"
 #include "DFGDriver.h"
 #include "DFGOSREntry.h"
@@ -59,7 +60,7 @@
 #include "ObjectConstructor.h"
 #include "PropertyName.h"
 #include "RegExpObject.h"
-#include "Repatch.h"
+#include "RepatchInlines.h"
 #include "ShadowChicken.h"
 #include "StructureStubInfo.h"
 #include "SuperSampler.h"
@@ -1445,191 +1446,15 @@ JSC_DEFINE_JIT_OPERATION(operationCallEval, EncodedJSValue, (JSGlobalObject* glo
     return JSValue::encode(result);
 }
 
-static SlowPathReturnType handleHostCall(JSGlobalObject* globalObject, CallFrame* calleeFrame, JSValue callee, CallLinkInfo* callLinkInfo)
-{
-    VM& vm = globalObject->vm();
-    auto scope = DECLARE_THROW_SCOPE(vm);
-
-    calleeFrame->setCodeBlock(nullptr);
-
-    if (callLinkInfo->specializationKind() == CodeForCall) {
-        auto callData = getCallData(vm, callee);
-        ASSERT(callData.type != CallData::Type::JS);
-
-        if (callData.type == CallData::Type::Native) {
-            NativeCallFrameTracer tracer(vm, calleeFrame);
-            calleeFrame->setCallee(asObject(callee));
-            vm.encodedHostCallReturnValue = callData.native.function(asObject(callee)->globalObject(vm), calleeFrame);
-            DisallowGC disallowGC;
-            if (UNLIKELY(scope.exception())) {
-                return encodeResult(
-                    vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress(),
-                    reinterpret_cast<void*>(KeepTheFrame));
-            }
-
-            return encodeResult(
-                LLInt::getHostCallReturnValueEntrypoint().code().executableAddress(),
-                reinterpret_cast<void*>(callLinkInfo->callMode() == CallMode::Tail ? ReuseTheFrame : KeepTheFrame));
-        }
-    
-        ASSERT(callData.type == CallData::Type::None);
-        throwException(globalObject, scope, createNotAFunctionError(globalObject, callee));
-        return encodeResult(
-            vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress(),
-            reinterpret_cast<void*>(KeepTheFrame));
-    }
-
-    ASSERT(callLinkInfo->specializationKind() == CodeForConstruct);
-
-    auto constructData = getConstructData(vm, callee);
-    ASSERT(constructData.type != CallData::Type::JS);
-
-    if (constructData.type == CallData::Type::Native) {
-        NativeCallFrameTracer tracer(vm, calleeFrame);
-        calleeFrame->setCallee(asObject(callee));
-        vm.encodedHostCallReturnValue = constructData.native.function(asObject(callee)->globalObject(vm), calleeFrame);
-        DisallowGC disallowGC;
-        if (UNLIKELY(scope.exception())) {
-            return encodeResult(
-                vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress(),
-                reinterpret_cast<void*>(KeepTheFrame));
-        }
-
-        return encodeResult(LLInt::getHostCallReturnValueEntrypoint().code().executableAddress(), reinterpret_cast<void*>(KeepTheFrame));
-    }
-
-    ASSERT(constructData.type == CallData::Type::None);
-    throwException(globalObject, scope, createNotAConstructorError(globalObject, callee));
-    return encodeResult(
-        vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress(),
-        reinterpret_cast<void*>(KeepTheFrame));
-}
-
 JSC_DEFINE_JIT_OPERATION(operationLinkCall, SlowPathReturnType, (CallFrame* calleeFrame, JSGlobalObject* globalObject, CallLinkInfo* callLinkInfo))
 {
-    CallFrame* callFrame = calleeFrame->callerFrame();
-    VM& vm = globalObject->vm();
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-
-    CodeSpecializationKind kind = callLinkInfo->specializationKind();
-    NativeCallFrameTracer tracer(vm, callFrame);
-    
-    RELEASE_ASSERT(!callLinkInfo->isDirect());
-    
-    JSValue calleeAsValue = calleeFrame->guaranteedJSValueCallee();
-    JSCell* calleeAsFunctionCell = getJSFunction(calleeAsValue);
-    if (!calleeAsFunctionCell) {
-        if (auto* internalFunction = jsDynamicCast<InternalFunction*>(vm, calleeAsValue)) {
-            MacroAssemblerCodePtr<JSEntryPtrTag> codePtr = vm.getCTIInternalFunctionTrampolineFor(kind);
-            RELEASE_ASSERT(!!codePtr);
-
-            if (!callLinkInfo->seenOnce())
-                callLinkInfo->setSeen();
-            else
-                linkMonomorphicCall(vm, calleeFrame, *callLinkInfo, nullptr, internalFunction, codePtr);
-
-            void* linkedTarget = codePtr.executableAddress();
-            return encodeResult(linkedTarget, reinterpret_cast<void*>(callLinkInfo->callMode() == CallMode::Tail ? ReuseTheFrame : KeepTheFrame));
-        }
-        RELEASE_AND_RETURN(throwScope, handleHostCall(globalObject, calleeFrame, calleeAsValue, callLinkInfo));
-    }
-
-    JSFunction* callee = jsCast<JSFunction*>(calleeAsFunctionCell);
-    JSScope* scope = callee->scopeUnchecked();
-    ExecutableBase* executable = callee->executable();
-
-    MacroAssemblerCodePtr<JSEntryPtrTag> codePtr;
-    CodeBlock* codeBlock = nullptr;
-    if (executable->isHostFunction()) {
-        codePtr = jsToWasmICCodePtr(vm, kind, callee);
-        if (!codePtr)
-            codePtr = executable->entrypointFor(kind, MustCheckArity);
-    } else {
-        FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
-
-        auto handleThrowException = [&] () {
-            void* throwTarget = vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress();
-            return encodeResult(throwTarget, reinterpret_cast<void*>(KeepTheFrame));
-        };
-
-        if (!isCall(kind) && functionExecutable->constructAbility() == ConstructAbility::CannotConstruct) {
-            throwException(globalObject, throwScope, createNotAConstructorError(globalObject, callee));
-            return handleThrowException();
-        }
-
-        CodeBlock** codeBlockSlot = calleeFrame->addressOfCodeBlock();
-        Exception* error = functionExecutable->prepareForExecution<FunctionExecutable>(vm, callee, scope, kind, *codeBlockSlot);
-        EXCEPTION_ASSERT(throwScope.exception() == error);
-        if (UNLIKELY(error))
-            return handleThrowException();
-        codeBlock = *codeBlockSlot;
-        ArityCheckMode arity;
-        if (calleeFrame->argumentCountIncludingThis() < static_cast<size_t>(codeBlock->numParameters()) || callLinkInfo->isVarargs())
-            arity = MustCheckArity;
-        else
-            arity = ArityCheckNotRequired;
-        codePtr = functionExecutable->entrypointFor(kind, arity);
-    }
-
-    if (!callLinkInfo->seenOnce())
-        callLinkInfo->setSeen();
-    else
-        linkMonomorphicCall(vm, calleeFrame, *callLinkInfo, codeBlock, callee, codePtr);
-
-    return encodeResult(codePtr.executableAddress(), reinterpret_cast<void*>(callLinkInfo->callMode() == CallMode::Tail ? ReuseTheFrame : KeepTheFrame));
-}
-
-inline SlowPathReturnType virtualForWithFunction(JSGlobalObject* globalObject, CallFrame* calleeFrame, CallLinkInfo* callLinkInfo, JSCell*& calleeAsFunctionCell)
-{
-    CallFrame* callFrame = calleeFrame->callerFrame();
-    VM& vm = globalObject->vm();
-    auto throwScope = DECLARE_THROW_SCOPE(vm);
-
-    CodeSpecializationKind kind = callLinkInfo->specializationKind();
-    NativeCallFrameTracer tracer(vm, callFrame);
-
-    JSValue calleeAsValue = calleeFrame->guaranteedJSValueCallee();
-    calleeAsFunctionCell = getJSFunction(calleeAsValue);
-    if (UNLIKELY(!calleeAsFunctionCell)) {
-        if (jsDynamicCast<InternalFunction*>(vm, calleeAsValue)) {
-            MacroAssemblerCodePtr<JSEntryPtrTag> codePtr = vm.getCTIInternalFunctionTrampolineFor(kind);
-            ASSERT(!!codePtr);
-            return encodeResult(codePtr.executableAddress(), reinterpret_cast<void*>(callLinkInfo->callMode() == CallMode::Tail ? ReuseTheFrame : KeepTheFrame));
-        }
-        RELEASE_AND_RETURN(throwScope, handleHostCall(globalObject, calleeFrame, calleeAsValue, callLinkInfo));
-    }
-    
-    JSFunction* function = jsCast<JSFunction*>(calleeAsFunctionCell);
-    JSScope* scope = function->scopeUnchecked();
-    ExecutableBase* executable = function->executable();
-    if (UNLIKELY(!executable->hasJITCodeFor(kind))) {
-        FunctionExecutable* functionExecutable = static_cast<FunctionExecutable*>(executable);
-
-        if (!isCall(kind) && functionExecutable->constructAbility() == ConstructAbility::CannotConstruct) {
-            throwException(globalObject, throwScope, createNotAConstructorError(globalObject, function));
-            return encodeResult(
-                vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress(),
-                reinterpret_cast<void*>(KeepTheFrame));
-        }
-
-        CodeBlock** codeBlockSlot = calleeFrame->addressOfCodeBlock();
-        Exception* error = functionExecutable->prepareForExecution<FunctionExecutable>(vm, function, scope, kind, *codeBlockSlot);
-        EXCEPTION_ASSERT(throwScope.exception() == error);
-        if (UNLIKELY(error)) {
-            return encodeResult(
-                vm.getCTIStub(throwExceptionFromCallSlowPathGenerator).retaggedCode<JSEntryPtrTag>().executableAddress(),
-                reinterpret_cast<void*>(KeepTheFrame));
-        }
-    }
-    // FIXME: Support wasm IC.
-    // https://bugs.webkit.org/show_bug.cgi?id=220339
-    return encodeResult(executable->entrypointFor(
-        kind, MustCheckArity).executableAddress(),
-        reinterpret_cast<void*>(callLinkInfo->callMode() == CallMode::Tail ? ReuseTheFrame : KeepTheFrame));
+    sanitizeStackForVM(globalObject->vm());
+    return linkFor(calleeFrame, globalObject, callLinkInfo);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationLinkPolymorphicCall, SlowPathReturnType, (CallFrame* calleeFrame, JSGlobalObject* globalObject, CallLinkInfo* callLinkInfo))
 {
+    sanitizeStackForVM(globalObject->vm());
     ASSERT(callLinkInfo->specializationKind() == CodeForCall);
     JSCell* calleeAsFunctionCell;
     SlowPathReturnType result = virtualForWithFunction(globalObject, calleeFrame, callLinkInfo, calleeAsFunctionCell);
@@ -1641,6 +1466,7 @@ JSC_DEFINE_JIT_OPERATION(operationLinkPolymorphicCall, SlowPathReturnType, (Call
 
 JSC_DEFINE_JIT_OPERATION(operationVirtualCall, SlowPathReturnType, (CallFrame* calleeFrame, JSGlobalObject* globalObject, CallLinkInfo* callLinkInfo))
 {
+    sanitizeStackForVM(globalObject->vm());
     JSCell* calleeAsFunctionCellIgnored;
     return virtualForWithFunction(globalObject, calleeFrame, callLinkInfo, calleeAsFunctionCellIgnored);
 }
@@ -1888,7 +1714,8 @@ JSC_DEFINE_JIT_OPERATION(operationNewRegexp, JSCell*, (JSGlobalObject* globalObj
 
     RegExp* regexp = static_cast<RegExp*>(regexpPtr);
     ASSERT(regexp->isValid());
-    return RegExpObject::create(vm, globalObject->regExpStructure(), regexp);
+    static constexpr bool areLegacyFeaturesEnabled = true;
+    return RegExpObject::create(vm, globalObject->regExpStructure(), regexp, areLegacyFeaturesEnabled);
 }
 
 // The only reason for returning an UnusedPtr (instead of void) is so that we can reuse the
@@ -1942,7 +1769,7 @@ JSC_DEFINE_JIT_OPERATION(operationOptimize, SlowPathReturnType, (VM* vmPointer, 
     // Note that jettisoning won't happen if we already initiated OSR, because in
     // that case we would have already planted the optimized code block into the JS
     // stack.
-    DeferGCForAWhile deferGC(vm.heap);
+    DeferGCForAWhile deferGC(vm);
     
     CodeBlock* codeBlock = callFrame->codeBlock();
     if (UNLIKELY(codeBlock->jitType() != JITType::BaselineJIT)) {
@@ -2854,7 +2681,7 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchCharWithUnknownKeyType, char*, (JSGlobal
     JSValue key = JSValue::decode(encodedKey);
     CodeBlock* codeBlock = callFrame->codeBlock();
 
-    const SimpleJumpTable& linkedTable = codeBlock->switchJumpTable(tableIndex);
+    const SimpleJumpTable& linkedTable = codeBlock->baselineSwitchJumpTable(tableIndex);
     ASSERT(codeBlock->unlinkedSwitchJumpTable(tableIndex).m_min == min);
     void* result = linkedTable.m_ctiDefault.executableAddress();
 
@@ -2879,7 +2706,7 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchImmWithUnknownKeyType, char*, (VM* vmPoi
     JSValue key = JSValue::decode(encodedKey);
     CodeBlock* codeBlock = callFrame->codeBlock();
 
-    const SimpleJumpTable& linkedTable = codeBlock->switchJumpTable(tableIndex);
+    const SimpleJumpTable& linkedTable = codeBlock->baselineSwitchJumpTable(tableIndex);
     ASSERT(codeBlock->unlinkedSwitchJumpTable(tableIndex).m_min == min);
     void* result;
     if (key.isInt32())
@@ -2902,7 +2729,7 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchStringWithUnknownKeyType, char*, (JSGlob
     auto throwScope = DECLARE_THROW_SCOPE(vm);
 
     void* result;
-    const StringJumpTable& linkedTable = codeBlock->stringSwitchJumpTable(tableIndex);
+    const StringJumpTable& linkedTable = codeBlock->baselineStringSwitchJumpTable(tableIndex);
 
     if (key.isString()) {
         StringImpl* value = asString(key)->value(globalObject).impl();
@@ -2918,7 +2745,6 @@ JSC_DEFINE_JIT_OPERATION(operationSwitchStringWithUnknownKeyType, char*, (JSGlob
     return reinterpret_cast<char*>(result);
 }
 
-#if ENABLE(EXTRA_CTI_THUNKS)
 JSC_DEFINE_JIT_OPERATION(operationResolveScopeForBaseline, EncodedJSValue, (JSGlobalObject* globalObject, const Instruction* pc))
 {
     VM& vm = globalObject->vm();
@@ -2970,7 +2796,6 @@ JSC_DEFINE_JIT_OPERATION(operationResolveScopeForBaseline, EncodedJSValue, (JSGl
 
     return JSValue::encode(resolvedScope);
 }
-#endif
 
 JSC_DEFINE_JIT_OPERATION(operationGetFromScope, EncodedJSValue, (JSGlobalObject* globalObject, const Instruction* pc))
 {
@@ -3110,7 +2935,7 @@ JSC_DEFINE_JIT_OPERATION(operationOSRWriteBarrier, void, (VM* vmPointer, JSCell*
     VM& vm = *vmPointer;
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    vm.heap.writeBarrier(cell);
+    vm.writeBarrier(cell);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationWriteBarrierSlowPath, void, (VM* vmPointer, JSCell* cell))
@@ -3118,7 +2943,7 @@ JSC_DEFINE_JIT_OPERATION(operationWriteBarrierSlowPath, void, (VM* vmPointer, JS
     VM& vm = *vmPointer;
     CallFrame* callFrame = DECLARE_CALL_FRAME(vm);
     JITOperationPrologueCallFrameTracer tracer(vm, callFrame);
-    vm.heap.writeBarrierSlowPath(cell);
+    vm.writeBarrierSlowPath(cell);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationLookupExceptionHandler, void, (VM* vmPointer))
@@ -3412,7 +3237,7 @@ JSC_DEFINE_JIT_OPERATION(operationArithNegateProfiled, EncodedJSValue, (JSGlobal
     JSValue operand = JSValue::decode(encodedOperand);
     arithProfile->observeArg(operand);
 
-    JSValue primValue = operand.toPrimitive(globalObject);
+    JSValue primValue = operand.toPrimitive(globalObject, PreferNumber);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
 #if USE(BIGINT32)
@@ -3456,7 +3281,7 @@ JSC_DEFINE_JIT_OPERATION(operationArithNegateProfiledOptimize, EncodedJSValue, (
     callFrame->codeBlock()->dumpMathICStats();
 #endif
     
-    JSValue primValue = operand.toPrimitive(globalObject);
+    JSValue primValue = operand.toPrimitive(globalObject, PreferNumber);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
 #if USE(BIGINT32)
@@ -3499,7 +3324,7 @@ JSC_DEFINE_JIT_OPERATION(operationArithNegateOptimize, EncodedJSValue, (JSGlobal
     callFrame->codeBlock()->dumpMathICStats();
 #endif
 
-    JSValue primValue = operand.toPrimitive(globalObject);
+    JSValue primValue = operand.toPrimitive(globalObject, PreferNumber);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
 
 #if USE(BIGINT32)

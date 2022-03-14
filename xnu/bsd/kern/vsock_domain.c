@@ -48,7 +48,7 @@
 /* VSock Protocol Globals */
 
 static struct vsock_transport * _Atomic the_vsock_transport = NULL;
-static ZONE_DECLARE(vsockpcb_zone, "vsockpcbzone",
+static ZONE_DEFINE(vsockpcb_zone, "vsockpcbzone",
     sizeof(struct vsockpcb), ZC_NONE);
 static LCK_GRP_DECLARE(vsock_lock_grp, "vsock");
 static struct vsockpcbinfo vsockinfo;
@@ -1221,6 +1221,36 @@ vsock_send(struct socket *so, int flags, struct mbuf *m, struct sockaddr *nam, s
 	}
 
 	errno_t error;
+
+	// rdar://84098487 (SEED: Web: Virtio-socket sent data lost after 128KB)
+	// For writes larger than the default `sosendmaxchain` of 65536, vsock_send() is called multiple times per write().
+	// Only the first call to vsock_send() is passed a valid mbuf packet, while subsequent calls are not marked as a packet
+	// with a valid length. We should mark all mbufs as a packet and set the correct packet length so that the downstream
+	// socket transport layer can correctly generate physical segments.
+	if (!(mbuf_flags(m) & MBUF_PKTHDR)) {
+		if (!(mbuf_flags(m) & M_EXT)) {
+			struct mbuf *header = NULL;
+			MGETHDR(header, M_WAITOK, MT_HEADER);
+			if (header == NULL) {
+				if (m != NULL) {
+					mbuf_freem_list(m);
+				}
+				return ENOBUFS;
+			}
+			header->m_next = m;
+			m = header;
+		} else {
+			mbuf_setflags(m, mbuf_flags(m) | MBUF_PKTHDR);
+		}
+
+		size_t len = 0;
+		struct mbuf *next = m;
+		while (next) {
+			len += mbuf_len(next);
+			next = mbuf_next(next);
+		}
+		mbuf_pkthdr_setlen(m, len);
+	}
 
 	const size_t len = mbuf_pkthdr_len(m);
 	uint32_t free_space = vsock_get_peer_space(pcb);

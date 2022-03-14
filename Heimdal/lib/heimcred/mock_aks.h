@@ -34,6 +34,9 @@ NSData *
 encryptDataMock(NSData *plainText);
 
 NSData *
+encryptDataNULLMock(NSData *plainText);
+
+NSData *
 decryptDataMock(NSData * blob);
 
 #endif /* mock_aks_h */

@@ -603,24 +603,33 @@ systrace_detach(dev_info_t *devi, ddi_detach_cmd_t cmd)
 typedef kern_return_t (*mach_call_t)(void *);
 
 /* APPLE NOTE: From #include <kern/syscall_sw.h> which may be changed for 64 bit! */
-typedef void    mach_munge_t(void *);
+#if CONFIG_REQUIRES_U32_MUNGING
+typedef void mach_munge_t(void *);
+#elif __arm__ && (__BIGGEST_ALIGNMENT__ > 4)
+typedef int mach_munge_t(const void *, void *);
+#endif
 
 typedef struct {
-	int                     mach_trap_arg_count;
-	kern_return_t           (*mach_trap_function)(void *);
-#if defined(__arm64__) || defined(__x86_64__)
-	mach_munge_t            *mach_trap_arg_munge32; /* system call arguments for 32-bit */
+	unsigned char           mach_trap_arg_count; /* Number of trap arguments (Arch independant) */
+	unsigned char           mach_trap_u32_words; /* number of 32-bit words to copyin for U32 */
+	unsigned char           mach_trap_returns_port;
+	unsigned char           __mach_trap_padding;
+	kern_return_t         (*mach_trap_function)(void *);
+#if CONFIG_REQUIRES_U32_MUNGING || (__arm__ && (__BIGGEST_ALIGNMENT__ > 4))
+	mach_munge_t           *mach_trap_arg_munge32; /* system call argument munger routine for 32-bit */
 #endif
-	int                     mach_trap_u32_words;
-#if     MACH_ASSERT
-	const char*             mach_trap_name;
+#if MACH_ASSERT
+	const char             *mach_trap_name;
 #endif /* MACH_ASSERT */
 } mach_trap_t;
 
-extern const mach_trap_t mach_trap_table[]; /* syscall_sw.h now declares this as const */
-extern const int         mach_trap_count;
 
-extern const char *const mach_syscall_name_table[];
+#define MACH_TRAP_TABLE_COUNT   128
+
+extern const mach_trap_t        mach_trap_table[MACH_TRAP_TABLE_COUNT];
+extern const int                mach_trap_count;
+extern const char * const       mach_syscall_name_table[MACH_TRAP_TABLE_COUNT];
+
 
 /* XXX From osfmk/i386/bsd_i386.c */
 struct mach_call_args {

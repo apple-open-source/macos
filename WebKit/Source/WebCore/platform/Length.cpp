@@ -280,27 +280,38 @@ bool Length::isCalculatedEqual(const Length& other) const
     return calculationValue() == other.calculationValue();
 }
 
+static Length makeCalculated(CalcOperator calcOperator, const Length& a, const Length& b)
+{
+    Vector<std::unique_ptr<CalcExpressionNode>> lengths;
+    lengths.reserveInitialCapacity(2);
+    lengths.uncheckedAppend(makeUnique<CalcExpressionLength>(a));
+    lengths.uncheckedAppend(makeUnique<CalcExpressionLength>(b));
+    auto op = makeUnique<CalcExpressionOperation>(WTFMove(lengths), calcOperator);
+    return Length(CalculationValue::create(WTFMove(op), ValueRange::All));
+}
+
 Length convertTo100PercentMinusLength(const Length& length)
 {
     if (length.isPercent())
         return Length(100 - length.value(), LengthType::Percent);
     
     // Turn this into a calc expression: calc(100% - length)
-    Vector<std::unique_ptr<CalcExpressionNode>> lengths;
-    lengths.reserveInitialCapacity(2);
-    lengths.uncheckedAppend(makeUnique<CalcExpressionLength>(Length(100, LengthType::Percent)));
-    lengths.uncheckedAppend(makeUnique<CalcExpressionLength>(length));
-    auto op = makeUnique<CalcExpressionOperation>(WTFMove(lengths), CalcOperator::Subtract);
-    return Length(CalculationValue::create(WTFMove(op), ValueRange::All));
+    return makeCalculated(CalcOperator::Subtract, Length(100, LengthType::Percent), length);
 }
 
 static Length blendMixedTypes(const Length& from, const Length& to, const BlendingContext& context)
 {
+    if (context.compositeOperation != CompositeOperation::Replace)
+        return makeCalculated(CalcOperator::Add, from, to);
+
     if (!to.isCalculated() && !from.isPercent() && (context.progress == 1 || from.isZero()))
         return blend(Length(0, to.type()), to, context);
 
     if (!from.isCalculated() && !to.isPercent() && (!context.progress || to.isZero()))
         return blend(from, Length(0, from.type()), context);
+
+    if (from.isIntrinsicOrAuto() || to.isIntrinsicOrAuto() || from.isRelative() || to.isRelative())
+        return { 0, LengthType::Fixed };
 
     auto blend = makeUnique<CalcExpressionBlendLength>(from, to, context.progress);
     return Length(CalculationValue::create(WTFMove(blend), ValueRange::All));
@@ -314,10 +325,10 @@ Length blend(const Length& from, const Length& to, const BlendingContext& contex
     if (from.isCalculated() || to.isCalculated() || (from.type() != to.type()))
         return blendMixedTypes(from, to, context);
 
-    if (!context.progress)
+    if (!context.progress && context.compositeOperation == CompositeOperation::Replace)
         return from;
 
-    if (context.progress == 1)
+    if (context.progress == 1 && context.compositeOperation == CompositeOperation::Replace)
         return to;
 
     LengthType resultType = to.type();
@@ -338,8 +349,12 @@ Length blend(const Length& from, const Length& to, const BlendingContext& contex
 Length blend(const Length& from, const Length& to, const BlendingContext& context, ValueRange valueRange)
 {
     auto blended = blend(from, to, context);
-    if (valueRange == ValueRange::NonNegative && blended.isNegative())
-        return { 0, from.isZero () ? to.type() : from.type() };
+    if (valueRange == ValueRange::NonNegative && blended.isNegative()) {
+        auto type = from.isZero() ? to.type() : from.type();
+        if (type != LengthType::Calculated)
+            return { 0, type };
+        return { 0, LengthType::Fixed };
+    }
     return blended;
 }
 
@@ -363,6 +378,7 @@ static TextStream& operator<<(TextStream& ts, LengthType type)
     case LengthType::FillAvailable: ts << "fill-available"; break;
     case LengthType::FitContent: ts << "fit-content"; break;
     case LengthType::Calculated: ts << "calc"; break;
+    case LengthType::Content: ts << "content"; break;
     case LengthType::Undefined: ts << "undefined"; break;
     }
     return ts;
@@ -372,6 +388,7 @@ TextStream& operator<<(TextStream& ts, Length length)
 {
     switch (length.type()) {
     case LengthType::Auto:
+    case LengthType::Content:
     case LengthType::Undefined:
         ts << length.type();
         break;

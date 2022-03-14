@@ -46,6 +46,7 @@
 #include <errno.h>
 #include <time.h>
 #include "config.h"
+#include <ctype.h>
 #ifndef HAVE_ASPRINTF
 #include "asprintf.h"
 #endif
@@ -398,6 +399,21 @@ char* xar_path_nextcomponent(char** path_to_advance) {
 	out_component[component_length-1] = 0;
 	
 	return out_component;
+}
+
+char* xar_lowercase_string(const char* string)
+{
+	if (string == NULL)
+		return NULL;
+	
+	size_t string_length = strlen(string)+1;
+	char* result = calloc(string_length, 1);
+	
+	for (size_t index = 0; index < string_length; ++index) {
+		result[index] = tolower(string[index]);
+	}
+	
+	return result;
 }
 		
 

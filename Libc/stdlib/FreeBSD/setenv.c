@@ -41,13 +41,12 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/setenv.c,v 1.14 2007/05/01 16:02:41 ache
 #include <sys/types.h>
 #include <fcntl.h>
 
+#include "libc_private.h"
+
 struct owned_ptr;
 extern char *__findenv_locked(const char *, int *, char **);
 extern int __setenv_locked(const char *, const char *, int, int, char ***, struct owned_ptr *);
 extern void __unsetenv_locked(const char *, char **, struct owned_ptr *);
-
-extern void __environ_lock(void);
-extern void __environ_unlock(void);
 
 extern struct owned_ptr *__env_owned;
 extern int __init__env_owned_locked(int);
@@ -410,14 +409,14 @@ _deallocenvstate(void *state)
 int
 _setenvp(const char *name, const char *value, int rewrite, char ***envp, void *state)
 {
-	__environ_lock();
+	environ_lock_np();
 	if (__init__env_owned_locked(1)) {
-		__environ_unlock();
+		environ_unlock_np();
 		return (-1);
 	}
 	int ret = __setenv_locked(name, value, rewrite, 1, envp,
 			(state ? (struct owned_ptr *)state : __env_owned));
-	__environ_unlock();
+	environ_unlock_np();
 	return ret;
 }
 
@@ -430,13 +429,13 @@ _setenvp(const char *name, const char *value, int rewrite, char ***envp, void *s
 int
 _unsetenvp(const char *name, char ***envp, void *state)
 {
-	__environ_lock();
+	environ_lock_np();
 	if (__init__env_owned_locked(1)) {
-		__environ_unlock();
+		environ_unlock_np();
 		return (-1);
 	}
 	__unsetenv_locked(name, *envp, (state ? (struct owned_ptr *)state : __env_owned));
-	__environ_unlock();
+	environ_unlock_np();
 	return 0;
 }
 
@@ -469,16 +468,16 @@ setenv(name, value, rewrite)
 	}
 #endif /* __DARWIN_UNIX03 */
 
-	__environ_lock();
+	environ_lock_np();
 	if (__init__env_owned_locked(1)) {
-		__environ_unlock();
+		environ_unlock_np();
 		return (-1);
 	}
 	ret = __setenv_locked(name, value, rewrite, 1, _NSGetEnviron(), __env_owned);
 #ifdef LEGACY_CRT1_ENVIRON
 	_saved_environ = *_NSGetEnviron();
 #endif /* !LEGACY_CRT1_ENVIRON */
-	__environ_unlock();
+	environ_unlock_np();
 
 	return ret;
 }
@@ -486,13 +485,13 @@ setenv(name, value, rewrite)
 static inline __attribute__((always_inline)) int
 _unsetenv(const char *name, int should_set_errno)
 {
-	__environ_lock();
+	environ_lock_np();
 	if (__init__env_owned_locked(should_set_errno)) {
-		__environ_unlock();
+		environ_unlock_np();
 		return (-1);
 	}
 	__unsetenv_locked(name, *_NSGetEnviron(), __env_owned);
-	__environ_unlock();
+	environ_unlock_np();
 	return 0;
 }
 

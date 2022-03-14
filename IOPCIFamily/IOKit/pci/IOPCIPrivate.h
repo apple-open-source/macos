@@ -313,6 +313,12 @@ enum
 
 #define kIOPCIFunctionsDependentKey     "pci-functions-dependent"
 
+#define kIOPCISlotCommandCompleted "IOPCISlotCommandCompleted"
+#define kIOPCISlotPowerController  "IOPCISlotPowerController"
+#define kIOPCISlotDevicePresent    "IOPCISlotDevicePresent"
+
+#define kIOPCIPowerOnProbeKey      "IOPCIPowerOnProbe"
+
 enum
 {
 	kCheckLinkParents  = 0x00000001,
@@ -323,7 +329,9 @@ enum
 {
 	kLinkCapDataLinkLayerActiveReportingCapable = (1 << 20),
 	kLinkStatusDataLinkLayerLinkActive 			= (1 << 13),
-	kSlotCapHotplug					 			= (1 << 6)
+	kSlotCapHotplug					 			= (1 << 6),
+	kSlotCapPowerController			 			= (1 << 1),
+	kSlotCapNoCommandCompleted		 			= (1 << 18)
 };
 
 enum
@@ -397,6 +405,8 @@ __exported_pop
 
 extern IOReturn IOPCIRegisterPowerDriver(IOService * service, bool hostbridge);
 extern IOService * IOPCIDeviceDMAOriginator(IOPCIDevice * device);
+
+IOReturn parseDevASPMDefaultBootArg(uint32_t vidDid, uint16_t *expressASPMDefault);
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -479,7 +489,8 @@ public:
 
     IOReturn allocateDeviceInterrupts(
 				IOService * entry, uint32_t numVectors, uint32_t msiConfig,
-				uint64_t * msiAddress = 0, uint32_t * msiData = 0);
+				uint64_t * msiAddress = 0, uint32_t * msiData = 0,
+				uint32_t numRequired = 0, uint32_t numRequested = 0);
     IOReturn         deallocateDeviceInterrupts(IOService * device);
 
     virtual void     deallocateInterrupt(UInt32 vector);
@@ -598,6 +609,10 @@ public:
     bool                _isUSBCSystem;
 #if ACPI_SUPPORT
     bool                _vtdInterruptsInstalled;
+#else
+    IOLock *_powerChildrenLock;
+    OSSet *_powerChildren;
+    OSSet *_activePowerChildren;
 #endif
 
     void lockWakeReasonLock(void);
@@ -605,6 +620,10 @@ public:
 
     void tunnelSleepIncrement(const char * deviceName, bool increment);
     void tunnelsWait(IOPCIDevice * device);
+
+    IOReturn addPCIEPowerChild(IOService *theChild);
+    IOReturn removePCIEPowerChild(IOPowerConnection *theChild);
+    virtual IOReturn powerStateDidChangeTo(IOPMPowerFlags capabilities, unsigned long stateNumber, IOService *whatDevice) override;
 private:
     IOLock *           _wakeReasonLock;
 
@@ -612,6 +631,8 @@ private:
     static IOReturn systemPowerChange(void * target, void * refCon,
                                       UInt32 messageType, IOService * service,
                                       void * messageArgument, vm_size_t argSize);
+public:
+    uint16_t           _aspmDefault;
 };
 
 class IOPCIHostBridge : public IOPCIBridge
@@ -623,6 +644,8 @@ public:
     virtual IOService *probe(IOService * provider, SInt32 *score) override;
     virtual bool configure(IOService * provider) override;
 
+    // Return true if all children are in kIOPCIDeviceOnState.
+    bool allChildrenPoweredOn(void);
     // Host bridge data is shared, when bridges have shared resources, i.e. PCIe config space (legacy systems).
     // They must be unique, if bridge has no resources to share (Apple Silicone).
     IOPCIHostBridgeData *bridgeData;

@@ -322,12 +322,11 @@ IOATAPIProtocolTransport::start ( IOService * provider )
 	fATADeviceType			= kUnknownATADeviceType;
 	fPhysicallyConnected 	= true;
 	
-	reserved = IONew ( ExpansionData, 1 );
+	reserved = IOMallocType ( IOATAPIProtocolTransport::ExpansionData );
 	if ( reserved == NULL )
 	{
 		return false;
 	}
-	bzero ( reserved, sizeof ( ExpansionData ) );
 	
 	dict = OSDynamicCast ( OSDictionary, getProperty ( kIOPropertyATAPIMassStorageCharacteristics ) );
 	if ( dict != NULL )
@@ -640,7 +639,7 @@ IOATAPIProtocolTransport::free ( void )
 	
 	if ( reserved != NULL )
 	{
-		IODelete ( reserved, ExpansionData, 1 );
+		IOFreeType ( reserved, IOATAPIProtocolTransport::ExpansionData );
 		reserved = NULL;
 	}
 	
@@ -1564,16 +1563,14 @@ IOATAPIProtocolTransport::AllocateATACommandObjects ( void )
 	
 	fConfigCommand = fATADevice->allocCommand ( );
 	assert ( fConfigCommand != NULL );
-	configData = ( ATAPIConfigData * ) IOMalloc ( sizeof ( ATAPIConfigData ) );
+	configData = ( ATAPIConfigData * ) IOMallocType ( ATAPIConfigData );
 	assert ( configData != NULL );
-	bzero ( configData, sizeof ( ATAPIConfigData ) );
 	fConfigCommand->refCon = ( void * ) configData;
 		
 	fIdentifyCommand = fATADevice->allocCommand ( );
 	assert ( fIdentifyCommand != NULL );
-	clientData = ( ATAPIClientData * ) IOMalloc ( sizeof ( ATAPIClientData ) );
+	clientData = ( ATAPIClientData * ) IOMallocType ( ATAPIClientData );
 	assert ( clientData != NULL );
-	bzero ( clientData, sizeof ( ATAPIClientData ) );
 	fIdentifyCommand->refCon = ( void * ) clientData;
 	
 	for ( UInt32 index = 0; index < kIOATAPICommandPoolSize; index++ )
@@ -1584,9 +1581,8 @@ IOATAPIProtocolTransport::AllocateATACommandObjects ( void )
 		assert ( cmd != NULL );
 		
 		// Allocate the command clientData
-		clientData = ( ATAPIClientData * ) IOMalloc ( sizeof ( ATAPIClientData ) );
+		clientData = ( ATAPIClientData * ) IOMallocType ( ATAPIClientData );
 		assert ( clientData != NULL );
-		bzero ( clientData, sizeof ( ATAPIClientData ) );
 		
 		// set the back pointers to each other
 		cmd->refCon 	= ( void * ) clientData;
@@ -1631,7 +1627,7 @@ IOATAPIProtocolTransport::DeallocateATACommandObjects ( void )
 		clientData = ( ATAPIClientData * ) cmd->refCon;
 		assert ( clientData != NULL );
 		
-		IOFree ( clientData, sizeof ( ATAPIClientData ) );
+		IOFreeType ( clientData, ATAPIClientData );
 		clientData = NULL;
 		
 		fATADevice->freeCommand ( cmd );
@@ -1643,12 +1639,12 @@ IOATAPIProtocolTransport::DeallocateATACommandObjects ( void )
 	
 	configData = ( ATAPIConfigData * ) fConfigCommand->refCon;
 	assert ( configData != NULL );
-	IOFree ( configData, sizeof ( ATAPIConfigData ) );
+    IOFreeType ( configData, ATAPIConfigData );
 	configData = NULL;
 	
 	clientData = ( ATAPIClientData * ) fIdentifyCommand->refCon;
 	assert ( clientData != NULL );
-	IOFree ( clientData, sizeof ( ATAPIClientData ) );
+    IOFreeType ( clientData, ATAPIClientData );
 	clientData = NULL;
 	
 	// release "special" comands

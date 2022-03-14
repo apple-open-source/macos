@@ -574,7 +574,7 @@ free_old_stuff(journal *jnl)
 			KERNEL_DEBUG(0xbbbbc01c, jnl, tr, tr->tbuffer_size, 0, 0);
 		}
 		next = tr->next;
-		hfs_free(tr, sizeof(*tr));
+		hfs_free_type(tr, transaction);
 	}
 }
 
@@ -883,7 +883,7 @@ grow_table(struct bucket **buf_ptr, int num_buckets, int new_size)
 		return current_size;
 	}
     
-	newBuf = hfs_malloc(new_size*sizeof(struct bucket));
+	newBuf = hfs_new_data(struct bucket, new_size);
 
 	//  printf("jnl: lookup_bucket: expanded co_buf to %d elems\n", new_size);
     
@@ -896,7 +896,7 @@ grow_table(struct bucket **buf_ptr, int num_buckets, int new_size)
 	}
     
 	// free the old container
-	hfs_free(*buf_ptr, num_buckets * sizeof(struct bucket));
+	hfs_delete_data(*buf_ptr, struct bucket, num_buckets);
     
 	// reset the buf_ptr
 	*buf_ptr = newBuf;
@@ -1184,7 +1184,7 @@ replay_journal(journal *jnl)
 	buff = hfs_malloc(jnl->jhdr->blhdr_size);
 
 	// allocate memory for the coalesce buffer
-	co_buf = hfs_malloc(num_buckets*sizeof(struct bucket));
+	co_buf = hfs_new_data(struct bucket, num_buckets);
 
 restart_replay:
 
@@ -1309,7 +1309,7 @@ restart_replay:
 
 		if (blhdr->flags & BLHDR_CHECK_CHECKSUMS) {
 			check_block_checksums = 1;
-			block_ptr = hfs_malloc(max_bsize);
+			block_ptr = hfs_malloc_data(max_bsize);
 		} else {
 			block_ptr = NULL;
 		}
@@ -1387,7 +1387,7 @@ restart_replay:
 		}
 
 		if (block_ptr) {
-			hfs_free(block_ptr, max_bsize);
+			hfs_free_data(block_ptr, max_bsize);
 			block_ptr = NULL;
 		}
 		
@@ -1457,7 +1457,7 @@ restart_replay:
 		max_bsize = (max_bsize + PAGE_SIZE) & ~(PAGE_SIZE - 1);
 	}
 
-	block_ptr = hfs_malloc(max_bsize);
+	block_ptr = hfs_malloc_data(max_bsize);
 	
 	// Replay the coalesced entries in the co-buf
 	for(i = 0; i < num_full; i++) {
@@ -1496,20 +1496,22 @@ restart_replay:
     
 	// free block_ptr
 	if (block_ptr) {
-		hfs_free(block_ptr, max_bsize);
+		hfs_free_data(block_ptr, max_bsize);
 		block_ptr = NULL;
 	}
     
 	// free the coalesce buffer
-	hfs_free(co_buf, num_buckets*sizeof(struct bucket));
+	hfs_delete_data(co_buf, struct bucket, num_buckets);
 	co_buf = NULL;
   
 	hfs_free(buff, jnl->jhdr->blhdr_size);
 	return 0;
 
 bad_replay:
-	hfs_free(block_ptr, max_bsize);
-	hfs_free(co_buf, num_buckets*sizeof(struct bucket));
+	if (block_ptr) {
+		hfs_free_data(block_ptr, max_bsize);
+	}
+	hfs_delete_data(co_buf, struct bucket, num_buckets);
 	hfs_free(buff, jnl->jhdr->blhdr_size);
 
 	return -1;
@@ -1731,7 +1733,7 @@ journal_create(struct vnode *jvp,
 	}
 
 
-	jnl = hfs_mallocz(sizeof(struct journal));
+	jnl = hfs_malloc_type(struct journal);
 
 	jnl->jdev         = jvp;
 	jnl->jdev_offset  = offset;
@@ -1747,7 +1749,7 @@ journal_create(struct vnode *jvp,
 
 	get_io_info(jvp, phys_blksz, jnl, vfs_context_kernel());
 
-	jnl->header_buf = hfs_malloc(phys_blksz);
+	jnl->header_buf = hfs_malloc_data(phys_blksz);
 	jnl->header_buf_size = phys_blksz;
 
 	jnl->jhdr = (journal_header *)jnl->header_buf;
@@ -1836,9 +1838,9 @@ journal_create(struct vnode *jvp,
 
 
 bad_write:
-	hfs_free(jnl->header_buf, phys_blksz);
+	hfs_free_data(jnl->header_buf, phys_blksz);
 	jnl->jhdr = NULL;
-	hfs_free(jnl, sizeof(*jnl));
+	hfs_free_type(jnl, struct journal);
 cleanup_jdev_name:
 	vnode_putname_printable(jdev_name);
 	jnl = NULL;
@@ -1896,7 +1898,7 @@ journal_open(struct vnode *jvp,
 		goto cleanup_jdev_name;
 	}
 
-	jnl = hfs_mallocz(sizeof(struct journal));
+	jnl = hfs_malloc_type(struct journal);
 
 	jnl->jdev         = jvp;
 	jnl->jdev_offset  = offset;
@@ -1914,7 +1916,7 @@ journal_open(struct vnode *jvp,
 
 	get_io_info(jvp, phys_blksz, jnl, vfs_context_kernel());
 
-	jnl->header_buf = hfs_malloc(phys_blksz);
+	jnl->header_buf = hfs_malloc_data(phys_blksz);
 	jnl->header_buf_size = phys_blksz;
 
 	jnl->jhdr = (journal_header *)jnl->header_buf;
@@ -2105,8 +2107,8 @@ bad_journal:
 		VNOP_IOCTL(jvp, DKIOCSETBLOCKSIZE, (caddr_t)&orig_blksz, FWRITE, vfs_context_kernel());
 		printf("jnl: %s: open: restored block size after error\n", jdev_name);
 	}
-	hfs_free(jnl->header_buf, jnl->header_buf_size);
-	hfs_free(jnl, sizeof(*jnl));
+	hfs_free_data(jnl->header_buf, jnl->header_buf_size);
+	hfs_free_type(jnl, struct journal);
 cleanup_jdev_name:
 	vnode_putname_printable(jdev_name);
 	jnl = NULL;
@@ -2157,7 +2159,7 @@ journal_is_clean(struct vnode *jvp,
 
 	memset(&jnl, 0, sizeof(jnl));
 
-	jnl.header_buf = hfs_malloc(phys_blksz);
+	jnl.header_buf = hfs_malloc_data(phys_blksz);
 	jnl.header_buf_size = phys_blksz;
 
 	get_io_info(jvp, phys_blksz, &jnl, vfs_context_kernel());
@@ -2216,7 +2218,7 @@ journal_is_clean(struct vnode *jvp,
 	}
 
 get_out:
-	hfs_free(jnl.header_buf, jnl.header_buf_size);
+	hfs_free_data(jnl.header_buf, jnl.header_buf_size);
 cleanup_jdev_name:
 	vnode_putname_printable(jdev_name);
 	return ret;
@@ -2318,7 +2320,7 @@ journal_close(journal *jnl)
 
 	free_old_stuff(jnl);
 
-	hfs_free(jnl->header_buf, jnl->header_buf_size);
+	hfs_free_data(jnl->header_buf, jnl->header_buf_size);
 	jnl->jhdr = (void *)0xbeefbabe;
 
 	vnode_putname_printable(jnl->jdev_name);
@@ -2327,7 +2329,7 @@ journal_close(journal *jnl)
 	lck_mtx_destroy(&jnl->old_start_lock, jnl_mutex_group);
 	lck_mtx_destroy(&jnl->jlock, jnl_mutex_group);
 	lck_mtx_destroy(&jnl->flock, jnl_mutex_group);
-	hfs_free(jnl, sizeof(*jnl));
+	hfs_free_type(jnl, journal);
 }
 
 static void
@@ -2510,7 +2512,7 @@ journal_allocate_transaction(journal *jnl)
 		 */
 		was_vm_privileged = set_vm_privilege(TRUE);
 	}
-	tr = hfs_mallocz(sizeof(transaction));
+	tr = hfs_malloc_type(transaction);
 
 	tr->tbuffer_size = jnl->tbuffer_size;
 
@@ -2678,10 +2680,10 @@ journal_modify_block_start(journal *jnl, struct buf *bp)
 
 				printf("jnl: %s: phys blksz got bigger (was: %d/%d now %d)\n",
 				       jnl->jdev_name, jnl->header_buf_size, jnl->jhdr->jhdr_size, phys_blksz);
-				new_header_buf = hfs_malloc(phys_blksz);
+				new_header_buf = hfs_malloc_data(phys_blksz);
 				memcpy(new_header_buf, jnl->header_buf, jnl->header_buf_size);
 				memset(&new_header_buf[jnl->header_buf_size], 0x18, (phys_blksz - jnl->header_buf_size));
-				hfs_free(jnl->header_buf, jnl->header_buf_size);
+				hfs_free_data(jnl->header_buf, jnl->header_buf_size);
 				jnl->header_buf = new_header_buf;
 				jnl->header_buf_size = phys_blksz;
 				
@@ -3101,7 +3103,7 @@ trim_realloc(journal *jnl, struct jnl_trim_list *trim)
 		 */
 		was_vm_privileged = set_vm_privilege(TRUE);
 	}
-	new_extents = hfs_malloc(new_allocated_count * sizeof(dk_extent_t));
+	new_extents = hfs_new_data(dk_extent_t, new_allocated_count);
 	if (vfs_isswapmount(jnl->fsmount) && (was_vm_privileged == FALSE))
 		set_vm_privilege(FALSE);
 
@@ -3122,7 +3124,7 @@ trim_realloc(journal *jnl, struct jnl_trim_list *trim)
 		memmove(new_extents,
 				trim->extents,
 				trim->allocated_count * sizeof(dk_extent_t));
-		hfs_free(trim->extents, trim->allocated_count * sizeof(dk_extent_t));
+		hfs_delete_data(trim->extents, dk_extent_t, trim->allocated_count);
 	}
 	
 	trim->allocated_count = new_allocated_count;
@@ -3700,7 +3702,7 @@ journal_trim_flush(journal *jnl, transaction *tr)
 	 * holding any locks.
 	 */
 	if (tr->trim.extents) {			
-		hfs_free(tr->trim.extents, tr->trim.allocated_count * sizeof(dk_extent_t));
+		hfs_delete_data(tr->trim.extents, dk_extent_t, tr->trim.allocated_count);
 		tr->trim.allocated_count = 0;
 		tr->trim.extent_count = 0;
 		tr->trim.extents = NULL;
@@ -4104,7 +4106,7 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 		blhdr->checksum = 0;
 		blhdr->checksum = calc_checksum((char *)blhdr, BLHDR_CHECKSUM_SIZE);
 
-		bparray = hfs_malloc(blhdr->num_blocks * sizeof(buf_t));
+		bparray = hfs_new(buf_t, blhdr->num_blocks);
 		tbuffer_offset = jnl->jhdr->blhdr_size;
 
 		for (i = 1; i < blhdr->num_blocks; i++) {
@@ -4216,8 +4218,7 @@ finish_end_transaction(transaction *tr, errno_t (*callback)(void*), void *callba
 		for (i = 1; i < blhdr->num_blocks; i++)
 			blhdr->binfo[i].u.bp = bparray[i];
 
-		hfs_free(bparray, blhdr->num_blocks * sizeof(buf_t));
-
+		hfs_delete(bparray, buf_t, blhdr->num_blocks);
 		if (ret_val == -1)
 			goto bad_journal;
 
@@ -4521,7 +4522,7 @@ abort_transaction(journal *jnl, transaction *tr)
 	
 	
 	if (tr->trim.extents) {
-		hfs_free(tr->trim.extents, tr->trim.allocated_count * sizeof(dk_extent_t));
+		hfs_delete_data(tr->trim.extents, dk_extent_t, tr->trim.allocated_count);
 	}
 	tr->trim.allocated_count = 0;
 	tr->trim.extent_count = 0;
@@ -4529,7 +4530,7 @@ abort_transaction(journal *jnl, transaction *tr)
 	tr->tbuffer     = NULL;
 	tr->blhdr       = NULL;
 	tr->total_bytes = 0xdbadc0de;
-	hfs_free(tr, sizeof(*tr));
+	hfs_free_type(tr, transaction);
 
 	KERNEL_DEBUG(0xbbbbc034|DBG_FUNC_END, jnl, tr, 0, 0, 0);
 }

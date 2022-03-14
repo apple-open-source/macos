@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -82,6 +82,7 @@
 #include <libutil.h>
 #include <mntopts.h>
 #include <util.h>
+#include <sysexits.h>
 
 #include <oncrpc/rpc.h>
 
@@ -92,8 +93,7 @@
 
 #include "mount_nfs.h"
 
-
-#define _PATH_NFS_CONF	"/etc/nfs.conf"
+#define _PATH_NFS_CONF  "/etc/nfs.conf"
 
 /* init to invalid values so we will only set values specified in nfs.conf */
 struct nfs_conf_client config =
@@ -118,58 +118,58 @@ struct nfs_conf_client config =
 /* mount options */
 
 /* values */
-#define ALTF_ATTRCACHE_VAL	0x00000001
-#define ALTF_DSIZE		0x00000002
-#define ALTF_MAXGROUPS		0x00000004
-#define ALTF_MOUNTPORT		0x00000008
-#define ALTF_PORT		0x00000010
-#define ALTF_PROTO		0x00000020
-#define ALTF_READAHEAD		0x00000040
-#define ALTF_RETRANS		0x00000080
-#define ALTF_RETRYCNT		0x00000100
-#define ALTF_RSIZE		0x00000200
-#define ALTF_SEC		0x00000400
-#define ALTF_TIMEO		0x00000800
-#define ALTF_VERS		0x00001000
-#define ALTF_VERS2		0x00002000 /* deprecated */
-#define ALTF_VERS3		0x00004000 /* deprecated */
-#define ALTF_VERS4		0x00008000 /* deprecated */
-#define ALTF_WSIZE		0x00010000
-#define ALTF_DEADTIMEOUT	0x00020000
-#define ALTF_REALM		0x00040000
-#define ALTF_PRINCIPAL		0x00080000
-#define ALTF_SVCPRINCIPAL	0x00100000
-#define ALTF_ETYPE		0x00200000
-#define ALTF_FH			0x00400000
-#define ALTF_NETID		0x00800000
+#define ALTF_ATTRCACHE_VAL      0x00000001
+#define ALTF_DSIZE              0x00000002
+#define ALTF_MAXGROUPS          0x00000004
+#define ALTF_MOUNTPORT          0x00000008
+#define ALTF_PORT               0x00000010
+#define ALTF_PROTO              0x00000020
+#define ALTF_READAHEAD          0x00000040
+#define ALTF_RETRANS            0x00000080
+#define ALTF_RETRYCNT           0x00000100
+#define ALTF_RSIZE              0x00000200
+#define ALTF_SEC                0x00000400
+#define ALTF_TIMEO              0x00000800
+#define ALTF_VERS               0x00001000
+#define ALTF_VERS2              0x00002000 /* deprecated */
+#define ALTF_VERS3              0x00004000 /* deprecated */
+#define ALTF_VERS4              0x00008000 /* deprecated */
+#define ALTF_WSIZE              0x00010000
+#define ALTF_DEADTIMEOUT        0x00020000
+#define ALTF_REALM              0x00040000
+#define ALTF_PRINCIPAL          0x00080000
+#define ALTF_SVCPRINCIPAL       0x00100000
+#define ALTF_ETYPE              0x00200000
+#define ALTF_FH                 0x00400000
+#define ALTF_NETID              0x00800000
 
 /* switches */
-#define ALTF_ATTRCACHE		0x00000001
-#define ALTF_BG			0x00000002
-#define ALTF_CONN		0x00000004
-#define ALTF_DUMBTIMR		0x00000008
-#define ALTF_HARD		0x00000010
-#define ALTF_INTR		0x00000020
-#define ALTF_LOCALLOCKS		0x00000040
-#define ALTF_LOCKS		0x00000080
-#define ALTF_MNTUDP		0x00000100
-#define ALTF_NEGNAMECACHE	0x00000200
-#define ALTF_RDIRPLUS		0x00000400
-#define ALTF_RESVPORT		0x00000800
-#define ALTF_SOFT		0x00001000
-#define ALTF_TCP		0x00002000
-#define ALTF_UDP		0x00004000
-#define ALTF_MUTEJUKEBOX	0x00008000
-#define ALTF_CALLBACK		0x00010000
-#define ALTF_NAMEDATTR		0x00020000
-#define ALTF_ACL		0x00040000
-#define ALTF_ACLONLY		0x00080000
-#define ALTF_NFC		0x00100000
-#define ALTF_INET		0x00200000
-#define ALTF_INET6		0x00400000
-#define ALTF_QUOTA		0x00800000
-#define ALTF_PFH		0x01000000
-#define ALTF_NOOPAQUE_AUTH	0x02000000
+#define ALTF_ATTRCACHE          0x00000001
+#define ALTF_BG                 0x00000002
+#define ALTF_CONN               0x00000004
+#define ALTF_DUMBTIMR           0x00000008
+#define ALTF_HARD               0x00000010
+#define ALTF_INTR               0x00000020
+#define ALTF_LOCALLOCKS         0x00000040
+#define ALTF_LOCKS              0x00000080
+#define ALTF_MNTUDP             0x00000100
+#define ALTF_NEGNAMECACHE       0x00000200
+#define ALTF_RDIRPLUS           0x00000400
+#define ALTF_RESVPORT           0x00000800
+#define ALTF_SOFT               0x00001000
+#define ALTF_TCP                0x00002000
+#define ALTF_UDP                0x00004000
+#define ALTF_MUTEJUKEBOX        0x00008000
+#define ALTF_CALLBACK           0x00010000
+#define ALTF_NAMEDATTR          0x00020000
+#define ALTF_ACL                0x00040000
+#define ALTF_ACLONLY            0x00080000
+#define ALTF_NFC                0x00100000
+#define ALTF_INET               0x00200000
+#define ALTF_INET6              0x00400000
+#define ALTF_QUOTA              0x00800000
+#define ALTF_PFH                0x01000000
+#define ALTF_NOOPAQUE_AUTH      0x02000000
 
 /* standard and value-setting options */
 struct mntopt mopts[] = {
@@ -198,7 +198,7 @@ struct mntopt mopts[] = {
 	{ "retrans", 0, ALTF_RETRANS, 1 },
 	{ "retrycnt", 0, ALTF_RETRYCNT, 1 },
 	{ "rsize", 0, ALTF_RSIZE, 1 },
-	{ "rwsize", 0, ALTF_RSIZE|ALTF_WSIZE, 1 },
+	{ "rwsize", 0, ALTF_RSIZE | ALTF_WSIZE, 1 },
 	{ "sec", 0, ALTF_SEC, 1 },
 	{ "sprincipal", 0, ALTF_SVCPRINCIPAL, 1 },
 	{ "timeo", 0, ALTF_TIMEO, 1 },
@@ -251,19 +251,19 @@ struct mntopt *mopts_switches_no = NULL;
 char *mntfromarg = NULL;
 int nfsproto = 0;
 
-#define SENDSZ	65536
-#define RECVSZ	65536
+#define SENDSZ  65536
+#define RECVSZ  65536
 
 /* flags controlling mount_nfs behavior */
-#define BGRND		0x1
-#define ISBGRND		0x2
+#define BGRND           0x1
+#define ISBGRND         0x2
 int opflags = 0;
 int verbose = 0;
 
-#define DEF_RETRY_BG	10000
-#define DEF_RETRY_FG	1
+#define DEF_RETRY_BG    10000
+#define DEF_RETRY_FG    1
 int retrycnt = -1;
-int zdebug = 0;		/* Turn on testing flag to make kernel prepend '@' to realm */
+int zdebug = 0;         /* Turn on testing flag to make kernel prepend '@' to realm */
 
 /* mount options */
 struct nfs_options_client options;
@@ -271,30 +271,30 @@ struct nfs_options_client options;
 /* convenience macro for setting a mount flag to a particular value (on/off) */
 #define SETFLAG(F, V) \
 	do { \
-		NFS_BITMAP_SET(options.mflags_mask, F); \
-		if (V) \
-			NFS_BITMAP_SET(options.mflags, F); \
-		else \
-			NFS_BITMAP_CLR(options.mflags, F); \
+	        NFS_BITMAP_SET(options.mflags_mask, F); \
+	        if (V) \
+	                NFS_BITMAP_SET(options.mflags, F); \
+	        else \
+	                NFS_BITMAP_CLR(options.mflags, F); \
 	} while (0)
 
-#define AOK	(void *)	// assert alignment is OK
+#define AOK     (void *)        // assert alignment is OK
 
 /* function prototypes */
-void		setNFSVersion(uint32_t, uint32_t);
-void		dump_mount_options(struct nfs_fs_location *, char *);
-void		set_krb5_sec_flavor_for_principal(void);
-void		handle_mntopts(char *);
-void		warn_badoptions(char *);
-void		config_sysctl(void);
-int		getaddresslist(struct nfs_fs_server *);
-void		freeaddresslists(struct nfs_fs_location *);
-int		assemble_mount_args(struct nfs_fs_location *, char **);
-void		usage(void);
-int		nfsparsevers(const char *, uint32_t *, uint32_t *);
-char *		fh2hexstr(fhandle_t *);
-enum clnt_stat	ping_rpc_statd(struct sockaddr *);
-void		nfs_err(int, const char *, ...);
+void            setNFSVersion(uint32_t, uint32_t);
+void            dump_mount_options(struct nfs_fs_location *, char *);
+void            set_krb5_sec_flavor_for_principal(void);
+void            handle_mntopts(char *);
+void            warn_badoptions(char *);
+void            config_sysctl(void);
+int             getaddresslist(struct nfs_fs_server *);
+void            freeaddresslists(struct nfs_fs_location *);
+int             assemble_mount_args(struct nfs_fs_location *, char **);
+void            usage(void);
+int             nfsparsevers(const char *, uint32_t *, uint32_t *);
+char *          fh2hexstr(fhandle_t *);
+enum clnt_stat  ping_rpc_statd(struct sockaddr *);
+void            nfs_err(int, const char *, ...);
 
 /*
  * Max rwsize supported by kernel/kext is 2MB for Intel and 8MB for Apple Silicon (8 * 64 * PAGE_SIZE) but
@@ -309,16 +309,18 @@ strtouint32(const char *str, char **eptr, int base)
 {
 	int64_t num;
 	num = strtoll(str, eptr, base);
-	if (num > UINT32_MAX)
+	if (num > UINT32_MAX) {
 		num = UINT32_MAX;
-	if (num < 0)
+	}
+	if (num < 0) {
 		num = 0;
+	}
 
-	return ((uint32_t)num);
+	return (uint32_t)num;
 }
 
 void
-nfs_err(int error, const char *fmt,...)
+nfs_err(int error, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -340,11 +342,13 @@ setup_switches(void)
 	uint i;
 
 	mopts_switches_no = malloc(sizeof(mopts_switches));
-	if (!mopts_switches_no)
+	if (!mopts_switches_no) {
 		nfs_err(ENOMEM, "memory allocation failed");
+	}
 	bcopy(mopts_switches, mopts_switches_no, sizeof(mopts_switches));
-	for (i=0; i < sizeof(mopts_switches)/sizeof(struct mntopt); i++)
+	for (i = 0; i < sizeof(mopts_switches) / sizeof(struct mntopt); i++) {
 		mopts_switches_no[i].m_inverse = (mopts_switches[i].m_inverse == 0);
+	}
 }
 
 int
@@ -364,16 +368,16 @@ mount_nfs_imp(int argc, char *argv[])
 	/* initialize and process options */
 	config_read(_PATH_NFS_CONF, &config);
 
-	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlmo:Pp:R:r:sTt:Uvw:x:z")) != EOF)
+	while ((c = getopt(argc, argv, "234a:bcdF:g:I:iLlmo:Pp:R:r:sTt:Uvw:x:z")) != EOF) {
 		switch (c) {
 		case '4':
-			setNFSVersion(VER2PVER(4,0), 0);
+			setNFSVersion(VER2PVER(4, 0), 0);
 			break;
 		case '3':
-			setNFSVersion(VER2PVER(3,0), 0);
+			setNFSVersion(VER2PVER(3, 0), 0);
 			break;
 		case '2':
-			setNFSVersion(VER2PVER(2,0), 0);
+			setNFSVersion(VER2PVER(2, 0), 0);
 			break;
 		case 'a':
 			num = strtouint32(optarg, &p, 10);
@@ -396,18 +400,22 @@ mount_nfs_imp(int argc, char *argv[])
 		case 'F': { // XXX silly temporary hack - please remove this!
 			int fd;
 			ssize_t len;
-			if ((fd = open(optarg, O_RDONLY)) < 0)
+			if ((fd = open(optarg, O_RDONLY)) < 0) {
 				nfs_err(errno, "could not open file containing file system specification: %s: %s", optarg, strerror(errno));
-			if ((mntfromarg = malloc(MAXPATHLEN)) == NULL)
-				nfs_err(ENOMEM, "memory allocation failed");
-			if ((len = read(fd, mntfromarg, MAXPATHLEN-1)) < 0)
-				nfs_err(errno, "could not read file containing file system specification: %s: %s", optarg, strerror(errno));
-			mntfromarg[len--] = '\0';
-			while (isspace(mntfromarg[len]))
-				mntfromarg[len--] = '\0';
-			close(fd);
 			}
-			break;
+			if ((mntfromarg = malloc(MAXPATHLEN)) == NULL) {
+				nfs_err(ENOMEM, "memory allocation failed");
+			}
+			if ((len = read(fd, mntfromarg, MAXPATHLEN - 1)) < 0) {
+				nfs_err(errno, "could not read file containing file system specification: %s: %s", optarg, strerror(errno));
+			}
+			mntfromarg[len--] = '\0';
+			while (isspace(mntfromarg[len])) {
+				mntfromarg[len--] = '\0';
+			}
+			close(fd);
+		}
+		break;
 		case 'g':
 			num = strtouint32(optarg, &p, 10);
 			if (*p) {
@@ -447,16 +455,18 @@ mount_nfs_imp(int argc, char *argv[])
 			break;
 		case 'p':
 			options.principal = strdup(optarg);
-			if (!options.principal)
+			if (!options.principal) {
 				nfs_err(1, "could not set principal: %s", strerror(1));
+			}
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_PRINCIPAL);
 			break;
 		case 'R':
 			num = strtouint32(optarg, &p, 10);
-			if (*p)
+			if (*p) {
 				warnx("illegal -R value -- %s", optarg);
-			else
+			} else {
 				retrycnt = (int)num;
+			}
 			break;
 		case 'r':
 			num = strtouint32(optarg, &p, 10);
@@ -484,8 +494,8 @@ mount_nfs_imp(int argc, char *argv[])
 			} else {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT);
 				/* This value is in .1s units */
-				options.request_timeout.tv_sec = num/10;
-				options.request_timeout.tv_nsec = (num%10) * 100000000;
+				options.request_timeout.tv_sec = num / 10;
+				options.request_timeout.tv_nsec = (num % 10) * 100000000;
 			}
 			break;
 		case 'w':
@@ -524,6 +534,7 @@ mount_nfs_imp(int argc, char *argv[])
 			usage();
 			break;
 		}
+	}
 	argc -= optind;
 	argv += optind;
 
@@ -545,8 +556,9 @@ mount_nfs_imp(int argc, char *argv[])
 			options.dead_timeout.tv_nsec = 0;
 		}
 	}
-	if (options.socket_type || options.socket_family)
+	if (options.socket_type || options.socket_family) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SOCKET_TYPE);
+	}
 
 	/*
 	 * Run sysctls to update /etc/nfs.conf changes in the kernel
@@ -554,8 +566,9 @@ mount_nfs_imp(int argc, char *argv[])
 	 * change to the /etc/nfs.conf.
 	 */
 	if ((argc == 1) && !strcmp(argv[0], "configupdate")) {
-		if (geteuid() != 0)
+		if (geteuid() != 0) {
 			nfs_err(1, "Must be superuser to configupdate");
+		}
 		config_sysctl();
 		exit(0);
 	}
@@ -564,10 +577,16 @@ mount_nfs_imp(int argc, char *argv[])
 		mntfromarg = *argv++;
 		argc--;
 	}
-	if (argc != 1)
+	if (argc != 1) {
 		usage();
+	}
 
-	if (realpath(*argv, mntonname) == NULL) {
+	if (options.mntflags & MNT_NOFOLLOW) {
+		size_t sc = strlcpy(mntonname, *argv, MAXPATHLEN);
+		if (sc >= MAXPATHLEN) {
+			nfs_err(1, "%s: %s", mntonname, strerror(EINVAL));
+		}
+	} else if (realpath(*argv, mntonname) == NULL) {
 		if (errno) {
 			nfs_err(errno, "realpath %s: %s", mntonname, strerror(errno));
 		} else {
@@ -577,31 +596,37 @@ mount_nfs_imp(int argc, char *argv[])
 
 	error = parse_fs_locations(mntfromarg, &nfsl);
 	if (error || !nfsl) {
-		if (!error)
+		if (!error) {
 			error = EINVAL;
+		}
 		nfs_err(error, "could not parse file system specification");
+		exit(1);
 	}
 
-	if (retrycnt < 0)
+	if (retrycnt < 0) {
 		retrycnt = (opflags & BGRND) ? DEF_RETRY_BG : DEF_RETRY_FG;
-	if (retrycnt <= 0) /* if no retries, also use short timeouts */
+	}
+	if (retrycnt <= 0) { /* if no retries, also use short timeouts */
 		SETFLAG(NFS_MFLAG_MNTQUICK, 1);
+	}
 
-	for (try = 1; try <= retrycnt+1; try++) {
+	for (try = 1; try <= retrycnt + 1; try++) {
 		if (try > 1) {
 			if (opflags & BGRND) {
 				printf("Retrying NFS mount in background...\n");
 				opflags &= ~BGRND;
 				#pragma clang diagnostic push
 				#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-				if (daemon(0, 0))
+				if (daemon(0, 0)) {
 					nfs_err(errno, "mount nfs background: fork failed: %s", strerror(errno));
+				}
 				#pragma clang diagnostic pop
 				opflags |= ISBGRND;
 			}
-			delay = MIN(5*(try-1),30);
-			if (verbose)
+			delay = MIN(5 * (try - 1), 30);
+			if (verbose) {
 				printf("Retrying NFS mount in %d seconds...\n", delay);
+			}
 			sleep(delay);
 		}
 
@@ -619,15 +644,16 @@ mount_nfs_imp(int argc, char *argv[])
 		}
 
 		/* assemble mount arguments */
-		if ((error = assemble_mount_args(nfsl, &xdrbuf)))
+		if ((error = assemble_mount_args(nfsl, &xdrbuf))) {
 			nfs_err(error, "error %d assembling mount args: %s", strerror(error));
+		}
 
 		/* mount the file system */
-		if (verbose > 2)
+		if (verbose > 2) {
 			printf("Calling mount(\"nfs\", %8.8x, %p)\n", options.mntflags, xdrbuf);
+		}
 #if TARGET_OS_IOS
-		if (options.mntflags & MNT_SYNCHRONOUS)
-		{
+		if (options.mntflags & MNT_SYNCHRONOUS) {
 			options.mntflags &= ~MNT_SYNCHRONOUS;
 		}
 #endif
@@ -636,14 +662,14 @@ mount_nfs_imp(int argc, char *argv[])
 			/* Give up or keep trying... depending on the error. */
 			switch (error) {
 			case EPROGUNAVAIL:
-			/* NFSv3: mount_nfs should fail when server is not running rpc.statd */
-			if (!NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION) || options.nfs_version < NFS_VER4) {
-				if (ping_rpc_statd(nfsl->nl_servers->ns_ailist->ai_addr) == RPC_PROGNOTREGISTERED) {
-					nfs_err(error, "can't mount with remote locks when server (%s) is not running rpc.statd: %s", nfsl->nl_servers->ns_name, strerror(error));
-					/*NOTREACHED*/
-					break;
+				/* NFSv3: mount_nfs should fail when server is not running rpc.statd */
+				if (!NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION) || options.nfs_version < NFS_VER4) {
+					if (ping_rpc_statd(nfsl->nl_servers->ns_ailist->ai_addr) == RPC_PROGNOTREGISTERED) {
+						nfs_err(error, "can't mount with remote locks when server (%s) is not running rpc.statd: %s", nfsl->nl_servers->ns_name, strerror(error));
+						/*NOTREACHED*/
+						break;
+					}
 				}
-			}
 			case ETIMEDOUT:
 			case EAGAIN:
 			case EPIPE:
@@ -679,14 +705,16 @@ mount_nfs_imp(int argc, char *argv[])
 		break;
 	}
 
-	if (error)
+	if (error) {
 		nfs_err(error, "can't mount %s from %s onto %s: %s", nfsl->nl_path, nfsl->nl_servers->ns_name, mntonname, strerror(error));
+	}
 
 	exit(error);
 }
 
 int
-main(int argc, char *argv[]) {
+main(int argc, char *argv[])
+{
 	return mount_nfs_imp(argc, argv);
 }
 
@@ -705,26 +733,28 @@ hexstr2fh(const char *hstr, fhandle_t *fh)
 
 	if (str == NULL) {
 		errno = EINVAL;
-		return (EINVAL);
-	};
+		return EINVAL;
+	}
+	;
 
 	printf("hstr = [%s]\n", hstr);
-	if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X'))
+	if (str[0] == '0' && (str[1] == 'x' || str[1] == 'X')) {
 		str += 2;
+	}
 
 	len = (int)strlen(str);
 	if (len % 2) {
 		errno = EINVAL;
-		return (EINVAL);
+		return EINVAL;
 	}
-	fh->fh_len = len/2;
+	fh->fh_len = len / 2;
 
 	for (cnt = 0, data = fh->fh_data; *str; str++, cnt++) {
 		const char *d = strchr(hexstring, tolower(*str));
 		unsigned char dig;
 		if (d == NULL) {
 			errno = EINVAL;
-			return (EINVAL);
+			return EINVAL;
 		}
 		dig = (d - hexstring);
 		if (cnt % 2 == 0) {
@@ -735,7 +765,7 @@ hexstr2fh(const char *hstr, fhandle_t *fh)
 			data++;
 		}
 	}
-	return (0);
+	return 0;
 }
 
 #if 1
@@ -747,14 +777,15 @@ fh2hexstr(fhandle_t *fh)
 	int i, j;
 
 	hstr = malloc(len * 2 + 3);
-	if (hstr == NULL)
-		return (NULL);
-	strlcpy(hstr, "0x", len *2 + 3);
-	for (i = 0, j = 2;  i < len; i++, j += 2) {
+	if (hstr == NULL) {
+		return NULL;
+	}
+	strlcpy(hstr, "0x", len * 2 + 3);
+	for (i = 0, j = 2; i < len; i++, j += 2) {
 		hstr[j] = hexstring[(fh->fh_data[i] >> 4) & 0xf];
 		hstr[j + 1] = hexstring[fh->fh_data[i] & 0xf];
 	}
-	return (hstr);
+	return hstr;
 }
 #endif
 
@@ -768,10 +799,9 @@ get_socket_type_mount_arg(void)
 	const char *proto = "inet", *family = "";
 	static char type[16];
 
-	switch (options.socket_family)
-	{
+	switch (options.socket_family) {
 	case AF_LOCAL:
-		switch(options.socket_type) {
+		switch (options.socket_type) {
 		case SOCK_DGRAM:
 			strlcpy(type, "ticlts", sizeof(type));
 			break;
@@ -784,25 +814,31 @@ get_socket_type_mount_arg(void)
 	case AF_UNSPEC:
 	case AF_INET:
 	case AF_INET6:
-		if (options.socket_family == AF_INET)
+		if (options.socket_family == AF_INET) {
 			family = "4";
-		if (options.socket_family == AF_INET6)
+		}
+		if (options.socket_family == AF_INET6) {
 			family = "6";
+		}
 		if (options.socket_type) {
-			if (options.socket_type == SOCK_DGRAM)
+			if (options.socket_type == SOCK_DGRAM) {
 				proto = "udp";
-			if (options.socket_type == SOCK_STREAM)
+			}
+			if (options.socket_type == SOCK_STREAM) {
 				proto = "tcp";
+			}
 		} else {
-			if (nfsproto == IPPROTO_UDP)
+			if (nfsproto == IPPROTO_UDP) {
 				proto = "udp";
-			if (nfsproto == IPPROTO_TCP)
+			}
+			if (nfsproto == IPPROTO_TCP) {
 				proto = "tcp";
+			}
 		}
 		snprintf(type, sizeof(type), "%s%s", proto, family);
 		break;
 	}
-	return (type);
+	return type;
 }
 
 /*
@@ -823,19 +859,21 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 
 	*xdrbufp = NULL;
 
-	for (i=0; i < NFS_MFLAG_BITMAP_LEN; i++)
+	for (i = 0; i < NFS_MFLAG_BITMAP_LEN; i++) {
 		mattrs[i] = options.mattrs[i];
+	}
 
 	/* we know these are set/being passed in */
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_FS_LOCATIONS);
 	NFS_BITMAP_SET(mattrs, NFS_MATTR_MNTFLAGS);
 
 	/* any flags assigned? */
-	for (i=0; i < NFS_MFLAG_BITMAP_LEN; i++)
+	for (i = 0; i < NFS_MFLAG_BITMAP_LEN; i++) {
 		if (options.mflags_mask[i]) {
 			NFS_BITMAP_SET(mattrs, NFS_MATTR_FLAGS);
 			break;
 		}
+	}
 
 	/* build xdr buffer */
 	error = 0;
@@ -851,22 +889,28 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_bitmap(error, &xb, options.mflags_mask, NFS_MFLAG_BITMAP_LEN); /* mask */
 		xb_add_bitmap(error, &xb, options.mflags, NFS_MFLAG_BITMAP_LEN); /* value */
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_VERSION))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_VERSION)) {
 		xb_add_32(error, &xb, options.nfs_version);
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_MINOR_VERSION))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_MINOR_VERSION)) {
 		xb_add_32(error, &xb, options.nfs_minor_version);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
 		xb_add_32(error, &xb, options.nfs_min_vers);
 		xb_add_32(error, &xb, options.nfs_max_vers);
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READ_SIZE))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READ_SIZE)) {
 		xb_add_32(error, &xb, options.rsize);
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_WRITE_SIZE))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_WRITE_SIZE)) {
 		xb_add_32(error, &xb, options.wsize);
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READDIR_SIZE))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READDIR_SIZE)) {
 		xb_add_32(error, &xb, options.readdirsize);
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READAHEAD))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_READAHEAD)) {
 		xb_add_32(error, &xb, options.readahead);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_ATTRCACHE_REG_MIN)) {
 		xb_add_32(error, &xb, options.acregmin.tv_sec);
 		xb_add_32(error, &xb, options.acregmin.tv_nsec);
@@ -883,49 +927,59 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		xb_add_32(error, &xb, options.acdirmax.tv_sec);
 		xb_add_32(error, &xb, options.acdirmax.tv_nsec);
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCK_MODE))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCK_MODE)) {
 		xb_add_32(error, &xb, options.lockmode);
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SECURITY))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SECURITY)) {
 		xb_add_word_array(error, &xb, options.sec.flavors, options.sec.count);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_KERB_ETYPE)) {
 		xb_add_32(error, &xb, options.etype.count);
 		xb_add_32(error, &xb, options.etype.selected);
-		for (uint32_t j = 0; j < options.etype.count; j++)
+		for (uint32_t j = 0; j < options.etype.count; j++) {
 			xb_add_32(error, &xb, options.etype.etypes[j]);
+		}
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_MAX_GROUP_LIST))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_MAX_GROUP_LIST)) {
 		xb_add_32(error, &xb, options.maxgrouplist);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SOCKET_TYPE)) {
 		char *type = get_socket_type_mount_arg();
 		xb_add_string(error, &xb, type, strlen(type));
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_PORT))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_NFS_PORT)) {
 		xb_add_32(error, &xb, options.nfs_port);
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_MOUNT_PORT))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_MOUNT_PORT)) {
 		xb_add_32(error, &xb, options.mount_port);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_REQUEST_TIMEOUT)) {
 		xb_add_32(error, &xb, options.request_timeout.tv_sec);
 		xb_add_32(error, &xb, options.request_timeout.tv_nsec);
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SOFT_RETRY_COUNT))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SOFT_RETRY_COUNT)) {
 		xb_add_32(error, &xb, options.soft_retry_count);
+	}
 	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_DEAD_TIMEOUT)) {
 		xb_add_32(error, &xb, options.dead_timeout.tv_sec);
 		xb_add_32(error, &xb, options.dead_timeout.tv_nsec);
 	}
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_FH))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_FH)) {
 		xb_add_fh(error, &xb, &options.fh.fh_data[0], options.fh.fh_len);
+	}
 	/* fs location */
-	for (numlocs=0, nfsl=nfslhead; nfsl; nfsl=nfsl->nl_next)
+	for (numlocs = 0, nfsl = nfslhead; nfsl; nfsl = nfsl->nl_next) {
 		numlocs++;
+	}
 	xb_add_32(error, &xb, numlocs); /* fs location count */
-	for (nfsl=nfslhead; nfsl; nfsl=nfsl->nl_next) {
+	for (nfsl = nfslhead; nfsl; nfsl = nfsl->nl_next) {
 		xb_add_32(error, &xb, nfsl->nl_servcnt); /* server count */
-		for (nfss=nfsl->nl_servers; nfss; nfss=nfss->ns_next) {
+		for (nfss = nfsl->nl_servers; nfss; nfss = nfss->ns_next) {
 			xb_add_string(error, &xb, nfss->ns_name, strlen(nfss->ns_name)); /* server name */
 			/* list of addresses */
-			for (numaddrs = 0, ai = nfss->ns_ailist; ai; ai = ai->ai_next)
+			for (numaddrs = 0, ai = nfss->ns_ailist; ai; ai = ai->ai_next) {
 				numaddrs++;
+			}
 			xb_add_32(error, &xb, numaddrs); /* address count */
 			for (ai = nfss->ns_ailist; ai; ai = ai->ai_next) {
 				switch (ai->ai_addr->sa_family) {
@@ -935,10 +989,11 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 				case AF_INET:
 				case AF_INET6:
 					/* convert address to universal address string */
-					if (ai->ai_family == AF_INET)
+					if (ai->ai_family == AF_INET) {
 						sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
-					else
+					} else {
 						sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+					}
 					if (inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr)) != uaddr) {
 						warn("unable to convert server address to string");
 						error = errno;
@@ -963,47 +1018,59 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 		}
 		/* pathname */
 		p = nfsl->nl_path;
-		while (*p && (*p == '/'))
+		while (*p && (*p == '/')) {
 			p++;
+		}
 		numcomps = 0;
 		while (*p) {
-			while (*p && (*p != '/'))
+			while (*p && (*p != '/')) {
 				p++;
+			}
 			numcomps++;
-			while (*p && (*p == '/'))
+			while (*p && (*p == '/')) {
 				p++;
+			}
 		}
 		xb_add_32(error, &xb, numcomps); /* pathname component count */
 		p = nfsl->nl_path;
-		while (*p && (*p == '/'))
+		while (*p && (*p == '/')) {
 			p++;
+		}
 		while (*p) {
 			cp = p;
-			while (*p && (*p != '/'))
+			while (*p && (*p != '/')) {
 				p++;
+			}
 			xb_add_string(error, &xb, cp, (p - cp)); /* component */
-			if (error)
+			if (error) {
 				break;
-			while (*p && (*p == '/'))
+			}
+			while (*p && (*p == '/')) {
 				p++;
+			}
 		}
 		xb_add_32(error, &xb, 0); /* empty fsl info */
 	}
 	xb_add_32(error, &xb, options.mntflags);
 
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_REALM))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_REALM)) {
 		xb_add_string(error, &xb, options.realm, strlen(options.realm));
+	}
 
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_PRINCIPAL))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_PRINCIPAL)) {
 		xb_add_string(error, &xb, options.principal, strlen(options.principal));
+	}
 
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SVCPRINCIPAL))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_SVCPRINCIPAL)) {
 		xb_add_string(error, &xb, options.sprinc, strlen(options.sprinc));
+	}
 
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_NFS_PORT))
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_NFS_PORT)) {
 		xb_add_string(error, &xb, options.local_nfs_port, strlen(options.local_nfs_port));
-	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_MOUNT_PORT))
+	}
+	if (NFS_BITMAP_ISSET(mattrs, NFS_MATTR_LOCAL_MOUNT_PORT)) {
 		xb_add_string(error, &xb, options.local_mount_port, strlen(options.local_mount_port));
+	}
 
 	xb_build_done(error, &xb);
 
@@ -1011,11 +1078,11 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 	end_offset = xb_offset(&xb);
 	if (!error) {
 		error = xb_seek(&xb, argslength_offset);
-		xb_add_32(error, &xb, end_offset - argslength_offset + XDRWORD/*version*/);
+		xb_add_32(error, &xb, end_offset - argslength_offset + XDRWORD /*version*/);
 	}
 	if (!error) {
 		error = xb_seek(&xb, attrslength_offset);
-		xb_add_32(error, &xb, end_offset - attrslength_offset - XDRWORD/*don't include length field*/);
+		xb_add_32(error, &xb, end_offset - attrslength_offset - XDRWORD /*don't include length field*/);
 	}
 
 	if (!error) {
@@ -1025,7 +1092,7 @@ assemble_mount_args(struct nfs_fs_location *nfslhead, char **xdrbufp)
 	}
 
 	xb_cleanup(&xb);
-	return (error);
+	return error;
 }
 
 /*
@@ -1060,9 +1127,9 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
 	/* Versions are [2-9][0-9]*(.[0-9]+)?(-[2-9][0-9]*(.[0-9]*)?)? */
 	do {
 		val = strtol(nptr, &eptr, 10);
-		if ((*eptr && *eptr != '.' &&  *eptr != '-') ||
+		if ((*eptr && *eptr != '.' && *eptr != '-') ||
 		    val < 2 || val > NFS_MAX_SUPPORTED_VERSION) {
-			return (0);
+			return 0;
 		}
 		/* Assign the major version to the pack value */
 		*packvalp = (uint16_t)val << 16;
@@ -1075,8 +1142,9 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
 			nptr = eptr + 1;
 			val = strtol(nptr, &eptr, 10);
 			if ((*eptr && *eptr != '-') ||
-			    val < 0 || val > NFS_MAX_SUPPORTED_MINOR_VERSION(PVER2MAJOR(*packvalp)))
-				return (0);
+			    val < 0 || val > NFS_MAX_SUPPORTED_MINOR_VERSION(PVER2MAJOR(*packvalp))) {
+				return 0;
+			}
 			*packvalp |= (uint16_t)val;
 			if (*eptr == '\0') {
 				packvalp = NULL;
@@ -1085,12 +1153,13 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
 		case '-':
 			/* Handle processing the max version */
 			nptr = eptr + 1;
-			if (packvalp == pmaxvers)
-				return (0);
+			if (packvalp == pmaxvers) {
+				return 0;
+			}
 			packvalp = pmaxvers;
 			break;
 		default:
-			return (0);
+			return 0;
 		}
 	} while (packvalp);
 	/* Lets be nice */
@@ -1100,7 +1169,7 @@ nfsparsevers(const char *vstr, uint32_t *pminvers, uint32_t *pmaxvers)
 		*pmaxvers = tmp;
 	}
 
-	return (1);
+	return 1;
 }
 
 /*
@@ -1154,14 +1223,16 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 
 	/* try to make a copy of the string so we don't butcher the original */
 	tofree = flavorlist = strdup(flavorlist_orig);
-	if (!flavorlist)
-		return (ENOMEM);
+	if (!flavorlist) {
+		return ENOMEM;
+	}
 
 	bzero(sec_flavs, sizeof(struct nfs_sec));
 	flav_bits = 0;
-	while ( ((flavor = strsep(&flavorlist, ":")) != NULL) && (sec_flavs->count < NX_MAX_SEC_FLAVORS)) {
-		if (flavor[0] == '\0')
+	while (((flavor = strsep(&flavorlist, ":")) != NULL) && (sec_flavs->count < NX_MAX_SEC_FLAVORS)) {
+		if (flavor[0] == '\0') {
 			continue;
+		}
 		if (!strcmp("krb5p", flavor)) {
 			if (flav_bits & KRB5P_BIT) {
 				warnx("sec krb5p appears more than once: %s", flavorlist);
@@ -1204,10 +1275,11 @@ get_sec_flavors(const char *flavorlist_orig, struct nfs_sec *sec_flavs)
 
 	free(tofree);
 
-	if (sec_flavs->count)
+	if (sec_flavs->count) {
 		return 0;
-	else
+	} else {
 		return 1;
+	}
 }
 
 /*
@@ -1226,42 +1298,41 @@ get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
 
 	/* try to make a copy of the string so we don't butcher the original */
 	tofree = etype_list = strdup(etypes_orig);
-	if (!etype_list)
-		return (ENOMEM);
+	if (!etype_list) {
+		return ENOMEM;
+	}
 
 	bzero(etypes, sizeof(struct nfs_etype));
 	etype_bits = 0;
-	while ( ((etype = strsep(&etype_list, ":")) != NULL) && (etypes->count < NFS_MAX_ETYPES)) {
-		if (etype[0] == '\0')
+	while (((etype = strsep(&etype_list, ":")) != NULL) && (etypes->count < NFS_MAX_ETYPES)) {
+		if (etype[0] == '\0') {
 			continue;
+		}
 		if (!strcasecmp("des3", etype) ||
-			 !strcasecmp("des3-cbc-sha1", etype) || !strcasecmp("des3-cbc-sha1-kd", etype)) {
+		    !strcasecmp("des3-cbc-sha1", etype) || !strcasecmp("des3-cbc-sha1-kd", etype)) {
 			if (etype_bits & DES3_BIT) {
 				warnx("etype des3-cbc-sha1-kd  appears more than once: %s", etype_list);
 				continue;
 			}
 			etype_bits |= DES3_BIT;
 			etypes->etypes[etypes->count++] = NFS_DES3_CBC_SHA1_KD;
-		}
-		else if (!strcasecmp("aes128", etype) ||
-			 !strcasecmp("aes128-cts-hmac-sha1", etype) || !strcasecmp("aes128-cts-hmac-sha1-96", etype)) {
+		} else if (!strcasecmp("aes128", etype) ||
+		    !strcasecmp("aes128-cts-hmac-sha1", etype) || !strcasecmp("aes128-cts-hmac-sha1-96", etype)) {
 			if (etype_bits & AES128_BIT) {
 				warnx("etype aes128-cts-hmac-sha1-96  appears more than once: %s", etype_list);
 				continue;
 			}
 			etype_bits |= AES128_BIT;
 			etypes->etypes[etypes->count++] = NFS_AES128_CTS_HMAC_SHA1_96;
-		}
-		else if (!strcasecmp("aes256", etype) ||
-			 !strcasecmp("aes256-cts-hmac-sha1", etype) || !strcasecmp("aes256-cts-hmac-sha1-96", etype)) {
+		} else if (!strcasecmp("aes256", etype) ||
+		    !strcasecmp("aes256-cts-hmac-sha1", etype) || !strcasecmp("aes256-cts-hmac-sha1-96", etype)) {
 			if (etype_bits & AES256_BIT) {
 				warnx("etype aes256-cts-hmac-sha1-96  appears more than once: %s", etype_list);
 				continue;
 			}
 			etype_bits |= AES256_BIT;
 			etypes->etypes[etypes->count++] = NFS_AES256_CTS_HMAC_SHA1_96;
-		}
-		else {
+		} else {
 			warnx("etype %s is unknown etype. Ignored", etype);
 		}
 	}
@@ -1269,14 +1340,15 @@ get_etypes(const char *etypes_orig, struct nfs_etype *etypes)
 
 	etypes->selected = etypes->count; /* Nothing has been selected, so set selected to count */
 
-	return ((etypes->count) ? 0 : 1);
+	return (etypes->count) ? 0 : 1;
 }
 
 void
 set_krb5_sec_flavor_for_principal(void)
 {
-	if (options.principal == NULL && options.realm == NULL && options.sprinc == NULL)
+	if (options.principal == NULL && options.realm == NULL && options.sprinc == NULL) {
 		return;
+	}
 
 	if (options.sec.count == 0) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SECURITY);
@@ -1289,11 +1361,13 @@ set_krb5_sec_flavor_for_principal(void)
 		for (i = 0; i < options.sec.count; i++) {
 			if (options.sec.flavors[i] == RPCAUTH_KRB5P ||
 			    options.sec.flavors[i] == RPCAUTH_KRB5I ||
-			    options.sec.flavors[i] == RPCAUTH_KRB5)
+			    options.sec.flavors[i] == RPCAUTH_KRB5) {
 				break;
+			}
 		}
-		if (i == options.sec.count)
+		if (i == options.sec.count) {
 			warnx("principal or realm specified but no kerberos is enabled");
+		}
 	}
 }
 
@@ -1312,8 +1386,9 @@ handle_mntopts(char *opts)
 	/* do standard and value-setting options first */
 	altflags = 0;
 	mop = getmntopts(opts, mopts, &options.mntflags, &altflags);
-	if (mop == NULL)
+	if (mop == NULL) {
 		nfs_err(EINVAL, "getmntops failed: %s", opts);
+	}
 
 	if (options.mntflags) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_MNTFLAGS);
@@ -1462,34 +1537,35 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_PROTO || altflags & ALTF_NETID) {
 		p2 = getmntoptstr(mop, "netid");
-		if (p2 == NULL)
+		if (p2 == NULL) {
 			p2 = getmntoptstr(mop, "proto");
+		}
 		if (p2) {
 			if (!strncasecmp(p2, "tcp", 4) || !strncasecmp(p2, "tcp4", 5)) {
-				if (options.local_nfs_port || options.local_mount_port)
+				if (options.local_nfs_port || options.local_mount_port) {
 					warnx("netid must be ticotsord or ticlts when specifing local socket ports");
-				else {
+				} else {
 					options.socket_type = SOCK_STREAM;
 					options.socket_family = AF_INET;
 				}
 			} else if (!strncasecmp(p2, "udp", 4) || !strncasecmp(p2, "udp4", 5)) {
-				if (options.local_nfs_port || options.local_mount_port)
+				if (options.local_nfs_port || options.local_mount_port) {
 					warnx("netid must be ticotsord or ticlts when specifing local socket ports");
-				else {
+				} else {
 					options.socket_type = SOCK_DGRAM;
 					options.socket_family = AF_INET;
 				}
 			} else if (!strncasecmp(p2, "tcp6", 5)) {
-				if (options.local_nfs_port || options.local_mount_port)
+				if (options.local_nfs_port || options.local_mount_port) {
 					warnx("netid must be ticotsord or ticlts when specifing local socket ports");
-				else {
+				} else {
 					options.socket_type = SOCK_STREAM;
 					options.socket_family = AF_INET6;
 				}
 			} else if (!strncasecmp(p2, "udp6", 5)) {
-				if (options.local_nfs_port || options.local_mount_port)
+				if (options.local_nfs_port || options.local_mount_port) {
 					warnx("netid must be ticotsord or ticlts when specifing local socket ports");
-				else {
+				} else {
 					options.socket_type = SOCK_DGRAM;
 					options.socket_family = AF_INET6;
 				}
@@ -1524,15 +1600,17 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_RETRYCNT) {
 		num = getmntoptnum(mop, "retrycnt");
-		if (num < 0 || num > INT32_MAX)
+		if (num < 0 || num > INT32_MAX) {
 			warn("illegal retry count -- %s", getmntoptstr(mop, "retrycnt"));
-		else
+		} else {
 			retrycnt = (uint32_t)num;
+		}
 	}
 	if (altflags & ALTF_RSIZE) {
 		p2 = getmntoptstr(mop, "rwsize");
-		if (!p2)
+		if (!p2) {
 			p2 = getmntoptstr(mop, "rsize");
+		}
 		if (p2) {
 			num = strtol(p2, &p, 10);
 			if ((*p == 'k') || (*p == 'K')) {
@@ -1549,21 +1627,23 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_SEC) {
 		p2 = getmntoptstr(mop, "sec");
-		if (!p2)
+		if (!p2) {
 			warnx("missing security value for sec= option");
-		else if (get_sec_flavors(p2, &options.sec))
+		} else if (get_sec_flavors(p2, &options.sec)) {
 			warnx("couldn't parse security value -- %s", p2);
-		else
+		} else {
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SECURITY);
+		}
 	}
 	if (altflags & ALTF_ETYPE) {
 		p2 = getmntoptstr(mop, "etype");
-		if (!p2)
+		if (!p2) {
 			warnx("missing encryption type value for etype= option");
-		else if (get_etypes(p2, &options.etype))
+		} else if (get_etypes(p2, &options.etype)) {
 			warnx("couldn't parse type value -- %s", p2);
-		else
+		} else {
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_KERB_ETYPE);
+		}
 	}
 	if (altflags & ALTF_TIMEO) {
 		num = getmntoptnum(mop, "timeo");
@@ -1572,39 +1652,42 @@ handle_mntopts(char *opts)
 		} else {
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT);
 			/* This value is in .1s units */
-			options.request_timeout.tv_sec = num/10;
-			options.request_timeout.tv_nsec = (num%10) * 100000000;
+			options.request_timeout.tv_sec = num / 10;
+			options.request_timeout.tv_nsec = (num % 10) * 100000000;
 		}
 	}
 	if (altflags & ALTF_VERS) {
 		uint32_t pminvers, pmaxvers;
 
-		if (!(p2 = getmntoptstr(mop, "vers")))
+		if (!(p2 = getmntoptstr(mop, "vers"))) {
 			p2 = getmntoptstr(mop, "nfsvers");
+		}
 
 		if (p2) {
-			if (nfsparsevers(p2, &pminvers, &pmaxvers))
+			if (nfsparsevers(p2, &pminvers, &pmaxvers)) {
 				setNFSVersion(pminvers, pmaxvers);
-			else
+			} else {
 				warnx("illegal NFS version value -- %s", p2);
+			}
 		}
 	}
 	if (altflags & ALTF_VERS2) {
 		warnx("option nfsv2 deprecated, use vers=#");
-		setNFSVersion(VER2PVER(2,0), 0);
+		setNFSVersion(VER2PVER(2, 0), 0);
 	}
 	if (altflags & ALTF_VERS3) {
 		warnx("option nfsv3 deprecated, use vers=#");
-		setNFSVersion(VER2PVER(3,0), 0);
+		setNFSVersion(VER2PVER(3, 0), 0);
 	}
 	if (altflags & ALTF_VERS4) {
 		warnx("option nfsv4 deprecated, use vers=#");
-		setNFSVersion(VER2PVER(4,0), 0);
+		setNFSVersion(VER2PVER(4, 0), 0);
 	}
 	if (altflags & ALTF_WSIZE) {
 		p2 = getmntoptstr(mop, "rwsize");
-		if (!p2)
+		if (!p2) {
 			p2 = getmntoptstr(mop, "wsize");
+		}
 		if (p2) {
 			num = strtol(p2, &p, 10);
 			if ((*p == 'k') || (*p == 'K')) {
@@ -1621,51 +1704,56 @@ handle_mntopts(char *opts)
 	}
 	if (altflags & ALTF_PRINCIPAL) {
 		p2 = getmntoptstr(mop, "principal");
-		if (!p2)
+		if (!p2) {
 			warnx("missing principal name");
-		else {
-			if (options.principal)
+		} else {
+			if (options.principal) {
 				warnx("principal is already set to %s. ignoring %s", options.principal, p2);
-			else
+			} else {
 				options.principal = strdup(p2);
+			}
 			if (options.principal) {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_PRINCIPAL);
-			} else
+			} else {
 				nfs_err(1, "could not set principal: %s", strerror(1));
+			}
 		}
 	}
 	if (altflags & ALTF_REALM) {
 		p2 = getmntoptstr(mop, "realm");
-		if (!p2)
+		if (!p2) {
 			warnx("missing realm name");
-		else {
-			if (*p2 == '@' || zdebug)
+		} else {
+			if (*p2 == '@' || zdebug) {
 				options.realm = strdup(p2);
-			else
+			} else {
 				(void) asprintf(&options.realm, "@%s", p2);
-			if (options.realm)
+			}
+			if (options.realm) {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_REALM);
-			else
+			} else {
 				nfs_err(1, "could not set realm: %s", strerror(1));
+			}
 		}
 	}
 	if (altflags & ALTF_SVCPRINCIPAL) {
 		p2 = getmntoptstr(mop, "sprincipal");
-		if (!p2)
+		if (!p2) {
 			warnx("missing server's principal");
-		else {
+		} else {
 			options.sprinc = strdup(p2);
-			if (options.sprinc)
+			if (options.sprinc) {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SVCPRINCIPAL);
-			else
+			} else {
 				nfs_err(1, "could not set server's principal: %s", strerror(1));
+			}
 		}
 	}
 	if (altflags & ALTF_FH) {
 		p2 = getmntoptstr(mop, "fh");
-		if (!p2)
+		if (!p2) {
 			warnx("missing hex string for file handle");
-		else {
+		} else {
 			if (hexstr2fh(p2, &options.fh) == 0) {
 				NFS_BITMAP_SET(options.mattrs, NFS_MATTR_FH);
 				if (verbose > 1) {
@@ -1673,9 +1761,9 @@ handle_mntopts(char *opts)
 					printf("Got fh %s\n", (hstr = fh2hexstr(&options.fh)));
 					free(hstr);
 				}
-			}
-			else
+			} else {
 				nfs_err(1, "cound not set root file handle: %s", strerror(1));
+			}
 		}
 	}
 	freemntopts(mop);
@@ -1683,37 +1771,49 @@ handle_mntopts(char *opts)
 	/* next do positive form of switch options */
 	altflags = 0;
 	mop = getmntopts(opts, mopts_switches, &dummyflags, &altflags);
-	if (mop == NULL)
+	if (mop == NULL) {
 		nfs_err(EINVAL, "getmntops failed: %s", opts);
-	if (verbose > 2)
+	}
+	if (verbose > 2) {
 		printf("altflags=0x%x\n", altflags);
+	}
 
-	if (altflags & ALTF_ACL)
+	if (altflags & ALTF_ACL) {
 		SETFLAG(NFS_MFLAG_NOACL, 0);
-	if (altflags & ALTF_ACLONLY)
+	}
+	if (altflags & ALTF_ACLONLY) {
 		SETFLAG(NFS_MFLAG_ACLONLY, 1);
+	}
 	if (altflags & ALTF_ATTRCACHE) {
 		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MIN);
 		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX);
 		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN);
 		NFS_BITMAP_CLR(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX);
 	}
-	if (altflags & ALTF_BG)
+	if (altflags & ALTF_BG) {
 		opflags |= BGRND;
-	if (altflags & ALTF_CALLBACK)
+	}
+	if (altflags & ALTF_CALLBACK) {
 		SETFLAG(NFS_MFLAG_NOCALLBACK, 0);
-	if (altflags & ALTF_CONN)
+	}
+	if (altflags & ALTF_CONN) {
 		SETFLAG(NFS_MFLAG_NOCONNECT, 0);
-	if (altflags & ALTF_DUMBTIMR)
+	}
+	if (altflags & ALTF_DUMBTIMR) {
 		SETFLAG(NFS_MFLAG_DUMBTIMER, 1);
-	if (altflags & ALTF_HARD)
+	}
+	if (altflags & ALTF_HARD) {
 		SETFLAG(NFS_MFLAG_SOFT, 0);
-	if (altflags & ALTF_INET)
+	}
+	if (altflags & ALTF_INET) {
 		options.socket_family = AF_INET;
-	if (altflags & ALTF_INET6)
+	}
+	if (altflags & ALTF_INET6) {
 		options.socket_family = AF_INET6;
-	if (altflags & ALTF_INTR)
+	}
+	if (altflags & ALTF_INTR) {
 		SETFLAG(NFS_MFLAG_INTR, 1);
+	}
 	if (altflags & ALTF_LOCALLOCKS) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_LOCK_MODE);
 		options.lockmode = NFS_LOCK_MODE_LOCAL;
@@ -1722,31 +1822,42 @@ handle_mntopts(char *opts)
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_LOCK_MODE);
 		options.lockmode = NFS_LOCK_MODE_ENABLED;
 	}
-	if (altflags & ALTF_MNTUDP)
+	if (altflags & ALTF_MNTUDP) {
 		SETFLAG(NFS_MFLAG_MNTUDP, 1);
-	if (altflags & ALTF_MUTEJUKEBOX)
+	}
+	if (altflags & ALTF_MUTEJUKEBOX) {
 		SETFLAG(NFS_MFLAG_MUTEJUKEBOX, 1);
-	if (altflags & ALTF_NAMEDATTR)
+	}
+	if (altflags & ALTF_NAMEDATTR) {
 		SETFLAG(NFS_MFLAG_NAMEDATTR, 1);
-	if (altflags & ALTF_NEGNAMECACHE)
+	}
+	if (altflags & ALTF_NEGNAMECACHE) {
 		SETFLAG(NFS_MFLAG_NONEGNAMECACHE, 0);
-	if (altflags & ALTF_NFC)
+	}
+	if (altflags & ALTF_NFC) {
 		SETFLAG(NFS_MFLAG_NFC, 1);
-	if (altflags & ALTF_NOOPAQUE_AUTH)
+	}
+	if (altflags & ALTF_NOOPAQUE_AUTH) {
 		SETFLAG(NFS_MFLAG_NOOPAQUE_AUTH, 1);
-	if (altflags & ALTF_QUOTA)
+	}
+	if (altflags & ALTF_QUOTA) {
 		SETFLAG(NFS_MFLAG_NOQUOTA, 0);
-	if (altflags & ALTF_RDIRPLUS)
+	}
+	if (altflags & ALTF_RDIRPLUS) {
 		SETFLAG(NFS_MFLAG_RDIRPLUS, 1);
-	if (altflags & ALTF_RESVPORT)
+	}
+	if (altflags & ALTF_RESVPORT) {
 		SETFLAG(NFS_MFLAG_RESVPORT, 1);
-	if (altflags & ALTF_SOFT)
+	}
+	if (altflags & ALTF_SOFT) {
 		SETFLAG(NFS_MFLAG_SOFT, 1);
+	}
 	if (altflags & ALTF_TCP) {
 		options.socket_type = SOCK_STREAM;
 	}
-	if (altflags & ALTF_UDP)
+	if (altflags & ALTF_UDP) {
 		options.socket_type = SOCK_DGRAM;
+	}
 	if (altflags & ALTF_PFH) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_FH);
 		options.fh.fh_len = 0;
@@ -1756,15 +1867,19 @@ handle_mntopts(char *opts)
 	/* finally do negative form of switch options */
 	altflags = 0;
 	mop = getmntopts(opts, mopts_switches_no, &dummyflags, &altflags);
-	if (mop == NULL)
+	if (mop == NULL) {
 		nfs_err(EINVAL, "getmntops failed: %s", opts);
-	if (verbose > 2)
+	}
+	if (verbose > 2) {
 		printf("negative altflags=0x%x\n", altflags);
+	}
 
-	if (altflags & ALTF_ACL)
+	if (altflags & ALTF_ACL) {
 		SETFLAG(NFS_MFLAG_NOACL, 1);
-	if (altflags & ALTF_ACLONLY)
+	}
+	if (altflags & ALTF_ACLONLY) {
 		SETFLAG(NFS_MFLAG_ACLONLY, 0);
+	}
 	if (altflags & ALTF_ATTRCACHE) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MIN);
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX);
@@ -1779,24 +1894,33 @@ handle_mntopts(char *opts)
 		options.acdirmin.tv_nsec = 0;
 		options.acdirmax.tv_nsec = 0;
 	}
-	if (altflags & ALTF_BG)
+	if (altflags & ALTF_BG) {
 		opflags &= ~BGRND;
-	if (altflags & ALTF_CALLBACK)
+	}
+	if (altflags & ALTF_CALLBACK) {
 		SETFLAG(NFS_MFLAG_NOCALLBACK, 1);
-	if (altflags & ALTF_CONN)
+	}
+	if (altflags & ALTF_CONN) {
 		SETFLAG(NFS_MFLAG_NOCONNECT, 1);
-	if (altflags & ALTF_NOOPAQUE_AUTH)
+	}
+	if (altflags & ALTF_NOOPAQUE_AUTH) {
 		SETFLAG(NFS_MFLAG_NOOPAQUE_AUTH, 0);
-	if (altflags & ALTF_DUMBTIMR)
+	}
+	if (altflags & ALTF_DUMBTIMR) {
 		SETFLAG(NFS_MFLAG_DUMBTIMER, 0);
-	if (altflags & ALTF_HARD)
+	}
+	if (altflags & ALTF_HARD) {
 		SETFLAG(NFS_MFLAG_SOFT, 1);
-	if (altflags & ALTF_INET) /* noinet = inet6 */
+	}
+	if (altflags & ALTF_INET) { /* noinet = inet6 */
 		options.socket_family = AF_INET6;
-	if (altflags & ALTF_INET6) /* noinet6 = inet */
+	}
+	if (altflags & ALTF_INET6) { /* noinet6 = inet */
 		options.socket_family = AF_INET;
-	if (altflags & ALTF_INTR)
+	}
+	if (altflags & ALTF_INTR) {
 		SETFLAG(NFS_MFLAG_INTR, 0);
+	}
 	if (altflags & ALTF_LOCALLOCKS) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_LOCK_MODE);
 		options.lockmode = NFS_LOCK_MODE_ENABLED;
@@ -1805,32 +1929,44 @@ handle_mntopts(char *opts)
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_LOCK_MODE);
 		options.lockmode = NFS_LOCK_MODE_DISABLED;
 	}
-	if (altflags & ALTF_MNTUDP)
+	if (altflags & ALTF_MNTUDP) {
 		SETFLAG(NFS_MFLAG_MNTUDP, 0);
-	if (altflags & ALTF_MUTEJUKEBOX)
+	}
+	if (altflags & ALTF_MUTEJUKEBOX) {
 		SETFLAG(NFS_MFLAG_MUTEJUKEBOX, 0);
-	if (altflags & ALTF_NAMEDATTR)
+	}
+	if (altflags & ALTF_NAMEDATTR) {
 		SETFLAG(NFS_MFLAG_NAMEDATTR, 0);
-	if (altflags & ALTF_NEGNAMECACHE)
+	}
+	if (altflags & ALTF_NEGNAMECACHE) {
 		SETFLAG(NFS_MFLAG_NONEGNAMECACHE, 1);
-	if (altflags & ALTF_NFC)
+	}
+	if (altflags & ALTF_NFC) {
 		SETFLAG(NFS_MFLAG_NFC, 0);
-	if (altflags & ALTF_QUOTA)
+	}
+	if (altflags & ALTF_QUOTA) {
 		SETFLAG(NFS_MFLAG_NOQUOTA, 1);
-	if (altflags & ALTF_RDIRPLUS)
+	}
+	if (altflags & ALTF_RDIRPLUS) {
 		SETFLAG(NFS_MFLAG_RDIRPLUS, 0);
-	if (altflags & ALTF_RESVPORT)
+	}
+	if (altflags & ALTF_RESVPORT) {
 		SETFLAG(NFS_MFLAG_RESVPORT, 0);
-	if (altflags & ALTF_SOFT)
+	}
+	if (altflags & ALTF_SOFT) {
 		SETFLAG(NFS_MFLAG_SOFT, 0);
-	if (altflags & ALTF_TCP) /* notcp = udp */
+	}
+	if (altflags & ALTF_TCP) { /* notcp = udp */
 		options.socket_type = SOCK_DGRAM;
-	if (altflags & ALTF_UDP) /* noudp = tcp */
+	}
+	if (altflags & ALTF_UDP) { /* noudp = tcp */
 		options.socket_type = SOCK_STREAM;
+	}
 	freemntopts(mop);
 
-	if (options.socket_type || options.socket_family)
+	if (options.socket_type || options.socket_family) {
 		NFS_BITMAP_SET(options.mattrs, NFS_MATTR_SOCKET_TYPE);
+	}
 
 	warn_badoptions(opts);
 }
@@ -1847,30 +1983,39 @@ warn_badoptions(char *opts)
 	struct mntopt *k, *known;
 
 	myopts = strdup(opts);
-	if (myopts == NULL)
+	if (myopts == NULL) {
 		return;
+	}
 
 	for (opt = myopts; (opt = strtok(opt, ",")) != NULL; opt = NULL) {
 		saveopt = opt;
-		if (strncmp(opt, "no", 2) == 0)	// negative option
+		if (strncmp(opt, "no", 2) == 0) { // negative option
 			opt += 2;
-		p = strchr(opt, '=');		// value option
-		if (p)
+		}
+		p = strchr(opt, '=');           // value option
+		if (p) {
 			*p = '\0';
+		}
 
 		known = &mopts[0];
-		for (k = known; k->m_option != NULL; ++k)
-			if (strcasecmp(opt, k->m_option) == 0)
+		for (k = known; k->m_option != NULL; ++k) {
+			if (strcasecmp(opt, k->m_option) == 0) {
 				break;
-		if (k->m_option != NULL)	// known option
+			}
+		}
+		if (k->m_option != NULL) {      // known option
 			continue;
+		}
 
 		known = &mopts_switches[0];
-		for (k = known; k->m_option != NULL; ++k)
-			if (strcasecmp(opt, k->m_option) == 0)
+		for (k = known; k->m_option != NULL; ++k) {
+			if (strcasecmp(opt, k->m_option) == 0) {
 				break;
-		if (k->m_option != NULL)	// known option
+			}
+		}
+		if (k->m_option != NULL) {      // known option
 			continue;
+		}
 
 		warnx("warning: option \"%s\" not known", saveopt);
 	}
@@ -1890,99 +2035,119 @@ config_read(const char *confpath, struct nfs_conf_client *conf)
 	long val;
 
 	if (!(f = fopen(confpath, "r"))) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			warn("%s", confpath);
-		return (1);
+		}
+		return 1;
 	}
 	for (; (line = fparseln(f, &len, &linenum, NULL, 0)); free(line)) {
-		if (len <= 0)
+		if (len <= 0) {
 			continue;
+		}
 		/* trim trailing whitespace */
 		p = line + len - 1;
-		while ((p > line) && isspace(*p))
+		while ((p > line) && isspace(*p)) {
 			*p-- = '\0';
+		}
 		/* find key start */
 		key = line;
-		while (isspace(*key))
+		while (isspace(*key)) {
 			key++;
+		}
 		/* find equals/value */
 		value = p = strchr(line, '=');
-		if (p) /* trim trailing whitespace on key */
-			do { *p-- = '\0'; } while ((p > line) && isspace(*p));
+		if (p) { /* trim trailing whitespace on key */
+			do {
+				*p-- = '\0';
+			} while ((p > line) && isspace(*p));
+		}
 		/* find value start */
-		if (value)
-			do { value++; } while (isspace(*value));
+		if (value) {
+			do {
+				value++;
+			} while (isspace(*value));
+		}
 
 		/* all client keys start with "nfs.client." */
 		if (strncmp(key, "nfs.client.", 11)) {
-			if (verbose > 1)
+			if (verbose > 1) {
 				printf("%4ld %s=%s\n", linenum, key, value ? value : "");
+			}
 			continue;
 		}
 		val = !value ? 1 : strtol(value, NULL, 0);
-		if (verbose)
+		if (verbose) {
 			printf("%4ld %s=%s (%ld)\n", linenum, key, value ? value : "", val);
+		}
 
 		if (!strcmp(key, "nfs.client.access_cache_timeout")) {
-			if (value && val)
+			if (value && val) {
 				conf->access_cache_timeout = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.access_for_getattr")) {
 			conf->access_for_getattr = (int)val;
 		} else if (!strcmp(key, "nfs.client.allow_async")) {
 			conf->allow_async = (int)val;
 		} else if (!strcmp(key, "nfs.client.callback_port")) {
-			if (value && val)
+			if (value && val) {
 				conf->callback_port = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.initialdowndelay")) {
 			conf->initialdowndelay = (int)val;
 		} else if (!strcmp(key, "nfs.client.iosize")) {
-			if (value && val)
+			if (value && val) {
 				conf->iosize = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.mount.options")) {
 			handle_mntopts(value);
 		} else if (!strcmp(key, "nfs.client.nextdowndelay")) {
 			conf->nextdowndelay = (int)val;
 		} else if (!strcmp(key, "nfs.client.nfsiod_thread_max")) {
-			if (value)
+			if (value) {
 				conf->nfsiod_thread_max = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.statfs_rate_limit")) {
-			if (value && val)
+			if (value && val) {
 				conf->statfs_rate_limit = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.is_mobile")) {
-			if (value && val)
 				conf->is_mobile = (int)val;
 		} else if (!strcmp(key, "nfs.client.squishy_flags")) {
-			if (value && val)
+			if (value && val) {
 				conf->squishy_flags = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.root_steals_gss_context")) {
-			if (value && val)
+			if (value && val) {
 				conf->root_steals_gss_context = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.default_nfs4domain")) {
 			if (value) {
 				conf->default_nfs4domain = strndup(value, MAXPATHLEN);
 			}
 		} else if (!strcmp(key, "nfs.client.mount_timeout")) {
-			if (value && val)
+			if (value && val) {
 				conf->mount_timeout = (int)val;
+			}
 		} else if (!strcmp(key, "nfs.client.mount_quick_timeout")) {
-			if (value && val)
+			if (value && val) {
 				conf->mount_quick_timeout = (int)val;
+			}
 		} else {
-			if (verbose)
+			if (verbose) {
 				printf("ignoring unknown config value: %4ld %s=%s\n", linenum, key, value ? value : "");
+			}
 		}
-
 	}
 
 	fclose(f);
-	return (0);
+	return 0;
 }
 
 /* set a sysctl config value */
 int
 sysctl_set(const char *name, int val)
 {
-	return (sysctlbyname(name, NULL, 0, &val, sizeof(val)));
+	return sysctlbyname(name, NULL, 0, &val, sizeof(val));
 }
 
 
@@ -2021,11 +2186,10 @@ machineHasInternalBattery()
 	CFIndex count = CFArrayGetCount(psArray);
 	int i;
 
-	for (i = 0; i < count; ++i)
-	{
+	for (i = 0; i < count; ++i) {
 		CFTypeRef value = CFArrayGetValueAtIndex(psArray, i);
 		if (value) {
-			CFDictionaryRef psDetailed = IOPSGetPowerSourceDescription (psInfo, value);
+			CFDictionaryRef psDetailed = IOPSGetPowerSourceDescription(psInfo, value);
 			CFBooleanRef presentState = CFDictionaryGetValue(psDetailed, CFSTR(kIOPSIsPresentKey));
 			if (presentState && (CFGetTypeID(presentState) == CFBooleanGetTypeID()) && CFBooleanGetValue(presentState)) {
 				CFStringRef psType = CFDictionaryGetValue(psDetailed, CFSTR(kIOPSTypeKey));
@@ -2042,7 +2206,7 @@ machineHasInternalBattery()
 	CFRelease(psArray);
 	CFRelease(psInfo);
 
-	return (battery);
+	return battery;
 }
 
 /*
@@ -2058,11 +2222,13 @@ mobile_client()
 	char model[128];
 	size_t len = sizeof(model);
 
-	if (machineHasInternalBattery())
+	if (machineHasInternalBattery()) {
 		return 1;
+	}
 
-	if (sysctlbyname("hw.model", &model, &len, NULL, 0) < 0 || len <= 0)
+	if (sysctlbyname("hw.model", &model, &len, NULL, 0) < 0 || len <= 0) {
 		return 0;
+	}
 
 	return strnstr(model, "Book", len) != NULL;
 }
@@ -2071,35 +2237,49 @@ mobile_client()
 void
 config_sysctl(void)
 {
-	if (config.access_cache_timeout != -1)
+	if (config.access_cache_timeout != -1) {
 		sysctl_set("vfs.generic.nfs.client.access_cache_timeout", config.access_cache_timeout);
-	if (config.access_for_getattr != -1)
+	}
+	if (config.access_for_getattr != -1) {
 		sysctl_set("vfs.generic.nfs.client.access_for_getattr", config.access_for_getattr);
-	if (config.allow_async != -1)
+	}
+	if (config.allow_async != -1) {
 		sysctl_set("vfs.generic.nfs.client.allow_async", config.allow_async);
-	if (config.callback_port != -1)
+	}
+	if (config.callback_port != -1) {
 		sysctl_set("vfs.generic.nfs.client.callback_port", config.callback_port);
-	if (config.initialdowndelay != -1)
+	}
+	if (config.initialdowndelay != -1) {
 		sysctl_set("vfs.generic.nfs.client.initialdowndelay", config.initialdowndelay);
-	if (config.iosize != -1)
+	}
+	if (config.iosize != -1) {
 		sysctl_set("vfs.generic.nfs.client.iosize", config.iosize);
-	if (config.nextdowndelay != -1)
+	}
+	if (config.nextdowndelay != -1) {
 		sysctl_set("vfs.generic.nfs.client.nextdowndelay", config.nextdowndelay);
-	if (config.nfsiod_thread_max != -1)
+	}
+	if (config.nfsiod_thread_max != -1) {
 		sysctl_set("vfs.generic.nfs.client.nfsiod_thread_max", config.nfsiod_thread_max);
-	if (config.statfs_rate_limit != -1)
+	}
+	if (config.statfs_rate_limit != -1) {
 		sysctl_set("vfs.generic.nfs.client.statfs_rate_limit", config.statfs_rate_limit);
-	if (config.is_mobile == -1)
+	}
+	if (config.is_mobile == -1) {
 		config.is_mobile = mobile_client();
+	}
 	sysctl_set("vfs.generic.nfs.client.is_mobile", config.is_mobile);
-	if (config.squishy_flags != -1)
+	if (config.squishy_flags != -1) {
 		sysctl_set("vfs.generic.nfs.client.squishy_flags", config.squishy_flags);
-	if (config.root_steals_gss_context != -1)
+	}
+	if (config.root_steals_gss_context != -1) {
 		sysctl_set("vfs.generic.nfs.client.root_steals_gss_context", config.root_steals_gss_context);
-	if (config.mount_timeout != -1)
+	}
+	if (config.mount_timeout != -1) {
 		sysctl_set("vfs.generic.nfs.client.mount_timeout", config.mount_timeout);
-	if (config.mount_quick_timeout != -1)
+	}
+	if (config.mount_quick_timeout != -1) {
 		sysctl_set("vfs.generic.nfs.client.mount_quick_timeout", config.mount_quick_timeout);
+	}
 	if (config.default_nfs4domain != NULL) {
 		sysctlbyname("vfs.generic.nfs.client.default_nfs4domain", NULL, 0, config.default_nfs4domain, strnlen(config.default_nfs4domain, MAXPATHLEN));
 	}
@@ -2147,8 +2327,9 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 	*nfslp = NULL;
 
 	argcopy = strdup(mntfromarg);
-	if (!argcopy)
-		return (ENOMEM);
+	if (!argcopy) {
+		return ENOMEM;
+	}
 	p = argcopy;
 
 	while (*p) {
@@ -2173,18 +2354,20 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 				p++;
 				while (isxdigit(*p) || (*p == ':')) {
 					if (*p == ':') {
-						if (!colon)
+						if (!colon) {
 							colon = p;
-						if (!colonslash && (*(p+1) == '/'))
+						}
+						if (!colonslash && (*(p + 1) == '/')) {
 							colonslash = p;
+						}
 					}
 					p++;
 				}
-				if ((*p == ']') && ((*(p+1) == ',') || (*(p+1) == ':'))) {
+				if ((*p == ']') && ((*(p + 1) == ',') || (*(p + 1) == ':'))) {
 					/* Found "[IPv6]:", double check that it's acceptable and use it. */
 					ch = *p;
 					*p = '\0';
-					if (inet_pton(AF_INET6, host+1, &sin6))	{ /* It was a valid IPv6 literal */
+					if (inet_pton(AF_INET6, host + 1, &sin6)) { /* It was a valid IPv6 literal */
 						*p = ch;
 						p++;
 						goto addhost;
@@ -2197,14 +2380,16 @@ parse_fs_locations(const char *mntfromarg, struct nfs_fs_location **nfslp)
 			/* if end of host not found yet, search for "," or ":/" or ":" */
 			while (*p && (!colon || !colonslash)) {
 				if (*p == ':') {
-					if (!colon)
+					if (!colon) {
 						colon = p;
-					if (!colonslash && (*(p+1) == '/')) {
+					}
+					if (!colonslash && (*(p + 1) == '/')) {
 						break;
 					}
 				}
-				if (*p == ',') /* we have a host, add it to the list */
+				if (*p == ',') { /* we have a host, add it to the list */
 					break;
+				}
 				p++;
 			}
 			if (!*p) {
@@ -2227,15 +2412,17 @@ addhost:
 				goto outfree;
 			}
 			/* Add the host to the list of servers. */
-			if (nfssprev)
+			if (nfssprev) {
 				nfssprev->ns_next = nfss;
-			else
+			} else {
 				nfsl->nl_servers = nfss;
+			}
 			nfsl->nl_servcnt++;
 			nfssprev = nfss;
 			nfss = NULL;
-			if (*p++ != ',') /* move on to get the path */
+			if (*p++ != ',') { /* move on to get the path */
 				break;
+			}
 			/* forget about any previously-seen colon */
 			colon = colonslash = NULL;
 			/* get next host */
@@ -2258,11 +2445,13 @@ addhost:
 			if (*p == ',') {
 				/* It looks like we have hit the end of the path, start of the next location. */
 				/* But first, verify that there's a colon after the comma. */
-				q = p+1;
-				while (*q && (*q != ':'))
+				q = p + 1;
+				while (*q && (*q != ':')) {
 					q++;
-				if (!*q) /* No colon, rest of string is all path. */
+				}
+				if (!*q) { /* No colon, rest of string is all path. */
 					p = q;
+				}
 				break;
 			}
 			p++;
@@ -2277,15 +2466,17 @@ addhost:
 			goto outfree;
 		}
 		/* Add the fs location to the list of locations. */
-		if (nfslprev)
+		if (nfslprev) {
 			nfslprev->nl_next = nfsl;
-		else
+		} else {
 			nfslhead = nfsl;
+		}
 		nfslprev = nfsl;
 		nfsl = NULL;
 		/* get the next fs location */
-		if (*p == ',')
+		if (*p == ',') {
 			p++;
+		}
 	}
 
 	if (!nfslhead) {
@@ -2295,7 +2486,7 @@ addhost:
 
 	free(argcopy);
 	*nfslp = nfslhead;
-	return (0);
+	return 0;
 
 outfree:
 	if (nfsl) {
@@ -2325,10 +2516,12 @@ outfree:
 static int
 addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
 {
-	if (a1->ai_family != a2->ai_family)
-		return (a1->ai_family - a2->ai_family);
-	if (a1->ai_addrlen != a2->ai_addrlen)
-		return (a1->ai_addrlen - a2->ai_addrlen);
+	if (a1->ai_family != a2->ai_family) {
+		return a1->ai_family - a2->ai_family;
+	}
+	if (a1->ai_addrlen != a2->ai_addrlen) {
+		return a1->ai_addrlen - a2->ai_addrlen;
+	}
 	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
 }
 
@@ -2347,54 +2540,58 @@ getaddresslist(struct nfs_fs_server *nfss)
 
 	nfss->ns_ailist = NULL;
 	hostname = nfss->ns_name;
-	if ((hostname[0] == '[') && (hostname[strlen(hostname)-1] == ']')) {
+	if ((hostname[0] == '[') && (hostname[strlen(hostname) - 1] == ']')) {
 		/* Looks like an IPv6 literal */
-		strlcpy(namebuf, hostname+1, sizeof(namebuf));
-		namebuf[strlen(namebuf)-1] = '\0';
+		strlcpy(namebuf, hostname + 1, sizeof(namebuf));
+		namebuf[strlen(namebuf) - 1] = '\0';
 		hostname = namebuf;
-	} else if (*hostname == '\0' || ((hostname[0] == '<') && (hostname[strlen(hostname)-1] == '>'))) {
+	} else if (*hostname == '\0' || ((hostname[0] == '<') && (hostname[strlen(hostname) - 1] == '>'))) {
 		/* Looks like an AF_LOCAL address */
 		struct sockaddr_un *un;
 
 		if (*hostname == '<') {
 			strlcpy(namebuf, hostname, sizeof(namebuf));
 			hostname = namebuf;
-			hostname[strlen(hostname)-1] = '\0';
+			hostname[strlen(hostname) - 1] = '\0';
 			hostname += 1;
 		}
-		ailist = malloc(sizeof (struct addrinfo));
+		ailist = malloc(sizeof(struct addrinfo));
 		if (ailist == NULL) {
 			warnx("Can't allocate addrinfo sturcture for local address for %s", hostname);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 		un = (struct sockaddr_un *)malloc(sizeof(struct sockaddr_un));
 		if (un == NULL) {
 			free(ailist);
 			warnx("Can't allocate local socket address for %s", hostname);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 		un->sun_len = sizeof(struct sockaddr_un);
 		un->sun_family = AF_LOCAL;
-		if (verbose > 2)
+		if (verbose > 2) {
 			printf("hostname is <%s> : %s\n", hostname, options.local_nfs_port);
+		}
 		if (*hostname != '\0') {
 			if (options.local_nfs_port) {
-				if (strcmp(options.local_nfs_port, hostname))
+				if (strcmp(options.local_nfs_port, hostname)) {
 					warnx("%s overrides port=%s", hostname, options.local_nfs_port);
+				}
 				free(options.local_nfs_port);
 			}
 			options.local_nfs_port = strdup(hostname);
-			if (options.local_nfs_port == NULL)
+			if (options.local_nfs_port == NULL) {
 				nfs_err(1, "No memory to duplicate hostname %s: %s", options.local_nfs_port, strerror(1));
+			}
 			NFS_BITMAP_SET(options.mattrs, NFS_MATTR_LOCAL_NFS_PORT);
-			if (verbose > 2)
+			if (verbose > 2) {
 				printf("Setting local_nfs_port to %s\n", options.local_nfs_port);
+			}
 		}
 		un->sun_path[0] = '\0';
 		local = 1;
 		ailist->ai_flags = 0;
 		ailist->ai_family = AF_LOCAL;
-		ailist->ai_addrlen = sizeof (struct sockaddr_un);
+		ailist->ai_addrlen = sizeof(struct sockaddr_un);
 		ailist->ai_socktype = options.socket_type ? options.socket_type : SOCK_STREAM;
 		ailist->ai_protocol = 0;
 		ailist->ai_addr = (struct sockaddr *)un;
@@ -2408,7 +2605,7 @@ getaddresslist(struct nfs_fs_server *nfss)
 		aihints.ai_socktype = options.socket_type;
 		if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
 			warnx("can't resolve host: %s", hostname);
-			return (ENOENT);
+			return ENOENT;
 		}
 	}
 
@@ -2420,88 +2617,97 @@ getaddresslist(struct nfs_fs_server *nfss)
 		ainext = ai->ai_next;
 
 		/* If socket_family is set, eliminate addresses that aren't of that family. */
-		if (options.socket_family && (ai->ai_family != options.socket_family))
+		if (options.socket_family && (ai->ai_family != options.socket_family)) {
 			goto discard;
+		}
 
 		/* If socket_type is set, eliminate addresses that aren't of that type. */
 		/* (This should have been taken care of by specifying the type above.) */
-		if (options.socket_type && (ai->ai_socktype != options.socket_type))
+		if (options.socket_type && (ai->ai_socktype != options.socket_type)) {
 			goto discard;
+		}
 
 		/* If nfs_version is set >= 4, eliminate DGRAM addresses. */
-		if ((options.nfs_version >= 4) && (ai->ai_socktype == SOCK_DGRAM))
+		if ((options.nfs_version >= 4) && (ai->ai_socktype == SOCK_DGRAM)) {
 			goto discard;
+		}
 
 		/* eliminate unknown protocol families */
-		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6) && (ai->ai_family != AF_LOCAL))
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6) && (ai->ai_family != AF_LOCAL)) {
 			goto discard;
+		}
 
 		/* If socket_type is not set, eliminate duplicate addresses with different socktypes. */
 		if (!options.socket_type && aiprev &&
 		    (ai->ai_socktype != aiprev->ai_socktype) &&
-		    !addrinfo_cmp(aiprev, ai))
+		    !addrinfo_cmp(aiprev, ai)) {
 			goto discard;
+		}
 
 		aiprev = ai;
 		if (verbose > 2) {
 			if (ai->ai_family == AF_LOCAL) {
 				uap = ((struct sockaddr_un *)ai->ai_addr)->sun_path;
 				printf("usable address: %s %s\n",
-				       (ai->ai_socktype == SOCK_DGRAM) ? "ticlts" :
-				       (ai->ai_socktype = SOCK_STREAM) ? "ticotsord" : "unknown",
-				       uap);
+				    (ai->ai_socktype == SOCK_DGRAM) ? "ticlts" :
+				    (ai->ai_socktype = SOCK_STREAM) ? "ticotsord" : "unknown",
+				    uap);
 			} else {
-				if (ai->ai_family == AF_INET)
+				if (ai->ai_family == AF_INET) {
 					sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
-				else
+				} else {
 					sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+				}
 				uap = inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr));
 				printf("usable address: %s %s %s\n",
-				       (ai->ai_socktype == SOCK_DGRAM) ? "udp" :
-				       (ai->ai_socktype == SOCK_STREAM) ? "tcp" : "???",
-				       (ai->ai_family == AF_INET) ? "inet" :
-				       (ai->ai_family == AF_INET6) ? "inet6" : "???",
-				       uap ? uap : "???");
+				    (ai->ai_socktype == SOCK_DGRAM) ? "udp" :
+				    (ai->ai_socktype == SOCK_STREAM) ? "tcp" : "???",
+				    (ai->ai_family == AF_INET) ? "inet" :
+				    (ai->ai_family == AF_INET6) ? "inet6" : "???",
+				    uap ? uap : "???");
 			}
 		}
 		continue;
 discard:
 		/* Add ai to the discard list */
-		if (aiprev)
+		if (aiprev) {
 			aiprev->ai_next = ai->ai_next;
-		else
+		} else {
 			ailist = ai->ai_next;
+		}
 		ai->ai_next = aidiscard;
 		aidiscard = ai;
 		if (verbose > 2) {
 			if (ai->ai_family == AF_LOCAL) {
 				uap = ((struct sockaddr_un *)ai->ai_addr)->sun_path;
 				printf("discard address: %s %s\n",
-				       (ai->ai_socktype == SOCK_DGRAM) ? "ticlts" :
-				       (ai->ai_socktype = SOCK_STREAM) ? "ticotsord" : "unknown",
-				       uap);
+				    (ai->ai_socktype == SOCK_DGRAM) ? "ticlts" :
+				    (ai->ai_socktype = SOCK_STREAM) ? "ticotsord" : "unknown",
+				    uap);
 			} else {
-				if (ai->ai_family == AF_INET)
+				if (ai->ai_family == AF_INET) {
 					sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
-				else
+				} else {
 					sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+				}
 				uap = inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr));
 				printf("discard address: %s %s %s\n",
-				       (ai->ai_socktype == SOCK_DGRAM) ? "udp" :
-				       (ai->ai_socktype == SOCK_STREAM) ? "tcp" : "???",
-				       (ai->ai_family == AF_INET) ? "inet" :
-				       (ai->ai_family == AF_INET6) ? "inet6" : "???",
-				       uap ? uap : "???");
+				    (ai->ai_socktype == SOCK_DGRAM) ? "udp" :
+				    (ai->ai_socktype == SOCK_STREAM) ? "tcp" : "???",
+				    (ai->ai_family == AF_INET) ? "inet" :
+				    (ai->ai_family == AF_INET6) ? "inet6" : "???",
+				    uap ? uap : "???");
 			}
 		}
 	}
 
 	/* free up any discarded addresses */
-	if (aidiscard)
+	if (aidiscard) {
 		free(aidiscard);
+	}
 
 	nfss->ns_ailist = ailist;
-	return (0);
+	return 0;
 }
 
 /*
@@ -2519,8 +2725,9 @@ getaddresslists(struct nfs_fs_location *nfsl, int *servcnt)
 		nfss = nfsl->nl_servers;
 		while (nfss) {
 			error = getaddresslist(nfss);
-			if (!error && nfss->ns_ailist)
+			if (!error && nfss->ns_ailist) {
 				*servcnt += 1;
+			}
 			nfss = nfss->ns_next;
 		}
 		nfsl = nfsl->nl_next;
@@ -2560,52 +2767,52 @@ static struct opt {
 	int o_opt;
 	const char *o_name;
 } optnames[] = {
-	{ MNT_ASYNC,		"asynchronous" },
-	{ MNT_EXPORTED,		"NFS exported" },
-	{ MNT_LOCAL,		"local" },
-	{ MNT_NODEV,		"nodev" },
-	{ MNT_NOEXEC,		"noexec" },
-	{ MNT_NOSUID,		"nosuid" },
-	{ MNT_QUOTA,		"with quotas" },
-	{ MNT_RDONLY,		"read-only" },
-	{ MNT_SYNCHRONOUS,	"synchronous" },
-	{ MNT_UNION,		"union" },
-	{ MNT_AUTOMOUNTED,	"automounted" },
-	{ MNT_JOURNALED,	"journaled" },
-	{ MNT_DEFWRITE,		"defwrite" },
-	{ MNT_IGNORE_OWNERSHIP,	"noowners" },
-	{ MNT_NOATIME,		"noatime" },
-	{ MNT_QUARANTINE,	"quarantine" },
-	{ MNT_DONTBROWSE,	"nobrowse" },
-	{ MNT_CPROTECT,		"protect"},
-	{ MNT_ROOTFS,		"rootfs"},
-	{ MNT_DOVOLFS,		"dovolfs"},
-	{ MNT_NOUSERXATTR,	"nouserxattr"},
-	{ MNT_MULTILABEL,	"multilabel"},
-	{ 0,			NULL }
+	{ MNT_ASYNC, "asynchronous" },
+	{ MNT_EXPORTED, "NFS exported" },
+	{ MNT_LOCAL, "local" },
+	{ MNT_NODEV, "nodev" },
+	{ MNT_NOEXEC, "noexec" },
+	{ MNT_NOSUID, "nosuid" },
+	{ MNT_QUOTA, "with quotas" },
+	{ MNT_RDONLY, "read-only" },
+	{ MNT_SYNCHRONOUS, "synchronous" },
+	{ MNT_UNION, "union" },
+	{ MNT_AUTOMOUNTED, "automounted" },
+	{ MNT_JOURNALED, "journaled" },
+	{ MNT_DEFWRITE, "defwrite" },
+	{ MNT_IGNORE_OWNERSHIP, "noowners" },
+	{ MNT_NOATIME, "noatime" },
+	{ MNT_QUARANTINE, "quarantine" },
+	{ MNT_DONTBROWSE, "nobrowse" },
+	{ MNT_CPROTECT, "protect"},
+	{ MNT_ROOTFS, "rootfs"},
+	{ MNT_DOVOLFS, "dovolfs"},
+	{ MNT_NOUSERXATTR, "nouserxattr"},
+	{ MNT_MULTILABEL, "multilabel"},
+	{ 0, NULL }
 };
 
 static const char *
 sec_flavor_name(uint32_t flavor)
 {
-	switch(flavor) {
-	case RPCAUTH_NONE:	return ("none");
-	case RPCAUTH_SYS:	return ("sys");
-	case RPCAUTH_KRB5:	return ("krb5");
-	case RPCAUTH_KRB5I:	return ("krb5i");
-	case RPCAUTH_KRB5P:	return ("krb5p");
-	default:		return ("?");
+	switch (flavor) {
+	case RPCAUTH_NONE:      return "none";
+	case RPCAUTH_SYS:       return "sys";
+	case RPCAUTH_KRB5:      return "krb5";
+	case RPCAUTH_KRB5I:     return "krb5i";
+	case RPCAUTH_KRB5P:     return "krb5p";
+	default:                return "?";
 	}
 }
 
 static const char *
 etype_name(uint32_t etype)
 {
-	switch(etype) {
-	case NFS_DES3_CBC_SHA1_KD:		return ("des3-cbc-sha1-kd");
-	case NFS_AES128_CTS_HMAC_SHA1_96:	return ("aes128-cts-hmac-sha1-96");
-	case NFS_AES256_CTS_HMAC_SHA1_96:	return ("aes256-cts-hmac-sha1-96");
-	default:				return ("?");
+	switch (etype) {
+	case NFS_DES3_CBC_SHA1_KD:              return "des3-cbc-sha1-kd";
+	case NFS_AES128_CTS_HMAC_SHA1_96:       return "aes128-cts-hmac-sha1-96";
+	case NFS_AES256_CTS_HMAC_SHA1_96:       return "aes256-cts-hmac-sha1-96";
+	default:                                return "?";
 	}
 }
 
@@ -2625,53 +2832,59 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 
 	flags = options.mntflags;
 	printf("mount flags: 0x%x", flags);
-	for (o = optnames; flags && o->o_opt; o++)
+	for (o = optnames; flags && o->o_opt; o++) {
 		if (flags & o->o_opt) {
 			printf(", %s", o->o_name);
 			flags &= ~o->o_opt;
 		}
+	}
 	printf("\n");
 
 	switch (options.socket_family) {
 	case AF_LOCAL:
 		printf("socket: type:%s", ((options.socket_type == SOCK_STREAM) ? "ticotsord" :
-					   (options.socket_type == SOCK_DGRAM) ? "ticlts" : "unknown"));
+		    (options.socket_type == SOCK_DGRAM) ? "ticlts" : "unknown"));
 		break;
 	case AF_INET:
 	case AF_INET6:
 	case AF_UNSPEC:
 		printf("socket: type:%s", ((options.socket_type == SOCK_STREAM) ? "tcp" :
-					   (options.socket_type == SOCK_DGRAM) ? "udp" : "any"));
-		if (options.socket_family != AF_UNSPEC)
+		    (options.socket_type == SOCK_DGRAM) ? "udp" : "any"));
+		if (options.socket_family != AF_UNSPEC) {
 			printf("%s%s", (options.socket_type ? "" : ",inet"),
-			       ((options.socket_family == AF_INET) ? "4" :
-				(options.socket_family == AF_INET6) ? "6" : ""));
+			    ((options.socket_family == AF_INET) ? "4" :
+			    (options.socket_family == AF_INET6) ? "6" : ""));
+		}
 		break;
 	}
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_PORT))
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_PORT)) {
 		printf(",port=%d", options.nfs_port);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_MOUNT_PORT))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_MOUNT_PORT)) {
 		printf(",mountport=%d", options.mount_port);
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_MNTUDP) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_MNTUDP) || (verbose > 1)) {
 		printf(",%smntudp", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_MNTUDP) ? "" : "no");
+	}
 	printf("\n");
 	printf("file system locations:\n");
-	for (nfsl=nfslhead; nfsl; nfsl=nfsl->nl_next) {
+	for (nfsl = nfslhead; nfsl; nfsl = nfsl->nl_next) {
 		printf("%s\n", nfsl->nl_path);
-		for (nfss=nfsl->nl_servers; nfss; nfss=nfss->ns_next) {
+		for (nfss = nfsl->nl_servers; nfss; nfss = nfss->ns_next) {
 			printf("  %s\n", nfss->ns_name);
-			for (ai=nfss->ns_ailist; ai; ai=ai->ai_next) {
+			for (ai = nfss->ns_ailist; ai; ai = ai->ai_next) {
 				switch (ai->ai_family) {
 				case AF_INET:
 				case AF_INET6:
-					if (ai->ai_family == AF_INET)
+					if (ai->ai_family == AF_INET) {
 						sinaddr = &((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr;
-					else
+					} else {
 						sinaddr = &((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+					}
 					uap = inet_ntop(ai->ai_family, sinaddr, uaddr, sizeof(uaddr));
 					printf("    %s %s\n",
-					       (ai->ai_family == AF_INET) ? "inet" : "inet6",
-					       uap ? uap : "???");
+					    (ai->ai_family == AF_INET) ? "inet" : "inet6",
+					    uap ? uap : "???");
 					break;
 				case AF_LOCAL:
 					printf("    local transport %s\n", ((struct sockaddr_un *)ai->ai_addr)->sun_path);
@@ -2684,8 +2897,9 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_FH)) {
 		printf("fh %d ", options.fh.fh_len);
-		for (i=0; i < (int)options.fh.fh_len; i++)
+		for (i = 0; i < (int)options.fh.fh_len; i++) {
 			printf("%02x", options.fh.fh_data[i] & 0xff);
+		}
 		printf("\n");
 	}
 
@@ -2693,39 +2907,52 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 	printf(" %s,retrycnt=%d", ((opflags & BGRND) ? "bg" : "fg"), retrycnt);
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION)) {
 		printf(",vers=%d", options.nfs_version);
-		if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION))
+		if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_MINOR_VERSION)) {
 			printf(".%d", options.nfs_minor_version);
+		}
 	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_NFS_VERSION_RANGE)) {
 		printf(",vers=%d", PVER2MAJOR(options.nfs_min_vers));
-		if (PVER2MINOR(options.nfs_min_vers))
+		if (PVER2MINOR(options.nfs_min_vers)) {
 			printf(".%d", PVER2MINOR(options.nfs_min_vers));
+		}
 		printf("-%d", PVER2MAJOR(options.nfs_max_vers));
-		if (PVER2MINOR(options.nfs_max_vers))
+		if (PVER2MINOR(options.nfs_max_vers)) {
 			printf(".%d", PVER2MINOR(options.nfs_max_vers));
+		}
 	}
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_SOFT) || (verbose > 1))
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_SOFT) || (verbose > 1)) {
 		printf(",%s", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_SOFT) ? "soft" : "hard");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_INTR) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_INTR) || (verbose > 1)) {
 		printf(",%sintr", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_INTR) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_RESVPORT) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_RESVPORT) || (verbose > 1)) {
 		printf(",%sresvport", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_RESVPORT) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOCONNECT) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOCONNECT) || (verbose > 1)) {
 		printf(",%sconn", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOCONNECT) ? "no" : "");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOCALLBACK) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOCALLBACK) || (verbose > 1)) {
 		printf(",%scallback", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOCALLBACK) ? "no" : "");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NONEGNAMECACHE) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NONEGNAMECACHE) || (verbose > 1)) {
 		printf(",%snegnamecache", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NONEGNAMECACHE) ? "no" : "");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NAMEDATTR) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NAMEDATTR) || (verbose > 1)) {
 		printf(",%snamedattr", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NAMEDATTR) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOACL) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOACL) || (verbose > 1)) {
 		printf(",%sacl", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOACL) ? "no" : "");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_ACLONLY) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_ACLONLY) || (verbose > 1)) {
 		printf(",%saclonly", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_ACLONLY) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_CALLUMNT) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_CALLUMNT) || (verbose > 1)) {
 		printf(",%scallumnt", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_CALLUMNT) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_LOCK_MODE) || (verbose > 1))
-		switch(options.lockmode) {
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_LOCK_MODE) || (verbose > 1)) {
+		switch (options.lockmode) {
 		case NFS_LOCK_MODE_ENABLED:
 			printf(",locks");
 			break;
@@ -2736,62 +2963,86 @@ dump_mount_options(struct nfs_fs_location *nfslhead, char *mntonname)
 			printf(",locallocks");
 			break;
 		}
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOQUOTA) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOQUOTA) || (verbose > 1)) {
 		printf(",%squota", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOQUOTA) ? "no" : "");
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READ_SIZE) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READ_SIZE) || (verbose > 1)) {
 		printf(",rsize=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READ_SIZE) ? options.rsize : NFS_RSIZE);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_WRITE_SIZE) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_WRITE_SIZE) || (verbose > 1)) {
 		printf(",wsize=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_WRITE_SIZE) ? options.wsize : NFS_WSIZE);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READAHEAD) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READAHEAD) || (verbose > 1)) {
 		printf(",readahead=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READAHEAD) ? options.readahead : NFS_DEFRAHEAD);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READDIR_SIZE) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READDIR_SIZE) || (verbose > 1)) {
 		printf(",dsize=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_READDIR_SIZE) ? options.readdirsize : NFS_READDIRSIZE);
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_RDIRPLUS) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_RDIRPLUS) || (verbose > 1)) {
 		printf(",%srdirplus", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_RDIRPLUS) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_DUMBTIMER) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_DUMBTIMER) || (verbose > 1)) {
 		printf(",%sdumbtimer", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_DUMBTIMER) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT) || (verbose > 1)) {
 		printf(",timeo=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REQUEST_TIMEOUT) ?
-			((options.request_timeout.tv_sec * 10) + (options.request_timeout.tv_nsec % 100000000)) : 10);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SOFT_RETRY_COUNT) || (verbose > 1))
+		    ((options.request_timeout.tv_sec * 10) + (options.request_timeout.tv_nsec % 100000000)) : 10);
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SOFT_RETRY_COUNT) || (verbose > 1)) {
 		printf(",retrans=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SOFT_RETRY_COUNT) ? options.soft_retry_count : NFS_RETRANS);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_MAX_GROUP_LIST) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_MAX_GROUP_LIST) || (verbose > 1)) {
 		printf(",maxgroups=%d", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_MAX_GROUP_LIST) ? options.maxgrouplist : NFS_MAXGRPS);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MIN) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MIN) || (verbose > 1)) {
 		printf(",acregmin=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MIN) ? options.acregmin.tv_sec : NFS_MINATTRTIMO);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX) || (verbose > 1)) {
 		printf(",acregmax=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_REG_MAX) ? options.acregmax.tv_sec : NFS_MAXATTRTIMO);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN) || (verbose > 1)) {
 		printf(",acdirmin=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MIN) ? options.acdirmin.tv_sec : NFS_MINATTRTIMO);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX) || (verbose > 1)) {
 		printf(",acdirmax=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_ATTRCACHE_DIR_MAX) ? options.acdirmax.tv_sec : NFS_MAXATTRTIMO);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_DEAD_TIMEOUT) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_DEAD_TIMEOUT) || (verbose > 1)) {
 		printf(",deadtimeout=%ld", NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_DEAD_TIMEOUT) ? options.dead_timeout.tv_sec : 0);
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_MUTEJUKEBOX) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_MUTEJUKEBOX) || (verbose > 1)) {
 		printf(",%smutejukebox", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_MUTEJUKEBOX) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_EPHEMERAL) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_EPHEMERAL) || (verbose > 1)) {
 		printf(",%sephemeral", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_EPHEMERAL) ? "" : "no");
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NFC) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NFC) || (verbose > 1)) {
 		printf(",%snfc", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NFC) ? "" : "no");
+	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SECURITY)) {
 		printf(",sec=%s", sec_flavor_name(options.sec.flavors[0]));
-		for (i=1; i < options.sec.count; i++)
+		for (i = 1; i < options.sec.count; i++) {
 			printf(":%s", sec_flavor_name(options.sec.flavors[i]));
+		}
 	}
 	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_KERB_ETYPE)) {
 		printf(",etype=%s", etype_name(options.etype.etypes[0]));
-		for (uint32_t j = 1; j < options.etype.count; j++)
+		for (uint32_t j = 1; j < options.etype.count; j++) {
 			printf(":%s", etype_name(options.etype.etypes[j]));
+		}
 	}
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REALM))
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_REALM)) {
 		printf(",realm=%s", options.realm);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_PRINCIPAL))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_PRINCIPAL)) {
 		printf(",principal=%s", options.principal);
-	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SVCPRINCIPAL))
+	}
+	if (NFS_BITMAP_ISSET(options.mattrs, NFS_MATTR_SVCPRINCIPAL)) {
 		printf(",sprincipal=%s", options.sprinc);
-
-	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOOPAQUE_AUTH) || (verbose > 1))
+	}
+	if (NFS_BITMAP_ISSET(options.mflags_mask, NFS_MFLAG_NOOPAQUE_AUTH) || (verbose > 1)) {
 		printf(",%sopaque_auth", NFS_BITMAP_ISSET(options.mflags, NFS_MFLAG_NOOPAQUE_AUTH) ? "no" : "");
+	}
 	printf("\n");
 }
 
@@ -2803,13 +3054,15 @@ ping_rpc_statd(struct sockaddr *raddr)
 	int sock = RPC_ANYSOCK;
 	rpc_createerr.cf_stat = RPC_SUCCESS;
 
-	if (options.socket_type == SOCK_DGRAM)
-		clnt = clntudp_bufcreate_timeout(raddr, RPCPROG_STAT, RPCMNT_VER1,  &sock, SENDSZ, RECVSZ, NULL, &to);
-	else
-		clnt = clnttcp_create_timeout(raddr, RPCPROG_STAT, RPCMNT_VER1,  &sock, SENDSZ, RECVSZ, NULL, &to);
+	if (options.socket_type == SOCK_DGRAM) {
+		clnt = clntudp_bufcreate_timeout(raddr, RPCPROG_STAT, RPCMNT_VER1, &sock, SENDSZ, RECVSZ, NULL, &to);
+	} else {
+		clnt = clnttcp_create_timeout(raddr, RPCPROG_STAT, RPCMNT_VER1, &sock, SENDSZ, RECVSZ, NULL, &to);
+	}
 
-	if (clnt != NULL)
+	if (clnt != NULL) {
 		clnt_destroy(clnt);
+	}
 
 	return rpc_createerr.cf_stat;
 }

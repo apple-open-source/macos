@@ -622,7 +622,7 @@ enum {
     kIOHIDEventOptionInterpolated                           = 1<<5,
     kIOHIDEventOptionInjected                               = 1<<6,
     kIOHIDEventOptionReserved8                              = 1<<8,  // See IOHIDEventServiceTypes.h
-    kIOHIDEventOptionReserved9                              = 1<<9,  // See kIOHIDEventScrollMomentumMayBegin below
+    kIOHIDEventOptionReserved9                              = 1<<9,  // See kIOHIDEventScrollMomentumWillBegin below
     kIOHIDEventOptionReserved10                             = 1<<10, // See kIOHIDEventScrollMomentumInterrupted below
 
     // misspellings
@@ -647,11 +647,13 @@ enum {
     kIOHIDEventScrollMomentumContinue                       = (1<<0),
     kIOHIDEventScrollMomentumStart                          = (1<<1),
     kIOHIDEventScrollMomentumEnd                            = (1<<2),
-    kIOHIDEventScrollMomentumMayBegin                       = (1<<3), // Lower bit
+    kIOHIDEventScrollMomentumWillBegin                      = (1<<3), // Lower bit
+    // Deprecated, use kIOHIDEventScrollMomentumWillBegin
+    kIOHIDEventScrollMomentumMayBegin                       = kIOHIDEventScrollMomentumWillBegin,
     kIOHIDEventScrollMomentumInterrupted                    = (1<<4), // Lower bit
     kIOHIDEventScrollMomentumMask                           = (kIOHIDEventScrollMomentumContinue | kIOHIDEventScrollMomentumStart | kIOHIDEventScrollMomentumEnd),
     kIOHIDEventScrollMomentumShift                          = (kIOHIDEventEventOptionPhaseShift + 4),
-    kIOHIDEventScrollMomentumLowerMask                      = (kIOHIDEventScrollMomentumMayBegin | kIOHIDEventScrollMomentumInterrupted),
+    kIOHIDEventScrollMomentumLowerMask                      = (kIOHIDEventScrollMomentumWillBegin | kIOHIDEventScrollMomentumInterrupted),
     kIOHIDEventScrollMomentumLowerShift                     = 6,
 };
 typedef uint8_t IOHIDEventScrollMomentumBits;

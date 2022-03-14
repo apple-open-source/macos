@@ -142,7 +142,7 @@ void PopupMenuWin::show(const IntRect& r, FrameView* view, int index)
 
     if (!m_scrollbar && visibleItems() < client()->listSize()) {
         // We need a scroll bar
-        m_scrollbar = client()->createScrollbar(*this, VerticalScrollbar, ScrollbarControlSize::Small);
+        m_scrollbar = client()->createScrollbar(*this, ScrollbarOrientation::Vertical, ScrollbarControlSize::Small);
         m_scrollbar->styleChanged();
     }
 
@@ -555,12 +555,12 @@ bool PopupMenuWin::scrollToRevealSelection()
     int index = focusedIndex();
 
     if (index < m_scrollOffset) {
-        ScrollableArea::scrollToOffsetWithoutAnimation(VerticalScrollbar, index);
+        ScrollableArea::scrollToOffsetWithoutAnimation(ScrollbarOrientation::Vertical, index);
         return true;
     }
 
     if (index >= m_scrollOffset + visibleItems()) {
-        ScrollableArea::scrollToOffsetWithoutAnimation(VerticalScrollbar, index - visibleItems() + 1);
+        ScrollableArea::scrollToOffsetWithoutAnimation(ScrollbarOrientation::Vertical, index - visibleItems() + 1);
         return true;
     }
 
@@ -1060,7 +1060,7 @@ LRESULT PopupMenuWin::wndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lPa
                     --i;
             }
 
-            ScrollableArea::scroll(i > 0 ? ScrollUp : ScrollDown, ScrollByLine, abs(i));
+            ScrollableArea::scroll(i > 0 ? ScrollUp : ScrollDown, ScrollGranularity::Line, abs(i));
             break;
         }
 

@@ -29,18 +29,19 @@
 #import "APIAttachment.h"
 #import "APIPageConfiguration.h"
 #import "APIUIClient.h"
+#import "AppleMediaServicesUISPI.h"
 #import "CocoaImage.h"
 #import "Connection.h"
 #import "DataDetectionResult.h"
 #import "InsertTextOptions.h"
 #import "LoadParameters.h"
+#import "ModalContainerControlClassifier.h"
 #import "PageClient.h"
 #import "QuarantineSPI.h"
 #import "QuickLookThumbnailLoader.h"
 #import "SafeBrowsingSPI.h"
 #import "SafeBrowsingWarning.h"
 #import "SharedBufferCopy.h"
-#import "SharedBufferDataReference.h"
 #import "SynapseSPI.h"
 #import "WebContextMenuProxy.h"
 #import "WebPage.h"
@@ -51,6 +52,7 @@
 #import "WebsiteDataStore.h"
 #import "WKErrorInternal.h"
 #import <Foundation/NSURLRequest.h>
+#import <WebCore/ApplePayAMSUIRequest.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/GeometryUtilities.h>
 #import <WebCore/HighlightVisibility.h>
@@ -86,6 +88,14 @@ SOFT_LINK_CLASS_OPTIONAL(Synapse, SYNotesActivationObserver)
 
 SOFT_LINK_PRIVATE_FRAMEWORK(WebContentAnalysis);
 SOFT_LINK_CLASS(WebContentAnalysis, WebFilterEvaluator);
+#endif
+
+#if ENABLE(APPLE_PAY_AMS_UI)
+SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(AppleMediaServices)
+SOFT_LINK_CLASS_OPTIONAL(AppleMediaServices, AMSEngagementRequest)
+
+SOFT_LINK_PRIVATE_FRAMEWORK_OPTIONAL(AppleMediaServicesUI)
+SOFT_LINK_CLASS_OPTIONAL(AppleMediaServicesUI, AMSUIEngagementTask)
 #endif
 
 #define MESSAGE_CHECK(assertion) MESSAGE_CHECK_BASE(assertion, process().connection())
@@ -138,7 +148,7 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, bool forMainFrameNavig
     SSBLookupContext *context = [SSBLookupContext sharedLookupContext];
     if (!context)
         return listener.didReceiveSafeBrowsingResults({ });
-    [context lookUpURL:url completionHandler:makeBlockPtr([listener = makeRef(listener), forMainFrameNavigation, url = url] (SSBLookupResult *result, NSError *error) mutable {
+    [context lookUpURL:url completionHandler:makeBlockPtr([listener = Ref { listener }, forMainFrameNavigation, url = url] (SSBLookupResult *result, NSError *error) mutable {
         RunLoop::main().dispatch([listener = WTFMove(listener), result = retainPtr(result), error = retainPtr(error), forMainFrameNavigation, url = WTFMove(url)] {
             if (error) {
                 listener->didReceiveSafeBrowsingResults({ });
@@ -191,7 +201,7 @@ void WebPageProxy::addPlatformLoadParameters(WebProcessProxy& process, LoadParam
 #endif
 }
 
-void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, SandboxExtension::Handle& fileReadHandle, SandboxExtension::HandleArray& fileUploadHandles)
+void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, SandboxExtension::Handle& fileReadHandle, Vector<SandboxExtension::Handle>& fileUploadHandles)
 {
     if (!files.size())
         return;
@@ -209,13 +219,11 @@ void WebPageProxy::createSandboxExtensionsIfNeeded(const Vector<String>& files, 
         }
     }
 
-    fileUploadHandles.allocate(files.size());
-    for (size_t i = 0; i< files.size(); i++) {
-        NSString *file = files[i];
+    for (auto& file : files) {
         if (![[NSFileManager defaultManager] fileExistsAtPath:file])
             continue;
         if (auto handle = SandboxExtension::createHandle(file, SandboxExtension::Type::ReadOnly))
-            fileUploadHandles[i] = WTFMove(*handle);
+            fileUploadHandles.append(WTFMove(*handle));
     }
 }
 
@@ -531,12 +539,12 @@ void WebPageProxy::scheduleActivityStateUpdate()
     // If there is no active transaction, likely there is no root layer change or change is committed,
     // then schedule dispatch on runloop observer to collect changes in the same runloop cycle before dispatching.
     if (hasActiveCATransaction) {
-        [CATransaction addCommitHandler:[weakThis = makeWeakPtr(*this)] {
+        [CATransaction addCommitHandler:[weakThis = WeakPtr { *this }] {
             // We can't call dispatchActivityStateChange directly underneath this commit handler, because it has side-effects
             // that may result in other frameworks trying to install commit handlers for the same phase, which is not allowed.
             // So, dispatch_async here; we only care that the activity state change doesn't apply until after the active commit is complete.
             WorkQueue::main().dispatch([weakThis] {
-                auto protectedThis = makeRefPtr(weakThis.get());
+                RefPtr protectedThis { weakThis.get() };
                 if (!protectedThis)
                     return;
 
@@ -616,7 +624,7 @@ void WebPageProxy::setUpHighlightsObserver()
     if (m_appHighlightsObserver)
         return;
 
-    auto weakThis = makeWeakPtr(*this);
+    WeakPtr weakThis { *this };
     auto updateAppHighlightsVisibility = ^(BOOL isVisible) {
         ensureOnMainRunLoop([weakThis, isVisible] {
             if (!weakThis)
@@ -630,21 +638,58 @@ void WebPageProxy::setUpHighlightsObserver()
 
 #endif
 
-SandboxExtension::HandleArray WebPageProxy::createNetworkExtensionsSandboxExtensions(WebProcessProxy& process)
+#if ENABLE(APPLE_PAY_AMS_UI)
+
+void WebPageProxy::startApplePayAMSUISession(URL&& originatingURL, ApplePayAMSUIRequest&& request, CompletionHandler<void(std::optional<bool>&&)>&& completionHandler)
+{
+    if (!AppleMediaServicesUILibrary()) {
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    PlatformViewController *presentingViewController = uiClient().presentingViewController();
+    if (!presentingViewController) {
+        completionHandler(std::nullopt);
+        return;
+    }
+
+    auto amsRequest = adoptNS([allocAMSEngagementRequestInstance() initWithRequestDictionary:dynamic_objc_cast<NSDictionary>([NSJSONSerialization JSONObjectWithData:[WTFMove(request.engagementRequest) dataUsingEncoding:NSUTF8StringEncoding] options:0 error:nil])]);
+    [amsRequest setOriginatingURL:WTFMove(originatingURL)];
+
+    auto amsBag = retainPtr([getAMSUIEngagementTaskClass() createBagForSubProfile]);
+
+    m_applePayAMSUISession = adoptNS([allocAMSUIEngagementTaskInstance() initWithRequest:amsRequest.get() bag:amsBag.get() presentingViewController:presentingViewController]);
+    [m_applePayAMSUISession setRemotePresentation:YES];
+
+    auto amsResult = retainPtr([m_applePayAMSUISession presentEngagement]);
+    [amsResult addFinishBlock:makeBlockPtr([completionHandler = WTFMove(completionHandler)] (AMSEngagementResult *result, NSError *error) mutable {
+        if (error) {
+            completionHandler(std::nullopt);
+            return;
+        }
+
+        completionHandler(result);
+    }).get()];
+}
+
+void WebPageProxy::abortApplePayAMSUISession()
+{
+    [std::exchange(m_applePayAMSUISession, nullptr) cancel];
+}
+
+#endif // ENABLE(APPLE_PAY_AMS_UI)
+
+Vector<SandboxExtension::Handle> WebPageProxy::createNetworkExtensionsSandboxExtensions(WebProcessProxy& process)
 {
 #if ENABLE(CONTENT_FILTERING)
     if (!process.hasNetworkExtensionSandboxAccess() && NetworkExtensionContentFilter::isRequired()) {
         process.markHasNetworkExtensionSandboxAccess();
         constexpr ASCIILiteral neHelperService { "com.apple.nehelper"_s };
-#if PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED < 101500
-        constexpr ASCIILiteral neSessionManagerService { "com.apple.nesessionmanager"_s };
-#else
         constexpr ASCIILiteral neSessionManagerService { "com.apple.nesessionmanager.content-filter"_s };
-#endif
         return SandboxExtension::createHandlesForMachLookup({ neHelperService, neSessionManagerService }, std::nullopt);
     }
 #endif
-    return SandboxExtension::HandleArray();
+    return { };
 }
 
 #if ENABLE(CONTEXT_MENUS)
@@ -751,6 +796,11 @@ bool WebPageProxy::isQuarantinedAndNotUserApproved(const String& fileURLString)
     return true;
 }
 #endif
+
+void WebPageProxy::classifyModalContainerControls(Vector<String>&& texts, CompletionHandler<void(Vector<ModalContainerControlType>&&)>&& completion)
+{
+    ModalContainerControlClassifier::sharedClassifier().classify(WTFMove(texts), WTFMove(completion));
+}
 
 } // namespace WebKit
 

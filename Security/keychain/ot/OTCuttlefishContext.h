@@ -250,7 +250,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSDate* _Nullable) currentMemoizedLastHealthCheck;
 - (void)checkTrustStatusAndPostRepairCFUIfNecessary:(void (^ _Nullable)(CliqueStatus status, BOOL posted, BOOL hasIdentity, BOOL isLocked, NSError * _Nullable error))reply;
 - (void)rpcResetAccountCDPContents:(void (^)(NSError* _Nullable error))reply;
-
+- (BOOL)checkAllStateCleared;
 - (void)clearCKKS;
 
 @property (nullable) TPPolicyVersion* policyOverride;

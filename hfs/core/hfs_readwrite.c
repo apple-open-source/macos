@@ -1334,18 +1334,18 @@ do_bulk_access_check(struct hfsmount *hfsmp, struct vnode *vp,
 	goto err_exit_bulk_access;
     }
 		
-    file_ids = hfs_malloc(sizeof(int) * num_files);
-    access = hfs_malloc(sizeof(short) * num_files);
+    file_ids = hfs_new_data(int, num_files);
+    access = hfs_new_data(short, num_files);
     if (map_size) {
-		bitmap = hfs_mallocz(sizeof(char) * map_size);
+		bitmap = hfs_new_zero_data(char, map_size);
     }
 
     if (num_parents) {
-		parents = hfs_malloc(sizeof(cnid_t) * num_parents);
+		parents = hfs_new_data(cnid_t, num_parents);
     }
 
-    cache.acache = hfs_malloc(sizeof(int) * NUM_CACHE_ENTRIES);
-    cache.haveaccess = hfs_malloc(sizeof(unsigned char) * NUM_CACHE_ENTRIES);
+    cache.acache = hfs_new_data(unsigned int, NUM_CACHE_ENTRIES);
+    cache.haveaccess = hfs_new_data(unsigned char, NUM_CACHE_ENTRIES);
 
     if ((error = copyin(user_access_structp->file_ids, (caddr_t)file_ids,
 		num_files * sizeof(int)))) {
@@ -1471,12 +1471,12 @@ do_bulk_access_check(struct hfsmount *hfsmp, struct vnode *vp,
 		
   err_exit_bulk_access:
 		
-	hfs_free(file_ids, sizeof(int) * num_files);
-	hfs_free(parents, sizeof(cnid_t) * num_parents);
-	hfs_free(bitmap, sizeof(char) * map_size);
-	hfs_free(access, sizeof(short) * num_files);
-	hfs_free(cache.acache, sizeof(int) * NUM_CACHE_ENTRIES);
-	hfs_free(cache.haveaccess, sizeof(unsigned char) * NUM_CACHE_ENTRIES);
+	hfs_delete_data(file_ids, int, num_files);
+	hfs_delete_data(parents, cnid_t, num_parents);
+	hfs_delete_data(bitmap, char, map_size);
+	hfs_delete_data(access, short, num_files);
+	hfs_delete_data(cache.acache, unsigned int, NUM_CACHE_ENTRIES);
+	hfs_delete_data(cache.haveaccess, unsigned char, NUM_CACHE_ENTRIES);
 		
     return (error);
 }
@@ -4246,7 +4246,7 @@ hfs_truncate(struct vnode *vp, off_t length, int flags,
 	}
 
 	if (vnode_islnk(vp) && cp->c_datafork->ff_symlinkptr) {
-		hfs_free(cp->c_datafork->ff_symlinkptr, cp->c_datafork->ff_size);
+		hfs_free_data(cp->c_datafork->ff_symlinkptr, cp->c_datafork->ff_size);
 		cp->c_datafork->ff_symlinkptr = NULL;
 	}
 
@@ -5722,8 +5722,7 @@ hfs_clonefile(struct vnode *vp, int blkstart, int blkcnt, int blksize)
 	}
 #endif /* CONFIG_PROTECT */
 
-    bufp = hfs_malloc(bufsize);
-
+	bufp = hfs_malloc_data(bufsize);
 	auio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
 
 	while (offset < copysize) {
@@ -5781,7 +5780,7 @@ hfs_clonefile(struct vnode *vp, int blkstart, int blkcnt, int blksize)
 		 * boundary in the file.
 		 */
 	}
-    hfs_free(bufp, bufsize);
+	hfs_free_data(bufp, bufsize);
 
 	hfs_lock(VTOC(vp), HFS_EXCLUSIVE_LOCK, HFS_LOCK_ALLOW_NOEXISTS);	
 	return (error);
@@ -5813,8 +5812,7 @@ hfs_clonesysfile(struct vnode *vp, int blkstart, int blkcnt, int blksize,
 	bufsize = MIN(blkcnt * blksize, 1024 * 1024) & ~(iosize - 1);
 	breadcnt = bufsize / iosize;
 
-    bufp = hfs_malloc(bufsize);
-
+	bufp = hfs_malloc_data(bufsize);
 	start_blk = ((daddr64_t)blkstart * blksize) / iosize;
 	last_blk  = ((daddr64_t)blkcnt * blksize) / iosize;
 	blkno = 0;
@@ -5867,7 +5865,7 @@ out:
 		buf_brelse(bp);
 	}
 
-    hfs_free(bufp, bufsize);
+	hfs_free_data(bufp, bufsize);
 
 	error = hfs_fsync(vp, MNT_WAIT, 0, p);
 
@@ -5905,7 +5903,7 @@ errno_t hfs_flush_invalid_ranges(vnode_t vp)
 		   to a heap buffer. */
 		if (exts == exts_buf && ext_count == max_exts) {
 			max_exts = 256;
-			exts = hfs_malloc(sizeof(struct ext) * max_exts);
+			exts = hfs_malloc_data(sizeof(struct ext) * max_exts);
 			memcpy(exts, exts_buf, ext_count * sizeof(struct ext));
 		}
 
@@ -5955,7 +5953,7 @@ errno_t hfs_flush_invalid_ranges(vnode_t vp)
 exit:
 
 	if (exts != exts_buf)
-		hfs_free(exts, sizeof(struct ext) * max_exts);
+		hfs_free_data(exts, sizeof(struct ext) * max_exts);
 
 	return ret;
 }

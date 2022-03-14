@@ -239,10 +239,10 @@ fsw_ip_frag_mgr_destroy(struct fsw_ip_frag_mgr *mgr)
 
 	lck_mtx_lock(&mgr->ipfm_lock);
 	if ((tcall = mgr->ipfm_timeout_tcall) != NULL) {
-		mgr->ipfm_timeout_tcall = NULL;
 		lck_mtx_unlock(&mgr->ipfm_lock);
 		(void) thread_call_cancel_wait(tcall);
 		(void) thread_call_free(tcall);
+		mgr->ipfm_timeout_tcall = NULL;
 		lck_mtx_lock(&mgr->ipfm_lock);
 	}
 

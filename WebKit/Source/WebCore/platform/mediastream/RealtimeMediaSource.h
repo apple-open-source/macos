@@ -42,6 +42,7 @@
 #include "PlatformLayer.h"
 #include "RealtimeMediaSourceCapabilities.h"
 #include "RealtimeMediaSourceFactory.h"
+#include "VideoSampleMetadata.h"
 #include <wtf/CompletionHandler.h>
 #include <wtf/Lock.h>
 #include <wtf/LoggerHelper.h>
@@ -102,7 +103,7 @@ public:
         virtual ~VideoSampleObserver() = default;
 
         // May be called on a background thread.
-        virtual void videoSampleAvailable(MediaSample&) = 0;
+        virtual void videoSampleAvailable(MediaSample&, VideoSampleMetadata) = 0;
     };
 
     virtual ~RealtimeMediaSource() = default;
@@ -149,7 +150,7 @@ public:
     const IntSize size() const;
     void setSize(const IntSize&);
 
-    const IntSize intrinsicSize() const;
+    IntSize intrinsicSize() const;
     void setIntrinsicSize(const IntSize&, bool notifyObservers = true);
 
     double frameRate() const { return m_frameRate; }
@@ -222,7 +223,7 @@ public:
 protected:
     RealtimeMediaSource(Type, String&& name, String&& deviceID = { }, String&& hashSalt = { });
 
-    void scheduleDeferredTask(WTF::Function<void()>&&);
+    void scheduleDeferredTask(Function<void()>&&);
 
     virtual void beginConfiguration() { }
     virtual void commitConfiguration() { }
@@ -244,7 +245,7 @@ protected:
     void initializeSampleRate(int sampleRate) { m_sampleRate = sampleRate; }
     void initializeEchoCancellation(bool echoCancellation) { m_echoCancellation = echoCancellation; }
 
-    void videoSampleAvailable(MediaSample&);
+    void videoSampleAvailable(MediaSample&, VideoSampleMetadata);
     void audioSamplesAvailable(const MediaTime&, const PlatformAudioData&, const AudioStreamDescription&, size_t);
 
     void forEachObserver(const Function<void(Observer&)>&);

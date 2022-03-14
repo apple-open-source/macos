@@ -3,7 +3,6 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es_MX{
     %%Parent{"es_419"}
-    AuxExemplarCharacters{"[à ă â å ä ã ā æ ç è ĕ ê ë ē ì ĭ î ï ī ò ŏ ô ö ø ō œ ù ŭ û ū ÿ]"}
     MoreInformation{"[...]"}
     NumberElements{
         latn{
@@ -116,7 +115,7 @@ es_MX{
                 "EEEE, d 'de' MMMM 'de' y G",
                 "d 'de' MMMM 'de' y G",
                 "d MMM, y G",
-                "dd/MM/yy GGGGG",
+                "d/M/y GGGGG",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
@@ -142,35 +141,6 @@ es_MX{
                 yyyyMMMEd{"EEE d MMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyQQQ{"QQQ y G"}
-                 
-                // The following are all copied over from es_419.txt to work around the horizontal-inheritance
-                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
-                // bug is fixed.
-                Bh{"h B"}
-                Bhm{"h:mm B"}
-                Bhms{"h:mm:ss B"}
-                E{"ccc"}
-                EBhm{"E h:mm B"}
-                EBhms{"E h:mm:ss B"}
-                EHm{"E, HH:mm"}
-                EHms{"E, HH:mm:ss"}
-                Ed{"E d"}
-                Ehm{"E h:mm a"}
-                Ehms{"E h:mm:ss a"}
-                Gy{"y G"}
-                Hmsv{"H:mm:ss v"}
-                MEd{"E, d/M"}
-                MMM{"LLL"}
-                MMMMEd{"E, d 'de' MMMM"}
-                Md{"d/M"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
-                y{"y G"}
-                yyyy{"y G"}
-                yyyyM{"M/y GGGGG"}
-                yyyyMMMM{"MMMM 'de' y"}
-                yyyyMMMMd{"d 'de' MMMM 'de' y"}
-                yyyyMd{"d/M/y GGGGG"}
           }
             intervalFormats{
                 Md{
@@ -208,7 +178,17 @@ es_MX{
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMMdd",
             }
             availableFormats{
                 EHm{"E H:mm"}

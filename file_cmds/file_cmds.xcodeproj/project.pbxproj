@@ -11,7 +11,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = 3E966CE91FB2211F0019F7A1 /* Build configuration list for PBXAggregateTarget "tests" */;
 			buildPhases = (
-				3E966CED1FB2215C0019F7A1 /* CopyFiles */,
+				D1AB3F1426D24BC900045278 /* Install tests plist */,
 				3E966CEF1FB221740019F7A1 /* CopyFiles */,
 			);
 			dependencies = (
@@ -111,7 +111,7 @@
 			isa = PBXAggregateTarget;
 			buildConfigurationList = FC8A8C8114B655ED001B97AD /* Build configuration list for PBXAggregateTarget "executables" */;
 			buildPhases = (
-				D178BEFA253DAE01001FC103 /* Copy plist */,
+				D109EEAA26D253A80063038B /* Install tests plist */,
 				D178BF21253DAE2E001FC103 /* Copy tests */,
 			);
 			dependencies = (
@@ -212,13 +212,12 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2AFB95CF2654BCD6003BB716 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC8A8CC114B658D6001B97AD /* libutil.dylib */; };
 		3E59B9311D4A767600D3128C /* futimens.c in Sources */ = {isa = PBXBuildFile; fileRef = 3E59B9301D4A767600D3128C /* futimens.c */; };
-		3E966CEE1FB2216F0019F7A1 /* file_cmds.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */; };
 		3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
 		729D06D8230B5E42000716E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 729D06D7230B5E42000716E5 /* CoreFoundation.framework */; };
 		7D0A20EA2499364700F0F6D7 /* metrics.c in Sources */ = {isa = PBXBuildFile; fileRef = 7D0A20E92499364700F0F6D7 /* metrics.c */; };
 		D12B667D25A7511B00357CFE /* cp.sh in CopyFiles */ = {isa = PBXBuildFile; fileRef = D1B421D325762E9E003E3A47 /* cp.sh */; };
-		D178BEFB253DAE2A001FC103 /* file_cmds.plist in Copy plist */ = {isa = PBXBuildFile; fileRef = 3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */; };
 		D178BF22253DAE42001FC103 /* chgrp.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = 3E966CEB1FB2214F0019F7A1 /* chgrp.sh */; };
 		D178BF48253DAE45001FC103 /* touch.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D11B5750253C22BD009A59BF /* touch.sh */; };
 		D18CA12D25A7469400471787 /* pax.sh in Copy tests */ = {isa = PBXBuildFile; fileRef = D18CA12C25A7460C00471787 /* pax.sh */; };
@@ -862,16 +861,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		3E966CED1FB2215C0019F7A1 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				3E966CEE1FB2216F0019F7A1 /* file_cmds.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		3E966CEF1FB221740019F7A1 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -885,17 +874,6 @@
 				3E966CF01FB2218A0019F7A1 /* chgrp.sh in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
-		};
-		D178BEFA253DAE01001FC103 /* Copy plist */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /AppleInternal/CoreOS/BATS/unit_tests;
-			dstSubfolderSpec = 0;
-			files = (
-				D178BEFB253DAE2A001FC103 /* file_cmds.plist in Copy plist */,
-			);
-			name = "Copy plist";
-			runOnlyForDeploymentPostprocessing = 1;
 		};
 		D178BF21253DAE2E001FC103 /* Copy tests */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1270,12 +1248,13 @@
 		0773099A1A3A4DFE00E9B4EA /* dd.entitlements */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = dd.entitlements; sourceTree = "<group>"; };
 		3E59B9301D4A767600D3128C /* futimens.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = futimens.c; sourceTree = "<group>"; };
 		3E966CEB1FB2214F0019F7A1 /* chgrp.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = chgrp.sh; sourceTree = "<group>"; };
-		3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = file_cmds.plist; sourceTree = "<group>"; };
+		3E966CEC1FB2214F0019F7A1 /* file_cmds.plist.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = file_cmds.plist.in; sourceTree = "<group>"; };
 		729D06D7230B5E42000716E5 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 		7D0A20E82499364700F0F6D7 /* metrics.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = metrics.h; sourceTree = "<group>"; };
 		7D0A20E92499364700F0F6D7 /* metrics.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = metrics.c; sourceTree = "<group>"; };
 		D11B5750253C22BD009A59BF /* touch.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = touch.sh; sourceTree = "<group>"; };
 		D18CA12C25A7460C00471787 /* pax.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = pax.sh; sourceTree = "<group>"; };
+		D1AB3F1326D24B7A00045278 /* install_plist.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = install_plist.sh; sourceTree = "<group>"; };
 		D1B421D325762E9E003E3A47 /* cp.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = cp.sh; sourceTree = "<group>"; };
 		D3343F4D2609720F005A89FC /* xattr.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = xattr.1; sourceTree = "<group>"; };
 		D3343F522609722E005A89FC /* xattr */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = xattr; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -1336,7 +1315,6 @@
 		FCB1BDE814B6460C0070FACB /* README */ = {isa = PBXFileReference; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		FCB1BDE914B6460C0070FACB /* revision.log */ = {isa = PBXFileReference; lastKnownFileType = text; path = revision.log; sourceTree = "<group>"; };
 		FCB1BDEB14B6460C0070FACB /* uncompress.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = uncompress.1; sourceTree = "<group>"; };
-		FCB1BDEC14B6460C0070FACB /* zcat.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = zcat.sh; sourceTree = "<group>"; };
 		FCB1BDED14B6460C0070FACB /* zopen.3 */ = {isa = PBXFileReference; lastKnownFileType = text; path = zopen.3; sourceTree = "<group>"; };
 		FCB1BDEE14B6460C0070FACB /* zopen.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = zopen.c; sourceTree = "<group>"; };
 		FCB1BDEF14B6460C0070FACB /* zopen.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = zopen.h; sourceTree = "<group>"; };
@@ -1519,6 +1497,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2AFB95CF2654BCD6003BB716 /* libutil.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1677,11 +1656,12 @@
 			isa = PBXGroup;
 			children = (
 				3E966CEB1FB2214F0019F7A1 /* chgrp.sh */,
-				3E966CEC1FB2214F0019F7A1 /* file_cmds.plist */,
+				3E966CEC1FB2214F0019F7A1 /* file_cmds.plist.in */,
 				D11B5750253C22BD009A59BF /* touch.sh */,
 				D1B421D325762E9E003E3A47 /* cp.sh */,
 				D18CA12C25A7460C00471787 /* pax.sh */,
 				D391925C269E244800F7E564 /* xattr.sh */,
+				D1AB3F1326D24B7A00045278 /* install_plist.sh */,
 			);
 			path = tests;
 			sourceTree = "<group>";
@@ -1834,7 +1814,6 @@
 				FCB1BDE514B6460C0070FACB /* compress.c */,
 				FCB1BDE614B6460C0070FACB /* doc */,
 				FCB1BDEB14B6460C0070FACB /* uncompress.1 */,
-				FCB1BDEC14B6460C0070FACB /* zcat.sh */,
 				FCB1BDED14B6460C0070FACB /* zopen.3 */,
 				FCB1BDEE14B6460C0070FACB /* zopen.c */,
 				FCB1BDEF14B6460C0070FACB /* zopen.h */,
@@ -2741,6 +2720,46 @@
 			shellPath = /bin/sh;
 			shellScript = ". ${SRCROOT}/dd/install_symlink.sh";
 			showEnvVarsInLog = 0;
+		};
+		D109EEAA26D253A80063038B /* Install tests plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/file_cmds.plist.in",
+			);
+			name = "Install tests plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/file_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\n/bin/bash tests/install_plist.sh tests/file_cmds.plist.in AppleInternal/CoreOS/BATS/unit_tests file_cmds.plist\n";
+		};
+		D1AB3F1426D24BC900045278 /* Install tests plist */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/tests/file_cmds.plist.in",
+			);
+			name = "Install tests plist";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DSTROOT)/AppleInternal/CoreOS/BATS/unit_tests/file_cmds.plist",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\n/bin/bash tests/install_plist.sh tests/file_cmds.plist.in AppleInternal/CoreOS/BATS/unit_tests file_cmds.plist\n";
 		};
 		FC8A8C4C14B64DF9001B97AD /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;

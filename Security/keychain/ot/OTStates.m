@@ -116,6 +116,11 @@ OctagonState* const OctagonStateReEnactPrepare = (OctagonState*)@"ReEnactPrepare
 OctagonState* const OctagonStateReEnactReadyToEstablish = (OctagonState*)@"ReEnactReadyToEstablish";
 OctagonState* const OctagonStateEstablishCKKSReset = (OctagonState*)@"EstablishCKKSReset";
 OctagonState* const OctagonStateEstablishAfterCKKSReset = (OctagonState*)@"EstablishAfterCKKSReset";
+OctagonState* const OctagonStateResetAndEstablishClearLocalContextState = (OctagonState*)@"ResetAndEstablishClearLocalContextState";
+
+/* local reset */
+OctagonState* const OctagonStateLocalReset = (OctagonState*)@"LocalReset";
+OctagonState* const OctagonStateLocalResetClearLocalContextState = (OctagonState*)@"LocalResetClearLocalContextState";
 
 /* used for trust health checks */
 OctagonState* const OctagonStateHSA2HealthCheck = (OctagonState*)@"HSA2HealthCheck";
@@ -262,6 +267,9 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
                                      @[OctagonStateBecomeInherited,                          @87U,],
                                      @[OctagonStateInherited,                                @88U,],
                                      @[OctagonStatePeerMissingFromServer,                    @89U,],
+                                     @[OctagonStateResetAndEstablishClearLocalContextState,  @90U,],
+                                     @[OctagonStateLocalReset,                               @91U,],
+                                     @[OctagonStateLocalResetClearLocalContextState,         @92U,],
                                      ];
     return stateInit;
 }
@@ -320,6 +328,8 @@ OctagonFlag* const OctagonFlagAttemptUserControllableViewStatusUpgrade = (Octago
         [sourceStates removeObject:OctagonStateWaitingForCloudKitAccount];
         [sourceStates removeObject:OctagonStateCloudKitNewlyAvailable];
         [sourceStates removeObject:OctagonStateWaitForHSA2];
+        [sourceStates removeObject:OctagonStateLocalReset];
+        [sourceStates removeObject:OctagonStateLocalResetClearLocalContextState];
 
         // If the device hasn't unlocked yet, we don't know what we wrote down for iCloud account status
         [sourceStates removeObject:OctagonStateWaitForClassCUnlock];

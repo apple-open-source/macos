@@ -77,8 +77,8 @@ bool AppleLVMGroup::init()
 void AppleLVMGroup::free(void)
 {
 
-    if (arMemberBlockCounts) IODelete(arMemberBlockCounts, UInt64, arMemberCount);
-    if (arMemberStartingOffset) IODelete(arMemberStartingOffset, UInt64, arMemberCount);
+    if (arMemberBlockCounts) IODeleteData(arMemberBlockCounts, UInt64, arMemberCount);
+    if (arMemberStartingOffset) IODeleteData(arMemberStartingOffset, UInt64, arMemberCount);
     if (arPrimaryBuffer) arPrimaryBuffer->release();
 
     UInt32 i;
@@ -170,27 +170,24 @@ bool AppleLVMGroup::resizeSet(UInt32 newMemberCount)
     UInt32 oldMemberCount = arMemberCount;
 
     UInt64 * oldBlockCounts = arMemberBlockCounts;
-    arMemberBlockCounts = IONew(UInt64, newMemberCount);
-    bzero(arMemberBlockCounts, sizeof(UInt64) * newMemberCount);
+    arMemberBlockCounts = IONewZeroData(UInt64, newMemberCount);
     if (oldBlockCounts) {
 	bcopy(oldBlockCounts, arMemberBlockCounts, sizeof(UInt64) * oldMemberCount);
-	IODelete(oldBlockCounts, sizeof(UInt64), oldMemberCount);
+	IODeleteData(oldBlockCounts, UInt64, oldMemberCount);
     }
 
     UInt64 * oldStartingOffset = arMemberStartingOffset;
-    arMemberStartingOffset = IONew(UInt64, newMemberCount);
-    bzero(arMemberStartingOffset, sizeof(UInt64) * newMemberCount);
+    arMemberStartingOffset = IONewZeroData(UInt64, newMemberCount);
     if (oldStartingOffset) {
 	bcopy(oldStartingOffset, arMemberStartingOffset, sizeof(UInt64) * oldMemberCount);
-	IODelete(oldStartingOffset, sizeof(UInt64), oldMemberCount);
+    IODeleteData(oldStartingOffset, UInt64, oldMemberCount);
     }
 
     AppleLVMVolume ** oldMetaDataVolumes = arMetaDataVolumes;
-    arMetaDataVolumes = IONew(AppleLVMVolume *, newMemberCount);
-    bzero(arMetaDataVolumes, sizeof(AppleLVMVolume *) * newMemberCount);
+    arMetaDataVolumes = IONewZero(AppleLVMVolume *, newMemberCount);
     if (oldMetaDataVolumes) {
 	bcopy(oldMetaDataVolumes, arMetaDataVolumes, sizeof(AppleLVMVolume *) * oldMemberCount);
-	IODelete(oldMetaDataVolumes, sizeof(AppleLVMVolume *), oldMemberCount);
+	IODelete(oldMetaDataVolumes, AppleLVMVolume *, oldMemberCount);
     }
 
     if (super::resizeSet(newMemberCount) == false) return false;
@@ -225,9 +222,8 @@ bool AppleLVMGroup::startSet(void)
     arLogicalVolumeActiveCount = 0;
 
     if (!arLogicalVolumes) {
-	arLogicalVolumes = IONew(AppleLVMVolume *, 1024);  // XXXTOC
+	arLogicalVolumes = IONewZero(AppleLVMVolume *, 1024);  // XXXTOC
 	if (!arLogicalVolumes) return false;
-	bzero(arLogicalVolumes, 1024 * sizeof(AppleLVMVolume *));
     }
 
     if (arPrimaryNeedsUpdate) {
@@ -1071,9 +1067,8 @@ UInt64 AppleLVMGroup::findFreeLVEOffset(AppleLVMVolume * lvNew)
     
     // allocate temp bitmap  (1024 volumes / 8 bits/byte -> 256 bytes)
     UInt32 bitmapSize = member->getSecondarySize() / kAppleLVMVolumeOnDiskMinSize / 32;
-    UInt32 * bitmap = IONew(UInt32, bitmapSize + 1);
+    UInt32 * bitmap = IONewZeroData(UInt32, bitmapSize + 1);
     if (!bitmap) return 0;
-    bzero(bitmap, bitmapSize * sizeof(UInt32));
     bitmap[bitmapSize] = 0x55555555;  // the end (backwards)
 
     IOLog1("AppleLVMGroup::findFreeLVEOffset(): bitmap %p, size %u\n", bitmap, (uint32_t)bitmapSize * 32);
@@ -1155,7 +1150,7 @@ full:
     // XXXTOC should have code to allocate a larger secondary metadata area
 
 error:
-    if (bitmap) IODelete(bitmap, UInt32, bitmapSize + 1);
+    if (bitmap) IODeleteData(bitmap, UInt32, bitmapSize + 1);
 
     return 0;
 }

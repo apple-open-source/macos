@@ -352,6 +352,7 @@ static void cmsEncoderFinalize(CFTypeRef enc)
     CFRELEASE(cmsEncoder->signers);
     CFRELEASE(cmsEncoder->recipients);
     CFRELEASE(cmsEncoder->otherCerts);
+    CFRELEASE(cmsEncoder->encoderOut);
     if (cmsEncoder->cmsMsg != NULL) {
         SecCmsMessageDestroy(cmsEncoder->cmsMsg);
         cmsEncoder->cmsMsg = NULL;

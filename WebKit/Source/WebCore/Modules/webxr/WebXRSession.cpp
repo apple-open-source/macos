@@ -47,7 +47,9 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(WebXRSession);
 
 Ref<WebXRSession> WebXRSession::create(Document& document, WebXRSystem& system, XRSessionMode mode, PlatformXR::Device& device, FeatureList&& requestedFeatures)
 {
-    return adoptRef(*new WebXRSession(document, system, mode, device, WTFMove(requestedFeatures)));
+    auto session = adoptRef(*new WebXRSession(document, system, mode, device, WTFMove(requestedFeatures)));
+    session->suspendIfNeeded();
+    return session;
 }
 
 WebXRSession::WebXRSession(Document& document, WebXRSystem& system, XRSessionMode mode, PlatformXR::Device& device, FeatureList&& requestedFeatures)
@@ -55,21 +57,19 @@ WebXRSession::WebXRSession(Document& document, WebXRSystem& system, XRSessionMod
     , m_inputSources(WebXRInputSourceArray::create(*this))
     , m_xrSystem(system)
     , m_mode(mode)
-    , m_device(makeWeakPtr(device))
+    , m_device(device)
     , m_requestedFeatures(WTFMove(requestedFeatures))
     , m_activeRenderState(WebXRRenderState::create(mode))
     , m_viewerReferenceSpace(makeUnique<WebXRViewerSpace>(document, *this))
     , m_timeOrigin(MonotonicTime::now())
     , m_views(device.views(mode))
 {
-    m_device->setTrackingAndRenderingClient(makeWeakPtr(*this));
+    m_device->setTrackingAndRenderingClient(*this);
     m_device->initializeTrackingAndRendering(mode);
 
     // https://immersive-web.github.io/webxr/#ref-for-dom-xrreferencespacetype-viewer%E2%91%A2
     // Every session MUST support viewer XRReferenceSpaces.
     m_device->initializeReferenceSpace(XRReferenceSpaceType::Viewer);
-
-    suspendIfNeeded();
 }
 
 WebXRSession::~WebXRSession()
@@ -210,7 +210,7 @@ void WebXRSession::requestReferenceSpace(XRReferenceSpaceType type, RequestRefer
 
     // 1. Let promise be a new Promise.
     // 2. Run the following steps in parallel:
-    scriptExecutionContext()->postTask([this, weakThis = makeWeakPtr(*this), promise = WTFMove(promise), type](auto&) mutable {
+    scriptExecutionContext()->postTask([this, weakThis = WeakPtr { *this }, promise = WTFMove(promise), type](auto&) mutable {
         if (!weakThis)
             return;
         // 2.1. If the result of running reference space is supported for type and session is false, queue a task to reject promise
@@ -235,9 +235,9 @@ void WebXRSession::requestReferenceSpace(XRReferenceSpaceType type, RequestRefer
             // https://immersive-web.github.io/webxr/#create-a-reference-space
             RefPtr<WebXRReferenceSpace> referenceSpace;
             if (type == XRReferenceSpaceType::BoundedFloor)
-                referenceSpace = WebXRBoundedReferenceSpace::create(document, makeRef(*this), type);
+                referenceSpace = WebXRBoundedReferenceSpace::create(document, Ref { *this }, type);
             else
-                referenceSpace = WebXRReferenceSpace::create(document, makeRef(*this), type);
+                referenceSpace = WebXRReferenceSpace::create(document, Ref { *this }, type);
 
             // 2.5. Resolve promise with referenceSpace.
             promise.resolve(referenceSpace.releaseNonNull());
@@ -323,7 +323,7 @@ bool WebXRSession::isPositionEmulated() const
 // https://immersive-web.github.io/webxr/#shut-down-the-session
 void WebXRSession::shutdown(InitiatedBySystem initiatedBySystem)
 {
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     if (m_ended) {
         // This method was called earlier with initiatedBySystem=No when the
@@ -381,7 +381,7 @@ void WebXRSession::didCompleteShutdown()
 
     // From https://immersive-web.github.io/webxr/#shut-down-the-session
     // 7. Queue a task that fires an XRSessionEvent named end on session.
-    auto event = XRSessionEvent::create(eventNames().endEvent, { makeRefPtr(*this) });
+    auto event = XRSessionEvent::create(eventNames().endEvent, { RefPtr { this } });
     queueTaskToDispatchEvent(*this, TaskSource::WebXR, WTFMove(event));
 }
 
@@ -390,7 +390,7 @@ ExceptionOr<void> WebXRSession::end(EndPromise&& promise)
 {
     // The shutdown() call below might remove the sole reference to session
     // that could exist (the XRSystem owns the sessions) so let's protect this.
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     if (m_ended)
         return Exception { InvalidStateError, "Cannot end a session more than once"_s };
@@ -505,7 +505,7 @@ bool WebXRSession::frameShouldBeRendered() const
 
 void WebXRSession::requestFrame()
 {
-    m_device->requestFrame([this, protectedThis = makeRef(*this)](auto&& frameData) {
+    m_device->requestFrame([this, protectedThis = Ref { *this }](auto&& frameData) {
         onFrame(WTFMove(frameData));
     });
 }

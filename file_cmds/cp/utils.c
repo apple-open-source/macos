@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,7 +35,7 @@ static char sccsid[] = "@(#)utils.c	8.3 (Berkeley) 4/1/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/bin/cp/utils.c,v 1.46 2005/09/05 04:36:08 csjp Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 #include <sys/acl.h>
@@ -59,26 +61,49 @@ __FBSDID("$FreeBSD: src/bin/cp/utils.c,v 1.46 2005/09/05 04:36:08 csjp Exp $");
 #include <copyfile.h>
 #include <string.h>
 #include <sys/mount.h>
-#include <get_compat.h> 
 #include <sys/attr.h>
 #include <sys/clonefile.h>
-#else 
-#define COMPAT_MODE(a,b) (1)
+
+#define	st_atim	st_atimespec
+#define	st_mtim	st_mtimespec
 #endif /* __APPLE__ */
 
 #include "extern.h"
-#define	cp_pct(x,y)	(int)(100.0 * (double)(x) / (double)(y))
+#define	cp_pct(x, y)	((y == 0) ? 0 : (int)(100.0 * (x) / (y)))
 
-/* Memory strategy threshold, in pages: if physmem is larger then this, use a 
- * large buffer */
+/*
+ * Memory strategy threshold, in pages: if physmem is larger then this, use a 
+ * large buffer.
+ */
 #define PHYSPAGES_THRESHOLD (32*1024)
 
-/* Maximum buffer size in bytes - do not allow it to grow larger than this */
+/* Maximum buffer size in bytes - do not allow it to grow larger than this. */
 #define BUFSIZE_MAX (2*1024*1024)
 
-/* Small (default) buffer size in bytes. It's inefficient for this to be
- * smaller than MAXPHYS */
+/*
+ * Small (default) buffer size in bytes. It's inefficient for this to be
+ * smaller than MAXPHYS.
+ */
 #define BUFSIZE_SMALL (MAXPHYS)
+
+static ssize_t
+copy_fallback(int from_fd, int to_fd, char *buf, size_t bufsize)
+{
+	ssize_t rcount, wresid, wcount = 0;
+	char *bufp;
+
+	rcount = read(from_fd, buf, bufsize);
+	if (rcount <= 0)
+		return (rcount);
+	for (bufp = buf, wresid = rcount; ; bufp += wcount, wresid -= wcount) {
+		wcount = write(to_fd, bufp, wresid);
+		if (wcount <= 0)
+			break;
+		if (wcount >= (ssize_t)wresid)
+			break;
+	}
+	return (wcount < 0 ? wcount : rcount);
+}
 
 int
 copy_file(const FTSENT *entp, int dne)
@@ -86,20 +111,24 @@ copy_file(const FTSENT *entp, int dne)
 	static char *buf = NULL;
 	static size_t bufsize;
 	struct stat *fs;
-	int ch, checkch, from_fd, rval, to_fd;
 	ssize_t rcount;
-	ssize_t wcount;
-	size_t wresid;
 	off_t wtotal;
-	char *bufp;
+	int ch, checkch, from_fd, rval, to_fd;
 	char resp[] = {'\0', '\0'};
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
 	char *p;
 #endif
+#ifdef __APPLE__
+	int use_copy_file_range = 0;
+#else
+	int use_copy_file_range = 1;
+#endif
 	mode_t mode = 0;
 	struct stat to_stat;
 
-	if ((from_fd = open(entp->fts_path, O_RDONLY, 0)) == -1) {
+	from_fd = to_fd = -1;
+	if (!lflag && !sflag &&
+	    (from_fd = open(entp->fts_path, O_RDONLY, 0)) == -1) {
 		warn("%s", entp->fts_path);
 		return (1);
 	}
@@ -119,11 +148,11 @@ copy_file(const FTSENT *entp, int dne)
 		if (nflag) {
 			if (vflag)
 				printf("%s not overwritten\n", to.p_path);
-			(void)close(from_fd);
-			return (1);
+			rval = 1;
+			goto done;
 		} else if (iflag) {
 			(void)fprintf(stderr, "overwrite %s? %s", 
-					to.p_path, YESNO);
+			    to.p_path, YESNO);
 
 			/* Load user specified locale */
 			setlocale(LC_MESSAGES, "");
@@ -136,12 +165,13 @@ copy_file(const FTSENT *entp, int dne)
 			resp[0] = checkch;
 
 			if (rpmatch(resp) != 1) {
-				(void)close(from_fd);
 				(void)fprintf(stderr, "not overwritten\n");
-				return (1);
+				rval = 1;
+				goto done;
 			}
 		}
-		
+
+#ifdef __APPLE__
 		if (cflag) {
 			(void)unlink(to.p_path);
 			int error = clonefile(entp->fts_path, to.p_path, 0);
@@ -150,8 +180,9 @@ copy_file(const FTSENT *entp, int dne)
 			(void)close(from_fd);
 			return error == 0 ? 0 : 1;
 		}
+#endif
 
-		if (COMPAT_MODE("bin/cp", "unix2003")) {
+		if (unix2003_compat) {
 		    /* first try to overwrite existing destination file name */
 		    to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
 		    if (to_fd == -1) {
@@ -162,19 +193,23 @@ copy_file(const FTSENT *entp, int dne)
 					 fs->st_mode & ~(S_ISUID | S_ISGID));
 			}
 		    }
-		} else {
-			if (fflag) {
-			    /* remove existing destination file name, 
-			     * create a new file  */
-			    (void)unlink(to.p_path);
-			    to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
-					 fs->st_mode & ~(S_ISUID | S_ISGID));
-			} else 
-			    /* overwrite existing destination file name */
-			    to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
+		} else if (fflag) {
+			/*
+			 * Remove existing destination file name create a new
+			 * file.
+			 */
+			(void)unlink(to.p_path);
+			if (!lflag && !sflag) {
+				to_fd = open(to.p_path,
+				    O_WRONLY | O_TRUNC | O_CREAT,
+				    fs->st_mode & ~(S_ISUID | S_ISGID));
+			}
+		} else if (!lflag && !sflag) {
+			/* Overwrite existing destination file name. */
+			to_fd = open(to.p_path, O_WRONLY | O_TRUNC, 0);
 		}
-	} else {
-
+	} else if (!lflag && !sflag) {
+#ifdef __APPLE__
 		if (cflag) {
 			int error = clonefile(entp->fts_path, to.p_path, 0);
 			if (error)
@@ -182,15 +217,16 @@ copy_file(const FTSENT *entp, int dne)
 			(void)close(from_fd);
 			return error == 0 ? 0 : 1;
 		}
+#endif
 
 		to_fd = open(to.p_path, O_WRONLY | O_TRUNC | O_CREAT,
 		    fs->st_mode & ~(S_ISUID | S_ISGID));
 	}
 
-	if (to_fd == -1) {
+	if (!lflag && !sflag && to_fd == -1) {
 		warn("%s", to.p_path);
-		(void)close(from_fd);
-		return (1);
+		rval = 1;
+		goto done;
 	}
 
 	rval = 0;
@@ -228,33 +264,35 @@ copy_file(const FTSENT *entp, int dne)
        } else {
 	       warn("%s", to.p_path);
        }
-	/*
-	 * Mmap and write if less than 8M (the limit is so we don't totally
-	 * trash memory on big files.  This is really a minor hack, but it
-	 * wins some CPU back.
-	 */
+
+	if (!lflag && !sflag) {
+		/*
+		 * Mmap and write if less than 8M (the limit is so we don't
+		 * totally trash memory on big files.  This is really a minor
+		 * hack, but it wins some CPU back.
+		 * Some filesystems, such as smbnetfs, don't support mmap,
+		 * so this is a best-effort attempt.
+		 */
 #ifdef VM_AND_BUFFER_CACHE_SYNCHRONIZED
-	if (S_ISREG(fs->st_mode) && fs->st_size > 0 &&
-	    fs->st_size <= 8 * 1048576) {
-		if ((p = mmap(NULL, (size_t)fs->st_size, PROT_READ,
-		    MAP_SHARED, from_fd, (off_t)0)) == MAP_FAILED) {
-			warn("%s", entp->fts_path);
-			rval = 1;
-		} else {
+		if (S_ISREG(fs->st_mode) && fs->st_size > 0 &&
+		    fs->st_size <= 8 * 1024 * 1024 &&
+		    (p = mmap(NULL, (size_t)fs->st_size, PROT_READ,
+		    MAP_SHARED, from_fd, (off_t)0)) != MAP_FAILED) {
 			wtotal = 0;
 			for (bufp = p, wresid = fs->st_size; ;
 			    bufp += wcount, wresid -= (size_t)wcount) {
 				wcount = write(to_fd, bufp, wresid);
+				if (wcount <= 0)
+					break;
 				wtotal += wcount;
 				if (info) {
 					info = 0;
 					(void)fprintf(stderr,
-						"%s -> %s %3d%%\n",
-						entp->fts_path, to.p_path,
-						cp_pct(wtotal, fs->st_size));
-						
+					    "%s -> %s %3d%%\n",
+					    entp->fts_path, to.p_path,
+					    cp_pct(wtotal, fs->st_size));
 				}
-				if (wcount >= (ssize_t)wresid || wcount <= 0)
+				if (wcount >= (ssize_t)wresid)
 					break;
 			}
 			if (wcount != (ssize_t)wresid) {
@@ -266,50 +304,62 @@ copy_file(const FTSENT *entp, int dne)
 				warn("%s", entp->fts_path);
 				rval = 1;
 			}
-		}
-	} else
+		} else
 #endif
-	{
-		if (buf == NULL) {
-			/*
-			 * Note that buf and bufsize are static. If
-			 * malloc() fails, it will fail at the start
-			 * and not copy only some files. 
-			 */ 
-			if (sysconf(_SC_PHYS_PAGES) > 
-			    PHYSPAGES_THRESHOLD)
-				bufsize = MIN(BUFSIZE_MAX, MAXPHYS * 8);
-			else
-				bufsize = BUFSIZE_SMALL;
-			buf = malloc(bufsize);
-			if (buf == NULL)
-				err(1, "Not enough memory");
-		}
-		wtotal = 0;
-		while ((rcount = read(from_fd, buf, bufsize)) > 0) {
-			for (bufp = buf, wresid = rcount; ;
-			    bufp += wcount, wresid -= wcount) {
-				wcount = write(to_fd, bufp, wresid);
-				wtotal += wcount;
+		{
+			if (buf == NULL) {
+				/*
+				 * Note that buf and bufsize are static. If
+				 * malloc() fails, it will fail at the start
+				 * and not copy only some files. 
+				 */ 
+				if (sysconf(_SC_PHYS_PAGES) > 
+				    PHYSPAGES_THRESHOLD)
+					bufsize = MIN(BUFSIZE_MAX, MAXPHYS * 8);
+				else
+					bufsize = BUFSIZE_SMALL;
+				buf = malloc(bufsize);
+				if (buf == NULL)
+					err(1, "Not enough memory");
+			}
+			wtotal = 0;
+			do {
+#ifndef __APPLE__
+				if (use_copy_file_range) {
+					rcount = copy_file_range(from_fd, NULL,
+					    to_fd, NULL, SSIZE_MAX, 0);
+					if (rcount < 0 && errno == EINVAL) {
+						/* Prob a non-seekable FD */
+						use_copy_file_range = 0;
+					}
+				}
+#endif
+				if (!use_copy_file_range) {
+					rcount = copy_fallback(from_fd, to_fd,
+					    buf, bufsize);
+				}
+				wtotal += rcount;
 				if (info) {
 					info = 0;
 					(void)fprintf(stderr,
-						"%s -> %s %3d%%\n",
-						entp->fts_path, to.p_path,
-						cp_pct(wtotal, fs->st_size));
-						
+					    "%s -> %s %3d%%\n",
+					    entp->fts_path, to.p_path,
+					    cp_pct(wtotal, fs->st_size));
 				}
-				if (wcount >= (ssize_t)wresid || wcount <= 0)
-					break;
-			}
-			if (wcount != (ssize_t)wresid) {
-				warn("%s", to.p_path);
+			} while (rcount > 0);
+			if (rcount < 0) {
+				warn("%s", entp->fts_path);
 				rval = 1;
-				break;
 			}
 		}
-		if (rcount < 0) {
-			warn("%s", entp->fts_path);
+	} else if (lflag) {
+		if (link(entp->fts_path, to.p_path)) {
+			warn("%s", to.p_path);
+			rval = 1;
+		}
+	} else if (sflag) {
+		if (symlink(entp->fts_path, to.p_path)) {
+			warn("%s", to.p_path);
 			rval = 1;
 		}
 	}
@@ -320,33 +370,40 @@ copy_file(const FTSENT *entp, int dne)
 	 * or its contents might be irreplaceable.  It would only be safe
 	 * to remove it if we created it and its length is 0.
 	 */
-	if (mode != 0)
-		if (fchmod(to_fd, mode))
-			warn("%s: fchmod failed", to.p_path);
+
+	if (!lflag && !sflag) {
 #ifdef __APPLE__
-	/* do these before setfile in case copyfile changes mtime */
-	if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */
-		if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_XATTR) < 0)
-			warn("%s: could not copy extended attributes to %s", entp->fts_path, to.p_path);
-	}
-	if (pflag && setfile(fs, to_fd))
-		rval = 1;
-	if (pflag) {
-		/* If this ACL denies writeattr then setfile will fail... */
-		if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0)
-			warn("%s: could not copy ACL to %s", entp->fts_path, to.p_path);
-	}
+		if (mode != 0 && fchmod(to_fd, mode))
+			warn("%s: fchmod failed", to.p_path);
+		/* do these before setfile in case copyfile changes mtime */
+		if (!Xflag && S_ISREG(fs->st_mode)) { /* skip devices, etc */
+			if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_XATTR) < 0)
+				warn("%s: could not copy extended attributes to %s",
+				    entp->fts_path, to.p_path);
+		}
+		if (pflag && setfile(fs, to_fd))
+			rval = 1;
+		if (pflag) {
+			/* If this ACL denies writeattr then setfile will fail... */
+			if (fcopyfile(from_fd, to_fd, NULL, COPYFILE_ACL) < 0)
+				warn("%s: could not copy ACL to %s",
+				    entp->fts_path, to.p_path);
+		}
 #else  /* !__APPLE__ */
-	if (pflag && setfile(fs, to_fd))
-		rval = 1;
-	if (pflag && preserve_fd_acls(from_fd, to_fd) != 0)
-		rval = 1;
+		if (pflag && setfile(fs, to_fd))
+			rval = 1;
+		if (pflag && preserve_fd_acls(from_fd, to_fd) != 0)
+			rval = 1;
 #endif /* __APPLE__ */
-	(void)close(from_fd);
-	if (close(to_fd)) {
-		warn("%s", to.p_path);
-		rval = 1;
+		if (close(to_fd)) {
+			warn("%s", to.p_path);
+			rval = 1;
+		}
 	}
+
+done:
+	if (from_fd != -1)
+		(void)close(from_fd);
 	return (rval);
 }
 
@@ -356,6 +413,11 @@ copy_link(const FTSENT *p, int exists)
 	ssize_t len;
 	char llink[PATH_MAX];
 
+	if (exists && nflag) {
+		if (vflag)
+			printf("%s not overwritten\n", to.p_path);
+		return (1);
+	}
 	if ((len = readlink(p->fts_path, llink, sizeof(llink) - 1)) == -1) {
 		warn("readlink: %s", p->fts_path);
 		return (1);
@@ -381,6 +443,12 @@ copy_link(const FTSENT *p, int exists)
 int
 copy_fifo(struct stat *from_stat, int exists)
 {
+
+	if (exists && nflag) {
+		if (vflag)
+			printf("%s not overwritten\n", to.p_path);
+		return (1);
+	}
 	if (exists && unlink(to.p_path)) {
 		warn("unlink: %s", to.p_path);
 		return (1);
@@ -395,6 +463,12 @@ copy_fifo(struct stat *from_stat, int exists)
 int
 copy_special(struct stat *from_stat, int exists)
 {
+
+	if (exists && nflag) {
+		if (vflag)
+			printf("%s not overwritten\n", to.p_path);
+		return (1);
+	}
 	if (exists && unlink(to.p_path)) {
 		warn("unlink: %s", to.p_path);
 		return (1);
@@ -409,36 +483,30 @@ copy_special(struct stat *from_stat, int exists)
 int
 setfile(struct stat *fs, int fd)
 {
-	struct attrlist ts_req = {};
+	static struct timespec tspec[2];
 	struct stat ts;
 	int rval, gotstat, islink, fdval;
-	struct {
-		struct timespec mtime;
-		struct timespec atime;
-	} set_ts;
 
 	rval = 0;
 	fdval = fd != -1;
 	islink = !fdval && S_ISLNK(fs->st_mode);
-	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
-	unsigned int options = islink ? FSOPT_NOFOLLOW : 0;
+	fs->st_mode &= S_ISUID | S_ISGID | S_ISVTX |
+	    S_IRWXU | S_IRWXG | S_IRWXO;
 
-	ts_req.bitmapcount = ATTR_BIT_MAP_COUNT;
-	ts_req.commonattr = ATTR_CMN_MODTIME | ATTR_CMN_ACCTIME;
-	set_ts.mtime = fs->st_mtimespec;
-	set_ts.atime = fs->st_atimespec;
-
-	if (fdval ? fsetattrlist(fd, &ts_req, &set_ts, sizeof(set_ts), options) :
-		    setattrlist(to.p_path, &ts_req, &set_ts, sizeof(set_ts), options)) {
-		warn("%ssetattrlist: %s", fdval ? "f" : "", to.p_path);
+	tspec[0] = fs->st_atim;
+	tspec[1] = fs->st_mtim;
+	if (fdval ? futimens(fd, tspec) : utimensat(AT_FDCWD, to.p_path, tspec,
+	    islink ? AT_SYMLINK_NOFOLLOW : 0)) {
+		warn("utimensat: %s", to.p_path);
 		rval = 1;
 	}
-	if (fdval ? fstat(fd, &ts) : (islink ? lstat(to.p_path, &ts) :
-				      stat(to.p_path, &ts))) {
+	if (fdval ? fstat(fd, &ts) :
+	    (islink ? lstat(to.p_path, &ts) : stat(to.p_path, &ts)))
 		gotstat = 0;
-	} else {
+	else {
 		gotstat = 1;
-		ts.st_mode &= S_ISUID | S_ISGID | S_ISVTX | S_IRWXU | S_IRWXG | S_IRWXO;
+		ts.st_mode &= S_ISUID | S_ISGID | S_ISVTX |
+		    S_IRWXU | S_IRWXG | S_IRWXO;
 	}
 	/*
 	 * Changing the ownership probably won't succeed, unless we're root
@@ -446,37 +514,53 @@ setfile(struct stat *fs, int fd)
 	 * the mode; current BSD behavior is to remove all setuid bits on
 	 * chown.  If chown fails, lose setuid/setgid bits.
 	 */
-	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid) {
-		if (fdval ? fchown(fd, fs->st_uid, fs->st_gid) : (islink ?
-								  lchown(to.p_path, fs->st_uid, fs->st_gid) :
-								  chown(to.p_path, fs->st_uid, fs->st_gid))) {
-			    if (errno != EPERM) {
-				    warn("%schown: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
-				    rval = 1;
-			    }
-			    fs->st_mode &= ~(S_ISUID | S_ISGID);
-		    }
-	}
+	if (!gotstat || fs->st_uid != ts.st_uid || fs->st_gid != ts.st_gid)
+		if (fdval ? fchown(fd, fs->st_uid, fs->st_gid) :
+		    (islink ? lchown(to.p_path, fs->st_uid, fs->st_gid) :
+		    chown(to.p_path, fs->st_uid, fs->st_gid))) {
+			if (errno != EPERM) {
+#ifdef __APPLE__
+				warn("%schown: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
+#else
+				warn("chown: %s", to.p_path);
+#endif
+				rval = 1;
+			}
+			fs->st_mode &= ~(S_ISUID | S_ISGID);
+		}
 
-	if (!gotstat || fs->st_mode != ts.st_mode) {
-		if (fdval ? fchmod(fd, fs->st_mode) : (islink ?
-						       lchmod(to.p_path, fs->st_mode) :
-						       chmod(to.p_path, fs->st_mode))) {
+	if (!gotstat || fs->st_mode != ts.st_mode)
+		if (fdval ? fchmod(fd, fs->st_mode) :
+		    (islink ? lchmod(to.p_path, fs->st_mode) :
+		    chmod(to.p_path, fs->st_mode))) {
+#ifdef __APPLE__
 			warn("%schmod: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
+#else
+			warn("chmod: %s", to.p_path);
+#endif
 			rval = 1;
 		}
-	}
 
-	if (!gotstat || fs->st_flags != ts.st_flags) {
-		if (fdval ? fchflags(fd, fs->st_flags) : (islink ?
-							  lchflags(to.p_path, fs->st_flags) :
-							  chflags(to.p_path, fs->st_flags))) {
+	if (!gotstat || fs->st_flags != ts.st_flags)
+		if (fdval ?
+		    fchflags(fd, fs->st_flags) :
+		    (islink ? lchflags(to.p_path, fs->st_flags) :
+		    chflags(to.p_path, fs->st_flags))) {
+#ifdef __APPLE__
+			/*
+			 * rdar://problem/21067328 - `cp -p` may fail due to the restrict
+			 * flag.
+			 */
 			if (errno != EPERM) {
 				warn("%schflags: %s", fdval ? "f" : (islink ? "l" : ""), to.p_path);
 				rval = 1;
 			}
+#else
+			warn("chflags: %s", to.p_path);
+			rval = 1;
+#endif
 		}
-	}
+
 	return (rval);
 }
 
@@ -484,24 +568,52 @@ setfile(struct stat *fs, int fd)
 int
 preserve_fd_acls(int source_fd, int dest_fd)
 {
-	struct acl *aclp;
 	acl_t acl;
+	acl_type_t acl_type;
+	int acl_supported = 0, ret, trivial;
 
-	if (fpathconf(source_fd, _PC_ACL_EXTENDED) != 1 ||
-	    fpathconf(dest_fd, _PC_ACL_EXTENDED) != 1)
+	ret = fpathconf(source_fd, _PC_ACL_NFS4);
+	if (ret > 0 ) {
+		acl_supported = 1;
+		acl_type = ACL_TYPE_NFS4;
+	} else if (ret < 0 && errno != EINVAL) {
+		warn("fpathconf(..., _PC_ACL_NFS4) failed for %s", to.p_path);
+		return (1);
+	}
+	if (acl_supported == 0) {
+		ret = fpathconf(source_fd, _PC_ACL_EXTENDED);
+		if (ret > 0 ) {
+			acl_supported = 1;
+			acl_type = ACL_TYPE_ACCESS;
+		} else if (ret < 0 && errno != EINVAL) {
+			warn("fpathconf(..., _PC_ACL_EXTENDED) failed for %s",
+			    to.p_path);
+			return (1);
+		}
+	}
+	if (acl_supported == 0)
 		return (0);
-	acl = acl_get_fd(source_fd);
+
+	acl = acl_get_fd_np(source_fd, acl_type);
 	if (acl == NULL) {
 		warn("failed to get acl entries while setting %s", to.p_path);
 		return (1);
 	}
-	aclp = &acl->ats_acl;
-	if (aclp->acl_cnt == 3)
-		return (0);
-	if (acl_set_fd(dest_fd, acl) < 0) {
-		warn("failed to set acl entries for %s", to.p_path);
+	if (acl_is_trivial_np(acl, &trivial)) {
+		warn("acl_is_trivial() failed for %s", to.p_path);
+		acl_free(acl);
 		return (1);
 	}
+	if (trivial) {
+		acl_free(acl);
+		return (0);
+	}
+	if (acl_set_fd_np(dest_fd, acl, acl_type) < 0) {
+		warn("failed to set acl entries for %s", to.p_path);
+		acl_free(acl);
+		return (1);
+	}
+	acl_free(acl);
 	return (0);
 }
 
@@ -512,12 +624,33 @@ preserve_dir_acls(struct stat *fs, char *source_dir, char *dest_dir)
 	int (*aclsetf)(const char *, acl_type_t, acl_t);
 	struct acl *aclp;
 	acl_t acl;
+	acl_type_t acl_type;
+	int acl_supported = 0, ret, trivial;
 
-	if (pathconf(source_dir, _PC_ACL_EXTENDED) != 1 ||
-	    pathconf(dest_dir, _PC_ACL_EXTENDED) != 1)
+	ret = pathconf(source_dir, _PC_ACL_NFS4);
+	if (ret > 0) {
+		acl_supported = 1;
+		acl_type = ACL_TYPE_NFS4;
+	} else if (ret < 0 && errno != EINVAL) {
+		warn("fpathconf(..., _PC_ACL_NFS4) failed for %s", source_dir);
+		return (1);
+	}
+	if (acl_supported == 0) {
+		ret = pathconf(source_dir, _PC_ACL_EXTENDED);
+		if (ret > 0) {
+			acl_supported = 1;
+			acl_type = ACL_TYPE_ACCESS;
+		} else if (ret < 0 && errno != EINVAL) {
+			warn("fpathconf(..., _PC_ACL_EXTENDED) failed for %s",
+			    source_dir);
+			return (1);
+		}
+	}
+	if (acl_supported == 0)
 		return (0);
+
 	/*
-	 * If the file is a link we will not follow it
+	 * If the file is a link we will not follow it.
 	 */
 	if (S_ISLNK(fs->st_mode)) {
 		aclgetf = acl_get_link_np;
@@ -526,34 +659,48 @@ preserve_dir_acls(struct stat *fs, char *source_dir, char *dest_dir)
 		aclgetf = acl_get_file;
 		aclsetf = acl_set_file;
 	}
-	/*
-	 * Even if there is no ACL_TYPE_DEFAULT entry here, a zero
-	 * size ACL will be returned. So it is not safe to simply
-	 * check the pointer to see if the default ACL is present.
-	 */
-	acl = aclgetf(source_dir, ACL_TYPE_DEFAULT);
-	if (acl == NULL) {
-		warn("failed to get default acl entries on %s",
-		    source_dir);
-		return (1);
+	if (acl_type == ACL_TYPE_ACCESS) {
+		/*
+		 * Even if there is no ACL_TYPE_DEFAULT entry here, a zero
+		 * size ACL will be returned. So it is not safe to simply
+		 * check the pointer to see if the default ACL is present.
+		 */
+		acl = aclgetf(source_dir, ACL_TYPE_DEFAULT);
+		if (acl == NULL) {
+			warn("failed to get default acl entries on %s",
+			    source_dir);
+			return (1);
+		}
+		aclp = &acl->ats_acl;
+		if (aclp->acl_cnt != 0 && aclsetf(dest_dir,
+		    ACL_TYPE_DEFAULT, acl) < 0) {
+			warn("failed to set default acl entries on %s",
+			    dest_dir);
+			acl_free(acl);
+			return (1);
+		}
+		acl_free(acl);
 	}
-	aclp = &acl->ats_acl;
-	if (aclp->acl_cnt != 0 && aclsetf(dest_dir,
-	    ACL_TYPE_DEFAULT, acl) < 0) {
-		warn("failed to set default acl entries on %s",
-		    dest_dir);
-		return (1);
-	}
-	acl = aclgetf(source_dir, ACL_TYPE_ACCESS);
+	acl = aclgetf(source_dir, acl_type);
 	if (acl == NULL) {
 		warn("failed to get acl entries on %s", source_dir);
 		return (1);
 	}
-	aclp = &acl->ats_acl;
-	if (aclsetf(dest_dir, ACL_TYPE_ACCESS, acl) < 0) {
-		warn("failed to set acl entries on %s", dest_dir);
+	if (acl_is_trivial_np(acl, &trivial)) {
+		warn("acl_is_trivial() failed on %s", source_dir);
+		acl_free(acl);
 		return (1);
 	}
+	if (trivial) {
+		acl_free(acl);
+		return (0);
+	}
+	if (aclsetf(dest_dir, acl_type, acl) < 0) {
+		warn("failed to set acl entries on %s", dest_dir);
+		acl_free(acl);
+		return (1);
+	}
+	acl_free(acl);
 	return (0);
 }
 #endif /* !__APPLE__ */
@@ -562,16 +709,26 @@ void
 usage(void)
 {
 
-	if (COMPAT_MODE("bin/cp", "unix2003")) {
+	if (unix2003_compat) {
 	(void)fprintf(stderr, "%s\n%s\n",
-"usage: cp [-R [-H | -L | -P]] [-fi | -n] [-apvXc] source_file target_file",
-"       cp [-R [-H | -L | -P]] [-fi | -n] [-apvXc] source_file ... "
-"target_directory");
+	    "usage: cp [-R [-H | -L | -P]] [-fi | -n] [-aclpsvXx] "
+	    "source_file target_file",
+	    "       cp [-R [-H | -L | -P]] [-fi | -n] [-aclpsvXx] "
+	    "source_file ... "
+	    "target_directory");
 	} else {
 	(void)fprintf(stderr, "%s\n%s\n",
-"usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-apvXc] source_file target_file",
-"       cp [-R [-H | -L | -P]] [-f | -i | -n] [-apvXc] source_file ... "
-"target_directory");
+#ifdef __APPLE__
+	    "usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-aclpsvXx] "
+	    "source_file target_file",
+	    "       cp [-R [-H | -L | -P]] [-f | -i | -n] [-aclpsvXx] "
+#else
+	    "usage: cp [-R [-H | -L | -P]] [-f | -i | -n] [-alpsvx] "
+	    "source_file target_file",
+	    "       cp [-R [-H | -L | -P]] [-f | -i | -n] [-alpsvx] "
+#endif
+	    "source_file ... "
+	    "target_directory");
 	}
 	exit(EX_USAGE);
 }

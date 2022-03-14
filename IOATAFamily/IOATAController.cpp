@@ -78,7 +78,7 @@
 
 OSDefineMetaClass( IOATAController, IOService )
 OSDefineAbstractStructors( IOATAController, IOService )
-    OSMetaClassDefineReservedUnused(IOATAController, 0);
+    OSMetaClassDefineReservedUsed(IOATAController, 0);
     OSMetaClassDefineReservedUnused(IOATAController, 1);
     OSMetaClassDefineReservedUnused(IOATAController, 2);
     OSMetaClassDefineReservedUnused(IOATAController, 3);
@@ -187,12 +187,10 @@ IOATAController::start(IOService *provider)
 		setProperty ( kIOPropertyPhysicalInterconnectLocationKey, kIOPropertyInternalKey);
 	}
 
-	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	reserved = ( ExpansionData * ) IOMallocType ( IOATAController::ExpansionData );
 	if ( !reserved )
 		return false;
-	
-	bzero ( reserved, sizeof ( ExpansionData ) );
-	
+		
 	if( !configureTFPointers() )
 	{
 		DLOG("IOATA TF Pointers failed\n");
@@ -301,7 +299,7 @@ IOATAController::free()
 	
 	if ( reserved )
 	{
-		IOFree ( reserved, sizeof ( ExpansionData ) );
+		IOFreeType ( reserved, IOATAController::ExpansionData );
 		reserved = NULL;
 	}
 	
@@ -2147,21 +2145,21 @@ IOATAController::waitForU8Status (UInt8 mask, UInt8 value)
 }
 
 /*----------------------------------------------------------------------------------------------------
-**	Routine 	ATAPISlaveExists
+**	Routine 	ATAPISecondaryExists
 **
-**	Purpose:   Determines whether an ATAPI device seen as a "slave" of a master ATAPI device
-**			   is actually present, or the product of the master shadowing a not-present slave's registers
-**    		   Call this function when the master device shows EBh 14h, and the slave also shows the ATAPI
+**	Purpose:   Determines whether an ATAPI device seen as a "secondary" of a primary ATAPI device
+**			   is actually present, or the product of the primary shadowing a not-present secondary's registers
+**    		   Call this function when the primary device shows EBh 14h, and the secondary also shows the ATAPI
 **    		   protocol signature.
 **	Returns:   False if a device is ruled out. True if a device is verified. Leaves device in a ready state,
 ** 			   But no longer showing signatures. 
 
-    NOTE:     Device 1 (slave) is assumed already selected.
+    NOTE:     Device 1 (secondary) is assumed already selected.
 */
 
 
 bool 
-IOATAController::ATAPISlaveExists( void )
+IOATAController::ATAPISecondaryExists( void )
 {
 	UInt8						scratchByte;
 	UInt16						scratchWord;
@@ -2197,8 +2195,8 @@ IOATAController::ATAPISlaveExists( void )
 	}
 	
 	// OK we probably have a device now. We have to wait for drive to send data, and read it and clear it.
-	// It is possible that the a misbehaving master has decided to respond to the command. So, we'll
-	// break on error bit and say it's not a real slave should that happen.
+	// It is possible that the a misbehaving primary has decided to respond to the command. So, we'll
+	// break on error bit and say it's not a real secondary should that happen.
 	
 	// take a leisurely approach, this will take a while.
 
@@ -2208,7 +2206,7 @@ IOATAController::ATAPISlaveExists( void )
 		OSSynchronizeIO();
 		scratchByte =  *_tfAltSDevCReg;
 		
-		// If drive sets error, clear status and return false. It's probably a misbehaving master
+		// If drive sets error, clear status and return false. It's probably a misbehaving primary
 		if( scratchByte & 0x01 )
 			break;		
 				
@@ -2246,6 +2244,27 @@ IOATAController::ATAPISlaveExists( void )
 
 	return false;
 
+}
+
+
+
+/*----------------------------------------------------------------------------------------------------
+**    Routine    ATAPISlaveExists
+**
+**    Purpose:   Determines whether an ATAPI device seen as a "secondary" of a primary ATAPI device
+**               is actually present, or the product of the primary shadowing a not-present secondary's registers
+**               Call this function when the primary device shows EBh 14h, and the secondary also shows the ATAPI
+**               protocol signature.
+**    Returns:   False if a device is ruled out. True if a device is verified. Leaves device in a ready state,
+**                But no longer showing signatures.
+
+      NOTE:     Device 1 (secondary) is assumed already selected.
+*/
+
+bool
+IOATAController::ATAPISlaveExists( void )
+{
+    return ATAPISecondaryExists ( );
 }
 
 
@@ -2326,10 +2345,10 @@ IOATAController::scanForDrives( void )
 				&& ( _devInfo[0].type == kATAPIDeviceType )  )
 			{
 
-			// OK we've met the condition for an indeterminate bus, master is atapi and we see a slave atapi
+			// OK we've met the condition for an indeterminate bus, primary is atapi and we see a secondary atapi
 			// signature. This is legal ATA, though we are fortunate enough that most devices don't do this.
 
-				if( ATAPISlaveExists( ) != true )
+				if( ATAPISecondaryExists( ) != true )
 				{
 					_devInfo[unit].type = kUnknownATADeviceType;
 					goto AllDone;

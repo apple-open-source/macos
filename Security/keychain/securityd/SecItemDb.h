@@ -96,6 +96,7 @@ SecServerBackupGetKeybagUUID(CFDictionaryRef keychain, CFErrorRef *error);
 bool SecServerDeleteAllForUser(SecDbConnectionRef dbt, CFDataRef musrView, bool keepU, CFErrorRef *error);
 #endif
 OSStatus SecServerDeleteForAppClipApplicationIdentifier(CFStringRef identifier);
+OSStatus SecServerPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStringRef parentAppID);
 
 bool kc_transaction(SecDbConnectionRef dbt, CFErrorRef *error, bool(^perform)(void));
 bool kc_transaction_type(SecDbConnectionRef dbt, SecDbTransactionType type, CFErrorRef *error, bool(^perform)(void));

@@ -18,7 +18,6 @@ fficonfig.h.in
 install-sh
 libffi.pc
 libtool
-libtool-ldflags
 ltmain.sh
 m4/libtool.m4
 m4/lt*.m4

@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-NetBSD
+ *
  * Copyright (c) 2002 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
@@ -13,13 +15,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *      This product includes software developed by the NetBSD
- *      Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -37,11 +32,12 @@
 #include <sys/cdefs.h>
 #if 0
 #ifndef lint
-__RCSID("$NetBSD: stat.c,v 1.13 2003/07/25 03:21:17 atatat Exp $");
+__RCSID("$NetBSD: stat.c,v 1.33 2011/01/15 22:54:10 njoly Exp $"
+"$OpenBSD: stat.c,v 1.14 2009/06/24 09:44:25 sobrado Exp $");
 #endif
 #endif
 
-__FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp $");
+__FBSDID("$FreeBSD$");
 
 #if HAVE_CONFIG_H
 #include "config.h" 
@@ -54,13 +50,17 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #define HAVE_DEVNAME 1
 #endif /* HAVE_CONFIG_H */
 
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/mount.h>
 
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <grp.h>
 #include <limits.h>
+#include <paths.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -109,11 +109,12 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #define LINUX_FORMAT \
 	"  File: \"%N\"%n" \
 	"  Size: %-11z  FileType: %HT%n" \
-	"  Mode: (%04OA/%.10Sp)         Uid: (%5u/%8Su)  Gid: (%5g/%8Sg)%n" \
+	"  Mode: (%0Mp%03OA/%.10Sp)         Uid: (%5u/%8Su)  Gid: (%5g/%8Sg)%n" \
 	"Device: %Hd,%Ld   Inode: %i    Links: %l%n" \
 	"Access: %Sa%n" \
 	"Modify: %Sm%n" \
-	"Change: %Sc"
+	"Change: %Sc%n"	\
+	" Birth: %SB"
 
 #define TIME_FORMAT	"%b %e %T %Y"
 
@@ -158,10 +159,13 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 #define MIDDLE_PIECE	'M'
 #define LOW_PIECE	'L'
 
+#define	SHOW_realpath	'R'
 #define SHOW_st_dev	'd'
 #define SHOW_st_ino	'i'
 #define SHOW_st_mode	'p'
+#ifdef __APPLE__
 #define SHOW_st_mode2	'A'
+#endif
 #define SHOW_st_nlink	'l'
 #define SHOW_st_uid	'u'
 #define SHOW_st_gid	'g'
@@ -182,16 +186,20 @@ __FBSDID("$FreeBSD: src/usr.bin/stat/stat.c,v 1.6 2003/10/06 01:55:17 dougb Exp 
 
 void	usage(const char *);
 void	output(const struct stat *, const char *,
-	    const char *, int, int, int);
+	    const char *, int, int);
 int	format1(const struct stat *,	/* stat info */
 	    const char *,		/* the file name */
 	    const char *, int,		/* the format string itself */
 	    char *, size_t,		/* a place to put the output */
 	    int, int, int, int,		/* the parsed format */
 	    int, int);
+int	hex2byte(const char [2]);
+#if HAVE_STRUCT_STAT_ST_FLAGS
+char   *xfflagstostr(unsigned long);
+#endif
 
-char *timefmt;
-int linkfail;
+static const char *timefmt;
+static int linkfail;
 
 #define addchar(s, c, nl) \
 	do { \
@@ -204,13 +212,25 @@ main(int argc, char *argv[])
 {
 	struct stat st;
 	int ch, rc, errs, am_readlink;
+#ifdef __APPLE__
 	int lsF, fmtchar, usestat, fn, nonl, quiet;
-	char *statfmt, *options, *synopsis;
+#else
+	int lsF, fmtchar, usestat, nfs_handle, fn, nonl, quiet;
+#endif
+	const char *statfmt, *options, *synopsis;
+#ifndef __APPLE__
+	char dname[sizeof _PATH_DEV + SPECNAMELEN] = _PATH_DEV;
+	fhandle_t fhnd;
+#endif
+	const char *file;
 
 	am_readlink = 0;
 	lsF = 0;
 	fmtchar = '\0';
 	usestat = 0;
+#ifndef __APPLE__
+	nfs_handle = 0;
+#endif
 	nonl = 0;
 	quiet = 0;
 	linkfail = 0;
@@ -219,14 +239,21 @@ main(int argc, char *argv[])
 
 	if (strcmp(getprogname(), "readlink") == 0) {
 		am_readlink = 1;
-		options = "n";
-		synopsis = "[-n] [file ...]";
+		options = "fn";
+		synopsis = "[-fn] [file ...]";
 		statfmt = "%Y";
 		fmtchar = 'f';
 		quiet = 1;
 	} else {
+#ifdef __APPLE__
 		options = "f:FlLnqrst:x";
-		synopsis = "[-FlLnqrsx] [-f format] [-t timefmt] [file ...]";
+		synopsis = "[-FLnq] [-f format | -l | -r | -s | -x] "
+		    "[-t timefmt] [file ...]";
+#else
+		options = "f:FHlLnqrst:x";
+		synopsis = "[-FLnq] [-f format | -l | -r | -s | -x] "
+		    "[-t timefmt] [file|handle ...]";
+#endif
 	}
 
 	while ((ch = getopt(argc, argv, options)) != -1)
@@ -234,6 +261,11 @@ main(int argc, char *argv[])
 		case 'F':
 			lsF = 1;
 			break;
+#ifndef __APPLE__
+                case 'H':
+			nfs_handle = 1;
+			break;
+#endif
 		case 'L':
 			usestat = 1;
 			break;
@@ -244,6 +276,10 @@ main(int argc, char *argv[])
 			quiet = 1;
 			break;
 		case 'f':
+			if (am_readlink) {
+				statfmt = "%R";
+				break;
+			}
 			statfmt = optarg;
 			/* FALLTHROUGH */
 		case 'l':
@@ -306,22 +342,68 @@ main(int argc, char *argv[])
 
 	errs = 0;
 	do {
-		if (argc == 0)
+		if (argc == 0) {
+#ifndef __APPLE__
+			if (fdevname_r(STDIN_FILENO, dname +
+			    sizeof _PATH_DEV - 1, SPECNAMELEN) != NULL)
+				file = dname;
+			else
+#endif
+				file = "(stdin)";
 			rc = fstat(STDIN_FILENO, &st);
-		else if (usestat)
-			rc = stat(argv[0], &st);
-		else
-			rc = lstat(argv[0], &st);
+		} else {
+#ifndef __APPLE__
+			int j;
+#endif
+
+			file = argv[0];
+#ifndef __APPLE__
+			if (nfs_handle) {
+				rc = 0;
+				bzero(&fhnd, sizeof(fhnd));
+				j = MIN(2 * sizeof(fhnd), strlen(file));
+				if ((j & 1) != 0) {
+					rc = -1;
+				} else {
+					while (j) {
+						rc = hex2byte(&file[j - 2]);
+						if (rc == -1)
+							break;
+						((char*) &fhnd)[j / 2 - 1] = rc;
+						j -= 2;
+					}
+				}
+				if (rc == -1)
+					errno = EINVAL;
+				else
+					rc = fhstat(&fhnd, &st);
+
+			} else if (usestat) {
+#else /* __APPLE__ */
+			if (usestat) {
+#endif /* !__APPLE__ */
+				/*
+				 * Try stat() and if it fails, fall back to
+				 * lstat() just in case we're examining a
+				 * broken symlink.
+				 */
+				if ((rc = stat(file, &st)) == -1 &&
+				    errno == ENOENT &&
+				    (rc = lstat(file, &st)) == -1)
+					errno = ENOENT;
+			}
+			else
+				rc = lstat(file, &st);
+		}
 
 		if (rc == -1) {
 			errs = 1;
 			linkfail = 1;
 			if (!quiet)
-				warn("%s: stat",
-				    argc == 0 ? "(stdin)" : argv[0]);
+				warn("%s: stat", file);
 		}
 		else
-			output(&st, argv[0], statfmt, fn, nonl, quiet);
+			output(&st, file, statfmt, fn, nonl);
 
 		argv++;
 		argc--;
@@ -330,6 +412,25 @@ main(int argc, char *argv[])
 
 	return (am_readlink ? linkfail : errs);
 }
+
+#if HAVE_STRUCT_STAT_ST_FLAGS
+/*
+ * fflagstostr() wrapper that leaks only once
+ */
+char *
+xfflagstostr(unsigned long fflags)
+{
+	static char *str = NULL;
+
+	if (str != NULL)
+		free(str);
+
+	str = fflagstostr(fflags);
+	if (str == NULL)
+		err(1, "fflagstostr");
+	return (str);
+}
+#endif /* HAVE_STRUCT_STAT_ST_FLAGS */
 
 void
 usage(const char *synopsis)
@@ -344,10 +445,10 @@ usage(const char *synopsis)
  */
 void
 output(const struct stat *st, const char *file,
-    const char *statfmt, int fn, int nonl, int quiet)
+    const char *statfmt, int fn, int nonl)
 {
 	int flags, size, prec, ofmt, hilo, what;
-	char buf[PATH_MAX];
+	char buf[PATH_MAX + 4 + 1];
 	const char *subfmt;
 	int nl, t, i;
 
@@ -484,10 +585,13 @@ output(const struct stat *st, const char *file,
 		}
 
 		switch (*statfmt) {
+			fmtcase(what, SHOW_realpath);
 			fmtcase(what, SHOW_st_dev);
 			fmtcase(what, SHOW_st_ino);
 			fmtcase(what, SHOW_st_mode);
+#ifdef __APPLE__
 			fmtcase(what, SHOW_st_mode2);
+#endif
 			fmtcase(what, SHOW_st_nlink);
 			fmtcase(what, SHOW_st_uid);
 			fmtcase(what, SHOW_st_gid);
@@ -517,7 +621,7 @@ output(const struct stat *st, const char *file,
 		     buf, sizeof(buf),
 		     flags, size, prec, ofmt, hilo, what);
 
-		for (i = 0; i < t && i < sizeof(buf); i++)
+		for (i = 0; i < t && i < (int)(sizeof(buf) - 1); i++)
 			addchar(stdout, buf[i], &nl);
 
 		continue;
@@ -544,18 +648,19 @@ format1(const struct stat *st,
     int hilo, int what)
 {
 	u_int64_t data;
-	char *sdata, lfmt[24], tmp[20];
+	char *stmp, lfmt[24], tmp[20];
+	const char *sdata;
 	char smode[12], sid[12], path[PATH_MAX + 4];
-	struct passwd *pw;
-	struct group *gr;
 	const struct timespec *tsp;
 	struct timespec ts = {0,0};
 	struct tm *tm;
 	int l, small, formats;
 
 	tsp = NULL;
-//	formats = 0;
-//	small = 0;
+#ifndef __APPLE__
+	formats = 0;
+	small = 0;
+#endif
 
 	/*
 	 * First, pick out the data and tweak it based on hilo or
@@ -602,34 +707,39 @@ format1(const struct stat *st,
 			ofmt = FMTF_UNSIGNED;
 		break;
 	case SHOW_st_mode:
+#ifdef __APPLE__
 	case SHOW_st_mode2:
+#endif
 		small = (sizeof(st->st_mode) == 4);
 		data = st->st_mode;
 		strmode(st->st_mode, smode);
-		sdata = smode;
-		l = strlen(sdata);
-		if (sdata[l - 1] == ' ')
-			sdata[--l] = '\0';
+		stmp = smode;
+		l = strlen(stmp);
+		if (stmp[l - 1] == ' ')
+			stmp[--l] = '\0';
+#ifdef __APPLE__
 		if (what == SHOW_st_mode2)
 			data &= 07777;
+#endif
 		if (hilo == HIGH_PIECE) {
 			data >>= 12;
-			sdata += 1;
-			sdata[3] = '\0';
+			stmp += 1;
+			stmp[3] = '\0';
 			hilo = 0;
 		}
 		else if (hilo == MIDDLE_PIECE) {
 			data = (data >> 9) & 07;
-			sdata += 4;
-			sdata[3] = '\0';
+			stmp += 4;
+			stmp[3] = '\0';
 			hilo = 0;
 		}
 		else if (hilo == LOW_PIECE) {
 			data &= 0777;
-			sdata += 7;
-			sdata[3] = '\0';
+			stmp += 7;
+			stmp[3] = '\0';
 			hilo = 0;
 		}
+		sdata = stmp;
 		formats = FMTF_DECIMAL | FMTF_OCTAL | FMTF_UNSIGNED | FMTF_HEX |
 		    FMTF_STRING;
 		if (ofmt == 0)
@@ -646,9 +756,8 @@ format1(const struct stat *st,
 	case SHOW_st_uid:
 		small = (sizeof(st->st_uid) == 4);
 		data = st->st_uid;
-		if ((pw = getpwuid(st->st_uid)) != NULL)
-			sdata = pw->pw_name;
-		else {
+		sdata = user_from_uid(st->st_uid, 1);
+		if (sdata == NULL) {
 			snprintf(sid, sizeof(sid), "(%ld)", (long)st->st_uid);
 			sdata = sid;
 		}
@@ -660,9 +769,8 @@ format1(const struct stat *st,
 	case SHOW_st_gid:
 		small = (sizeof(st->st_gid) == 4);
 		data = st->st_gid;
-		if ((gr = getgrgid(st->st_gid)) != NULL)
-			sdata = gr->gr_name;
-		else {
+		sdata = group_from_gid(st->st_gid, 1);
+		if (sdata == NULL) {
 			snprintf(sid, sizeof(sid), "(%ld)", (long)st->st_gid);
 			sdata = sid;
 		}
@@ -730,15 +838,11 @@ format1(const struct stat *st,
 	case SHOW_st_flags:
 		small = (sizeof(st->st_flags) == 4);
 		data = st->st_flags;
-		sdata = NULL;
+		sdata = xfflagstostr(st->st_flags);
+		if (*sdata == '\0')
+			sdata = "-";
 		formats = FMTF_DECIMAL | FMTF_OCTAL | FMTF_UNSIGNED | FMTF_HEX |
-			FMTF_STRING;
-		if (ofmt == FMTF_STRING) {
-			small = 0;
-			data = 0;
-			snprintf(path, sizeof(path), "%s", fflagstostr(st->st_flags));
-			sdata = path;
-		}
+		    FMTF_STRING;
 		if (ofmt == 0)
 			ofmt = FMTF_UNSIGNED;
 		break;
@@ -753,6 +857,26 @@ format1(const struct stat *st,
 			ofmt = FMTF_UNSIGNED;
 		break;
 #endif /* HAVE_STRUCT_STAT_ST_GEN */
+	case SHOW_realpath:
+		small = 0;
+		data = 0;
+		if (file == NULL) {
+			(void)strlcpy(path, "(stdin)", sizeof(path));
+			sdata = path;
+		} else {
+			snprintf(path, sizeof(path), " -> ");
+			if (realpath(file, path + 4) == NULL) {
+				linkfail = 1;
+				l = 0;
+				path[0] = '\0';
+			}
+			sdata = path + (ofmt == FMTF_STRING ? 0 : 4);
+		}
+
+		formats = FMTF_STRING;
+		if (ofmt == 0)
+			ofmt = FMTF_STRING;
+		break;
 	case SHOW_symlink:
 		small = 0;
 		data = 0;
@@ -778,24 +902,23 @@ format1(const struct stat *st,
 	case SHOW_filetype:
 		small = 0;
 		data = 0;
-		sdata = smode;
-		sdata[0] = '\0';
+		sdata = "";
 		if (hilo == 0 || hilo == LOW_PIECE) {
 			switch (st->st_mode & S_IFMT) {
-			case S_IFIFO:	(void)strcat(sdata, "|");	break;
-			case S_IFDIR:	(void)strcat(sdata, "/");	break;
+			case S_IFIFO:	sdata = "|";	break;
+			case S_IFDIR:	sdata = "/";	break;
 			case S_IFREG:
 				if (st->st_mode &
 				    (S_IXUSR | S_IXGRP | S_IXOTH))
-					(void)strcat(sdata, "*");
+					sdata = "*";
 				break;
-			case S_IFLNK:	(void)strcat(sdata, "@");	break;
-			case S_IFSOCK:	(void)strcat(sdata, "=");	break;
+			case S_IFLNK:	sdata = "@";	break;
+			case S_IFSOCK:	sdata = "=";	break;
 #ifdef S_IFWHT
-			case S_IFWHT:	(void)strcat(sdata, "%");	break;
+			case S_IFWHT:	sdata = "%";	break;
 #endif /* S_IFWHT */
 #ifdef S_IFDOOR
-			case S_IFDOOR:	(void)strcat(sdata, ">");	break;
+			case S_IFDOOR:	sdata = ">";	break;
 #endif /* S_IFDOOR */
 			}
 			hilo = 0;
@@ -826,10 +949,7 @@ format1(const struct stat *st,
 	case SHOW_filename:
 		small = 0;
 		data = 0;
-		if (file == NULL)
-			(void)strncpy(path, "(stdin)", sizeof(path));
-		else
-			(void)strncpy(path, file, sizeof(path));
+		(void)strlcpy(path, file, sizeof(path));
 		sdata = path;
 		formats = FMTF_STRING;
 		if (ofmt == 0)
@@ -904,8 +1024,9 @@ format1(const struct stat *st,
 				(void)snprintf(tmp, sizeof(tmp), "%d", size);
 				(void)strcat(lfmt, tmp);
 			}
-			(void)strcat(lfmt, "d");
-			return (snprintf(buf, blen, lfmt, ts.tv_sec));
+			(void)strcat(lfmt, "lld");
+			return (snprintf(buf, blen, lfmt,
+			    (long long)ts.tv_sec));
 		}
 
 		/*
@@ -928,7 +1049,8 @@ format1(const struct stat *st,
 			(void)snprintf(tmp, sizeof(tmp), "%d", size);
 			(void)strcat(lfmt, tmp);
 		}
-		(void)strcat(lfmt, "d");
+		/* Seconds: time_t cast to long long. */
+		(void)strcat(lfmt, "lld");
 
 		/*
 		 * The stuff after the decimal point always needs zero
@@ -939,8 +1061,10 @@ format1(const struct stat *st,
 		/*
 		 * We can "print" at most nine digits of precision.  The
 		 * rest we will pad on at the end.
+		 *
+		 * Nanoseconds: long.
 		 */
-		(void)snprintf(tmp, sizeof(tmp), "%dd", prec > 9 ? 9 : prec);
+		(void)snprintf(tmp, sizeof(tmp), "%dld", MIN(prec, 9));
 		(void)strcat(lfmt, tmp);
 
 		/*
@@ -954,8 +1078,8 @@ format1(const struct stat *st,
 		 * Use the format, and then tack on any zeroes that
 		 * might be required to make up the requested precision.
 		 */
-		l = snprintf(buf, blen, lfmt, ts.tv_sec, ts.tv_nsec);
-		for (; prec > 9 && l < blen; prec--, l++)
+		l = snprintf(buf, blen, lfmt, (long long)ts.tv_sec, ts.tv_nsec);
+		for (; prec > 9 && l < (int)blen; prec--, l++)
 			(void)strcat(buf, "0");
 		return (l);
 	}
@@ -1001,4 +1125,13 @@ format1(const struct stat *st,
 	}
 
 	return (snprintf(buf, blen, lfmt, data));
+}
+
+
+#define hex2nibble(c) (c <= '9' ? c - '0' : toupper(c) - 'A' + 10)
+int
+hex2byte(const char c[2]) {
+	if (!(ishexnumber(c[0]) && ishexnumber(c[1])))
+		return -1;
+	return (hex2nibble(c[0]) << 4) + hex2nibble(c[1]);
 }

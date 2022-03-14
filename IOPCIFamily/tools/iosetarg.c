@@ -36,7 +36,7 @@ int main(int argc, char * argv[])
 		CFArrayAppendValue(array, str);
 	}
 
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, matching);
+    service = IOServiceGetMatchingService(kIOMainPortDefault, matching);
     assert(service);
 	kr = IORegistryEntrySetCFProperty(service, CFSTR(kIODebugArgumentsKey), array);
 

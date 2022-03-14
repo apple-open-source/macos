@@ -50,6 +50,7 @@
 #include "SourceBufferPrivate.h"
 #include "TextTrackList.h"
 #include "TimeRanges.h"
+#include "VideoTrack.h"
 #include "VideoTrackList.h"
 #include <wtf/IsoMallocInlines.h>
 
@@ -322,8 +323,8 @@ ExceptionOr<void> MediaSource::clearLiveSeekableRange()
 
 const MediaTime& MediaSource::currentTimeFudgeFactor()
 {
-    // Allow hasCurrentTime() to be off by as much as the length of two 24fps video frames
-    static NeverDestroyed<MediaTime> fudgeFactor(2002, 24000);
+    // Allow hasCurrentTime() to be off by as much as 100ms.
+    static NeverDestroyed<MediaTime> fudgeFactor(1, 10);
     return fudgeFactor;
 }
 
@@ -978,7 +979,7 @@ bool MediaSource::attachToElement(HTMLMediaElement& element)
 
     ASSERT(isClosed());
 
-    m_mediaElement = makeWeakPtr(&element);
+    m_mediaElement = element;
     return true;
 }
 

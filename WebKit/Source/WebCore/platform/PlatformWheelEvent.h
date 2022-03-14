@@ -120,11 +120,18 @@ public:
         return copy;
     }
 
-    PlatformWheelEvent copyWithDeltasAndVelocity(float deltaX, float deltaY, const FloatSize& velocity) const
+    PlatformWheelEvent copyWithDeltaAndVelocity(FloatSize delta, FloatSize velocity) const
     {
         PlatformWheelEvent copy = *this;
-        copy.m_deltaX = deltaX;
-        copy.m_deltaY = deltaY;
+        copy.m_deltaX = delta.width();
+        copy.m_deltaY = delta.height();
+        copy.m_scrollingVelocity = velocity;
+        return copy;
+    }
+
+    PlatformWheelEvent copyWithVelocity(FloatSize velocity) const
+    {
+        PlatformWheelEvent copy = *this;
         copy.m_scrollingVelocity = velocity;
         return copy;
     }
@@ -150,8 +157,7 @@ public:
 
 #if PLATFORM(COCOA)
     unsigned scrollCount() const { return m_scrollCount; }
-    float unacceleratedScrollingDeltaX() const { return m_unacceleratedScrollingDeltaX; }
-    float unacceleratedScrollingDeltaY() const { return m_unacceleratedScrollingDeltaY; }
+    FloatSize unacceleratedScrollingDelta() const { return { m_unacceleratedScrollingDeltaX, m_unacceleratedScrollingDeltaY }; }
     
     WallTime ioHIDEventTimestamp() const { return m_ioHIDEventTimestamp; }
 
@@ -162,7 +168,6 @@ public:
     bool useLatchedEventElement() const;
     bool isGestureContinuation() const; // The fingers-down part of the gesture excluding momentum.
     bool shouldResetLatching() const;
-    bool isNonGestureEvent() const;
     bool isEndOfMomentumScroll() const;
 #else
     bool useLatchedEventElement() const { return false; }
@@ -175,9 +180,12 @@ public:
     bool isGestureStart() const;
     bool isGestureCancel() const;
 
+    bool isGestureEvent() const;
+    bool isNonGestureEvent() const;
+
     bool isEndOfNonMomentumScroll() const;
     bool isTransitioningToMomentumScroll() const;
-    FloatPoint swipeVelocity() const;
+    FloatSize swipeVelocity() const;
 #endif
 
 #if PLATFORM(WIN)
@@ -234,11 +242,6 @@ inline bool PlatformWheelEvent::shouldResetLatching() const
     return m_phase == PlatformWheelEventPhase::Cancelled || m_phase == PlatformWheelEventPhase::MayBegin || (m_phase == PlatformWheelEventPhase::None && m_momentumPhase == PlatformWheelEventPhase::None) || isEndOfMomentumScroll();
 }
 
-inline bool PlatformWheelEvent::isNonGestureEvent() const
-{
-    return m_phase == PlatformWheelEventPhase::None && m_momentumPhase == PlatformWheelEventPhase::None;
-}
-
 inline bool PlatformWheelEvent::isEndOfMomentumScroll() const
 {
     return m_phase == PlatformWheelEventPhase::None && m_momentumPhase == PlatformWheelEventPhase::Ended;
@@ -247,6 +250,16 @@ inline bool PlatformWheelEvent::isEndOfMomentumScroll() const
 #endif // ENABLE(ASYNC_SCROLLING)
 
 #if ENABLE(KINETIC_SCROLLING)
+
+inline bool PlatformWheelEvent::isGestureEvent() const
+{
+    return m_phase != PlatformWheelEventPhase::None || m_momentumPhase != PlatformWheelEventPhase::None;
+}
+
+inline bool PlatformWheelEvent::isNonGestureEvent() const
+{
+    return !isGestureEvent();
+}
 
 inline bool PlatformWheelEvent::isGestureStart() const
 {
@@ -268,10 +281,10 @@ inline bool PlatformWheelEvent::isTransitioningToMomentumScroll() const
     return m_phase == PlatformWheelEventPhase::None && m_momentumPhase == PlatformWheelEventPhase::Began;
 }
 
-inline FloatPoint PlatformWheelEvent::swipeVelocity() const
+inline FloatSize PlatformWheelEvent::swipeVelocity() const
 {
     // The swiping velocity is stored in the deltas of the event declaring it.
-    return isTransitioningToMomentumScroll() ? FloatPoint(m_wheelTicksX, m_wheelTicksY) : FloatPoint();
+    return isTransitioningToMomentumScroll() ? FloatSize(m_wheelTicksX, m_wheelTicksY) : FloatSize();
 }
 
 #endif // ENABLE(KINETIC_SCROLLING)

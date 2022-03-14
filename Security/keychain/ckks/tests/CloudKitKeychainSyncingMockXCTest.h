@@ -100,7 +100,7 @@ NS_ASSUME_NONNULL_BEGIN
                          from:(id<CKKSSelfPeer>)sharingPeer
                            to:(id<CKKSPeer>)receivingPeer
                        zoneID:(CKRecordZoneID*)zoneID;
-- (void)putTLKSharesInCloudKit:(CKKSKey*)key from:(CKKSSOSSelfPeer*)sharingPeer zoneID:(CKRecordZoneID*)zoneID;
+- (void)putTLKSharesInCloudKit:(CKKSKey*)key from:(id<CKKSSelfPeer>)sharingPeer zoneID:(CKRecordZoneID*)zoneID;
 - (void)putSelfTLKSharesInCloudKit:(CKRecordZoneID*)zoneID;
 - (void)saveTLKSharesInLocalDatabase:(CKRecordZoneID*)zoneID;
 
@@ -120,11 +120,18 @@ NS_ASSUME_NONNULL_BEGIN
 - (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account zoneID:(CKRecordZoneID*)zoneID;
 - (NSDictionary*)fakeRecordDictionary:(NSString* _Nullable)account password:(NSString* _Nullable)password zoneID:(CKRecordZoneID*)zoneID;
 
+- (NSDictionary*)fakeCertificateRecordDictionary:(NSData*)serialNumber zoneID:(CKRecordZoneID*)zoneID;
+
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount:(NSString* _Nullable)account;
 - (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
                    recordName:(NSString*)recordName
                   withAccount:(NSString* _Nullable)account
+                          key:(CKKSKey* _Nullable)key;
+
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
+                   recordName:(NSString*)recordName
+               itemDictionary:(NSDictionary*)itemDictionary
                           key:(CKKSKey* _Nullable)key;
 
 - (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account;
@@ -172,6 +179,11 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)checkGenericPasswordStoredUUID:(NSString*)uuid account:(NSString*)account;
 - (void)setGenericPasswordStoredUUID:(NSString*)uuid account:(NSString*)account;
+
+// Certificate item helpers
+- (void)addCertificateWithLabel:(NSString*)label serialNumber:(NSData*)serial;
+- (void)findCertificateWithSerialNumber:(NSData*)serial expecting:(OSStatus)status;
+- (void)deleteCertificateWithSerialNumber:(NSData*)serial;
 
 - (void)createClassCItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;
 - (void)createClassAItemAndWaitForUpload:(CKRecordZoneID*)zoneID account:(NSString*)account;

@@ -23,6 +23,9 @@
 
 #if OCTAGON
 
+#include <Security/SecCertificate.h>
+#include <Security/SecCertificateRequest.h>
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wquoted-include-in-framework-header"
 #import <OCMock/OCMock.h>
@@ -1050,6 +1053,51 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     return item;
 }
 
+- (NSDictionary*)fakeCertificateRecordDictionary:(NSData*)serialNumber zoneID:(CKRecordZoneID*)zoneID
+{
+    /*
+     (lldb) po dict
+     {
+         agrp = "com.apple.security.ckks";
+         cdat = "2021-11-12 21:15:24 +0000";
+         cenc = 3;
+         class = cert;
+         ctyp = 3;
+         issr = {length = 0, bytes = 0x};
+         mdat = "2021-11-12 21:15:24 +0000";
+         musr = {length = 0, bytes = 0x};
+         pdmn = ck;
+         pkhh = {length = 20, bytes = 0x6ab746c54112d11093801f7355431358267fea12};
+         sha1 = {length = 20, bytes = 0x00365446ba08ea1d87a80cb373a0086deb7b5078};
+         slnr = {length = 4, bytes = 0x31323334};
+         subj = {length = 0, bytes = 0x};
+         tomb = 0;
+         "v_Data" = {length = 1149, bytes = 0x30820479 30820261 a0030201 02020101 ... 65df4f8f 4f69dae2 };
+         vwht = keychain;
+     }
+     */
+    NSData* itemdata = [[NSData alloc] initWithBase64EncodedString:@"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"
+
+                                                           options:0];
+    NSError* error = nil;
+    NSMutableDictionary * item = [[NSPropertyListSerialization propertyListWithData:[CKKSItemEncrypter removePaddingFromData:itemdata]
+                                                                            options:0
+                                                                             format:nil
+                                                                              error:&error] mutableCopy];
+    XCTAssertNil(error, "no error interpreting data as item");
+    XCTAssertNotNil(item, "interpreted data as item");
+
+    if(zoneID && ![zoneID.zoneName isEqualToString:@"keychain"]) {
+        [item setObject: zoneID.zoneName forKey: (__bridge id) kSecAttrSyncViewHint];
+    }
+
+    if(serialNumber) {
+        item[(id)kSecAttrSerialNumber] = serialNumber;
+    }
+
+    return item;
+}
+
 
 - (CKRecord*)createFakeTombstoneRecord:(CKRecordZoneID*)zoneID recordName:(NSString*)recordName account:(NSString*)account {
     NSMutableDictionary* item = [[self fakeRecordDictionary:account zoneID:zoneID] mutableCopy];
@@ -1082,6 +1130,16 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 - (CKRecord*)createFakeRecord: (CKRecordZoneID*)zoneID recordName:(NSString*)recordName withAccount: (NSString*) account key:(CKKSKey*)key {
     NSMutableDictionary* item = [[self fakeRecordDictionary: account zoneID:zoneID] mutableCopy];
 
+    return [self createFakeRecord:zoneID recordName:recordName itemDictionary:item key:key];
+}
+
+- (CKRecord*)createFakeRecord:(CKRecordZoneID*)zoneID
+                   recordName:(NSString*)recordName
+               itemDictionary:(NSDictionary*)itemDictionary
+                          key:(CKKSKey* _Nullable)key
+{
+    NSMutableDictionary* item = [itemDictionary mutableCopy];
+
     // class c items should be class c
     if([key.keyclass isEqualToString:SecCKKSKeyClassC]) {
         item[(__bridge NSString*)kSecAttrAccessible] = @"ck";
@@ -1089,9 +1147,9 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
 
     CKRecordID* ckrid = [[CKRecordID alloc] initWithRecordName:recordName zoneID:zoneID];
     if(key) {
-        return [self newRecord: ckrid withNewItemData:item key:key];
+        return [self newRecord:ckrid withNewItemData:item key:key];
     } else {
-        return [self newRecord: ckrid withNewItemData:item];
+        return [self newRecord:ckrid withNewItemData:item];
     }
 }
 
@@ -1376,6 +1434,72 @@ static CFDictionaryRef SOSCreatePeerGestaltFromName(CFStringRef name)
     CFReleaseNull(cferror);
 
     XCTAssertEqual(count, 1, "Should have processed one item");
+}
+
+- (void)addCertificateWithLabel:(NSString*)label serialNumber:(NSData*)serial
+{
+    CFErrorRef cferror = nil;
+
+    SecKeyRef privateKey = SecKeyCreateRandomKey((__bridge CFDictionaryRef)@{
+        (__bridge id)kSecAttrKeyType : (__bridge id)kSecAttrKeyTypeRSA,
+        (__bridge id)kSecAttrKeySizeInBits : @(4096),
+    }, &cferror);
+
+    XCTAssertEqual(cferror, NULL, "Should have no error creating a key");
+
+    SecKeyRef publicKey = SecKeyCopyPublicKey(privateKey);
+    NSArray *blankSubject = [NSArray array];
+    NSDictionary *certParameters = @{
+        (id)kSecCertificateLifetime : @(315576000),
+    };
+
+    // Note that there isn't a parameter for the serial number, so the generated cert won't match the metadata in the keychain. oh well.
+    SecCertificateRef cert = SecGenerateSelfSignedCertificate((__bridge CFArrayRef)blankSubject,
+                                                              (__bridge CFDictionaryRef)certParameters,
+                                                              publicKey,
+                                                              privateKey);
+
+    // Add cert with blank subject to keychain
+    NSDictionary *query = @{(id)kSecValueRef: (__bridge id)cert,
+                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                            (id)kSecReturnPersistentRef: @YES,
+                            (id)kSecAttrAccessible: (id)kSecAttrAccessibleAfterFirstUnlock,
+                            (id)kSecAttrSynchronizable: @YES,
+                            (id)kSecAttrSyncViewHint: @"keychain",
+                            (id)kSecAttrSerialNumber: serial,
+    };
+
+    CFDataRef persistentRef = nil;
+    OSStatus status = SecItemAdd((__bridge CFDictionaryRef)query, (CFTypeRef *)&persistentRef);
+    XCTAssertEqual(status, errSecSuccess, "Should be able to add an identity to the keychain");
+    XCTAssertNotEqual(persistentRef, NULL, "Should have gotten something back from SecItemAdd");
+
+    CFReleaseNull(persistentRef);
+    CFReleaseNull(privateKey);
+    CFReleaseNull(publicKey);
+    CFReleaseNull(cert);
+}
+
+- (void)findCertificateWithSerialNumber:(NSData*)serial expecting:(OSStatus)status
+{
+    NSDictionary *query = @{(id)kSecClass : (id)kSecClassCertificate,
+                            (id)kSecAttrAccessGroup : @"com.apple.security.ckks",
+                            (id)kSecAttrSerialNumber : serial,
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            (id)kSecMatchLimit : (id)kSecMatchLimitOne,
+                            };
+    XCTAssertEqual(status, SecItemCopyMatching((__bridge CFDictionaryRef) query, NULL), "Finding certificate %@", serial);
+}
+
+- (void)deleteCertificateWithSerialNumber:(NSData*)serial
+{
+    NSDictionary* query = @{
+                            (id)kSecClass : (id)kSecClassCertificate,
+                            (id)kSecAttrSerialNumber: serial,
+                            (id)kSecAttrSynchronizable : (id)kCFBooleanTrue,
+                            };
+
+    XCTAssertEqual(errSecSuccess, SecItemDelete((__bridge CFDictionaryRef) query), @"Deleting certificate %@", serial);
 }
 
 -(XCTestExpectation*)expectChangeForView:(NSString*)view {

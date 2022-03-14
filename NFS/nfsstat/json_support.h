@@ -29,30 +29,30 @@
 #pragma mark -
 
 /*
-* Add object to an existing dictionary functions
-*/
+ * Add object to an existing dictionary functions
+ */
 int json_dict_add_dict(CFMutableDictionaryRef dict, const char *key,
-                   const CFMutableDictionaryRef value);
+    const CFMutableDictionaryRef value);
 int json_dict_add_array(CFMutableDictionaryRef dict, const char *key,
-                   const CFMutableArrayRef value);
+    const CFMutableArrayRef value);
 int json_dict_add_num(CFMutableDictionaryRef dict, const char *key,
-                  const void *value, size_t size);
+    const void *value, size_t size);
 int json_dict_add_str(CFMutableDictionaryRef dict, const char *key,
-                  const char *value);
+    const char *value);
 
 /*
-* Add object to an existing array functions
-*/
+ * Add object to an existing array functions
+ */
 int json_arr_add_str(CFMutableArrayRef arr,
-                     const char *value);
+    const char *value);
 int json_arr_add_dict(CFMutableArrayRef arr,
-                     const CFMutableDictionaryRef value);
+    const CFMutableDictionaryRef value);
 
 #pragma mark -
 
 /*
-* Print out a Core Foundation object in JSON format
-*/
+ * Print out a Core Foundation object in JSON format
+ */
 
 int json_print_cf_object(CFTypeRef cf_object, char *output_file_path);
 

@@ -245,6 +245,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
     OCMStub([self.mockContainer accountStatusWithCompletionHandler:[OCMArg any]]).andCall(self, @selector(ckcontainerAccountStatusWithCompletionHandler:));
     OCMStub([self.mockContainer accountInfoWithCompletionHandler:[OCMArg any]]).andCall(self, @selector(ckcontainerAccountInfoWithCompletionHandler:));
+    OCMStub([self.mockContainer reloadAccountWithCompletionHandler:[OCMArg any]]).andCall(self, @selector(ckcontainerReloadAccountWithCompletionHandler:));
 
     self.mockAccountStateTracker = OCMClassMock([CKKSAccountStateTracker class]);
     OCMStub([self.mockAccountStateTracker getCircleStatus]).andCall(self, @selector(circleStatus));
@@ -492,6 +493,11 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
     [self.operationQueue addOperation:fulfillBlock];
 }
 
+- (void)ckcontainerReloadAccountWithCompletionHandler:(void (^)(NSError *_Nullable error))completionHandler
+{
+    completionHandler(nil);
+}
+
 - (void)ckdatabaseAddOperation:(NSOperation*)op {
     @try {
         [self.mockDatabase addOperation:op];
@@ -567,6 +573,17 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
 
 -(void)expectCKFetchAndRunBeforeFinished: (void (^)(void))blockAfterFetch {
     [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * op) {
+        return YES;
+    }
+                runBeforeFinished:blockAfterFetch];
+}
+
+- (void)expectCKFetchForZones:(NSSet<CKRecordZoneID*>*)expectedZoneIDs
+            runBeforeFinished:(void (^)(void))blockAfterFetch
+{
+    [self expectCKFetchWithFilter:^BOOL(FakeCKFetchRecordZoneChangesOperation * _Nonnull frzco) {
+        NSSet<CKRecordZoneID*>* fetchedZoneIDs = [NSSet setWithArray:frzco.recordZoneIDs];
+        XCTAssertEqualObjects(fetchedZoneIDs, expectedZoneIDs, "Should fetch intended view set");
         return YES;
     }
                 runBeforeFinished:blockAfterFetch];
@@ -1252,7 +1269,7 @@ static CKKSTestFailureLogger* _testFailureLoggerVariable;
             self.mockPersonaAdapter.isDefaultPersona = YES;
 
             XCTestExpectation *statusReturned = [self expectationWithDescription:@"status returned"];
-            [self.injectedManager rpcStatus:nil reply:^(NSArray<NSDictionary *> *result, NSError *error) {
+            [self.injectedManager rpcStatus:nil fast:NO waitForNonTransientState:CKKSControlStatusDefaultNonTransientStateTimeout reply:^(NSArray<NSDictionary *> *result, NSError *error) {
                 XCTAssertNil(error, "Should be no error fetching status");
                 [statusReturned fulfill];
             }];

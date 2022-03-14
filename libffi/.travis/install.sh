@@ -2,27 +2,43 @@
 set -x
 
 if [[ $TRAVIS_OS_NAME != 'linux' ]]; then
-    brew update > brew-update.log 2>&1
+    brew update --verbose
+    # brew update > brew-update.log 2>&1
     # fix an issue with libtool on travis by reinstalling it
     brew uninstall libtool;
     brew install libtool dejagnu;
 
     # Download and extract the rlgl client
     wget -qO - https://rl.gl/cli/rlgl-darwin-amd64.tgz | \
-	tar --strip-components=2 -xvzf - ./rlgl/rlgl
+	tar --strip-components=2 -xvzf - ./rlgl/rlgl;
 
 else
-
     # Download and extract the rlgl client
-    wget -qO - http://rl.gl/cli/rlgl-linux-amd64.tgz | \
-	tar --strip-components=2 -xvzf - ./rlgl/rlgl
+    case $HOST in
+	aarch64-linux-gnu)
+	    wget -qO - https://rl.gl/cli/rlgl-linux-arm.tgz | \
+		tar --strip-components=2 -xvzf - ./rlgl/rlgl;
+	    ;;
+	ppc64le-linux-gnu)
+	    wget -qO - https://rl.gl/cli/rlgl-linux-ppc64le.tgz | \
+		tar --strip-components=2 -xvzf - ./rlgl/rlgl;
+	    ;;
+	s390x-linux-gnu)
+	    wget -qO - https://rl.gl/cli/rlgl-linux-s390x.tgz | \
+		tar --strip-components=2 -xvzf - ./rlgl/rlgl;
+	    ;;
+	*)
+	    wget -qO - https://rl.gl/cli/rlgl-linux-amd64.tgz | \
+		tar --strip-components=2 -xvzf - ./rlgl/rlgl;
+	    ;;
+    esac
 
     sudo apt-get clean # clear the cache
     sudo apt-get update
     case $HOST in
-	aarch64-linux-gnu | powerpc64le-unknown-linux-gnu | mips64el-linux-gnu | sparc64-linux-gnu)
-        ;;	  
-	alpha-linux-gnu | arm32v7-linux-gnu | m68k-linux-gnu | sh4-linux-gnu | s390x-linux-gnu )
+	mips64el-linux-gnu | sparc64-linux-gnu)
+        ;;
+	alpha-linux-gnu | arm32v7-linux-gnu | m68k-linux-gnu | sh4-linux-gnu)
 	    sudo apt-get install qemu-user-static
 	    ;;
 	hppa-linux-gnu )
@@ -46,7 +62,7 @@ else
 	    ;;
     esac
     case $HOST in
-	arm32v7-linux-gnu | aarch64-linux-gnu | ppc64le-linux-gnu | s390x-linux-gnu)
+	arm32v7-linux-gnu)
         # don't install host tools
         ;;
 	*)

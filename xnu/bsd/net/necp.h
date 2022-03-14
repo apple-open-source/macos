@@ -79,6 +79,9 @@ struct necp_packet_header {
 #define NECP_SESSION_ACTION_REGISTER_SERVICE            9       // In: uuid_t					Out: None
 #define NECP_SESSION_ACTION_UNREGISTER_SERVICE          10      // In: uuid_t					Out: None
 #define NECP_SESSION_ACTION_POLICY_DUMP_ALL                     11      // In: None						Out: uint32_t bytes length, then Policy TLVs
+#define NECP_SESSION_ACTION_ADD_DOMAIN_FILTER           12      // In: struct net_bloom_filter  Out: uint32_t, ID
+#define NECP_SESSION_ACTION_REMOVE_DOMAIN_FILTER        13      // In: uint32_t, ID             Out: None
+#define NECP_SESSION_ACTION_REMOVE_ALL_DOMAIN_FILTERS   14      // In: None                     Out: None
 
 /*
  * Control message flags
@@ -162,6 +165,7 @@ struct necp_packet_header {
 #define NECP_POLICY_CONDITION_TRACKER_DOMAIN            35      // String, tracker domain
 #define NECP_POLICY_CONDITION_ATTRIBUTED_BUNDLE_IDENTIFIER 36   // String, app to which traffic is attributed to
 #define NECP_POLICY_CONDITION_SCHEME_PORT               37      // u_int16_t, the port associated with the scheme for a connection
+#define NECP_POLICY_CONDITION_DOMAIN_FILTER             38      // struct net_bloom_filter
 
 /*
  * Policy Packet tags
@@ -1115,6 +1119,7 @@ struct necp_kernel_socket_policy {
 	u_int32_t                                       cond_account_id;                                // Locally assigned ID value stored
 	char                                            *cond_domain;                                   // String
 	u_int8_t                                        cond_domain_dot_count;                  // Number of dots in cond_domain
+	u_int32_t                                       cond_domain_filter;
 	pid_t                                           cond_pid;
 	uid_t                                           cond_uid;
 	ifnet_t                                         cond_bound_interface;                   // Matches specific binding only
@@ -1401,6 +1406,8 @@ extern void necp_client_early_close(uuid_t client_id); // Cause a single client 
 
 #ifdef KERNEL
 #ifdef KERNEL_PRIVATE
+struct nstat_domain_info;
+extern void necp_copy_inp_domain_info(struct inpcb *, struct socket *, struct nstat_domain_info *);
 extern bool net_domain_contains_hostname(char *hostname_string, char *domain_string);
 #endif /* KERNEL_PRIVATE */
 #endif /* KERNEL */

@@ -26,6 +26,7 @@
 #include "FloatSize.h"
 #include "GStreamerCommon.h"
 #include "MediaSample.h"
+#include "VideoSampleMetadata.h"
 #include <wtf/text/AtomString.h>
 
 namespace WebCore {
@@ -34,13 +35,18 @@ class PixelBuffer;
 
 class MediaSampleGStreamer : public MediaSample {
 public:
-    static Ref<MediaSampleGStreamer> create(GRefPtr<GstSample>&& sample, const FloatSize& presentationSize, const AtomString& trackId)
+    static Ref<MediaSampleGStreamer> create(GRefPtr<GstSample>&& sample, const FloatSize& presentationSize, const AtomString& trackId, VideoRotation videoRotation = VideoRotation::None, bool videoMirrored = false, std::optional<VideoSampleMetadata>&& metadata = std::nullopt)
     {
-        return adoptRef(*new MediaSampleGStreamer(WTFMove(sample), presentationSize, trackId));
+        return adoptRef(*new MediaSampleGStreamer(WTFMove(sample), presentationSize, trackId, videoRotation, videoMirrored, WTFMove(metadata)));
+    }
+
+    static Ref<MediaSampleGStreamer> createWrappedSample(const GRefPtr<GstSample>& sample, VideoRotation videoRotation = VideoRotation::None)
+    {
+        return adoptRef(*new MediaSampleGStreamer(sample, videoRotation));
     }
 
     static Ref<MediaSampleGStreamer> createFakeSample(GstCaps*, MediaTime pts, MediaTime dts, MediaTime duration, const FloatSize& presentationSize, const AtomString& trackId);
-    static Ref<MediaSampleGStreamer> createImageSample(PixelBuffer&&, const IntSize& destinationSize = { }, double frameRate = 1);
+    static Ref<MediaSampleGStreamer> createImageSample(PixelBuffer&&, const IntSize& destinationSize = { }, double frameRate = 1, VideoRotation videoRotation = VideoRotation::None, bool videoMirrored = false, std::optional<VideoSampleMetadata>&& metadata = std::nullopt);
 
     void extendToTheBeginning();
     MediaTime presentationTime() const override { return m_pts; }
@@ -51,7 +57,7 @@ public:
     size_t sizeInBytes() const override { return m_size; }
     FloatSize presentationSize() const override { return m_presentationSize; }
     void offsetTimestampsBy(const MediaTime&) override;
-    void setTimestamps(const MediaTime&, const MediaTime&) override { }
+    void setTimestamps(const MediaTime&, const MediaTime&) override;
     bool isDivisable() const override { return false; }
     std::pair<RefPtr<MediaSample>, RefPtr<MediaSample>> divide(const MediaTime&, UseEndTime) override  { return { nullptr, nullptr }; }
     Ref<MediaSample> createNonDisplayingCopy() const override;
@@ -60,13 +66,18 @@ public:
     std::optional<ByteRange> byteRange() const override { return std::nullopt; }
     void dump(PrintStream&) const override;
     RefPtr<JSC::Uint8ClampedArray> getRGBAImageData() const final;
+    VideoRotation videoRotation() const override { return m_videoRotation; }
+    bool videoMirrored() const override { return m_videoMirrored; }
 
 protected:
-    MediaSampleGStreamer(GRefPtr<GstSample>&&, const FloatSize& presentationSize, const AtomString& trackId);
+    MediaSampleGStreamer(GRefPtr<GstSample>&&, const FloatSize& presentationSize, const AtomString& trackId, VideoRotation = VideoRotation::None, bool videoMirrored = false, std::optional<VideoSampleMetadata>&& = std::nullopt);
+    MediaSampleGStreamer(const GRefPtr<GstSample>&, VideoRotation = VideoRotation::None);
     virtual ~MediaSampleGStreamer() = default;
 
 private:
     MediaSampleGStreamer(const FloatSize& presentationSize, const AtomString& trackId);
+
+    void initializeFromBuffer();
 
     MediaTime m_pts;
     MediaTime m_dts;
@@ -76,6 +87,8 @@ private:
     GRefPtr<GstSample> m_sample;
     FloatSize m_presentationSize;
     MediaSample::SampleFlags m_flags { MediaSample::IsSync };
+    VideoRotation m_videoRotation { VideoRotation::None };
+    bool m_videoMirrored { false };
 };
 
 } // namespace WebCore.

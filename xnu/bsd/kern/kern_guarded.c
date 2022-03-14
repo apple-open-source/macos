@@ -75,7 +75,7 @@ kern_return_t task_violated_guard(mach_exception_code_t, mach_exception_subcode_
 #define GUARD_ALL      (GUARD_REQUIRED |        \
 	                (GUARD_CLOSE | GUARD_SOCKET_IPC | GUARD_FILEPORT | GUARD_WRITE))
 
-static ZONE_DECLARE(fp_guard_zone, "fileproc_guard",
+static ZONE_DEFINE(fp_guard_zone, "fileproc_guard",
     sizeof(struct fileproc_guard),
     ZC_ZFREE_CLEARMEM);
 

@@ -708,7 +708,7 @@ again:
 	/*
 	 * Set up Attribute B-tree control block
 	 */
-	btcb = hfs_mallocz(sizeof(*btcb));
+	btcb = hfs_malloc_type(BTreeControlBlock);
 
 	btcb->nodeSize          = nodesize;
 	btcb->maxKeyLength      = kHFSPlusAttrKeyMaximumLength;
@@ -925,7 +925,7 @@ exit:
 		hfs_unlock(VTOC(vp));
 	}
 	if (result) {
-		hfs_free(btcb, sizeof(*btcb));
+		hfs_free_type(btcb, BTreeControlBlock);
 		if (vp) {
 			vnode_put(vp);
 		}

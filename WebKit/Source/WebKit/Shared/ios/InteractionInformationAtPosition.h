@@ -59,6 +59,7 @@ struct InteractionInformationAtPosition {
         UnselectableDueToFocusableElement,
         UnselectableDueToLargeElementBounds,
         UnselectableDueToUserSelectNone,
+        UnselectableDueToMediaControls,
     };
     Selectability selectability { Selectability::Selectable };
 
@@ -70,6 +71,7 @@ struct InteractionInformationAtPosition {
     bool isImage { false };
     bool isAttachment { false };
     bool isAnimatedImage { false };
+    bool isPausedVideo { false };
     bool isElement { false };
     bool isContentEditable { false };
     WebCore::ScrollingNodeID containerScrollingNodeID { 0 };
@@ -108,7 +110,7 @@ struct InteractionInformationAtPosition {
 #endif
 
     std::optional<WebCore::ElementContext> elementContext;
-    std::optional<WebCore::ElementContext> imageElementContext;
+    std::optional<WebCore::ElementContext> hostImageOrVideoElementContext;
 
     // Copy compatible optional bits forward (for example, if we have a InteractionInformationAtPosition
     // with snapshots in it, and perform another request for the same point without requesting the snapshots,
@@ -131,7 +133,8 @@ template<> struct EnumTraits<WebKit::InteractionInformationAtPosition::Selectabi
         WebKit::InteractionInformationAtPosition::Selectability::Selectable,
         WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToFocusableElement,
         WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToLargeElementBounds,
-        WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToUserSelectNone
+        WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToUserSelectNone,
+        WebKit::InteractionInformationAtPosition::Selectability::UnselectableDueToMediaControls
     >;
 };
 

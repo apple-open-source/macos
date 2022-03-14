@@ -256,7 +256,7 @@ main(int argc, char* argv[]) {
 #if UCONFIG_ENABLE_PLUGINS
               " -L         or  --list-plugins     - List and diagnose issues with ICU Plugins\n"
 #endif
-              " -K         or  --cleanup          - Call u_cleanup() before exitting (will attempt to unload plugins)\n"
+              " -K         or  --cleanup          - Call u_cleanup() before exiting (will attempt to unload plugins)\n"
               " -p         or  --perf             - Perf tests (Apple)\n"
              "\n"
               "If no arguments are given, the tool will print ICU version and configuration information.\n"

@@ -140,13 +140,11 @@ UserContentControllerParameters WebUserContentControllerProxy::parameters() cons
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
-Vector<std::pair<String, WebCompiledContentRuleListData>> WebUserContentControllerProxy::contentRuleListData() const
+Vector<std::pair<WebCompiledContentRuleListData, URL>> WebUserContentControllerProxy::contentRuleListData() const
 {
-    Vector<std::pair<String, WebCompiledContentRuleListData>> data;
-    data.reserveInitialCapacity(m_contentRuleLists.size());
-    for (const auto& contentRuleList : m_contentRuleLists.values())
-        data.uncheckedAppend(std::make_pair(contentRuleList->name(), contentRuleList->compiledRuleList().data()));
-    return data;
+    return WTF::map(m_contentRuleLists, [](const auto& keyValue) -> std::pair<WebCompiledContentRuleListData, URL> {
+        return { keyValue.value.first->compiledRuleList().data(), keyValue.value.second };
+    });
 }
 #endif
 
@@ -345,12 +343,12 @@ void WebUserContentControllerProxy::didPostMessage(WebPageProxyIdentifier pagePr
         return;
 
     if (!handler->client().supportsAsyncReply()) {
-        handler->client().didPostMessage(*page, WTFMove(frameInfoData), handler->world(),  WebCore::SerializedScriptValue::adopt(dataReference.vector()));
+        handler->client().didPostMessage(*page, WTFMove(frameInfoData), handler->world(),  WebCore::SerializedScriptValue::adopt({ dataReference }));
         reply({ }, { });
         return;
     }
 
-    handler->client().didPostMessageWithAsyncReply(*page, WTFMove(frameInfoData), handler->world(),  WebCore::SerializedScriptValue::adopt(dataReference.vector()), [reply = WTFMove(reply)](API::SerializedScriptValue* value, const String& errorMessage) mutable {
+    handler->client().didPostMessageWithAsyncReply(*page, WTFMove(frameInfoData), handler->world(),  WebCore::SerializedScriptValue::adopt({ dataReference }), [reply = WTFMove(reply)](API::SerializedScriptValue* value, const String& errorMessage) mutable {
         if (errorMessage.isNull()) {
             ASSERT(value);
             reply({ value->internalRepresentation().toWireBytes() }, { });
@@ -362,17 +360,17 @@ void WebUserContentControllerProxy::didPostMessage(WebPageProxyIdentifier pagePr
 }
 
 #if ENABLE(CONTENT_EXTENSIONS)
-void WebUserContentControllerProxy::addContentRuleList(API::ContentRuleList& contentRuleList)
+void WebUserContentControllerProxy::addContentRuleList(API::ContentRuleList& contentRuleList, const WTF::URL& extensionBaseURL)
 {
-    m_contentRuleLists.set(contentRuleList.name(), &contentRuleList);
+    m_contentRuleLists.set(contentRuleList.name(), std::make_pair(Ref { contentRuleList }, extensionBaseURL));
 
-    auto pair = std::make_pair(contentRuleList.name(), contentRuleList.compiledRuleList().data());
+    auto& data = contentRuleList.compiledRuleList().data();
 
     for (auto& process : m_processes)
-        process.send(Messages::WebUserContentController::AddContentRuleLists({ pair }), identifier());
+        process.send(Messages::WebUserContentController::AddContentRuleLists({ { data, extensionBaseURL } }), identifier());
 
     for (auto& process : m_networkProcesses)
-        process.send(Messages::NetworkContentRuleListManager::AddContentRuleLists { identifier(), { pair } }, 0);
+        process.send(Messages::NetworkContentRuleListManager::AddContentRuleLists { identifier(), { { data, extensionBaseURL } } }, 0);
 }
 
 void WebUserContentControllerProxy::removeContentRuleList(const String& name)

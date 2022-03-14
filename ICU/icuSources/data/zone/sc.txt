@@ -290,6 +290,7 @@ sc{
         }
         "Etc:UTC"{
             ls{"Tempus coordinadu universale"}
+            ss{"TCU"}
         }
         "Etc:Unknown"{
             ec{"Tzitade disconnota"}
@@ -407,6 +408,11 @@ sc{
         "Pacific:Guam"{
             ec{"Guàm"}
         }
+        "Pacific:Honolulu"{
+            sd{"OLH"}
+            sg{"OIH"}
+            ss{"OIH"}
+        }
         "Pacific:Marquesas"{
             ec{"Marchesas"}
         }
@@ -436,6 +442,14 @@ sc{
             ld{"Ora legale de s’Alaska"}
             lg{"Ora de s’Alaska"}
             ls{"Ora istandard de s’Alaska"}
+            sd{"OLAK"}
+            sg{"OAK"}
+            ss{"OIAK"}
+        }
+        "meta:Almaty"{
+            ld{"Ora legale de Almaty"}
+            lg{"Ora de Almaty"}
+            ls{"Ora istandard de Almaty"}
         }
         "meta:Amazon"{
             ld{"Ora legale de s’Amatzònia"}
@@ -446,26 +460,53 @@ sc{
             ld{"Ora legale tzentrale USA"}
             lg{"Ora tzentrale USA"}
             ls{"Ora istandard tzentrale USA"}
+            sd{"OLT"}
+            sg{"OT"}
+            ss{"OIT"}
         }
         "meta:America_Eastern"{
             ld{"Ora legale orientale USA"}
             lg{"Ora orientale USA"}
             ls{"Ora istandard orientale USA"}
+            sd{"OLO"}
+            sg{"OO"}
+            ss{"OIO"}
         }
         "meta:America_Mountain"{
             ld{"Ora legale Montes Pedrosos USA"}
             lg{"Ora Montes Pedrosos USA"}
             ls{"Ora istandard Montes Pedrosos USA"}
+            sd{"OLMP"}
+            sg{"OMP"}
+            ss{"OIMP"}
         }
         "meta:America_Pacific"{
             ld{"Ora legale de su Patzìficu USA"}
             lg{"Ora de su Patzìficu USA"}
             ls{"Ora istandard de su Patzìficu USA"}
+            sd{"OLP"}
+            sg{"OP"}
+            ss{"OIP"}
+        }
+        "meta:Anadyr"{
+            ld{"Ora legale de Anadyr"}
+            lg{"Ora de Anadyr"}
+            ls{"Ora istandard de Anadyr"}
         }
         "meta:Apia"{
             ld{"Ora legale de Apia"}
             lg{"Ora de Apia"}
             ls{"Ora istandard de Apia"}
+        }
+        "meta:Aqtau"{
+            ld{"Ora legale de Aktau"}
+            lg{"Ora de Aktau"}
+            ls{"Ora istandard de Aktau"}
+        }
+        "meta:Aqtobe"{
+            ld{"Ora legale de Aktobe"}
+            lg{"Ora de Aktobe"}
+            ls{"Ora istandard de Aktobe"}
         }
         "meta:Arabian"{
             ld{"Ora legale àraba"}
@@ -491,6 +532,9 @@ sc{
             ld{"Ora legale de s’Atlànticu"}
             lg{"Ora de s’Atlànticu"}
             ls{"Ora istandard de s’Atlànticu"}
+            sd{"OLA"}
+            sg{"OA"}
+            ss{"OIA"}
         }
         "meta:Australia_Central"{
             ld{"Ora legale de s’Austràlia tzentrale"}
@@ -545,6 +589,9 @@ sc{
             ld{"Ora legale de su Cabu Birde"}
             lg{"Ora de su Cabu Birde"}
             ls{"Ora istandard de su Cabu Birde"}
+        }
+        "meta:Casey"{
+            ls{"Ora de Casey"}
         }
         "meta:Chamorro"{
             ls{"Ora istandard de Chamorro"}
@@ -643,6 +690,7 @@ sc{
         }
         "meta:GMT"{
             ls{"Ora de su meridianu de Greenwich"}
+            ss{"OMG"}
         }
         "meta:Galapagos"{
             ls{"Ora de sas Galàpagos"}
@@ -667,6 +715,9 @@ sc{
             ld{"Ora legale de sa Groenlàndia otzidentale"}
             lg{"Ora de sa Groenlàndia otzidentale"}
             ls{"Ora istandard de sa Groenlàndia otzidentale"}
+        }
+        "meta:Guam"{
+            ls{"Ora istandard de Guàm"}
         }
         "meta:Gulf"{
             ls{"Ora istandard de su Gulfu"}
@@ -727,6 +778,11 @@ sc{
             lg{"Ora de su Giapone"}
             ls{"Ora istandard de su Giapone"}
         }
+        "meta:Kamchatka"{
+            ld{"Ora legale de Petropavlovsk-Kamchatski"}
+            lg{"Ora de Petropavlovsk-Kamchatski"}
+            ls{"Ora istandard de Petropavlovsk-Kamchatski"}
+        }
         "meta:Kazakhstan_Eastern"{
             ls{"Ora de su Kazàkistan orientale"}
         }
@@ -749,6 +805,9 @@ sc{
         "meta:Kyrgystan"{
             ls{"Ora de su Kirghìzistan"}
         }
+        "meta:Lanka"{
+            ls{"Ora de Lanka"}
+        }
         "meta:Line_Islands"{
             ls{"Ora de sas Ìsulas de sa Lìnia"}
         }
@@ -756,6 +815,11 @@ sc{
             ld{"Ora legale de Lord Howe"}
             lg{"Ora de Lord Howe"}
             ls{"Ora istandard de Lord Howe"}
+        }
+        "meta:Macau"{
+            ld{"Ora legale de Macao"}
+            lg{"Ora de Macao"}
+            ls{"Ora istandard de Macao"}
         }
         "meta:Macquarie"{
             ls{"Ora de s’Ìsula Macquarie"}
@@ -842,6 +906,9 @@ sc{
             lg{"Ora de su Fernando de Noronha"}
             ls{"Ora istandard de su Fernando de Noronha"}
         }
+        "meta:North_Mariana"{
+            ls{"Ora de sas Ìsulas Mariannas Setentrionales"}
+        }
         "meta:Novosibirsk"{
             ld{"Ora legale de Novosibirsk"}
             lg{"Ora de Novosibirsk"}
@@ -895,6 +962,11 @@ sc{
         "meta:Pyongyang"{
             ls{"Ora de Pyongyang"}
         }
+        "meta:Qyzylorda"{
+            ld{"Ora legale de Qyzylorda"}
+            lg{"Ora de Qyzylorda"}
+            ls{"Ora istandard de Qyzylorda"}
+        }
         "meta:Reunion"{
             ls{"Ora de sa Reunione"}
         }
@@ -905,6 +977,11 @@ sc{
             ld{"Ora legale de Sakhalin"}
             lg{"Ora de Sakhalin"}
             ls{"Ora istandard de Sakhalin"}
+        }
+        "meta:Samara"{
+            ld{"Ora legale de Samara"}
+            lg{"Ora de Samara"}
+            ls{"Ora istandard de Samara"}
         }
         "meta:Samoa"{
             ld{"Ora legale de sas Samoa"}
@@ -1005,6 +1082,9 @@ sc{
             ld{"Ora legale de Yekaterinburg"}
             lg{"Ora de Yekaterinburg"}
             ls{"Ora istandard de Yekaterinburg"}
+        }
+        "meta:Yukon"{
+            ls{"Ora de su Yukon"}
         }
         regionFormat{"Ora {0}"}
         regionFormatDaylight{"Ora legale: {0}"}

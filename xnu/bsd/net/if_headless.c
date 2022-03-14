@@ -307,7 +307,6 @@ headless_using_multibuflets(if_headless_ref headlessif)
 
 #define HEADLESS_MAXUNIT    IF_MAXUNIT
 #define HEADLESS_ZONE_MAX_ELEM      MIN(IFNETS_MAX, HEADLESS_MAXUNIT)
-#define M_HEADLESS          M_DEVBUF
 
 static  int headless_clone_create(struct if_clone *, u_int32_t, void *);
 static  int headless_clone_destroy(ifnet_t);

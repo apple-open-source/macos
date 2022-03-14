@@ -119,6 +119,8 @@ strip-installed-files:
 fix-PInfo:
 	ed - '$(DSTROOT)$(PACONTENTS)/Info.plist' < $(FIX)/pinfo.ed
 	ed - '$(DSTROOT)$(RESOURCESVERS)/Info.plist' < $(FIX)/pinfo.ed
+	patch '$(DSTROOT)$(PACONTENTS)/Info.plist' $(FIX)/Info.plist.identifier.patch
+	patch '$(DSTROOT)$(RESOURCESVERS)/Info.plist' $(FIX)/Info.plist.identifier.patch
 
 ##---------------------------------------------------------------------
 # As of python 2.7, the real man page is now python2.7.1 (not python.1).

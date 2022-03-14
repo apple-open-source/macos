@@ -108,7 +108,7 @@ __options_decl(fileproc_flags_t, uint16_t, {
 });
 
 struct fileproc_guard {
-	struct waitq_set *fpg_wset;
+	struct select_set *fpg_wset;
 	guardid_t         fpg_guard;
 };
 
@@ -123,7 +123,7 @@ struct fileproc {
 	uint16_t         fp_guard_attrs;
 	struct fileglob *XNU_PTRAUTH_SIGNED_PTR("fileproc.fp_glob") fp_glob;
 	union {
-		struct waitq_set      *fp_wset;   /* fp_guard_attrs == 0 */
+		struct select_set     *fp_wset;   /* fp_guard_attrs == 0 */
 		struct fileproc_guard *fp_guard;  /* fp_guard_attrs != 0 */
 	};
 };

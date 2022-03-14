@@ -43,7 +43,7 @@ public:
     template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.executableToCodeBlockEdgeSpace;
+        return &vm.executableToCodeBlockEdgeSpace();
     }
 
     static Structure* createStructure(VM&, JSGlobalObject*, JSValue prototype);
@@ -70,6 +70,8 @@ public:
     static ExecutableToCodeBlockEdge* wrap(CodeBlock* codeBlock);
     
     static ExecutableToCodeBlockEdge* wrapAndActivate(CodeBlock* codeBlock);
+
+    static ptrdiff_t offsetOfCodeBlock() { return OBJECT_OFFSETOF(ExecutableToCodeBlockEdge, m_codeBlock); }
     
 private:
     friend class LLIntOffsetsExtractor;

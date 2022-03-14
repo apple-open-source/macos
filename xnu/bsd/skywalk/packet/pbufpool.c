@@ -80,12 +80,12 @@ pp_alloc_buflet_common(struct kern_pbufpool *pp, uint64_t *array,
 	(&(_pp)->pp_u_bft_hash_table[KERN_PBUFPOOL_U_HASH_INDEX(_i, \
 	KERN_PBUFPOOL_U_HASH_SIZE - 1)])
 
-static ZONE_DECLARE(pp_zone, SKMEM_ZONE_PREFIX ".mem.pp",
+static ZONE_DEFINE(pp_zone, SKMEM_ZONE_PREFIX ".mem.pp",
     sizeof(struct kern_pbufpool), ZC_ZFREE_CLEARMEM);
 
 #define PP_U_HTBL_SIZE  \
 	(sizeof(struct kern_pbufpool_u_bkt) * KERN_PBUFPOOL_U_HASH_SIZE)
-static ZONE_DECLARE(pp_u_htbl_zone, SKMEM_ZONE_PREFIX ".mem.pp.htbl",
+static ZONE_DEFINE(pp_u_htbl_zone, SKMEM_ZONE_PREFIX ".mem.pp.htbl",
     PP_U_HTBL_SIZE, ZC_ZFREE_CLEARMEM);
 
 static struct skmem_cache *pp_opt_cache;        /* cache for __packet_opt */
@@ -1906,6 +1906,10 @@ pp_metadata_fini(struct __kern_quantum *kqum, struct kern_pbufpool *pp,
 	case NEXUS_META_TYPE_PACKET: {
 		struct __kern_packet *kpkt = SK_PTR_KPKT(kqum);
 
+		if ((kpkt->pkt_pflags & PKT_F_TX_COMPL_TS_REQ) != 0) {
+			__packet_perform_tx_completion_callbacks(
+				SK_PKT2PH(kpkt), NULL);
+		}
 		if ((kpkt->pkt_pflags & PKT_F_MBUF_DATA) != 0) {
 			ASSERT((kpkt->pkt_pflags & PKT_F_PKT_DATA) == 0);
 			ASSERT(kpkt->pkt_mbuf != NULL);

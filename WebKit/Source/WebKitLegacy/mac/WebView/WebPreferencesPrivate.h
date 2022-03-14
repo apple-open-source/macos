@@ -134,7 +134,6 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL needsStorageAccessFromFileURLsQuirk;
 @property (nonatomic) BOOL zoomsTextOnly;
 @property (nonatomic) BOOL javaScriptCanAccessClipboard;
-@property (nonatomic, getter=isXSSAuditorEnabled) BOOL XSSAuditorEnabled;
 @property (nonatomic, getter=isFrameFlatteningEnabled) BOOL frameFlatteningEnabled;
 @property (nonatomic) WebKitFrameFlattening frameFlattening;
 @property (nonatomic) BOOL asyncFrameScrollingEnabled;
@@ -348,9 +347,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic) BOOL coreMathMLEnabled;
 @property (nonatomic) BOOL linkPreloadResponsiveImagesEnabled;
 @property (nonatomic) BOOL remotePlaybackEnabled;
-@property (nonatomic) BOOL dialogElementEnabled;
 @property (nonatomic) BOOL readableByteStreamAPIEnabled;
-@property (nonatomic) BOOL writableStreamAPIEnabled;
 @property (nonatomic) BOOL transformStreamAPIEnabled;
 @property (nonatomic) BOOL mediaRecorderEnabled;
 @property (nonatomic, setter=_setMediaRecorderEnabled:) BOOL _mediaRecorderEnabled;
@@ -377,6 +374,7 @@ extern NSString *WebPreferencesCacheModelChangedInternalNotification WEBKIT_DEPR
 @property (nonatomic, getter=isHixie76WebSocketProtocolEnabled) BOOL hixie76WebSocketProtocolEnabled;
 @property (nonatomic) BOOL accelerated2dCanvasEnabled;
 @property (nonatomic) BOOL experimentalNotificationsEnabled;
+@property (nonatomic, getter=isXSSAuditorEnabled) BOOL XSSAuditorEnabled;
 
 - (void)setDiskImageCacheEnabled:(BOOL)enabled;
 

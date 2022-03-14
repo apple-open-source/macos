@@ -1,6 +1,6 @@
-/*	$NetBSD: yes.c,v 1.5 1997/10/19 14:28:27 mrg Exp $	*/
-
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1987, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -12,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -33,31 +29,64 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1987, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1987, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)yes.c	8.1 (Berkeley) 6/6/93";
+#else
+static const char rcsid[] = "$FreeBSD$";
 #endif
-__RCSID("$NetBSD: yes.c,v 1.5 1997/10/19 14:28:27 mrg Exp $");
 #endif /* not lint */
 
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#endif
+#include <err.h>
 #include <stdio.h>
-
-int main __P((int, char **));
+#include <string.h>
+#include <unistd.h>
 
 int
-main(argc, argv)
-	int argc;
-	char **argv;
+main(int argc, char **argv)
 {
-	if (argc > 1)
-		for(;;)
-			(void)puts(argv[1]);
-	else for (;;)
-		(void)puts("y");
+	char buf[8192];
+	char y[2] = { 'y', '\n' };
+	char * exp = y;
+	size_t buflen = 0;
+	size_t explen = sizeof(y);
+	size_t more;
+	ssize_t ret;
+
+#ifndef __APPLE__
+	if (caph_limit_stdio() < 0 || caph_enter() < 0)
+		err(1, "capsicum");
+#endif
+
+	if (argc > 1) {
+		exp = argv[1];
+		explen = strlen(exp) + 1;
+		exp[explen - 1] = '\n';
+	}
+
+	if (explen <= sizeof(buf)) {
+		while (buflen < sizeof(buf) - explen) {
+			memcpy(buf + buflen, exp, explen);
+			buflen += explen;
+		}
+		exp = buf;
+		explen = buflen;
+	}
+
+	more = explen;
+	while ((ret = write(STDOUT_FILENO, exp + (explen - more), more)) > 0)
+		if ((more -= ret) == 0)
+			more = explen;
+
+	err(1, "stdout");
+	/*NOTREACHED*/
 }

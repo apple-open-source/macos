@@ -74,7 +74,6 @@
 #include "TextControlInnerElements.h"
 #include "UserGestureIndicator.h"
 #include "VisibleUnits.h"
-#include "Widget.h"
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
@@ -117,61 +116,11 @@ void AccessibilityNodeObject::detachRemoteParts(AccessibilityDetachmentType deta
     m_node = nullptr;
 }
 
-void AccessibilityNodeObject::childrenChanged()
-{
-    // This method is meant as a quick way of marking a portion of the accessibility tree dirty.
-    if (!node() && !renderer())
-        return;
-
-    AXObjectCache* cache = axObjectCache();
-    if (!cache)
-        return;
-    cache->postNotification(this, document(), AXObjectCache::AXChildrenChanged);
-    
-    // Should make the sub tree dirty so that everything below will be updated correctly.
-    this->setNeedsToUpdateSubtree();
-    bool shouldStopUpdatingParent = false;
-
-    // Go up the accessibility parent chain, but only if the element already exists. This method is
-    // called during render layouts, minimal work should be done. 
-    // If AX elements are created now, they could interrogate the render tree while it's in a funky state.
-    // At the same time, process ARIA live region changes.
-    for (AccessibilityObject* parent = this; parent; parent = parent->parentObjectIfExists()) {
-        if (!shouldStopUpdatingParent)
-            parent->setNeedsToUpdateChildren();
-        
-
-        // These notifications always need to be sent because screenreaders are reliant on them to perform. 
-        // In other words, they need to be sent even when the screen reader has not accessed this live region since the last update.
-
-        // If this element supports ARIA live regions, then notify the AT of changes.
-        // Sometimes this function can be called many times within a short period of time, leading to posting too many AXLiveRegionChanged
-        // notifications. To fix this, we used a timer to make sure we only post one notification for the children changes within a pre-defined
-        // time interval.
-        if (parent->supportsLiveRegion())
-            cache->postLiveRegionChangeNotification(parent);
-        
-        // If this element is an ARIA text control, notify the AT of changes.
-        if (parent->isNonNativeTextControl()) {
-            cache->postNotification(parent, parent->document(), AXObjectCache::AXValueChanged);
-            
-            // Do not let the parent that's above the editable ancestor update its children
-            // since we already notify the AT of changes.
-            shouldStopUpdatingParent = true;
-        }
-    }
-}
-
 void AccessibilityNodeObject::updateAccessibilityRole()
 {
-    bool ignoredStatus = accessibilityIsIgnored();
     m_role = determineAccessibilityRole();
-    
-    // The AX hierarchy only needs to be updated if the ignored status of an element has changed.
-    if (ignoredStatus != accessibilityIsIgnored())
-        childrenChanged();
 }
-    
+
 AccessibilityObject* AccessibilityNodeObject::firstChild() const
 {
     if (!node())
@@ -343,12 +292,12 @@ void AccessibilityNodeObject::addChildren()
 {
     // If the need to add more children in addition to existing children arises, 
     // childrenChanged should have been called, leaving the object with no children.
-    ASSERT(!m_haveChildren); 
+    ASSERT(!m_childrenInitialized); 
     
     if (!m_node)
         return;
 
-    m_haveChildren = true;
+    m_childrenInitialized = true;
 
     // The only time we add children from the DOM tree to a node with a renderer is when it's a canvas.
     if (renderer() && !m_node->hasTagName(canvasTag))
@@ -393,11 +342,6 @@ bool AccessibilityNodeObject::canHaveChildren() const
     case AccessibilityRole::MenuItemRadio:
     case AccessibilityRole::Splitter:
     case AccessibilityRole::Meter:
-        return false;
-    case AccessibilityRole::DocumentMath:
-#if ENABLE(MATHML)
-        return node()->isMathMLElement();
-#endif
         return false;
     default:
         return true;
@@ -766,12 +710,12 @@ bool AccessibilityNodeObject::supportsRequiredAttribute() const
     }
 }
 
-int AccessibilityNodeObject::headingLevel() const
+unsigned AccessibilityNodeObject::headingLevel() const
 {
     // headings can be in block flow and non-block flow
     Node* node = this->node();
     if (!node)
-        return false;
+        return 0;
 
     if (isHeading()) {
         if (auto level = getIntegralAttribute(aria_levelAttr); level > 0)
@@ -1332,7 +1276,11 @@ AccessibilityObject* AccessibilityNodeObject::captionForFigure() const
 
 bool AccessibilityNodeObject::usesAltTagForTextComputation() const
 {
-    return isImage() || isInputImage() || isNativeImage() || isCanvas() || (node() && node()->hasTagName(imgTag));
+    bool usesAltTag = isImage() || isInputImage() || isNativeImage() || isCanvas() || (node() && node()->hasTagName(imgTag));
+#if ENABLE(MODEL_ELEMENT)
+    usesAltTag |= isModel();
+#endif
+    return usesAltTag;
 }
 
 bool AccessibilityNodeObject::isLabelable() const
@@ -1811,6 +1759,11 @@ static bool shouldUseAccessibilityObjectInnerText(AccessibilityObject* obj, Acce
     if (obj->isTree() || obj->isCanvas())
         return false;
 
+#if ENABLE(MODEL_ELEMENT)
+    if (obj->isModel())
+        return false;
+#endif
+
     return true;
 }
 
@@ -2024,7 +1977,7 @@ SRGBA<uint8_t> AccessibilityNodeObject::colorValue() const
     if (!is<HTMLInputElement>(node()))
         return Color::transparentBlack;
 
-    return downcast<HTMLInputElement>(*node()).valueAsColor().toSRGBALossy<uint8_t>();
+    return downcast<HTMLInputElement>(*node()).valueAsColor().toColorTypeLossy<SRGBA<uint8_t>>();
 #endif
 }
 
@@ -2222,7 +2175,7 @@ bool AccessibilityNodeObject::canSetValueAttribute() const
     if (isProgressIndicator() || isSlider() || isScrollbar())
         return true;
 
-#if USE(ATK)
+#if USE(ATK) || USE(ATSPI)
     // In ATK, input types which support aria-readonly are treated as having a
     // settable value if the user can modify the widget's value or its state.
     if (supportsReadOnly())

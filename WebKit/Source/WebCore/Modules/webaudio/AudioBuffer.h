@@ -32,7 +32,8 @@
 #include "AudioBufferOptions.h"
 #include "ExceptionOr.h"
 #include "JSValueInWrappedObject.h"
-#include <JavaScriptCore/Float32Array.h>
+#include <JavaScriptCore/Forward.h>
+#include <JavaScriptCore/GenericTypedArrayView.h>
 #include <wtf/Lock.h>
 #include <wtf/Vector.h>
 
@@ -91,6 +92,10 @@ private:
     void invalidate();
 
     bool hasDetachedChannelBuffer() const;
+
+    // We do not currently support having the Float32Arrays in m_channels being more than 2GB,
+    // and we have tests that we return an error promptly on trying to create such a huge AudioBuffer.
+    static constexpr uint64_t s_maxLength = (1ull << 32) / sizeof(float);
 
     float m_sampleRate;
     mutable Lock m_channelsLock;

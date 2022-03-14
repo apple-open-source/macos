@@ -502,11 +502,25 @@ private:
             if (m_node->op() == RegExpExec || m_node->op() == RegExpTest || m_node->op() == RegExpMatchFast) {
                 regExpObjectNode = m_node->child2().node();
                 if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>(vm())) {
+                    JSGlobalObject* globalObject = regExpObject->globalObject(vm());
+                    if (globalObject->isRegExpRecompiled()) {
+                        if (verbose)
+                            dataLog("Giving up because RegExp recompile happens.\n");
+                        break;
+                    }
+                    m_graph.watchpoints().addLazily(globalObject->regExpRecompiledWatchpoint());
                     regExp = regExpObject->regExp();
                     regExpObjectNodeIsConstant = true;
-                } else if (regExpObjectNode->op() == NewRegexp)
+                } else if (regExpObjectNode->op() == NewRegexp) {
+                    JSGlobalObject* globalObject = m_graph.globalObjectFor(regExpObjectNode->origin.semantic);
+                    if (globalObject->isRegExpRecompiled()) {
+                        if (verbose)
+                            dataLog("Giving up because RegExp recompile happens.\n");
+                        break;
+                    }
+                    m_graph.watchpoints().addLazily(globalObject->regExpRecompiledWatchpoint());
                     regExp = regExpObjectNode->castOperand<RegExp*>();
-                else {
+                } else {
                     if (verbose)
                         dataLog("Giving up because the regexp is unknown.\n");
                     break;
@@ -802,6 +816,45 @@ private:
                 return true;
             };
 
+#if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
+            auto convertTestToTestInline = [&] {
+                if (m_node->op() != RegExpTest)
+                    return false;
+
+                if (regExp->globalOrSticky())
+                    return false;
+
+                if (regExp->unicode())
+                    return false;
+
+                auto jitCodeBlock = regExp->getRegExpJITCodeBlock();
+                if (!jitCodeBlock)
+                    return false;
+
+                auto inlineCodeStats8Bit = jitCodeBlock->get8BitInlineStats();
+
+                if (!inlineCodeStats8Bit.canInline())
+                    return false;
+
+                unsigned codeSize = inlineCodeStats8Bit.codeSize();
+
+                if (codeSize > Options::maximumRegExpTestInlineCodesize())
+                    return false;
+
+                unsigned alignedFrameSize = WTF::roundUpToMultipleOf(stackAlignmentBytes(), inlineCodeStats8Bit.stackSize());
+
+                if (alignedFrameSize)
+                    m_graph.m_parameterSlots = std::max(m_graph.m_parameterSlots, argumentCountForStackSize(alignedFrameSize));
+
+                NodeOrigin origin = m_node->origin;
+                m_insertionSet.insertNode(
+                    m_nodeIndex, SpecNone, Check, origin, m_node->children.justChecks());
+                m_node->convertToRegExpTestInline(m_graph.freeze(globalObject), m_graph.freeze(regExp));
+                m_changed = true;
+                return true;
+            };
+#endif
+
             auto convertToStatic = [&] {
                 if (m_node->op() != RegExpExec)
                     return false;
@@ -820,6 +873,11 @@ private:
             if (foldToConstant())
                 break;
 
+#if ENABLE(YARR_JIT_REGEXP_TEST_INLINE)
+            if (convertTestToTestInline())
+                break;
+#endif
+
             if (convertToStatic())
                 break;
 
@@ -835,11 +893,25 @@ private:
             
             Node* regExpObjectNode = m_node->child2().node();
             RegExp* regExp;
-            if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>(vm()))
+            if (RegExpObject* regExpObject = regExpObjectNode->dynamicCastConstant<RegExpObject*>(vm())) {
+                JSGlobalObject* globalObject = regExpObject->globalObject(vm());
+                if (globalObject->isRegExpRecompiled()) {
+                    if (verbose)
+                        dataLog("Giving up because RegExp recompile happens.\n");
+                    break;
+                }
+                m_graph.watchpoints().addLazily(globalObject->regExpRecompiledWatchpoint());
                 regExp = regExpObject->regExp();
-            else if (regExpObjectNode->op() == NewRegexp)
+            } else if (regExpObjectNode->op() == NewRegexp) {
+                JSGlobalObject* globalObject = m_graph.globalObjectFor(regExpObjectNode->origin.semantic);
+                if (globalObject->isRegExpRecompiled()) {
+                    if (verbose)
+                        dataLog("Giving up because RegExp recompile happens.\n");
+                    break;
+                }
+                m_graph.watchpoints().addLazily(globalObject->regExpRecompiledWatchpoint());
                 regExp = regExpObjectNode->castOperand<RegExp*>();
-            else {
+            } else {
                 if (verbose)
                     dataLog("Giving up because the regexp is unknown.\n");
                 break;

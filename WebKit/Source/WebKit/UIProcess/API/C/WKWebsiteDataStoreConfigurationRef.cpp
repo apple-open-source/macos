@@ -140,6 +140,16 @@ void WKWebsiteDataStoreConfigurationSetServiceWorkerRegistrationDirectory(WKWebs
     WebKit::toImpl(configuration)->setServiceWorkerRegistrationDirectory(WebKit::toImpl(directory)->string());
 }
 
+WKStringRef WKWebsiteDataStoreConfigurationCopyCookieStorageFile(WKWebsiteDataStoreConfigurationRef configuration)
+{
+    return WebKit::toCopiedAPI(WebKit::toImpl(configuration)->cookieStorageFile());
+}
+
+void WKWebsiteDataStoreConfigurationSetCookieStorageFile(WKWebsiteDataStoreConfigurationRef configuration, WKStringRef cookieStorageFile)
+{
+    WebKit::toImpl(configuration)->setCookieStorageFile(WebKit::toImpl(cookieStorageFile)->string());
+}
+
 uint64_t WKWebsiteDataStoreConfigurationGetPerOriginStorageQuota(WKWebsiteDataStoreConfigurationRef configuration)
 {
     return WebKit::toImpl(configuration)->perOriginStorageQuota();
@@ -178,4 +188,14 @@ bool WKWebsiteDataStoreConfigurationGetStaleWhileRevalidateEnabled(WKWebsiteData
 void WKWebsiteDataStoreConfigurationSetStaleWhileRevalidateEnabled(WKWebsiteDataStoreConfigurationRef configuration, bool enabled)
 {
     WebKit::toImpl(configuration)->setStaleWhileRevalidateEnabled(enabled);
+}
+
+WKStringRef WKWebsiteDataStoreConfigurationCopyPCMMachServiceName(WKWebsiteDataStoreConfigurationRef configuration)
+{
+    return WebKit::toCopiedAPI(WebKit::toImpl(configuration)->pcmMachServiceName());
+}
+
+void WKWebsiteDataStoreConfigurationSetPCMMachServiceName(WKWebsiteDataStoreConfigurationRef configuration, WKStringRef name)
+{
+    WebKit::toImpl(configuration)->setPCMMachServiceName(name ? WebKit::toImpl(name)->string() : String());
 }

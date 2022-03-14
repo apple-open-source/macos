@@ -197,15 +197,6 @@ __BEGIN_DECLS
 #define SEC_CK_DONT_ALLOW           SecStringWithDefaultValue("Don’t Allow", "CloudKeychain", 0, "Don’t Allow", "Don’t Allow button")
 #define SEC_CK_ICLOUD_PASSWORD      SecStringWithDefaultValue("Password", "CloudKeychain", 0, "password", "Password prompt text")
 
-#define SEC_CK_TID_FUTURE           SecStringWithDefaultValue("the future", "CloudKeychain", 0, "the future", "the future")
-#define SEC_CK_TID_NOW              SecStringWithDefaultValue("now", "CloudKeychain", 0, "now", "now")
-#define SEC_CK_TID_SUBSECOND        SecStringWithDefaultValue("less than a second", "CloudKeychain", 0, "less than a second", "Less then then one second")
-#define SEC_CK_TID_SECONDS          SecStringWithDefaultValue("seconds", "CloudKeychain", 0, "seconds", "More than one second")
-#define SEC_CK_TID_MINUTES          SecStringWithDefaultValue("minutes", "CloudKeychain", 0, "minutes", "More than one minute")
-#define SEC_CK_TID_HOURS            SecStringWithDefaultValue("hours", "CloudKeychain", 0, "hours", "More than one hour")
-#define SEC_CK_TID_DAY              SecStringWithDefaultValue("day", "CloudKeychain", 0, "day", "One day")
-#define SEC_CK_TID_DAYS             SecStringWithDefaultValue("days", "CloudKeychain", 0, "days", "More than one day")
-
 #define SEC_CK_PWD_REQUIRED_TITLE		SecStringWithDefaultValue("Apple ID Password Required", "CloudKeychain", 0, "Apple ID Password Required", "Title for alert when iCloud keychain was disabled or reset")
 #define SEC_CK_PWD_REQUIRED_BODY_OSX	SecStringWithDefaultValue("Enter your password in Apple ID Preferences.", "CloudKeychain", 0, "Enter your password in Apple ID Preferences.", "macOS alert text when iCloud keychain was disabled or reset")
 #define SEC_CK_PWD_REQUIRED_BODY_IOS	SecStringWithDefaultValue("Enter your password in iCloud Settings.", "CloudKeychain", 0, "Enter your password in iCloud Settings.", "iOS alert text when iCloud keychain was disabled or reset")

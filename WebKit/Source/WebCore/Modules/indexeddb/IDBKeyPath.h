@@ -26,13 +26,13 @@
 
 #pragma once
 
-#include <wtf/Variant.h>
+#include <variant>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-using IDBKeyPath = WTF::Variant<String, Vector<String>>;
+using IDBKeyPath = std::variant<String, Vector<String>>;
 bool isIDBKeyPathValid(const IDBKeyPath&);
 
 enum class IDBKeyPathParseError {

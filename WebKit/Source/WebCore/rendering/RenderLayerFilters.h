@@ -63,18 +63,23 @@ public:
     // Per render
     LayoutRect repaintRect() const { return m_repaintRect; }
 
-    GraphicsContext* beginFilterEffect(GraphicsContext& destinationContext, const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect, const LayoutRect& layerRepaintRect);
+    GraphicsContext* beginFilterEffect(RenderElement&, const LayoutRect& filterBoxRect, const LayoutRect& dirtyRect, const LayoutRect& layerRepaintRect);
     void applyFilterEffect(GraphicsContext& destinationContext);
 
 private:
     void notifyFinished(CachedResource&, const NetworkLoadMetrics&) final;
     void resetDirtySourceRect() { m_dirtySourceRect = LayoutRect(); }
+    GraphicsContext* inputContext();
+    void allocateBackingStoreIfNeeded();
 
     RenderLayer& m_layer;
 
     Vector<RefPtr<Element>> m_internalSVGReferences;
     Vector<CachedResourceHandle<CachedSVGDocument>> m_externalSVGReferences;
 
+    LayoutRect m_targetBoundingBox;
+    FloatRect m_filterRegion;
+    RefPtr<ImageBuffer> m_sourceImage;
     RefPtr<CSSFilter> m_filter;
     LayoutRect m_dirtySourceRect;
     

@@ -403,7 +403,7 @@ cti_get_uint64_property(cti_connection_t *ref, void *NULLABLE context, cti_uint6
     cti_connection_t conn_ref;
     ret = cti_connection_create(context, app_callback, cti_internal_uint64_property_callback, &conn_ref);
     if (ret == kCTIStatus_NoError) {
-        if (cti_connection_message_create(conn_ref, kCTIMessageType_RequestUInt64PropEvent, 4)) {
+        if (cti_connection_message_create(conn_ref, kCTIMessageType_RequestUInt64PropEvents, 4)) {
             if (!cti_connection_u32_put(conn_ref, property_name) || !cti_connection_message_send(conn_ref)) {
                 ret = kCTIStatus_Disconnected;
             }

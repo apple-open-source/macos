@@ -158,16 +158,27 @@ WebCore::PrivateClickMeasurement DatabaseUtilities::buildPrivateClickMeasurement
     if (bundleID.isEmpty())
         bundleID = safariBundleID;
 
-    WebCore::PrivateClickMeasurement attribution(WebCore::PrivateClickMeasurement::SourceID(sourceID), WebCore::PrivateClickMeasurement::SourceSite(WebCore::RegistrableDomain::uncheckedCreateFromRegistrableDomainString(sourceSiteDomain)), WebCore::PrivateClickMeasurement::AttributionDestinationSite(WebCore::RegistrableDomain::uncheckedCreateFromRegistrableDomainString(destinationSiteDomain)), bundleID, { }, { }, WallTime::fromRawSeconds(timeOfAdClick));
+    WebCore::PrivateClickMeasurement attribution(WebCore::PrivateClickMeasurement::SourceID(sourceID), WebCore::PrivateClickMeasurement::SourceSite(WebCore::RegistrableDomain::uncheckedCreateFromRegistrableDomainString(sourceSiteDomain)), WebCore::PrivateClickMeasurement::AttributionDestinationSite(WebCore::RegistrableDomain::uncheckedCreateFromRegistrableDomainString(destinationSiteDomain)), bundleID, WallTime::fromRawSeconds(timeOfAdClick), WebCore::PrivateClickMeasurement::AttributionEphemeral::No);
 
+    // These indices are zero-based: https://www.sqlite.org/c3ref/column_blob.html "The leftmost column of the result set has the index 0".
     if (attributionType == PrivateClickMeasurementAttributionType::Attributed) {
         auto attributionTriggerData = statement.columnInt(3);
         auto priority = statement.columnInt(4);
         auto sourceEarliestTimeToSendValue = statement.columnDouble(6);
         auto destinationEarliestTimeToSendValue = statement.columnDouble(10);
+        auto destinationToken = statement.columnText(12);
+        auto destinationSignature = statement.columnText(13);
+        auto destinationKeyID = statement.columnText(14);
 
         if (attributionTriggerData != -1)
-            attribution.setAttribution(WebCore::PrivateClickMeasurement::AttributionTriggerData { static_cast<uint32_t>(attributionTriggerData), WebCore::PrivateClickMeasurement::Priority(priority) });
+            attribution.setAttribution(WebCore::PrivateClickMeasurement::AttributionTriggerData { static_cast<uint8_t>(attributionTriggerData), WebCore::PrivateClickMeasurement::Priority(priority) });
+
+        WebCore::PrivateClickMeasurement::DestinationSecretToken destinationSecretToken;
+        destinationSecretToken.tokenBase64URL = destinationToken;
+        destinationSecretToken.signatureBase64URL = destinationSignature;
+        destinationSecretToken.keyIDBase64URL = destinationKeyID;
+
+        attribution.setDestinationSecretToken(WTFMove(destinationSecretToken));
 
         std::optional<WallTime> sourceEarliestTimeToSend;
         std::optional<WallTime> destinationEarliestTimeToSend;
@@ -182,7 +193,12 @@ WebCore::PrivateClickMeasurement DatabaseUtilities::buildPrivateClickMeasurement
         attribution.setTimesToSend({ sourceEarliestTimeToSend, destinationEarliestTimeToSend });
     }
 
-    attribution.setSourceSecretToken({ token, signature, keyID });
+    WebCore::PrivateClickMeasurement::SourceSecretToken sourceSecretToken;
+    sourceSecretToken.tokenBase64URL = token;
+    sourceSecretToken.signatureBase64URL = signature;
+    sourceSecretToken.keyIDBase64URL = keyID;
+
+    attribution.setSourceSecretToken(WTFMove(sourceSecretToken));
 
     return attribution;
 }
@@ -257,21 +273,25 @@ static Expected<WebCore::SQLiteStatement, int> insertDistinctValuesInTableStatem
 
 void DatabaseUtilities::migrateDataToNewTablesIfNecessary()
 {
+    ASSERT(!RunLoop::isMain());
     if (!needsUpdatedSchema())
         return;
 
-    auto transactionScope = beginTransactionIfNecessary();
+    WebCore::SQLiteTransaction transaction(m_database);
+    transaction.begin();
 
     for (auto& table : expectedTableAndIndexQueries().keys()) {
         auto alterTable = m_database.prepareStatementSlow(makeString("ALTER TABLE ", table, " RENAME TO _", table));
         if (!alterTable || alterTable->step() != SQLITE_DONE) {
             RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - DatabaseUtilities::migrateDataToNewTablesIfNecessary failed to rename table, error message: %s", this, m_database.lastErrorMsg());
+            transaction.rollback();
             ASSERT_NOT_REACHED();
             return;
         }
     }
 
     if (!createSchema()) {
+        transaction.rollback();
         ASSERT_NOT_REACHED();
         return;
     }
@@ -280,7 +300,8 @@ void DatabaseUtilities::migrateDataToNewTablesIfNecessary()
     for (auto& table : sortedTables()) {
         auto migrateTableData = insertDistinctValuesInTableStatement(m_database, table);
         if (!migrateTableData || migrateTableData->step() != SQLITE_DONE) {
-            RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - DatabaseUtilities::migrateDataToNewTablesIfNecessary (table %s) failed to migrate schema, error message: %s", this, table.utf8().data(), m_database.lastErrorMsg());
+            transaction.rollback();
+            RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - DatabaseUtilities::migrateDataToNewTablesIfNecessary (table %s) failed to migrate schema, error message: %s", this, table.characters(), m_database.lastErrorMsg());
             ASSERT_NOT_REACHED();
             return;
         }
@@ -290,6 +311,7 @@ void DatabaseUtilities::migrateDataToNewTablesIfNecessary()
     for (auto& table : sortedTables()) {
         auto dropTableQuery = m_database.prepareStatementSlow(makeString("DROP TABLE _", table));
         if (!dropTableQuery || dropTableQuery->step() != SQLITE_DONE) {
+            transaction.rollback();
             RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - DatabaseUtilities::migrateDataToNewTablesIfNecessary failed to drop temporary tables, error message: %s", this, m_database.lastErrorMsg());
             ASSERT_NOT_REACHED();
             return;
@@ -298,8 +320,12 @@ void DatabaseUtilities::migrateDataToNewTablesIfNecessary()
 
     if (!createUniqueIndices()) {
         RELEASE_LOG_ERROR(PrivateClickMeasurement, "%p - DatabaseUtilities::migrateDataToNewTablesIfNecessary failed to create unique indices, error message: %s", this, m_database.lastErrorMsg());
+        transaction.rollback();
         ASSERT_NOT_REACHED();
+        return;
     }
+
+    transaction.commit();
 }
 
 } // namespace WebKit

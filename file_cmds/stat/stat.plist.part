@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>stat</string>
+		<key>OpenSourceVersion</key>
+		<string>2019-05-01</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/stat?id=98ce554a3d65fbc513d20a1d78ffa6c9d67881d1</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-08-11</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>stat.1, stat.c: remove -H and nfs handle verbiage (81827728)</string>
+			<string>stat.c: fdevname_r is not implemented (81827728)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

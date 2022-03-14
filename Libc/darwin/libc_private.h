@@ -24,8 +24,8 @@
 #ifndef __LIBC_PRIVATE_H__
 #define __LIBC_PRIVATE_H__
 
+#include <os/availability.h>
 #include <sys/cdefs.h>
-#include <Availability.h>
 #include <stddef.h>
 
 __BEGIN_DECLS
@@ -47,7 +47,7 @@ __BEGIN_DECLS
 extern int
 _atexit_receipt(void);
 
-__IOS_AVAILABLE(9.0) __OSX_AVAILABLE(10.11)
+API_AVAILABLE(macos(10.11), ios(9.0), tvos(9.0), watchos(2.0))
 extern void
 abort_report_np(const char *, ...) __dead2 __cold __printflike(1, 2);
 
@@ -55,6 +55,12 @@ abort_report_np(const char *, ...) __dead2 __cold __printflike(1, 2);
 /* f must be a literal string */
 #define LIBC_ABORT(f,...)	abort_report_np("%s:%s:%u: " f, __FILE_NAME__, __func__, __LINE__, ## __VA_ARGS__)
 //End-Libc
+
+API_AVAILABLE(macos(12.3), ios(15.4), tvos(15.0), watchos(8.5))
+extern void environ_lock_np(void);
+
+API_AVAILABLE(macos(12.3), ios(15.4), tvos(15.4), watchos(8.5))
+extern void environ_unlock_np(void);
 
 __END_DECLS
 

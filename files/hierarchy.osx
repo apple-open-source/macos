@@ -72,7 +72,6 @@
 0755	441	441	private/var/db/oah
 0750	273	273	private/var/db/appinstalld
 0750	274	274	private/var/db/installcoordinationd
-0750	277	277	private/var/db/rmd
 0755	root	wheel	private/var/db/powerlog
 0755	root	wheel	private/var/db/receipts
 0750 	92	92	private/var/db/securityagent

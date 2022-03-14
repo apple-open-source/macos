@@ -6,7 +6,7 @@
 #ifndef _SM_INTER_H_RPCGEN
 #define _SM_INTER_H_RPCGEN
 
-#define RPCGEN_VERSION	199506
+#define RPCGEN_VERSION  199506
 
 #include <oncrpc/rpc.h>
 

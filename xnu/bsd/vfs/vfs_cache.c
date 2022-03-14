@@ -109,7 +109,7 @@
  * Structures associated with name cacheing.
  */
 
-ZONE_DECLARE(namecache_zone, "namecache", sizeof(struct namecache), ZC_NONE);
+ZONE_DEFINE_TYPE(namecache_zone, "namecache", struct namecache, ZC_NONE);
 
 LIST_HEAD(nchashhead, namecache) * nchashtbl;    /* Hash Table */
 u_long  nchashmask;
@@ -496,7 +496,7 @@ again:
 
 #if CONFIG_FIRMLINKS
 	if (!(flags & BUILDPATH_NO_FIRMLINK) &&
-	    (vp->v_flag & VFMLINKTARGET) && vp->v_fmlink) {
+	    (vp->v_flag & VFMLINKTARGET) && vp->v_fmlink && (vp->v_fmlink->v_type == VDIR)) {
 		vp = vp->v_fmlink;
 	}
 #endif
@@ -525,7 +525,7 @@ again:
 			 */
 #if CONFIG_FIRMLINKS
 			if (!(flags & BUILDPATH_NO_FIRMLINK) &&
-			    (vp->v_flag & VFMLINKTARGET) && vp->v_fmlink) {
+			    (vp->v_flag & VFMLINKTARGET) && vp->v_fmlink && (vp->v_fmlink->v_type == VDIR)) {
 				vp = vp->v_fmlink;
 			} else
 #endif
@@ -764,7 +764,7 @@ bad_news:
 
 #if CONFIG_FIRMLINKS
 			if (!(flags & BUILDPATH_NO_FIRMLINK) &&
-			    (tvp->v_flag & VFMLINKTARGET) && tvp->v_fmlink) {
+			    (tvp->v_flag & VFMLINKTARGET) && tvp->v_fmlink && (vp->v_fmlink->v_type == VDIR)) {
 				tvp = tvp->v_fmlink;
 				break;
 			}
@@ -1591,6 +1591,19 @@ cache_lookup_path(struct nameidata *ndp, struct componentname *cnp, vnode_t dp,
 
 		if (cnp->cn_namelen == 2 && cnp->cn_nameptr[1] == '.' && cnp->cn_nameptr[0] == '.') {
 			cnp->cn_flags |= ISDOTDOT;
+#if CONFIG_FIRMLINKS
+			/*
+			 * If this is a firmlink target then dp has to be switched to the
+			 * firmlink "source" before exiting this loop.
+			 *
+			 * For a firmlink "target", the policy is to pick the parent of the
+			 * firmlink "source" as the parent. This means that you can never
+			 * get to the "real" parent of firmlink target via a dotdot lookup.
+			 */
+			if (dp->v_fmlink && (dp->v_flag & VFMLINKTARGET) && (dp->v_fmlink->v_type == VDIR)) {
+				dp = dp->v_fmlink;
+			}
+#endif
 		}
 
 		*dp_authorized = 0;
@@ -1668,18 +1681,6 @@ skiprsrcfork:
 		*dp_authorized = 1;
 
 		if ((cnp->cn_flags & (ISLASTCN | ISDOTDOT))) {
-			/*
-			 * Moving the firmlinks section to be first to catch a corner case:
-			 * When using DOTDOT to get a parent of a firmlink, we want the
-			 * firmlink source to be resolved even if cn_nameiop != LOOKUP.
-			 * This is because lookup() traverses DOTDOT by calling VNOP_LOOKUP
-			 * and has no notion about firmlinks
-			 */
-#if CONFIG_FIRMLINKS
-			if (cnp->cn_flags & ISDOTDOT && dp->v_fmlink && (dp->v_flag & VFMLINKTARGET)) {
-				dp = dp->v_fmlink;
-			}
-#endif
 			if (cnp->cn_nameiop != LOOKUP) {
 				break;
 			}
@@ -2513,7 +2514,7 @@ resize_namecache(int newsize)
 	desiredNegNodes = dNegNodes;
 
 	NAME_CACHE_UNLOCK();
-	FREE(old_table, M_CACHE);
+	hashdestroy(old_table, M_CACHE, old_size - 1);
 
 	return 0;
 }
@@ -2733,7 +2734,7 @@ resize_string_ref_table(void)
 	}
 	lck_rw_done(&strtable_rw_lock);
 
-	FREE(old_table, M_CACHE);
+	hashdestroy(old_table, M_CACHE, old_mask);
 }
 
 

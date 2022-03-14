@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2010 Google Inc. All rights reserved.
- * Copyright (C) 2017 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,7 +33,9 @@
 #pragma once
 
 #include "ReferrerPolicy.h"
+#include "SecurityOriginData.h"
 #include <wtf/Forward.h>
+#include <wtf/JSONValues.h>
 #include <wtf/Ref.h>
 
 namespace WebCore {
@@ -45,7 +47,6 @@ class ResourceRequest;
 
 enum class ViolationReportType : uint8_t {
     ContentSecurityPolicy,
-    XSSAuditor,
     StandardReportingAPIViolation // https://www.w3.org/TR/reporting/#try-delivery
 };
 
@@ -58,7 +59,6 @@ public:
     WEBCORE_EXPORT static void sendViolationReport(Frame&, const URL& reportURL, Ref<FormData>&& report, ViolationReportType);
 
     static String sanitizeURLForReport(const URL&);
-    static void sendReportToEndpoint(Frame&, const SecurityOriginData&, const String& endpoint, const String& type, const URL& reportURL, const String& userAgent, const Function<void(JSON::Object&)>& populateReportBody);
 
 private:
     enum class ShouldFollowRedirects { No, Yes };

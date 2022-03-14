@@ -93,11 +93,11 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
     }
 
     if (extensionCount) {
-        SandboxExtension::HandleArray handles;
+        Vector<SandboxExtension::Handle> handles;
         Vector<String> ids;
 
         if (!proxy.page().preferences().mockCaptureDevicesEnabled()) {
-            handles.allocate(extensionCount);
+            handles.resize(extensionCount);
             ids.reserveInitialCapacity(extensionCount);
 
             if (needsAudioSandboxExtension) {
@@ -131,6 +131,8 @@ bool UserMediaProcessManager::willCreateMediaStream(UserMediaPermissionRequestMa
                 WTFLogAlways("Could not create a required sandbox extension, capture will fail!");
                 return false;
             }
+
+            // FIXME: Is it correct to ensure that the corresponding entries in `handles` and `ids` are in reverse order?
         }
 
         for (const auto& id : ids)
@@ -224,7 +226,7 @@ void UserMediaProcessManager::captureDevicesChanged()
 
 void UserMediaProcessManager::updateCaptureDevices(ShouldNotify shouldNotify)
 {
-    WebCore::RealtimeMediaSourceCenter::singleton().getMediaStreamDevices([weakThis = makeWeakPtr(*this), this, shouldNotify](auto&& newDevices) mutable {
+    WebCore::RealtimeMediaSourceCenter::singleton().getMediaStreamDevices([weakThis = WeakPtr { *this }, this, shouldNotify](auto&& newDevices) mutable {
         if (!weakThis)
             return;
 

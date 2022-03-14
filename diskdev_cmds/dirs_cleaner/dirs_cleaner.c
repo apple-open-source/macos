@@ -44,13 +44,9 @@
 //#include <CacheDelete/CacheDeletePrivate.h>
 #define CACHE_DELETE_AUTO_PURGE_DIRECTORY	"/private/var/dirs_cleaner/"
 
-#if defined(DEBUG) || defined(DIRS_CLEANER_TRACK)
 #define DIRS_CLEANER_ERROR(res, fmt, ...) \
 	(void)fprintf(stderr, "%s: " fmt " failed with errno=%d: %s\n", \
 					__FUNCTION__, ##__VA_ARGS__, (res), strerror(res))
-#else
-#define DIRS_CLEANER_ERROR(res, fmt, ...)
-#endif
 
 #ifdef DIRS_CLEANER_TRACK
 #define DIRS_CLEANER_MSG(res, ct, fmt, ...) \
@@ -255,8 +251,9 @@ dc_state_set_dirs_sync(dir_ctx_t *ctx)
 }
 
 static inline bool
-dc_state_is_dirs_sync(const dir_ctx_t *ctx)
+dc_state_should_rmdir_hierarchy_synchronously(const dir_ctx_t *ctx)
 {
+	//should we remove the entire input hierarchy synchronously?
 	return dc_state_is_set(ctx, DC_STATE_DIRS_SYNC);
 }
 
@@ -273,8 +270,9 @@ dc_state_clear_dir_sync(dir_ctx_t *ctx)
 }
 
 static inline bool
-dc_state_is_dir_sync(const dir_ctx_t *ctx)
+dc_state_should_rmdir_synchronously(const dir_ctx_t *ctx)
 {
+	//remove only this item synchronously
 	return dc_state_is_set(ctx, DC_STATE_DIR_SYNC);
 }
 
@@ -300,6 +298,20 @@ static inline bool
 dc_state_is_thread_stop(const dir_ctx_t *ctx)
 {
 	return dc_state_is_set(ctx, DC_STATE_THREAD_STOP);
+}
+
+/* soldier on in the face of any error */
+static int
+removefile_error_continue(removefile_state_t st, const char *path, __unused void *rmctx)
+{
+	int local_errno = 0;
+	if (removefile_state_get(st, REMOVEFILE_STATE_ERRNO, &local_errno)) {
+		fprintf(stderr, "dc removefile unknown error on path: %s ", path);
+	} else {
+		fprintf(stderr, "dc removefile error: %d on path: %s ", local_errno, path);
+	}
+	fprintf(stderr,  "...continuing...\n");
+	return REMOVEFILE_SKIP;
 }
 
 // Swap input and temporary directories
@@ -371,7 +383,8 @@ dc_reset(dir_ctx_t *ctx, const char *path)
 					 ctx->dc_gattrs.dga_prot_class, path, ctx->dc_res_path);
 
 	if (!res) {
-		if (dc_state_is_dirs_sync(ctx)) {
+		if (dc_state_should_rmdir_hierarchy_synchronously(ctx)) {
+			//mark subdirectories for synchronous unlink if necessary
 			dc_state_set_dir_sync(ctx);
 		} else {
 			memset(&ctx->dc_temp_path[ctx->dc_Xpos], 'X', DC_TEMP_PATH_NUMX);
@@ -517,6 +530,11 @@ dc_init_thread_ctx(dir_ctx_t *ctx)
 		DIRS_CLEANER_ERROR(res, "removefile_state_alloc(...)");
 		return false;
 	}
+	if (removefile_state_set(tctx->dtc_rf_state, REMOVEFILE_STATE_ERROR_CALLBACK, removefile_error_continue)) {
+		res = errno;
+		DIRS_CLEANER_ERROR(res, "failed to set error cb!\n");
+		//continue on anyway.
+	}
 
 	if ((res = pthread_mutex_init(&tctx->dtc_mutex, NULL))) {
 		DIRS_CLEANER_ERROR(res, "pthread_mutex_init(...)");
@@ -543,12 +561,6 @@ dc_init_thread_ctx(dir_ctx_t *ctx)
 	return (!res);
 }
 
-// Used temporarily to avoid dependency issues against removefile rev'ing an enum
-// at the same time. Delete this #define and replace DC_LONGPATHS with
-// REMOVEFILE_ALLOW_LONG_PATHS once removefile is safely in a build.
-// See rdar://76152973
-#define DC_LONGPATHS (1 << 8)
-
 // Partially synchronously clean temporary directories
 static void
 dc_clean_part_sync(dir_ctx_t *ctx)
@@ -557,7 +569,7 @@ dc_clean_part_sync(dir_ctx_t *ctx)
 
 	if(dc_init_thread_ctx(ctx) &&
 	   removefile(ctx->dc_temp_path, tctx->dtc_rf_state, REMOVEFILE_RECURSIVE |
-				  REMOVEFILE_KEEP_PARENT | DC_LONGPATHS)) {
+				  REMOVEFILE_KEEP_PARENT | REMOVEFILE_ALLOW_LONG_PATHS)) {
 		__unused int res = errno;
 
 		if (res == ECANCELED)
@@ -575,10 +587,19 @@ dc_clean_sync(dir_ctx_t *ctx, bool input_path)
 {
 	int res = 0;
 	const char *path = input_path ? ctx->dc_res_path : ctx->dc_temp_path;
+	removefile_state_t rmst = NULL;
+	rmst = removefile_state_alloc();
+	if (rmst) {
+		removefile_state_set(rmst, REMOVEFILE_STATE_ERROR_CALLBACK, removefile_error_continue);
+	}
 
-	if (removefile(path, NULL, REMOVEFILE_RECURSIVE | REMOVEFILE_KEEP_PARENT | DC_LONGPATHS)) {
+	if (removefile(path, rmst, REMOVEFILE_RECURSIVE | REMOVEFILE_KEEP_PARENT | REMOVEFILE_ALLOW_LONG_PATHS)) {
 		res = errno;
 		DIRS_CLEANER_ERROR(res, "removefile(%s, NULL, ...)", path);
+	}
+
+	if (rmst) {
+		removefile_state_free(rmst);
 	}
 
 	DIRS_CLEANER_MSG(res, ctx, "dc_res_path=%s", path);
@@ -622,39 +643,52 @@ usage()
  * CacheDelete is expected to actually wipe out entire name space tree rooted at
  * dc_temp_path.
  *
- * dirs_cleaner returns an error when an input directory cannot be cleaned (made empty).
- * Otherwise, it does return success (0). None, part, or all name spaces rooted
- * at input directories were actually removed by time of return.
+ * dirs_cleaner could return an error when an input directory cannot be cleaned (made empty).
+ * However, due to its role as a boot-task we elect to make this tool best effort.
  */
 int
 main(int argc, char *argv[])
 {
 	dir_ctx_t ctx;
-	int init, res, comb_res = 0;
+	int init = 0;
+    int res = 0;
+	bool encountered_errors = false;
 	bool clean_async = false;
 
 	if (argc == 1)
 		usage();
 
 	init = strcmp(argv[1], "--init") ? 0 : 1;
-	if (init == 1 && argc == 2)
+	if (init == 1 && argc == 2) {
 		usage();
+	}
 
 	dc_construct(&ctx, CACHE_DELETE_AUTO_PURGE_DIRECTORY, init);
 
 	for (int i = 1 + init; i < argc; i++) {
-		if ((res = dc_reset(&ctx, argv[i])) || (dc_state_is_dir_sync(&ctx) && (res = dc_clean_sync(&ctx, true)))) {
-			fprintf(stderr, "dirs_cleaner: %s: %s\n", argv[i], strerror(res));
-			if (!comb_res)
-				comb_res = res;
+		/* reinitialize the dcs state for a new input directory */
+		res = dc_reset (&ctx, argv[i]);
+
+		if (res) {
+			fprintf(stderr, "dc_reset: %s: %s\n", argv[i], strerror(res));
+			encountered_errors = true;
+		} else {
+			/* check if we need to do this synchronously.  If so, do it */
+			if (dc_state_should_rmdir_synchronously(&ctx) && (res = dc_clean_sync(&ctx, true))) {
+				fprintf(stderr, "dc_clean_sync: %s: %s\n", argv[i], strerror(res));
+				encountered_errors = true;
+			}
 		}
-		if (!res && !dc_state_is_dir_sync(&ctx))
+
+		if (!res && !dc_state_should_rmdir_synchronously(&ctx)) {
 			clean_async = true;
+		}
 	}
 
 	if (init) {
-		if (comb_res) {
-			if (!dc_state_is_dirs_sync(&ctx)) {
+		if (encountered_errors) {
+			if (!dc_state_should_rmdir_hierarchy_synchronously(&ctx)) {
+				/* reset state for asynchronous cleaning */
 				ctx.dc_temp_path[ctx.dc_Xpos] = 0;
 				(void)dc_clean_sync(&ctx, false);
 			}
@@ -663,8 +697,5 @@ main(int argc, char *argv[])
 		}
 	}
 
-	if (comb_res)
-		comb_res = EX_NOINPUT;
-
-	exit(comb_res);
+	return 0;
 }

@@ -557,7 +557,7 @@ hu{
         }
         LSL{
             "LSL",
-            "Lesothoi loti",
+            "lesothoi loti",
         }
         LTL{
             "LTL",
@@ -1068,7 +1068,7 @@ hu{
             "Francia UIC-frank",
         }
         XOF{
-            "CFA",
+            "F CFA",
             "CFA frank BCEAO",
         }
         XPD{
@@ -1728,6 +1728,10 @@ hu{
         LRD{
             one{"libériai dollár"}
             other{"libériai dollár"}
+        }
+        LSL{
+            one{"lesothoi loti"}
+            other{"lesothoi loti"}
         }
         LTL{
             one{"litvániai litas"}

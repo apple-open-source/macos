@@ -1,15 +1,215 @@
 #freebsd = https://github.com/freebsd/freebsd-legacy.git
 #freebsd-src = https://git.FreeBSD.org/src.git
 
+banner/banner.6	freebsd-src	usr.bin/banner/banner.6	b77e235dd52a682c11ddd93256b3848cdc6f1d72
+banner/banner.c	freebsd-src	usr.bin/banner/banner.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 cat/cat.1	freebsd-src	bin/cat/cat.1		f3aff7c91bd451d300ffd37ddce5a1fdbe802123
 cat/cat.c	freebsd-src	bin/cat/cat.c		0614d7396798a268bd9efb103dffdeb0ad4a066c
+
+col/col.1	freebsd-src	usr.bin/col/col.1	8a27a63745f5a2000e243d7f2df76c57a5604be5
+col/col.c	freebsd-src	usr.bin/col/col.c	6b43126f8168d68be32732fcca0e2422804f7de1
+
+colrm/colrm.1	freebsd-src	usr.bin/colrm/colrm.1	c47514db10db5ae0ab9ae8015d5dbb8178ec6b42
+colrm/colrm.c	freebsd-src	usr.bin/colrm/colrm.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+column/column.1	freebsd-src	usr.bin/column/column.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+column/column.c	freebsd-src	usr.bin/column/column.c	290ce7d2a9be4b07a6365e85871a6aa4be8009eb
+
+comm/comm.1	freebsd-src	usr.bin/comm/comm.1	bdfea496cf9f32b9fcfa8be83ee37931138e6ea1
+comm/comm.c	freebsd-src	usr.bin/comm/comm.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+csplit/csplit.1	freebsd-src	usr.bin/csplit/csplit.1	3d9335a67ef22aa709b7854dbb4ee266af4f52f8
+csplit/csplit.c	freebsd-src	usr.bin/csplit/csplit.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 
 cut/cut.1	freebsd-src	usr.bin/cut/cut.1	079f5b9b7b286353e4dc169dd25073f442c5e2d4
 cut/cut.c	freebsd-src	usr.bin/cut/cut.c	6872fd3c9470e867df5ff4cdcbcfe758248b6b48
 
+ed/POSIX	freebsd-src	bin/ed/POSIX	d83db3fb6a3c2ffeaafd5e688a2653f39a7be9d9
+ed/README	freebsd-src	bin/ed/README	d83db3fb6a3c2ffeaafd5e688a2653f39a7be9d9
+ed/buf.c	freebsd-src	bin/ed/buf.c	f50fae318d6dd4028b6aca25436053c28b07b0ea
+ed/ed.1	freebsd-src	bin/ed/ed.1	3ce579325e424ce9297546553fb453a4ec62c20b
+ed/ed.h	freebsd-src	bin/ed/ed.h	d83db3fb6a3c2ffeaafd5e688a2653f39a7be9d9
+ed/glbl.c	freebsd-src	bin/ed/glbl.c	27150ef8bc3626955f6d285c813a210143a9459d
+ed/io.c	freebsd-src	bin/ed/io.c	d83db3fb6a3c2ffeaafd5e688a2653f39a7be9d9
+ed/main.c	freebsd-src	bin/ed/main.c	d83db3fb6a3c2ffeaafd5e688a2653f39a7be9d9
+ed/re.c	freebsd-src	bin/ed/re.c	9d40e340ea8f0d32e8c0a1304b3006630242af51
+ed/sub.c	freebsd-src	bin/ed/sub.c	ae824d80f28cd14c0c0ec75076c796e6a369bc18
+ed/test/=.err	freebsd-src	bin/ed/test/=.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/README	freebsd-src	bin/ed/test/README	2a4562393f80633b81c11d4f7df00548d1cc3c48
+ed/test/TODO	freebsd-src	bin/ed/test/TODO	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/a.d	freebsd-src	bin/ed/test/a.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/a.r	freebsd-src	bin/ed/test/a.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/a.t	freebsd-src	bin/ed/test/a.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/a1.err	freebsd-src	bin/ed/test/a1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/a2.err	freebsd-src	bin/ed/test/a2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/addr.d	freebsd-src	bin/ed/test/addr.d	95e6217e73cb4eb3a08a0a855ec59924805beb1b
+ed/test/addr.r	freebsd-src	bin/ed/test/addr.r	95e6217e73cb4eb3a08a0a855ec59924805beb1b
+ed/test/addr.t	freebsd-src	bin/ed/test/addr.t	95e6217e73cb4eb3a08a0a855ec59924805beb1b
+ed/test/addr1.err	freebsd-src	bin/ed/test/addr1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/addr2.err	freebsd-src	bin/ed/test/addr2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/ascii.d.uu	freebsd-src	bin/ed/test/ascii.d.uu	2787321c9fb8bc64d38302114dd46667b385a187
+ed/test/ascii.r.uu	freebsd-src	bin/ed/test/ascii.r.uu	2787321c9fb8bc64d38302114dd46667b385a187
+ed/test/ascii.t	freebsd-src	bin/ed/test/ascii.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/bang1.d	freebsd-src	bin/ed/test/bang1.d	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/bang1.err	freebsd-src	bin/ed/test/bang1.err	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/bang1.r	freebsd-src	bin/ed/test/bang1.r	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/bang1.t	freebsd-src	bin/ed/test/bang1.t	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/bang2.err	freebsd-src	bin/ed/test/bang2.err	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/c.d	freebsd-src	bin/ed/test/c.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/c.r	freebsd-src	bin/ed/test/c.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/c.t	freebsd-src	bin/ed/test/c.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/c1.err	freebsd-src	bin/ed/test/c1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/c2.err	freebsd-src	bin/ed/test/c2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/ckscripts.sh	freebsd-src	bin/ed/test/ckscripts.sh	2a4562393f80633b81c11d4f7df00548d1cc3c48
+ed/test/d.d	freebsd-src	bin/ed/test/d.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/d.err	freebsd-src	bin/ed/test/d.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/d.r	freebsd-src	bin/ed/test/d.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/d.t	freebsd-src	bin/ed/test/d.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e1.d	freebsd-src	bin/ed/test/e1.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e1.err	freebsd-src	bin/ed/test/e1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e1.r	freebsd-src	bin/ed/test/e1.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e1.t	freebsd-src	bin/ed/test/e1.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e2.d	freebsd-src	bin/ed/test/e2.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e2.err	freebsd-src	bin/ed/test/e2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e2.r	freebsd-src	bin/ed/test/e2.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e2.t	freebsd-src	bin/ed/test/e2.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e3.d	freebsd-src	bin/ed/test/e3.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e3.err	freebsd-src	bin/ed/test/e3.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e3.r	freebsd-src	bin/ed/test/e3.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e3.t	freebsd-src	bin/ed/test/e3.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e4.d	freebsd-src	bin/ed/test/e4.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e4.r	freebsd-src	bin/ed/test/e4.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/e4.t	freebsd-src	bin/ed/test/e4.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/f1.err	freebsd-src	bin/ed/test/f1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/f2.err	freebsd-src	bin/ed/test/f2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g1.d	freebsd-src	bin/ed/test/g1.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g1.err	freebsd-src	bin/ed/test/g1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g1.r	freebsd-src	bin/ed/test/g1.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g1.t	freebsd-src	bin/ed/test/g1.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g2.d	freebsd-src	bin/ed/test/g2.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g2.err	freebsd-src	bin/ed/test/g2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g2.r	freebsd-src	bin/ed/test/g2.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g2.t	freebsd-src	bin/ed/test/g2.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g3.d	freebsd-src	bin/ed/test/g3.d	10ca1c6c925d4ce2f2e0a38c45e05b39daeab2be
+ed/test/g3.err	freebsd-src	bin/ed/test/g3.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/g3.r	freebsd-src	bin/ed/test/g3.r	10ca1c6c925d4ce2f2e0a38c45e05b39daeab2be
+ed/test/g3.t	freebsd-src	bin/ed/test/g3.t	10ca1c6c925d4ce2f2e0a38c45e05b39daeab2be
+ed/test/g4.d	freebsd-src	bin/ed/test/g4.d	10ca1c6c925d4ce2f2e0a38c45e05b39daeab2be
+ed/test/g4.r	freebsd-src	bin/ed/test/g4.r	10ca1c6c925d4ce2f2e0a38c45e05b39daeab2be
+ed/test/g4.t	freebsd-src	bin/ed/test/g4.t	10ca1c6c925d4ce2f2e0a38c45e05b39daeab2be
+ed/test/g5.d	freebsd-src	bin/ed/test/g5.d	95e6217e73cb4eb3a08a0a855ec59924805beb1b
+ed/test/g5.r	freebsd-src	bin/ed/test/g5.r	95e6217e73cb4eb3a08a0a855ec59924805beb1b
+ed/test/g5.t	freebsd-src	bin/ed/test/g5.t	95e6217e73cb4eb3a08a0a855ec59924805beb1b
+ed/test/h.err	freebsd-src	bin/ed/test/h.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/i.d	freebsd-src	bin/ed/test/i.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/i.r	freebsd-src	bin/ed/test/i.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/i.t	freebsd-src	bin/ed/test/i.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/i1.err	freebsd-src	bin/ed/test/i1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/i2.err	freebsd-src	bin/ed/test/i2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/i3.err	freebsd-src	bin/ed/test/i3.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/j.d	freebsd-src	bin/ed/test/j.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/j.r	freebsd-src	bin/ed/test/j.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/j.t	freebsd-src	bin/ed/test/j.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k.d	freebsd-src	bin/ed/test/k.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k.r	freebsd-src	bin/ed/test/k.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k.t	freebsd-src	bin/ed/test/k.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k1.err	freebsd-src	bin/ed/test/k1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k2.err	freebsd-src	bin/ed/test/k2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k3.err	freebsd-src	bin/ed/test/k3.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/k4.err	freebsd-src	bin/ed/test/k4.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/l.d	freebsd-src	bin/ed/test/l.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/l.r	freebsd-src	bin/ed/test/l.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/l.t	freebsd-src	bin/ed/test/l.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/m.d	freebsd-src	bin/ed/test/m.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/m.err	freebsd-src	bin/ed/test/m.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/m.r	freebsd-src	bin/ed/test/m.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/m.t	freebsd-src	bin/ed/test/m.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/mkscripts.sh	freebsd-src	bin/ed/test/mkscripts.sh	2a4562393f80633b81c11d4f7df00548d1cc3c48
+ed/test/n.d	freebsd-src	bin/ed/test/n.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/n.r	freebsd-src	bin/ed/test/n.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/n.t	freebsd-src	bin/ed/test/n.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/nl.err	freebsd-src	bin/ed/test/nl.err	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/nl1.d	freebsd-src	bin/ed/test/nl1.d	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/nl1.r	freebsd-src	bin/ed/test/nl1.r	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/nl1.t	freebsd-src	bin/ed/test/nl1.t	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/nl2.d	freebsd-src	bin/ed/test/nl2.d	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/nl2.r	freebsd-src	bin/ed/test/nl2.r	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/nl2.t	freebsd-src	bin/ed/test/nl2.t	d20b621b11692f4f2c6d7191b9a40b778bf1f007
+ed/test/p.d	freebsd-src	bin/ed/test/p.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/p.r	freebsd-src	bin/ed/test/p.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/p.t	freebsd-src	bin/ed/test/p.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/q.d	freebsd-src	bin/ed/test/q.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/q.r	freebsd-src	bin/ed/test/q.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/q.t	freebsd-src	bin/ed/test/q.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/q1.err	freebsd-src	bin/ed/test/q1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r1.d	freebsd-src	bin/ed/test/r1.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r1.err	freebsd-src	bin/ed/test/r1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r1.r	freebsd-src	bin/ed/test/r1.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r1.t	freebsd-src	bin/ed/test/r1.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r2.d	freebsd-src	bin/ed/test/r2.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r2.err	freebsd-src	bin/ed/test/r2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r2.r	freebsd-src	bin/ed/test/r2.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r2.t	freebsd-src	bin/ed/test/r2.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r3.d	freebsd-src	bin/ed/test/r3.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r3.r	freebsd-src	bin/ed/test/r3.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/r3.t	freebsd-src	bin/ed/test/r3.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s1.d	freebsd-src	bin/ed/test/s1.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s1.err	freebsd-src	bin/ed/test/s1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s1.r	freebsd-src	bin/ed/test/s1.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s1.t	freebsd-src	bin/ed/test/s1.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s10.err	freebsd-src	bin/ed/test/s10.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s2.d	freebsd-src	bin/ed/test/s2.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s2.err	freebsd-src	bin/ed/test/s2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s2.r	freebsd-src	bin/ed/test/s2.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s2.t	freebsd-src	bin/ed/test/s2.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s3.d	freebsd-src	bin/ed/test/s3.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s3.err	freebsd-src	bin/ed/test/s3.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s3.r	freebsd-src	bin/ed/test/s3.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s3.t	freebsd-src	bin/ed/test/s3.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s4.err	freebsd-src	bin/ed/test/s4.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s5.err	freebsd-src	bin/ed/test/s5.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s6.err	freebsd-src	bin/ed/test/s6.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s7.err	freebsd-src	bin/ed/test/s7.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s8.err	freebsd-src	bin/ed/test/s8.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/s9.err	freebsd-src	bin/ed/test/s9.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t.d	freebsd-src	bin/ed/test/t.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t.r	freebsd-src	bin/ed/test/t.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t1.d	freebsd-src	bin/ed/test/t1.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t1.err	freebsd-src	bin/ed/test/t1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t1.r	freebsd-src	bin/ed/test/t1.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t1.t	freebsd-src	bin/ed/test/t1.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t2.d	freebsd-src	bin/ed/test/t2.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t2.err	freebsd-src	bin/ed/test/t2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t2.r	freebsd-src	bin/ed/test/t2.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/t2.t	freebsd-src	bin/ed/test/t2.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/u.d	freebsd-src	bin/ed/test/u.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/u.err	freebsd-src	bin/ed/test/u.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/u.r	freebsd-src	bin/ed/test/u.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/u.t	freebsd-src	bin/ed/test/u.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/v.d	freebsd-src	bin/ed/test/v.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/v.r	freebsd-src	bin/ed/test/v.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/v.t	freebsd-src	bin/ed/test/v.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/w.d	freebsd-src	bin/ed/test/w.d	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/w.r	freebsd-src	bin/ed/test/w.r	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/w.t	freebsd-src	bin/ed/test/w.t	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/w1.err	freebsd-src	bin/ed/test/w1.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/w2.err	freebsd-src	bin/ed/test/w2.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/w3.err	freebsd-src	bin/ed/test/w3.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/x.err	freebsd-src	bin/ed/test/x.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/test/z.err	freebsd-src	bin/ed/test/z.err	30154ac8a86b4987758047cd7b94de39dab9d8d8
+ed/undo.c	freebsd-src	bin/ed/undo.c	ae824d80f28cd14c0c0ec75076c796e6a369bc18
+
 ee/ee.1		freebsd	contrib/ee/ee.1		23982f44e537c700e567101221fe2c6f51329648
 
-expand/expand.1	freebsd	usr.bin/expand/expand.1	7e6cabd06e6caa6a02eeb86308dc0cb3f27e10da
+expand/expand.1	freebsd-src	usr.bin/expand/expand.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+expand/expand.c	freebsd-src	usr.bin/expand/expand.c	fe8c16cef1d6669074c262fbb7b55d301ca01d74
+
+fmt/fmt.1 	freebsd-src	usr.bin/fmt/fmt.1	22d3f87c80e7564c450a5fff0a08ea9711a6600d
+fmt/fmt.c 	freebsd-src	usr.bin/fmt/fmt.c	5666643a95389e3ea7637b86cc556d411242f71e
+
+fold/fold.1	freebsd	usr.bin/fold/fold.1	b139a8fa79c1e49104b892c02f821275cd6d8423
+fold/fold.c	freebsd	usr.bin/fold/fold.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
 grep/file.c	freebsd-src	usr.bin/grep/file.c	81c3f64110bb76e24d6062eafd7206c10f676d6f
 grep/grep.1	freebsd-src	usr.bin/grep/grep.1	2373acbbb77d694b997d90f3251810c6edf5d6d8
@@ -23,11 +223,33 @@ grep/zgrep.sh	freebsd-src	usr.bin/grep/zgrep.sh	1032f7b82bec6cc2ea895af87f1913de
 head/head.1	freebsd-src usr.bin/head/head.1	79490b9339565d0876aef29b4cdc332222eb961e
 head/head.c	freebsd-src usr.bin/head/head.c	7ef518c05aca09c9ecfadd64b2055dfc2d6f6700
 
+join/join.1 	freebsd-src	usr.bin/join/join.1	69ad6e739bbea38080102793927729bcebb7d961
+join/join.c 	freebsd-src	usr.bin/join/join.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+lam/lam.1	freebsd-src	usr.bin/lam/lam.1	07372194c3016882494a28a8a1ae00472ce31e69
+lam/lam.c	freebsd-src	usr.bin/lam/lam.c	377421df9690cddad7f0c8cba84bd392e62a3b6c
+
+look/look.1	freebsd-src	usr.bin/look/look.1	f3f16c31fea258b2b1ec51ddd1bceb6207b66198
+look/look.c	freebsd-src	usr.bin/look/look.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+look/pathnames.h	freebsd-src	usr.bin/look/pathnames.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+nl/nl.1	freebsd-src	usr.bin/nl/nl.1	43ad0e153d614689d77a6a4b341f2b163e213b4d
+nl/nl.c	freebsd-src	usr.bin/nl/nl.c	1de7b4b805ddbf2429da511c053686ac4591ed89
+
+paste/paste.1	freebsd-src	usr.bin/paste/paste.1	8790fe3058c83f624ca2155fb0dbaac23c641237
+paste/paste.c	freebsd-src	usr.bin/paste/paste.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
 pr/egetopt.c	freebsd-src	usr.bin/pr/egetopt.c	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
 pr/extern.h	freebsd-src	usr.bin/pr/extern.h	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
 pr/pr.1	freebsd-src	usr.bin/pr/pr.1	dda5b39711dab90ae1c5624bdd6ff7453177df31
 pr/pr.c	freebsd-src	usr.bin/pr/pr.c	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
 pr/pr.h	freebsd-src	usr.bin/pr/pr.h	5f0345185bfe58dd9de92ff1a9a08fb390bd4c2f
+
+rev/rev.1	freebsd-src	usr.bin/rev/rev.1	fe5bc3e6afb902a7261dd7b6ee48f91acf9f1a5d
+rev/rev.c	freebsd-src	usr.bin/rev/rev.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+rs/rs.1	freebsd-src	usr.bin/rs/rs.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
+rs/rs.c	freebsd-src	usr.bin/rs/rs.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 
 sed/POSIX	freebsd	usr.bin/sed/POSIX	3a58a22a0b52d622721ce09df3930ff87174022f
 sed/compile.c	freebsd-src	usr.bin/sed/compile.c	14fdf163717efe7730104832b7a4b09c963c42ea
@@ -37,6 +259,14 @@ sed/main.c	freebsd-src	usr.bin/sed/main.c	f9ab72bb471a141f31a4476bb11bdaef81daf4
 sed/misc.c	freebsd	usr.bin/sed/misc.c	3a58a22a0b52d622721ce09df3930ff87174022f
 sed/process.c	freebsd	usr.bin/sed/process.c	3a58a22a0b52d622721ce09df3930ff87174022f
 sed/sed.1	freebsd-src	usr.bin/sed/sed.1	f9ab72bb471a141f31a4476bb11bdaef81daf479
+
+tail/forward.c	freebsd-src	usr.bin/tail/forward.c	7787e7eed9d2a43fb6eb66666040f1b495995a2f
+tail/misc.c	freebsd-src	usr.bin/tail/misc.c	c851fce6d779e8340609d7e2364829c61cbcb1ef
+tail/read.c	freebsd-src	usr.bin/tail/read.c	c851fce6d779e8340609d7e2364829c61cbcb1ef
+tail/reverse.c	freebsd-src	usr.bin/tail/reverse.c	c851fce6d779e8340609d7e2364829c61cbcb1ef
+tail/tail.c	freebsd-src	usr.bin/tail/tail.c	eee07d30a0b3ff6448ce3441b8808c5529a9505d
+tail/extern.h	freebsd-src	usr.bin/tail/extern.h	c851fce6d779e8340609d7e2364829c61cbcb1ef
+tail/tail.1	freebsd-src	usr.bin/tail/tail.1	c0f2b64a8945fe4a217e8969c5c278a59f728a01
 
 sort/bwstring.c	freebsd-src	usr.bin/sort/bwstring.c	266b51ac6e24a71a4df54c30f63215bf1c3decdb
 sort/bwstring.h	freebsd-src	usr.bin/sort/bwstring.h	1de7b4b805ddbf2429da511c053686ac4591ed89
@@ -56,6 +286,9 @@ sort/sort.h	freebsd-src	usr.bin/sort/sort.h	1de7b4b805ddbf2429da511c053686ac4591
 sort/vsort.c	freebsd-src	usr.bin/sort/vsort.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 sort/vsort.h	freebsd-src	usr.bin/sort/vsort.h	1de7b4b805ddbf2429da511c053686ac4591ed89
 
+split/split.1	freebsd-src	usr.bin/split/split.1	e48cafb55ddaa7ac3ed73ddf25b8019531c83d71
+split/split.c	freebsd-src	usr.bin/split/split.c	bcd34af4731db389706eda26b068ce5a880e3d9b
+
 tr/tr.1		freebsd-src usr.bin/tr/tr.1	fbbd9655e5107c68e4e0146ff22b73d7350475bc
 tr/cmap.c	freebsd-src usr.bin/tr/cmap.c	1de7b4b805ddbf2429da511c053686ac4591ed89
 tr/cmap.h	freebsd-src usr.bin/tr/cmap.h	1de7b4b805ddbf2429da511c053686ac4591ed89
@@ -64,3 +297,14 @@ tr/cset.h	freebsd-src usr.bin/tr/cset.h	1de7b4b805ddbf2429da511c053686ac4591ed89
 tr/extern.h	freebsd-src usr.bin/tr/extern.h	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 tr/str.c	freebsd-src usr.bin/tr/str.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
 tr/tr.c		freebsd-src usr.bin/tr/tr.c	7672a0148f79063eac8f8e0beb0db5350d02d5d4
+
+ul/ul.1	freebsd-src	usr.bin/ul/ul.1	d643ff21f427e359be18ddbd254641e2118237a3
+ul/ul.c	freebsd-src	usr.bin/ul/ul.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+unvis/unvis.1	freebsd-src	contrib/unvis/unvis.1	f1f890804985a1043da42a5def13c79dc005f5e9
+unvis/unvis.c	freebsd-src	contrib/unvis/unvis.c	f1f890804985a1043da42a5def13c79dc005f5e9
+
+unexpand/unexpand.c	freebsd-src	usr.bin/unexpand/unexpand.c	8a16b7a18f5d0b031f09832fd7752fba717e2a97
+
+uniq/uniq.1	freebsd-src	usr.bin/uniq/uniq.1	e6e3cf55d33a627adc59fc90eaced9b20dd639ba
+uniq/uniq.c	freebsd-src	usr.bin/uniq/uniq.c	d9371717273b6ec2b291d75373185e14b6defd16

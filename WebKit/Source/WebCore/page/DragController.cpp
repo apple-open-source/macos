@@ -28,6 +28,8 @@
 
 #include "HTMLAnchorElement.h"
 #include "SVGAElement.h"
+#include "SVGElementTypeHelpers.h"
+
 
 #if ENABLE(DRAG_SUPPORT)
 #include "CachedImage.h"
@@ -58,12 +60,15 @@
 #include "HTMLAttachmentElement.h"
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
+#include "HTMLModelElement.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLPlugInElement.h"
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "Image.h"
 #include "ImageOrientation.h"
+#include "ImageOverlay.h"
+#include "Model.h"
 #include "MoveSelectionCommand.h"
 #include "Page.h"
 #include "Pasteboard.h"
@@ -752,6 +757,15 @@ static bool imageElementIsDraggable(const HTMLImageElement& image, const Frame& 
     return cachedImage && !cachedImage->errorOccurred() && cachedImage->imageForRenderer(renderer);
 }
 
+#if ENABLE(MODEL_ELEMENT)
+
+static bool modelElementIsDraggable(const HTMLModelElement& modelElement)
+{
+    return !!modelElement.model();
+}
+
+#endif
+
 #if ENABLE(ATTACHMENT_ELEMENT)
 
 static RefPtr<HTMLAttachmentElement> enclosingAttachmentElement(Element& element)
@@ -786,7 +800,7 @@ Element* DragController::draggableElement(const Frame* sourceFrame, Element* sta
 #endif
 
     auto selectionDragElement = state.type.contains(DragSourceAction::Selection) && m_dragSourceAction.contains(DragSourceAction::Selection) ? startElement : nullptr;
-    if (HTMLElement::isImageOverlayText(startElement))
+    if (ImageOverlay::isOverlayText(startElement))
         return selectionDragElement;
 
     for (auto* element = startElement; element; element = element->parentOrShadowHostElement()) {
@@ -821,6 +835,12 @@ Element* DragController::draggableElement(const Frame* sourceFrame, Element* sta
 #if ENABLE(INPUT_TYPE_COLOR)
             if (m_dragSourceAction.contains(DragSourceAction::Color) && isEnabledColorInput(*element)) {
                 state.type.add(DragSourceAction::Color);
+                return element;
+            }
+#endif
+#if ENABLE(MODEL_ELEMENT)
+            if (m_dragSourceAction.contains(DragSourceAction::Model) && is<HTMLModelElement>(*element) && modelElementIsDraggable(downcast<HTMLModelElement>(*element))) {
+                state.type.add(DragSourceAction::Model);
                 return element;
             }
 #endif
@@ -1022,7 +1042,7 @@ bool DragController::startDrag(Frame& src, const DragState& state, OptionSet<Dra
             src.editor().willWriteSelectionToPasteboard(*selectionRange);
             auto selection = src.selection().selection();
             bool shouldDragAsPlainText = enclosingTextFormControl(selection.start());
-            if (auto range = selection.range(); range && HTMLElement::isInsideImageOverlay(*range))
+            if (auto range = selection.range(); range && ImageOverlay::isInsideOverlay(*range))
                 shouldDragAsPlainText = true;
 
             if (shouldDragAsPlainText) {
@@ -1239,6 +1259,27 @@ bool DragController::startDrag(Frame& src, const DragState& state, OptionSet<Dra
     }
 #endif
 
+#if ENABLE(MODEL_ELEMENT)
+    bool isModel = is<HTMLModelElement>(state.source);
+    if (isModel && m_dragSourceAction.contains(DragSourceAction::Model)) {
+        auto& modelElement = downcast<HTMLModelElement>(*state.source);
+        dragImage = DragImage { createDragImageForNode(src, modelElement) };
+
+        PasteboardImage pasteboardImage;
+        pasteboardImage.suggestedName = modelElement.currentSrc().lastPathComponent().toString();
+        pasteboardImage.resourceMIMEType = modelElement.model()->mimeType();
+        pasteboardImage.resourceData = modelElement.model()->data();
+        dataTransfer.pasteboard().write(pasteboardImage);
+
+        dragImageOffset = IntPoint { dragImageSize(dragImage.get()) };
+        dragLoc = dragLocForDHTMLDrag(mouseDraggedPoint, dragOrigin, dragImageOffset, false);
+
+        client().willPerformDragSourceAction(DragSourceAction::Model, dragOrigin, dataTransfer);
+        doSystemDrag(WTFMove(dragImage), dragLoc, dragOrigin, src, state, { });
+        return true;
+    }
+#endif
+
     if (state.type == DragSourceAction::DHTML && dragImage) {
         ASSERT(m_dragSourceAction.contains(DragSourceAction::DHTML));
         client().willPerformDragSourceAction(DragSourceAction::DHTML, dragOrigin, dataTransfer);
@@ -1386,8 +1427,8 @@ bool DragController::tryToUpdateDroppedImagePlaceholders(const DragData& dragDat
     ASSERT(!m_droppedImagePlaceholders.isEmpty());
     ASSERT(m_droppedImagePlaceholderRange);
 
-    auto document = makeRef(m_droppedImagePlaceholders[0]->document());
-    auto frame = makeRefPtr(document->frame());
+    Ref document = m_droppedImagePlaceholders[0]->document();
+    RefPtr frame = document->frame();
     if (!frame)
         return false;
 
@@ -1429,11 +1470,11 @@ void DragController::insertDroppedImagePlaceholdersAtCaret(const Vector<IntSize>
     if (dropCaret.isNull())
         return;
 
-    auto document = makeRefPtr(dropCaret.deepEquivalent().document());
+    RefPtr document = dropCaret.deepEquivalent().document();
     if (!document)
         return;
 
-    auto frame = makeRefPtr(document->frame());
+    RefPtr frame = document->frame();
     if (!frame)
         return;
 
@@ -1498,7 +1539,7 @@ void DragController::insertDroppedImagePlaceholdersAtCaret(const Vector<IntSize>
 
 void DragController::finalizeDroppedImagePlaceholder(HTMLImageElement& placeholder, CompletionHandler<void()>&& completion)
 {
-    placeholder.document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [completion = WTFMove(completion), placeholder = makeRefPtr(placeholder)] () mutable {
+    placeholder.document().eventLoop().queueTask(TaskSource::InternalAsyncTask, [completion = WTFMove(completion), placeholder = Ref { placeholder }] () mutable {
         if (placeholder->isDroppedImagePlaceholder()) {
             placeholder->removeAttribute(HTMLNames::heightAttr);
             placeholder->removeInlineStyleProperty(CSSPropertyBackgroundColor);

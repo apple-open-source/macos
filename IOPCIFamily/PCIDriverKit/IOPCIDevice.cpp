@@ -61,7 +61,7 @@ IOPCIDevice::Open(IOService*   forClient,
             if(deviceMemoryArray != NULL)
             {
                 ivars->numDeviceMemoryMappings = deviceMemoryArray->getCount();
-                ivars->deviceMemoryMappings    = reinterpret_cast<IOMemoryMap**>(IOMallocZero(sizeof(IOMemoryMap*) * ivars->numDeviceMemoryMappings));
+                ivars->deviceMemoryMappings    = IONewZero(IOMemoryMap *, ivars->numDeviceMemoryMappings);
                 // map all the memory for the device
                 for(uint32_t memoryIndex = 0; memoryIndex < ivars->numDeviceMemoryMappings; memoryIndex++)
                 {
@@ -101,8 +101,7 @@ IOPCIDevice::Close(IOService*   forClient,
             {
                 OSSafeReleaseNULL(ivars->deviceMemoryMappings[i]);
             }
-            IOFree(ivars->deviceMemoryMappings, sizeof(IOMemoryMap*) * ivars->numDeviceMemoryMappings);
-            ivars->numDeviceMemoryMappings = 0;
+            IOSafeDeleteNULL(ivars->deviceMemoryMappings, IOMemoryMap *, ivars->numDeviceMemoryMappings);
         }
         OSSafeReleaseNULL(ivars->deviceClient);
     }

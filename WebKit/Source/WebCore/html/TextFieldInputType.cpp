@@ -37,6 +37,7 @@
 #include "ChromeClient.h"
 #include "DOMFormData.h"
 #include "Editor.h"
+#include "ElementInlines.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "FrameSelection.h"
@@ -55,6 +56,7 @@
 #include "RuntimeEnabledFeatures.h"
 #include "ScriptDisallowedScope.h"
 #include "Settings.h"
+#include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "TextControlInnerElements.h"
 #include "TextEvent.h"
@@ -118,7 +120,7 @@ bool TextFieldInputType::isEmptyValue() const
 bool TextFieldInputType::valueMissing(const String& value) const
 {
     ASSERT(element());
-    return element()->isRequired() && value.isEmpty();
+    return !element()->isDisabledOrReadOnly() && element()->isRequired() && value.isEmpty();
 }
 
 void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChanged, TextFieldEventBehavior eventBehavior)
@@ -133,17 +135,16 @@ void TextFieldInputType::setValue(const String& sanitizedValue, bool valueChange
     // TextFieldInputType dispatches events different way from InputType.
     InputType::setValue(sanitizedValue, valueChanged, DispatchNoEvent);
 
-    if (valueChanged)
-        updateInnerTextValue();
+    if (!valueChanged)
+        return;
+
+    updateInnerTextValue();
 
     unsigned max = visibleValue().length();
     if (input->focused())
         input->setSelectionRange(max, max);
     else
         input->cacheSelectionInResponseToSetValue(max);
-
-    if (!valueChanged)
-        return;
 
     switch (eventBehavior) {
     case DispatchChangeEvent:
@@ -349,9 +350,8 @@ void TextFieldInputType::createShadowSubtreeAndUpdateInnerTextElementEditability
     }
 
     if (shouldHaveCapsLockIndicator) {
-        static MainThreadNeverDestroyed<const AtomString> webkitCapsLockIndicatorName("-webkit-caps-lock-indicator", AtomString::ConstructFromLiteral);
         m_capsLockIndicator = HTMLDivElement::create(document);
-        m_capsLockIndicator->setPseudo(webkitCapsLockIndicatorName);
+        m_capsLockIndicator->setPseudo(ShadowPseudoIds::webkitCapsLockIndicator());
 
         bool shouldDrawCapsLockIndicator = this->shouldDrawCapsLockIndicator();
         m_capsLockIndicator->setInlineStyleProperty(CSSPropertyDisplay, shouldDrawCapsLockIndicator ? CSSValueBlock : CSSValueNone, true);
@@ -457,11 +457,10 @@ void TextFieldInputType::createDataListDropdownIndicator()
     if (!m_container)
         createContainer();
 
-    static MainThreadNeverDestroyed<const AtomString> webkitListButtonName("-webkit-list-button", AtomString::ConstructFromLiteral);
     ScriptDisallowedScope::EventAllowedScope allowedScope(*m_container);
     m_dataListDropdownIndicator = DataListButtonElement::create(element()->document(), *this);
     m_container->appendChild(*m_dataListDropdownIndicator);
-    m_dataListDropdownIndicator->setPseudo(webkitListButtonName);
+    m_dataListDropdownIndicator->setPseudo(ShadowPseudoIds::webkitListButton());
     m_dataListDropdownIndicator->setInlineStyleProperty(CSSPropertyDisplay, CSSValueNone, true);
 }
 
@@ -530,13 +529,13 @@ static AtomString autoFillButtonTypeToAutoFillButtonPseudoClassName(AutoFillButt
 {
     switch (autoFillButtonType) {
     case AutoFillButtonType::Contacts:
-        return { "-webkit-contacts-auto-fill-button", AtomString::ConstructFromLiteral };
+        return ShadowPseudoIds::webkitContactsAutoFillButton();
     case AutoFillButtonType::Credentials:
-        return { "-webkit-credentials-auto-fill-button", AtomString::ConstructFromLiteral };
+        return ShadowPseudoIds::webkitCredentialsAutoFillButton();
     case AutoFillButtonType::StrongPassword:
-        return { "-webkit-strong-password-auto-fill-button", AtomString::ConstructFromLiteral };
+        return ShadowPseudoIds::webkitStrongPasswordAutoFillButton();
     case AutoFillButtonType::CreditCard:
-        return { "-webkit-credit-card-auto-fill-button", AtomString::ConstructFromLiteral };
+        return ShadowPseudoIds::webkitCreditCardAutoFillButton();
     case AutoFillButtonType::None:
         ASSERT_NOT_REACHED();
         return emptyAtom();
@@ -547,13 +546,13 @@ static AtomString autoFillButtonTypeToAutoFillButtonPseudoClassName(AutoFillButt
 
 static bool isAutoFillButtonTypeChanged(const AtomString& attribute, AutoFillButtonType autoFillButtonType)
 {
-    if (attribute == "-webkit-contacts-auto-fill-button" && autoFillButtonType != AutoFillButtonType::Contacts)
+    if (attribute == ShadowPseudoIds::webkitContactsAutoFillButton() && autoFillButtonType != AutoFillButtonType::Contacts)
         return true;
-    if (attribute == "-webkit-credentials-auto-fill-button" && autoFillButtonType != AutoFillButtonType::Credentials)
+    if (attribute == ShadowPseudoIds::webkitCredentialsAutoFillButton() && autoFillButtonType != AutoFillButtonType::Credentials)
         return true;
-    if (attribute == "-webkit-strong-password-auto-fill-button" && autoFillButtonType != AutoFillButtonType::StrongPassword)
+    if (attribute == ShadowPseudoIds::webkitStrongPasswordAutoFillButton() && autoFillButtonType != AutoFillButtonType::StrongPassword)
         return true;
-    if (attribute == "-webkit-credit-card-auto-fill-button" && autoFillButtonType != AutoFillButtonType::CreditCard)
+    if (attribute == ShadowPseudoIds::webkitCreditCardAutoFillButton() && autoFillButtonType != AutoFillButtonType::CreditCard)
         return true;
     return false;
 }
@@ -635,9 +634,9 @@ void TextFieldInputType::updatePlaceholderText()
     m_placeholder->setInnerText(placeholderText);
 }
 
-bool TextFieldInputType::appendFormData(DOMFormData& formData, bool multipart) const
+bool TextFieldInputType::appendFormData(DOMFormData& formData) const
 {
-    InputType::appendFormData(formData, multipart);
+    InputType::appendFormData(formData);
     ASSERT(element());
     auto& dirnameAttrValue = element()->attributeWithoutSynchronization(dirnameAttr);
     if (!dirnameAttrValue.isNull())
@@ -791,7 +790,7 @@ void TextFieldInputType::createContainer()
 
     m_container = TextControlInnerContainer::create(element()->document());
     element()->userAgentShadowRoot()->appendChild(*m_container);
-    m_container->setPseudo(webkitTextfieldDecorationContainerName);
+    m_container->setPseudo(ShadowPseudoIds::webkitTextfieldDecorationContainer());
 
     m_innerBlock = TextControlInnerElement::create(element()->document());
     m_container->appendChild(*m_innerBlock);

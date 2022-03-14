@@ -381,7 +381,7 @@ static const LocNameDispContextItem ctxtItems[] = {
     
     // Test for rdar://79401338 [Apple-specific]
     { "ain", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "ain_Kana", u"アイヌ・イタㇰ (カタカナ)" },
-    { "syr", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "syr_Syrc", u"ܣܘܪܝܬ (ܣܘܪܝܬ)" },
+    { "syr", UDISPCTX_STANDARD_NAMES, UDISPCTX_CAPITALIZATION_FOR_STANDALONE,         UDISPCTX_LENGTH_FULL,   "syr_Syrc", u"ܣܘܪܝܝܐ (ܣܘܪܝܬ)" },
 
     { NULL, (UDisplayContext)0,      (UDisplayContext)0,                                (UDisplayContext)0,     NULL,  NULL }
 };
@@ -445,14 +445,14 @@ void LocaleDisplayNamesTest::TestNumericRegionID() {
     UErrorCode err = U_ZERO_ERROR;
     ULocaleDisplayNames* ldn = uldn_open("es_MX", ULDN_STANDARD_NAMES, &err);
     UChar displayName[200];
-    int32_t displayNameLength = uldn_regionDisplayName(ldn, "019", displayName, 200, &err);
+    uldn_regionDisplayName(ldn, "019", displayName, 200, &err);
     test_assert(U_SUCCESS(err));
     test_assert_equal(UnicodeString(u"América"), UnicodeString(displayName));
     uldn_close(ldn);    
 
     err = U_ZERO_ERROR; // reset in case the test above returned an error code
     ldn = uldn_open("en_AU", ULDN_STANDARD_NAMES, &err);
-    displayNameLength = uldn_regionDisplayName(ldn, "002", displayName, 200, &err);
+    uldn_regionDisplayName(ldn, "002", displayName, 200, &err);
     test_assert(U_SUCCESS(err));
     test_assert_equal(UnicodeString(u"Africa"), UnicodeString(displayName));
     uldn_close(ldn);    

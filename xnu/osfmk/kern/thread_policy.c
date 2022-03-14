@@ -63,6 +63,12 @@ TUNABLE(uint32_t, qos_override_mode, "qos_override_mode",
 static void
 proc_thread_qos_remove_override_internal(thread_t thread, user_addr_t resource, int resource_type, boolean_t reset);
 
+const int thread_default_iotier_override  = THROTTLE_LEVEL_END;
+
+const struct thread_requested_policy default_thread_requested_policy = {
+	.thrp_iotier_kevent_override = thread_default_iotier_override
+};
+
 /*
  * THREAD_QOS_UNSPECIFIED is assigned the highest tier available, so it does not provide a limit
  * to threads that don't have a QoS class set.
@@ -1693,6 +1699,9 @@ thread_policy_update_internal_spinlocked(thread_t thread, bool recompute_priorit
 	iopol = MAX(iopol, requested.thrp_int_iotier);
 	iopol = MAX(iopol, requested.thrp_ext_iotier);
 
+	/* Apply the kevent iotier override */
+	iopol = MIN(iopol, requested.thrp_iotier_kevent_override);
+
 	next.thep_io_tier = iopol;
 
 	/*
@@ -2055,6 +2064,11 @@ thread_set_requested_policy_spinlocked(thread_t     thread,
 		requested.thrp_terminated = value;
 		break;
 
+	case TASK_POLICY_IOTIER_KEVENT_OVERRIDE:
+		assert(category == TASK_POLICY_ATTRIBUTE);
+		requested.thrp_iotier_kevent_override = value;
+		break;
+
 	default:
 		panic("unknown task policy: %d %d %d", category, flavor, value);
 		break;
@@ -2183,6 +2197,10 @@ thread_get_requested_policy_spinlocked(thread_t thread,
 	case TASK_POLICY_TERMINATED:
 		assert(category == TASK_POLICY_ATTRIBUTE);
 		value = requested.thrp_terminated;
+		break;
+	case TASK_POLICY_IOTIER_KEVENT_OVERRIDE:
+		assert(category == TASK_POLICY_ATTRIBUTE);
+		value = requested.thrp_iotier_kevent_override;
 		break;
 
 	default:
@@ -3152,6 +3170,33 @@ thread_drop_servicer_override(thread_t thread)
 	thread_servicer_override(thread, THREAD_QOS_UNSPECIFIED, FALSE);
 }
 
+void
+thread_update_servicer_iotier_override(thread_t thread, uint8_t iotier_override)
+{
+	struct task_pend_token pend_token = {};
+	uint8_t current_iotier;
+
+	/* Check if the update is needed */
+	current_iotier = (uint8_t)thread_get_requested_policy_spinlocked(thread,
+	    TASK_POLICY_ATTRIBUTE, TASK_POLICY_IOTIER_KEVENT_OVERRIDE, NULL);
+
+	if (iotier_override == current_iotier) {
+		return;
+	}
+
+	spl_t s = splsched();
+	thread_lock(thread);
+
+	proc_set_thread_policy_spinlocked(thread, TASK_POLICY_ATTRIBUTE,
+	    TASK_POLICY_IOTIER_KEVENT_OVERRIDE,
+	    iotier_override, 0, &pend_token);
+
+	thread_unlock(thread);
+	splx(s);
+
+	assert(pend_token.tpt_update_sockets == 0);
+	thread_policy_update_complete_unlocked(thread, &pend_token);
+}
 
 /* Get current requested qos / relpri, may be called from spinlock context */
 thread_qos_t

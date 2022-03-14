@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -14,11 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,13 +33,11 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.3 (Berkeley) 4/2/94
- * $FreeBSD: src/bin/dd/extern.h,v 1.12 2002/02/02 06:24:12 imp Exp $
+ * $FreeBSD$
  */
 
 #ifndef _DD_EXTERN_H_
 #define _DD_EXTERN_H_
-
-#include <sys/cdefs.h>
 
 void block(void);
 void block_close(void);
@@ -51,8 +47,11 @@ void def_close(void);
 void jcl(char **);
 void pos_in(void);
 void pos_out(void);
+double secs_elapsed(void);
+void progress(void);
 void summary(void);
-void summaryx(int);
+void sigalarm_handler(int);
+void siginfo_handler(int);
 void terminate(int);
 void unblock(void);
 void unblock_close(void);
@@ -60,14 +59,18 @@ void unblock_close(void);
 extern IO in, out;
 extern STAT st;
 extern void (*cfunc)(void);
-extern quad_t cpy_cnt;
+extern uintmax_t cpy_cnt;
 extern size_t cbsz;
-extern u_int ddflags;
-extern quad_t files_cnt;
+extern uint64_t ddflags;
+extern size_t speed;
+extern uintmax_t files_cnt;
 extern const u_char *ctab;
 extern const u_char a2e_32V[], a2e_POSIX[];
 extern const u_char e2a_32V[], e2a_POSIX[];
 extern const u_char a2ibm_32V[], a2ibm_POSIX[];
 extern u_char casetab[];
+extern char fill_char;
+extern volatile sig_atomic_t need_summary;
+extern volatile sig_atomic_t need_progress;
 
 #endif /* _DD_EXTERN_H_ */

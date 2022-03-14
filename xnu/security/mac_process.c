@@ -216,53 +216,24 @@ mac_cred_label_associate(struct ucred *parent_cred, struct ucred *child_cred)
 int
 mac_execve_enter(user_addr_t mac_p, struct image_params *imgp)
 {
-	struct user_mac mac;
-	struct label *execlabel;
-	char *buffer;
-	int error;
-	size_t ulen;
-
 	if (mac_p == USER_ADDR_NULL) {
 		return 0;
 	}
 
-	if (IS_64BIT_PROCESS(current_proc())) {
-		struct user64_mac mac64;
-		error = copyin(mac_p, &mac64, sizeof(mac64));
-		mac.m_buflen = mac64.m_buflen;
-		mac.m_string = mac64.m_string;
-	} else {
-		struct user32_mac mac32;
-		error = copyin(mac_p, &mac32, sizeof(mac32));
-		mac.m_buflen = mac32.m_buflen;
-		mac.m_string = mac32.m_string;
-	}
-	if (error) {
+	return mac_do_set(current_proc(), mac_p,
+	           ^(char *input, __unused size_t len) {
+		struct label *execlabel;
+		int error;
+
+		execlabel = mac_cred_label_alloc();
+		if ((error = mac_cred_label_internalize(execlabel, input))) {
+		        mac_cred_label_free(execlabel);
+		        execlabel = NULL;
+		}
+
+		imgp->ip_execlabelp = execlabel;
 		return error;
-	}
-
-	error = mac_check_structmac_consistent(&mac);
-	if (error) {
-		return error;
-	}
-
-	execlabel = mac_cred_label_alloc();
-	buffer = kalloc_data(mac.m_buflen, Z_WAITOK);
-	error = copyinstr(CAST_USER_ADDR_T(mac.m_string), buffer, mac.m_buflen, &ulen);
-	if (error) {
-		goto out;
-	}
-	AUDIT_ARG(mac_string, buffer);
-
-	error = mac_cred_label_internalize(execlabel, buffer);
-out:
-	if (error) {
-		mac_cred_label_free(execlabel);
-		execlabel = NULL;
-	}
-	imgp->ip_execlabelp = execlabel;
-	kfree_data(buffer, mac.m_buflen);
-	return error;
+	});
 }
 
 /*

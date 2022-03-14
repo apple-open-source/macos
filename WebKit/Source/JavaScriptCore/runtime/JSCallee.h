@@ -50,12 +50,12 @@ public:
     template<typename CellType, SubspaceAccess>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.calleeSpace;
+        return &vm.calleeSpace();
     }
 
     static JSCallee* create(VM& vm, JSGlobalObject* globalObject, JSScope* scope)
     {
-        JSCallee* callee = new (NotNull, allocateCell<JSCallee>(vm.heap)) JSCallee(vm, scope, globalObject->calleeStructure());
+        JSCallee* callee = new (NotNull, allocateCell<JSCallee>(vm)) JSCallee(vm, scope, globalObject->calleeStructure());
         callee->finishCreation(vm);
         return callee;
     }

@@ -184,7 +184,6 @@ static void __DAResponseTimerCallback( CFRunLoopTimerRef timer, void * info )
 
                     if ( DASessionGetState( session, kDASessionStateTimeout ) == FALSE )
                     {
-                        DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
                         DALogDebug( "  timed out session, id = %@.", session );
 

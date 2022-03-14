@@ -143,11 +143,7 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
     // Note : we allocate/find number/insert in queue in that specific order
     // because of funnels and race condition issues
 
-    MALLOC(wan, struct l2tp_wan *, sizeof(struct l2tp_wan), M_TEMP, M_WAITOK);
-    if (!wan)
-        return ENOMEM;
-
-    bzero(wan, sizeof(struct l2tp_wan));
+    wan = kalloc_type(struct l2tp_wan, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	// find a unit and where to insert it, keep the list ordered
 	unit = 0;
@@ -184,7 +180,7 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
     if (ret) {
         IOLog("L2TP_wan_attach, error = %d, (ld = %p)\n", ret, wan);
         TAILQ_REMOVE(&l2tp_wan_head, wan, next);
-        FREE(wan, M_TEMP);
+        kfree_type(struct l2tp_wan, wan);
         return ret;
     }
     
@@ -206,7 +202,7 @@ void l2tp_wan_detach(struct ppp_link *link)
 
     ppp_link_detach(link);
     TAILQ_REMOVE(&l2tp_wan_head, wan, next);
-    FREE(wan, M_TEMP);
+    kfree_type(struct l2tp_wan, wan);
 }
 
 /* -----------------------------------------------------------------------------

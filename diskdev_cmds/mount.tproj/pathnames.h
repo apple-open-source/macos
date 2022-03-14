@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2021 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,6 +54,8 @@
  *
  *	@(#)pathnames.h	8.2 (Berkeley) 3/27/94
  */
+#ifndef __PATHNAMES_H
+#define __PATHNAMES_H
 
 #define _PATH_SBIN	"/sbin"
 #define _PATH_USRSBIN	"/usr/sbin"
@@ -61,3 +63,5 @@
 #define _PATH_USRFSBNDL	"/Library/Filesystems"
 #define _PATH_FSBNDLBIN	"Contents/Resources"
 #define	_PATH_MOUNTDPID	"/var/run/mountd.pid"
+
+#endif //__PATHNAMES_H

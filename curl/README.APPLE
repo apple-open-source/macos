@@ -1,4 +1,4 @@
-The 'curl' subdirectory is based on curl 7.77.0
+The 'curl' subdirectory is based on curl 7.79.1
 
 == Updating to a new upstream version ==
 
@@ -32,7 +32,7 @@ macOS:
 SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --with-gssapi --with-ssl=$(xcrun --show-sdk-path)/usr/local/libressl --with-secure-transport
 
 iOS (etc):
-SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-darwinssl
+SDKROOT=macosx.internal ./configure --enable-hidden-symbols --enable-threaded-resolver --disable-ldap --with-secure-transport
 
 Changes to curl_config.h post-configure:
   (1) Add #ifdef __LP64__ for SIZEOF_LONG, SIZEOF_SIZE_T, SIZEOF_TIME_T, SIZEOF_VOIDP

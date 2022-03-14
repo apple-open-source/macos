@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>chflags</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/chflags?id=2dfa4b66b3d0caaaae6ce2df476b5615f8415a19</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>chflags.1: Darwin specific details (3595294, 79177764)</string>
+			<string>chflags.c: Provide chflagsat(2) shim (79177764)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

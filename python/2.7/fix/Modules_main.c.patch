@@ -4,11 +4,11 @@
  #endif
  #endif
  
-+
-+
-+
-+
-+
++#ifndef OPEN_SOURCE
++#ifdef __APPLE__
++#include <rootless.h>
++#endif
++#endif
 +
  #include "pygetopt.h"
  
@@ -26,15 +26,15 @@
      Py_RISCOSWimpFlag = 0;
  #endif
  
-+
-+
-+
-+
-+
-+
-+
-+
-+
++#ifndef OPEN_SOURCE
++#ifdef __APPLE__
++    if (rootless_restricted_environment()) {
++        Py_IgnoreEnvironmentFlag++;
++        Py_NoSiteFlag++;
++        Py_NoUserSiteDirectory++;
++    }
++#endif
++#endif
      /* Hash randomization needed early for all string operations
         (including -W and -X options). */
      _PyOS_opterr = 0;  /* prevent printing the error in 1st pass */

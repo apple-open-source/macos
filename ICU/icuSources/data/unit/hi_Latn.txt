@@ -4,6 +4,13 @@
 hi_Latn{
     %%Parent{"en_IN"}
     unitsNarrow{
+        concentr{
+            karat{
+                dnam{"karat"}
+                one{"{0}kt"}
+                other{"{0}kt"}
+            }
+        }
         digital{
             gigabyte{
                 dnam{"GByte"}
@@ -22,10 +29,6 @@ hi_Latn{
             }
         }
         duration{
-            microsecond{
-                one{"{0}μs"}
-                other{"{0}μs"}
-            }
             month{
                 one{"{0}m"}
                 other{"{0}m"}
@@ -51,6 +54,13 @@ hi_Latn{
             }
             mile-per-hour{
                 dnam{"mi/hr"}
+            }
+        }
+        volume{
+            fluid-ounce-imperial{
+                dnam{"Imp fl oz"}
+                one{"{0}fl oz Im"}
+                other{"{0}fl oz Im"}
             }
         }
     }

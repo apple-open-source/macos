@@ -384,8 +384,6 @@ kern_packet_get_timestamp_requested(const kern_packet_t ph,
 void
 kern_packet_tx_completion(const kern_packet_t ph, ifnet_t ifp)
 {
-	uint64_t ts;
-	uintptr_t cb_arg, cb_data;
 	kern_return_t tx_status;
 	struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(ph);
 
@@ -394,22 +392,8 @@ kern_packet_tx_completion(const kern_packet_t ph, ifnet_t ifp)
 	if (tx_status != KERN_SUCCESS) {
 		(void) kern_channel_event_transmit_status(ph, ifp);
 	}
-	if ((kpkt->pkt_pflags & PKT_F_TX_COMPL_TS_REQ) == 0) {
-		return;
-	}
-	__packet_get_tx_completion_data(ph, &cb_arg, &cb_data);
-	__packet_get_timestamp(ph, &ts, NULL);
-	while (kpkt->pkt_tx_compl_callbacks != 0) {
-		mbuf_tx_compl_func cb;
-		uint32_t i;
-
-		i = ffs(kpkt->pkt_tx_compl_callbacks) - 1;
-		kpkt->pkt_tx_compl_callbacks &= ~(1 << i);
-		cb = m_get_tx_compl_callback(i);
-		if (__probable(cb != NULL)) {
-			cb(kpkt->pkt_tx_compl_context, ifp, ts, cb_arg, cb_data,
-			    tx_status);
-		}
+	if ((kpkt->pkt_pflags & PKT_F_TX_COMPL_TS_REQ) != 0) {
+		__packet_perform_tx_completion_callbacks(ph, ifp);
 	}
 }
 

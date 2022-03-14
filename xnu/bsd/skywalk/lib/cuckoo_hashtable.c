@@ -658,7 +658,7 @@ cuckoo_move(struct cuckoo_hashtable *h, struct cuckoo_node *node,
 			return EINVAL;
 		}
 
-		cht_log(CHTV_DEBUG, "Move [0x%llx][%d] to [0x%llx][%d]",
+		cht_log(CHTV_DEBUG, "Move [0x%lx][%d] to [0x%lx][%d]",
 		    from_bkt - h->_buckets, from_slot, to_bkt - h->_buckets,
 		    to_slot);
 
@@ -861,7 +861,7 @@ cuckoo_resize(struct cuckoo_hashtable *h, enum cuckoo_resize_ops option)
 	/* check load factor to ensure we are not hitting something else */
 	if (option == _CHT_RESIZE_EXPAND) {
 		if (curr_load < _CHT_MIN_LOAD_EXPAND) {
-			cht_warn("Warning: early expand at %f load", curr_load);
+			cht_warn("Warning: early expand at %d load", curr_load);
 		}
 		new_capacity = curr_capacity * 2;
 	} else {

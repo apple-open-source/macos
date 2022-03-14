@@ -124,13 +124,13 @@ WebGLRenderingContext::WebGLRenderingContext(CanvasBase& canvas, Ref<GraphicsCon
 
 void WebGLRenderingContext::initializeVertexArrayObjects()
 {
-    m_defaultVertexArrayObject = WebGLVertexArrayObjectOES::create(*this, WebGLVertexArrayObjectOES::Type::Default);
-    addContextObject(*m_defaultVertexArrayObject);
-    m_boundVertexArrayObject = m_defaultVertexArrayObject;
 #if !USE(ANGLE)
     if (!isGLES2Compliant())
         initVertexAttrib0();
 #endif
+    m_defaultVertexArrayObject = WebGLVertexArrayObjectOES::create(*this, WebGLVertexArrayObjectOES::Type::Default);
+    addContextObject(*m_defaultVertexArrayObject);
+    m_boundVertexArrayObject = m_defaultVertexArrayObject;
 }
 
 WebGLExtension* WebGLRenderingContext::getExtension(const String& name)
@@ -312,7 +312,7 @@ WebGLAny WebGLRenderingContext::getFramebufferAttachmentParameter(GCGLenum targe
     }
 #endif
 
-    auto object = makeRefPtr(m_framebufferBinding->getAttachmentObject(attachment));
+    RefPtr object = m_framebufferBinding->getAttachmentObject(attachment);
     if (!object) {
         if (pname == GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE)
             return static_cast<unsigned>(GraphicsContextGL::NONE);
@@ -327,7 +327,7 @@ WebGLAny WebGLRenderingContext::getFramebufferAttachmentParameter(GCGLenum targe
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
             return static_cast<unsigned>(GraphicsContextGL::TEXTURE);
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
-            return makeRefPtr(reinterpret_cast<WebGLTexture&>(*object));
+            return static_pointer_cast<WebGLTexture>(object);
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_LEVEL:
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_TEXTURE_CUBE_MAP_FACE:
         case ExtensionsGL::FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING_EXT:
@@ -342,7 +342,7 @@ WebGLAny WebGLRenderingContext::getFramebufferAttachmentParameter(GCGLenum targe
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_TYPE:
             return static_cast<unsigned>(GraphicsContextGL::RENDERBUFFER);
         case GraphicsContextGL::FRAMEBUFFER_ATTACHMENT_OBJECT_NAME:
-            return makeRefPtr(reinterpret_cast<WebGLRenderbuffer&>(*object));
+            return static_pointer_cast<WebGLRenderbuffer>(object);
         case ExtensionsGL::FRAMEBUFFER_ATTACHMENT_COLOR_ENCODING_EXT: {
             if (!m_extsRGB) {
                 synthesizeGLError(GraphicsContextGL::INVALID_ENUM, "getFramebufferAttachmentParameter", "invalid parameter name for renderbuffer attachment");

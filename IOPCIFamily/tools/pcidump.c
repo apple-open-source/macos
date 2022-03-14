@@ -138,7 +138,7 @@ io_registry_entry_t lookService(uint32_t segment,
     space.es.deviceNum   = device;
     space.es.functionNum = function;
     
-    status = IOServiceGetMatchingServices(kIOMasterPortDefault, 
+    status = IOServiceGetMatchingServices(kIOMainPortDefault, 
                                             IOServiceMatching("IOPCIDevice"), &iter);
     assert(kIOReturnSuccess == status);
 
@@ -254,7 +254,7 @@ int main(int argc, char **argv)
     io_connect_t           connect;
     kern_return_t          status;
 
-    service = IOServiceGetMatchingService(kIOMasterPortDefault, 
+    service = IOServiceGetMatchingService(kIOMainPortDefault, 
                                             IOServiceMatching("IOPCIBridge"));
     assert(service);
     if (service) 

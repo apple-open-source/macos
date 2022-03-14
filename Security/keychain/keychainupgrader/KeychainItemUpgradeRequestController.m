@@ -16,6 +16,7 @@
 OctagonState* const KeychainItemUpgradeRequestStateNothingToDo = (OctagonState*)@"nothing_to_do";
 OctagonState* const KeychainItemUpgradeRequestStateWaitForUnlock = (OctagonState*)@"wait_for_unlock";
 OctagonState* const KeychainItemUpgradeRequestStateUpgradePersistentRef = (OctagonState*)@"upgrade_persistent_ref";
+OctagonState* const KeychainItemUpgradeRequestStateWaitForTrigger = (OctagonState*)@"wait_for_trigger";
 OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade = (OctagonFlag*)@"schedule_pref_upgrade";
 
 @interface KeychainItemUpgradeRequestController ()
@@ -38,7 +39,8 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
         _stateMachine = [[OctagonStateMachine alloc] initWithName:@"keychainitemupgrade"
                                                            states:[NSSet setWithArray:@[KeychainItemUpgradeRequestStateNothingToDo,
                                                                                         KeychainItemUpgradeRequestStateWaitForUnlock,
-                                                                                        KeychainItemUpgradeRequestStateUpgradePersistentRef]]
+                                                                                        KeychainItemUpgradeRequestStateUpgradePersistentRef,
+                                                                                        KeychainItemUpgradeRequestStateWaitForTrigger]]
                                                             flags: [NSSet setWithArray:@[KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade]]
                                                      initialState:KeychainItemUpgradeRequestStateUpgradePersistentRef
                                                             queue:_queue
@@ -47,9 +49,9 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
                                               reachabilityTracker:nil];
         
         _persistentReferenceUpgrader = [[CKKSNearFutureScheduler alloc] initWithName:@"persistent-ref-upgrader"
-                                                                        initialDelay:(SecCKKSTestsEnabled() ? .5 : 5) * NSEC_PER_SEC
+                                                                        initialDelay:SecCKKSTestsEnabled() ? 100*NSEC_PER_MSEC : 5*NSEC_PER_SEC
                                                                     expontialBackoff:2
-                                                                        maximumDelay:(300 * NSEC_PER_SEC)
+                                                                        maximumDelay:SecCKKSTestsEnabled() ? 5*NSEC_PER_SEC : 300*NSEC_PER_SEC
                                                                     keepProcessAlive:false
                                                            dependencyDescriptionCode:CKKSResultDescriptionNone
                                                                                block:^{
@@ -89,6 +91,7 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
 
             OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"after-upgrade--attempt-wait-for-unlock"
                                                                                 entering:KeychainItemUpgradeRequestStateWaitForUnlock];
+            CFReleaseNull(upgradeError);
             return op;
         }
         else if (inProgress && upgradeError == NULL) {
@@ -99,23 +102,33 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
         else if (inProgress && (upgradeError || success != true)) {
             secnotice("keychainitemupgrade", "hit an error, triggering CKKSNFS: %@", upgradeError);
             [self.persistentReferenceUpgrader trigger];
+            OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"wait-for-trigger"
+                                                                                entering:KeychainItemUpgradeRequestStateWaitForTrigger];
+            CFReleaseNull(upgradeError);
+            return op;
         }
         else {
             secnotice("keychainitemupgrade", "finished upgrading items!");
+            OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"nothing-to-do"
+                                                                                entering:KeychainItemUpgradeRequestStateNothingToDo];
+            CFReleaseNull(upgradeError);
+            return op;
         }
-        
-        OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"nothing-to-do"
-                                                                            entering:KeychainItemUpgradeRequestStateNothingToDo];
-        return op;
-    
-    } else if ([flags _onqueueContains:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade]) {
-        [flags _onqueueRemoveFlag:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade];
-        secnotice("keychainitemupgrade", "handling persistent ref flag, attempting to upgrade next batch");
-        OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"upgrade-persistent-refs"
-                                                                            entering:KeychainItemUpgradeRequestStateUpgradePersistentRef];
-        return op;
-        
+    } else if ([currentState isEqualToString:KeychainItemUpgradeRequestStateWaitForTrigger]) {
+        secnotice("keychainitemupgrade", "waiting for trigger to occur");
+        if ([flags _onqueueContains:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade]) {
+            [flags _onqueueRemoveFlag:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade];
+            secnotice("keychainitemupgrade", "handling persistent ref flag, attempting to upgrade next batch");
+            OctagonStateTransitionOperation* op = [OctagonStateTransitionOperation named:@"upgrade-persistent-refs"
+                                                                                entering:KeychainItemUpgradeRequestStateUpgradePersistentRef];
+            return op;
+        }
     } else if ([currentState isEqualToString:KeychainItemUpgradeRequestStateNothingToDo]) {
+        //all finished! clear any future scheduling
+        [self.persistentReferenceUpgrader cancel];
+        if ([flags _onqueueContains:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade]) {
+            [flags _onqueueRemoveFlag:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade];
+        }
         secnotice("keychainitemupgrade", "nothing to do");
     }
     
@@ -125,9 +138,25 @@ OctagonFlag* const KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgr
 - (void)triggerKeychainItemUpdateRPC:(nonnull void (^)(NSError * _Nullable))reply
 {
     [self.stateMachine startOperation];
- 
-    [self.stateMachine handleFlag:KeychainItemUpgradeRequestFlagSchedulePersistentReferenceUpgrade];
 
+    
+    if (self.lockStateTracker) {
+        [self.lockStateTracker recheck];
+    }
+    
+    CKKSResultOperation<OctagonStateTransitionOperationProtocol>* requestUpgrade
+    = [OctagonStateTransitionOperation named:@"upgrade-persistent-ref"
+                                    entering:KeychainItemUpgradeRequestStateUpgradePersistentRef];
+
+    NSSet* sourceStates = [NSSet setWithArray: @[KeychainItemUpgradeRequestStateNothingToDo]];
+
+    OctagonStateTransitionRequest<OctagonStateTransitionOperation*>* request = [[OctagonStateTransitionRequest alloc] init:@"request-item-upgrade"
+                                                                                                              sourceStates:sourceStates
+                                                                                                               serialQueue:self.queue
+                                                                                                                   timeout:10*NSEC_PER_SEC
+                                                                                                              transitionOp:requestUpgrade];
+    [self.stateMachine handleExternalRequest:request];
+    
     reply(nil);
 }
 

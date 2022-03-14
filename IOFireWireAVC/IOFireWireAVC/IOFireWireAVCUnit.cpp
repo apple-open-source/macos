@@ -866,11 +866,9 @@ bool IOFireWireAVCUnit::start(IOService *provider)
 	fDevice->retain();
 
 	// create/clear expansion data
-	fIOFireWireAVCUnitExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	fIOFireWireAVCUnitExpansion = IOMallocType( ExpansionData );
 	if( fIOFireWireAVCUnitExpansion == NULL )
 		return false;
-	else
-		bzero( fIOFireWireAVCUnitExpansion, sizeof(ExpansionData) );
 
 	// Get the controller
 	fIOFireWireAVCUnitExpansion->fControl = fDevice->getController();
@@ -1093,8 +1091,7 @@ void IOFireWireAVCUnit::free(void)
 	// free expansion data
 	if (fIOFireWireAVCUnitExpansion)
 	{
-		IOFree ( fIOFireWireAVCUnitExpansion, sizeof(ExpansionData) );
-		fIOFireWireAVCUnitExpansion = NULL;
+		IOFreeType ( fIOFireWireAVCUnitExpansion, ExpansionData );
 	}
 	
     IOService::free();

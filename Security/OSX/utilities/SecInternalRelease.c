@@ -25,8 +25,26 @@
 #include <AssertMacros.h>
 #include <strings.h>
 #include <os/variant_private.h>
+#include <sys/sysctl.h>
 
+#include "debugging.h"
 #include "SecInternalReleasePriv.h"
+
+bool SecAreQARootCertificatesEnabled(void) {
+    static bool sQACertsEnabled = false;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        int value = 0;
+        size_t size = sizeof(value);
+        int ret = sysctlbyname("security.mac.amfi.qa_root_certs_allowed", &value, &size, NULL, 0);
+        if (ret == 0) {
+            sQACertsEnabled = (value == 1);
+        } else {
+            secerror("Unable to check QA certificate status: %d", ret);
+        }
+    });
+    return sQACertsEnabled;
+}
 
 bool SecIsInternalRelease(void) {
     static bool isInternal = false;

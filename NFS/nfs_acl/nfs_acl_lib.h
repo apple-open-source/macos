@@ -99,7 +99,7 @@ extern int compare_acl_qualifiers(uuid_t *qa, uuid_t *qb);
 extern int compare_acl_permsets(acl_permset_t aperms, acl_permset_t bperms);
 extern int compare_acl_entries(acl_entry_t a, acl_entry_t b);
 extern unsigned is_canonical(acl_t acl);
-extern int find_matching_entry (acl_t acl, acl_entry_t modifier, acl_entry_t *rentry, unsigned match_inherited);
+extern int find_matching_entry(acl_t acl, acl_entry_t modifier, acl_entry_t *rentry, unsigned match_inherited);
 extern unsigned find_canonical_position(acl_t acl, acl_entry_t modifier);
 extern int subtract_from_entry(acl_entry_t rentry, acl_entry_t modifier, int *valid_perms);
 extern int modify_acl(acl_t *oaclp, acl_entry_t modifier, unsigned int optflags, int position, int inheritance_level, unsigned flag_new_acl, const char* path);

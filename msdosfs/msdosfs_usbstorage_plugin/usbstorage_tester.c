@@ -35,6 +35,13 @@
 
 #define TEST_7_THREAD_COUNT (12)
 
+#define TEST_8_DIRNAME "synthetic_ids_dir"
+#define TEST_8_FILENAME "synthetic_ids_file"
+#define TEST_8_NUM_OF_CONCURRENT_BLOCKS (10)
+#define TEST_8_NUM_FILES_PER_BLOCK (500)
+#define TEST_8_TIMEOUT_NSEC (40*NSEC_PER_SEC)
+
+
 #define TEST_CYCLE_COUNT (2)
 
 typedef int pthread_barrierattr_t;
@@ -256,14 +263,14 @@ __unused static void print_dir_entry_name( uint32_t uLen, char* pcName, char* pc
 static int GetFSAttr(UVFSFileNode Node);
 static void* MultiThreadSingleFile(void *arg);
 static void* MultiThreadMultiFiles(void *arg);
-static int RemoveFile(UVFSFileNode ParentNode,char* FileNameToRemove);
+static int RemoveFile(UVFSFileNode ParentNode,const char* FileNameToRemove);
 static int SetAttrChangeSize(UVFSFileNode FileNode,uint64_t uNewSize);
-static int RemoveFolder(UVFSFileNode ParentNode,char* DirNameToRemove);
+static int RemoveFolder(UVFSFileNode ParentNode,const char* DirNameToRemove);
 static int GetAttrAndCompare(UVFSFileNode FileNode,UVFSFileAttributes* sInAttrs);
 static int Lookup(UVFSFileNode ParentNode,UVFSFileNode *NewFileNode,char* FileName);
-static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,char* NewDirName);
+static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,const char* NewDirName);
 static int CreateLink(UVFSFileNode ParentNode,UVFSFileNode* NewLinkNode,char* LinkName,char* LinkContent);
-static int CreateNewFile(UVFSFileNode ParentNode,UVFSFileNode* NewFileNode,char* NewFileName,uint64_t size);
+static int CreateNewFile(UVFSFileNode ParentNode,UVFSFileNode* NewFileNode,const char* NewFileName,uint64_t size);
 static int Rename(UVFSFileNode fromDirNode, UVFSFileNode fromNode, const char *fromName, UVFSFileNode toDirNode, UVFSFileNode toNode, const char *toName);
 static void read_directory_and_search_for_name( UVFSFileNode UVFSFileNode, char* pcSearchName, bool* pbFound);
 static int ReadLinkToBuffer(UVFSFileNode LinkdNode,void* pvExternalBuffer, uint32_t uExternalBufferSize, size_t* actuallyRead);
@@ -571,7 +578,7 @@ static int Rename(UVFSFileNode fromDirNode, UVFSFileNode fromNode, const char *f
     return error;
 }
 
-static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,char* NewDirName)
+static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,const char* NewDirName)
 {
     int error =0;
 
@@ -584,7 +591,7 @@ static int CreateNewFolder(UVFSFileNode ParentNode,UVFSFileNode* NewDirNode,char
     return error;
 }
 
-static int RemoveFolder(UVFSFileNode ParentNode,char* DirNameToRemove)
+static int RemoveFolder(UVFSFileNode ParentNode,const char* DirNameToRemove)
 {
     int error =0;
 
@@ -593,7 +600,7 @@ static int RemoveFolder(UVFSFileNode ParentNode,char* DirNameToRemove)
     return error;
 }
 
-static int CreateNewFile(UVFSFileNode ParentNode, UVFSFileNode* NewFileNode, char* NewFileName, uint64_t size)
+static int CreateNewFile(UVFSFileNode ParentNode, UVFSFileNode* NewFileNode, const char* NewFileName, uint64_t size)
 {
     int error =0;
     UVFSFileAttributes attrs;
@@ -610,7 +617,7 @@ static int CreateNewFile(UVFSFileNode ParentNode, UVFSFileNode* NewFileNode, cha
     return error;
 }
 
-static int RemoveFile(UVFSFileNode ParentNode,char* FileNameToRemove)
+static int RemoveFile(UVFSFileNode ParentNode,const char* FileNameToRemove)
 {
     int error =0;
 
@@ -1521,6 +1528,146 @@ test7_opsOnDirFiles(void *arg)
     return (void *) (size_t) iError;
 }
 
+static bool test8_mtFileIdAllocationIsUniqueAndConsecutive(UVFSFileNode parentDirNode)
+{
+    dispatch_queue_t concurrentQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_group_t fileCreationGroup = dispatch_group_create();
+    uint64_t startID = atomic_load(&GET_FSRECORD(GET_RECORD(parentDirNode))->uNextAvailableFileID);
+    __block atomic_ullong blockIndexAllocator = ATOMIC_VAR_INIT(0);
+    __block atomic_ullong xoredResult = ATOMIC_VAR_INIT(0);
+    __block atomic_int sharedError = ATOMIC_VAR_INIT(0);
+    
+    // Dispatch TEST_8_NUM_OF_CONCURRENT_BLOCKS concurrent blocks
+    for(int i = 0; i < TEST_8_NUM_OF_CONCURRENT_BLOCKS; i++)
+    {
+        dispatch_group_async(fileCreationGroup, concurrentQueue, ^{
+            uint64_t blockIndex = atomic_fetch_add(&blockIndexAllocator, 1);
+            
+            // Each block should create TEST_8_NUM_FILES_PER_BLOCK zero-length files, xoring the allocated fileIDs with the shared xoredResult
+            int err;
+            char tempName[BUFSIZ] = { 0 };
+            for(int fileIndex = 0; fileIndex < TEST_8_NUM_FILES_PER_BLOCK; fileIndex++)
+            {
+                // Create a uniquely-named, zero-length file. Xor the allocated file ID with the shared xoredResult and remove the file.
+                sprintf(tempName, "%s_%llu_%d", TEST_8_FILENAME, blockIndex, fileIndex);
+                UVFSFileNode tempNode;
+                err = CreateNewFile(parentDirNode, &tempNode, tempName, 0);
+                if(err)
+                {
+                    printf("Could not create zero-length file for test 8 - error [%d]\n", err);
+                    atomic_store(&sharedError, err);
+                    break;
+                }
+                UVFSFileAttributes outAttrs = { 0 };
+                err = MSDOS_fsOps.fsops_getattr(tempNode, &outAttrs);
+                if(err)
+                {
+                    printf("Failed getAttr on zero-length file - error [%d]\n", err);
+                    atomic_store(&sharedError, err);
+                    break;
+                }
+                atomic_fetch_xor(&xoredResult, outAttrs.fa_fileid);
+                CloseFile(tempNode);
+                RemoveFile(parentDirNode, tempName);
+            }
+        });
+    }
+    
+    // Wait for all blocks to finish contending over zero-length file IDs and ensure no block hit an error.
+    bool creationSucceeded = true;
+    if( dispatch_group_wait(fileCreationGroup, dispatch_time(DISPATCH_TIME_NOW, TEST_8_TIMEOUT_NSEC)) != 0 || atomic_load(&sharedError) != 0 )
+    {
+        printf("Test 8 multi-threaded allocation timedout or failed during file creation/removal. Err - [%d]\n", atomic_load(&sharedError));
+        creationSucceeded = false;
+    }
+    dispatch_release(concurrentQueue);
+    dispatch_release(fileCreationGroup);
+    if( !creationSucceeded ) return false;
+    
+    // First - ensure we have allocated the expected number of file IDs. This will also fail if we wrap around - shouldnt happen...
+    uint64_t nextAvailableID = atomic_load(&GET_FSRECORD(GET_RECORD(parentDirNode))->uNextAvailableFileID);
+    if( startID - nextAvailableID != TEST_8_NUM_OF_CONCURRENT_BLOCKS * TEST_8_NUM_FILES_PER_BLOCK )
+    {
+        printf("Test 8 multi-threaded allocation allocated unexpected number of file IDs. Expected (%d), allocated (%llu)\n",
+               TEST_8_NUM_OF_CONCURRENT_BLOCKS * TEST_8_NUM_FILES_PER_BLOCK, startID - nextAvailableID);
+        return false;
+    }
+    
+    // Second - ensure these IDs are unique. XOR the xoredResult of all allocated IDs with all expected IDs and ensure the result is 0 ( xor(x,x) = 0 )
+    for(uint64_t i = startID; i > nextAvailableID; i--)
+    {
+        atomic_fetch_xor(&xoredResult, i);
+    }
+    if( atomic_load(&xoredResult) != 0 )
+    {
+        printf("Test 8 multi-threaded allocation seems to have skipped a file ID.\n");
+        return false;
+    }
+    return true;
+}
+
+static bool test8_mtFileIdAllocationSurvivesWrapAround(UVFSFileNode parentDirNode)
+{
+    dispatch_queue_t concurrentQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+    dispatch_group_t fileCreationGroup = dispatch_group_create();
+    __block atomic_ullong blockIndexAllocator = ATOMIC_VAR_INIT(0);
+    __block atomic_int sharedError = ATOMIC_VAR_INIT(0);
+    
+    // Ensure we hit the wrap around value as long as we have more than 1 concurrent block (TEST_8_NUM_OF_CONCURRENT_BLOCKS > 1)
+    atomic_exchange(&GET_FSRECORD(GET_RECORD(parentDirNode))->uNextAvailableFileID, ZERO_LENGTH_WRAP_AROUND_FILEID + TEST_8_NUM_FILES_PER_BLOCK);
+    uint64_t startID = atomic_load(&GET_FSRECORD(GET_RECORD(parentDirNode))->uNextAvailableFileID);
+    
+    // Dispatch TEST_8_NUM_OF_CONCURRENT_BLOCKS concurrent blocks
+    for(int i = 0; i < TEST_8_NUM_OF_CONCURRENT_BLOCKS; i++)
+    {
+        dispatch_group_async(fileCreationGroup, concurrentQueue, ^{
+            uint64_t blockIndex = atomic_fetch_add(&blockIndexAllocator, 1);
+            
+            // Each block should create TEST_8_NUM_FILES_PER_BLOCK zero-length files
+            int err;
+            char tempName[BUFSIZ] = { 0 };
+            for(int fileIndex = 0; fileIndex < TEST_8_NUM_FILES_PER_BLOCK; fileIndex++)
+            {
+                // Create uniquely-named, zero-length file
+                sprintf(tempName, "%s_%llu_%d", TEST_8_FILENAME, blockIndex, fileIndex);
+                UVFSFileNode tempNode;
+                err = CreateNewFile(parentDirNode, &tempNode, tempName, 0);
+                if(err)
+                {
+                    printf("Could not create zero-length file for test 8 - error [%d]\n", err);
+                    atomic_store(&sharedError, err);
+                    break;
+                }
+                UVFSFileAttributes outAttrs = { 0 };
+                err = MSDOS_fsOps.fsops_getattr(tempNode, &outAttrs);
+                if(err)
+                {
+                    printf("Failed getAttr on zero-length file - error [%d]\n", err);
+                    atomic_store(&sharedError, err);
+                    break;
+                }
+                CloseFile(tempNode);
+                RemoveFile(parentDirNode, tempName);
+            }
+        });
+    }
+    
+    // Wait for all block to finish contending over zero-length file IDs and ensure no block hit an error.
+    bool creationSucceeded = true;
+    if( dispatch_group_wait(fileCreationGroup, dispatch_time(DISPATCH_TIME_NOW, TEST_8_TIMEOUT_NSEC)) != 0 || atomic_load(&sharedError) != 0 )
+    {
+        printf("Test 8 multi-threaded allocation timedout or failed during file creation/removal. Err - [%d]\n", atomic_load(&sharedError));
+        creationSucceeded = false;
+    }
+    dispatch_release(concurrentQueue);
+    dispatch_release(fileCreationGroup);
+    if( !creationSucceeded ) return false;
+    
+    // We dont have much to verify here, since a file may technically get a fileID thats a bit smaller than the WRAP_AROUND value. Just make sure the wrap around occured error-free.
+    uint64_t nextAvailableID = atomic_load(&GET_FSRECORD(GET_RECORD(parentDirNode))->uNextAvailableFileID);
+    return ( nextAvailableID > startID ) && ( atomic_load(&sharedError) == 0 );
+}
+
 static void
 TestNlink( UVFSFileNode RootNode )
 {
@@ -1653,19 +1800,19 @@ int main( int argc, const char * argv[] )
         if (err) break;
 
         UVFSFileNode D11_Node = NULL;
-        err = CreateNewFolder(RootNode,&D11_Node,(char*)"ÖÖ");
+        err = CreateNewFolder(RootNode,&D11_Node,"ÖÖ");
         printf("CreateNewFolder ÖÖ err [%d]\n",err);
         if (err) break;
 
         // Create File Validation-MirrorAckColoradoBulldog (size 0) in D1
         UVFSFileNode F12_Node= NULL;
-        err = CreateNewFile(D1_Node,&F12_Node,(char*)"Validation-MirrorAckColoradoBulldog",0);
+        err = CreateNewFile(D1_Node,&F12_Node,"Validation-MirrorAckColoradoBulldog",0);
         printf("CreateNewFile Validation-MirrorAckColoradoBulldog err [%d]\n",err);
         if (err) break;
 
         // Create File validation-mirrorackcoloradobulldog (size 0) in D1 - should fail
         UVFSFileNode F13_Node= NULL;
-        err = CreateNewFile(D1_Node,&F13_Node,(char*)"validation-mirrorackcoloradobulldog",0);
+        err = CreateNewFile(D1_Node,&F13_Node,"validation-mirrorackcoloradobulldog",0);
         printf("CreateNewFile validation-mirrorackcoloradobulldog err [%d]\n",err);
         if (err != EEXIST) break;
 
@@ -1675,7 +1822,7 @@ int main( int argc, const char * argv[] )
         if (err) break;
 
         //Remove validation-mirrorackcoloradobulldog - should remove Validation-MirrorAckColoradoBulldog
-        err = RemoveFile(D1_Node,(char*)"validation-mirrorackcoloradobulldog");
+        err = RemoveFile(D1_Node,"validation-mirrorackcoloradobulldog");
         printf("RemoveFile validation-mirrorackcoloradobulldog from Root err [%d]\n",err);
         if (err) break;
 
@@ -2194,6 +2341,128 @@ int main( int argc, const char * argv[] )
         RemoveFile(RootNode, "dbFile");
         RemoveFile(RootNode, "dbFile2");
         
+        // ----------------------------------------------------------------------------------
+        // Test8: Use synthentic file ids for files with no allocated cluster (rdar://79436033)
+        // ----------------------------------------------------------------------------------
+        
+        // Create a directory with a single, zero-length file
+        UVFSFileNode syntheticIdDirNode;
+        UVFSFileNode syntheticIdFileNode;
+        err = CreateNewFolder(RootNode, &syntheticIdDirNode, TEST_8_DIRNAME);
+        if(err)
+        {
+            printf("Could not create directory for test 8 - error [%d]\n", err);
+            break;
+        }
+        err = CreateNewFile(syntheticIdDirNode, &syntheticIdFileNode, TEST_8_FILENAME, 0);
+        if(err)
+        {
+            printf("Could not create zero-length file for test 8 - error [%d]\n", err);
+            break;
+        }
+        
+        // GetAttr zero-length file and ensure its fileID is larger than or equal to the minimal zero-length file ID
+        UVFSFileAttributes outAttrs = { 0 };
+        err = MSDOS_fsOps.fsops_getattr(syntheticIdFileNode, &outAttrs);
+        if(err)
+        {
+            printf("Failed getAttr on zero-length file - error [%d]\n", err);
+            break;
+        }
+        if(outAttrs.fa_fileid < ZERO_LENGTH_WRAP_AROUND_FILEID)
+        {
+            printf("Zero-length file was given a smaller file ID than expected. Wrap around file ID = %lu, given file ID = %llu\n",
+                   ZERO_LENGTH_WRAP_AROUND_FILEID, outAttrs.fa_fileid);
+            break;
+        }
+        
+        // Write to the file and ensure that the file ID is changed to something less than or equal to the largest cluster number
+        uint32_t maxClusterNum = GET_FSRECORD(GET_RECORD(syntheticIdDirNode))->sFSInfo.uMaxCluster;
+        char synthIDFileContents[BUFSIZ] = { 0 };
+        sprintf(synthIDFileContents, "contents of syntheric ID file\n");
+        size_t actuallyWritten = 0;
+        err = MSDOS_fsOps.fsops_write(syntheticIdFileNode, 0, strlen(synthIDFileContents), synthIDFileContents, &actuallyWritten);
+        if(err || actuallyWritten == 0)
+        {
+            printf("Failed to write to zero-length file - actually wrote: %zu, error [%d]\n", actuallyWritten, err);
+            break;
+        }
+        err = MSDOS_fsOps.fsops_getattr(syntheticIdFileNode, &outAttrs);
+        if(err)
+        {
+            printf("Failed getAttr on (previously) zero-length, file after it was written to - error [%d]\n", err);
+            break;
+        }
+        if(outAttrs.fa_fileid > maxClusterNum)
+        {
+            printf("Greater-than-zero-length file was given a file ID larger than the maximal cluster number. Max cluster num = %u, given file ID = %llu\n",
+                   maxClusterNum, outAttrs.fa_fileid);
+            break;
+        }
+        
+        // Truncate file back to zero-length and ensure it was given an ID larger than or equal to the minimal zero-length file ID (again..)
+        UVFSFileAttributes attrsToSet = { 0 };
+        attrsToSet.fa_validmask = UVFS_FA_VALID_SIZE;
+        MSDOS_fsOps.fsops_setattr(syntheticIdFileNode, &attrsToSet, &outAttrs);
+        if(err || outAttrs.fa_size > 0)
+        {
+            printf("Failed to truncate synthetic id file - returned size = %llu, error [%d]\n", outAttrs.fa_size, err);
+            break;
+        }
+        err = MSDOS_fsOps.fsops_getattr(syntheticIdFileNode, &outAttrs);
+        if(err)
+        {
+            printf("Failed getAttr on zero-length file - error [%d]\n", err);
+            break;
+        }
+        if(outAttrs.fa_fileid < ZERO_LENGTH_WRAP_AROUND_FILEID)
+        {
+            printf("Truncated zero-length file was given a smaller file ID than expected. Wrap around file ID = %lu, given file ID = %llu\n",
+                   ZERO_LENGTH_WRAP_AROUND_FILEID, outAttrs.fa_fileid);
+            break;
+        }
+        
+        // Set file size to > 0 again, now using setAttr. GetAttr and ensure that its file ID is again smaller than the maximal cluster number
+        attrsToSet.fa_size = 1024;
+        MSDOS_fsOps.fsops_setattr(syntheticIdFileNode, &attrsToSet, &outAttrs);
+        if(err || outAttrs.fa_size < 1024)
+        {
+            printf("Failed to allocate 1024 bytes to synthetic id file - returned size = %llu, error [%d]\n", outAttrs.fa_size, err);
+            break;
+        }
+        err = MSDOS_fsOps.fsops_getattr(syntheticIdFileNode, &outAttrs);
+        if(err)
+        {
+            printf("Failed getAttr on zero-length file - error [%d]\n", err);
+            break;
+        }
+        if(outAttrs.fa_fileid > maxClusterNum)
+        {
+            printf("Allocated, greater-than-zero-length file was given a file ID larger than the maximal cluster number. Max cluster num = %u, given file ID = %llu\n",
+                   maxClusterNum, outAttrs.fa_fileid);
+            break;
+        }
+        
+        // Test that multithreaded creation of zero-length files allocates unique, consecutive fileIDs
+        if( !test8_mtFileIdAllocationIsUniqueAndConsecutive(syntheticIdDirNode) )
+        {
+            printf("Multithreaded file id allocation was not unique and/or not consequetive.");
+            break;
+        }
+        
+        // Test that multiple threads contending over synthetic file IDs does not cause problems during fileID allocator's wrap around
+        if( !test8_mtFileIdAllocationSurvivesWrapAround(syntheticIdDirNode) )
+        {
+            printf("Multithreaded file id allocation failed during wrap around of allocated value.");
+            break;
+        }
+        
+        // Clean up file and directory used in test 8
+        CloseFile(syntheticIdFileNode);
+        RemoveFile(syntheticIdDirNode, TEST_8_FILENAME);
+        CloseFile(syntheticIdDirNode);
+        RemoveFolder(RootNode, TEST_8_DIRNAME);
+        
         // --------------------------------Read Dir-----------------------------------
         
         ReadDirAttr(D1_Node);
@@ -2299,12 +2568,12 @@ int main( int argc, const char * argv[] )
         // --------------------------------------------------------------------------------
 
         // Remove ÖÖ
-        err =  RemoveFolder(RootNode,(char*)"ÖÖ");
+        err =  RemoveFolder(RootNode,"ÖÖ");
         printf("Remove Folder ÖÖ from Root err [%d]\n",err);
         if (err) break;
 
         // Remove D2
-        err =  RemoveFolder(RootNode,(char*)"D2");
+        err =  RemoveFolder(RootNode,"D2");
         printf("Remove Folder D2 from Root err [%d]\n",err);
 
         // Remove L🤪2
@@ -2313,7 +2582,7 @@ int main( int argc, const char * argv[] )
         if (err) break;
 
         // Remove F2
-        err = RemoveFile(RootNode,(char*)"F2");
+        err = RemoveFile(RootNode,"F2");
         printf("RemoveFile F2 from Root err [%d]\n",err);
         if (err) break;
 

@@ -162,6 +162,7 @@ __options_closed_decl(thread_tag_t, uint16_t, {
 	THREAD_TAG_IOWORKLOOP   = 0x04,
 	THREAD_TAG_PTHREAD      = 0x10,
 	THREAD_TAG_WORKQUEUE    = 0x20,
+	THREAD_TAG_USER_JOIN    = 0x40,
 });
 
 __options_closed_decl(thread_ro_flags_t, uint16_t, {
@@ -199,6 +200,37 @@ struct thread_ro {
 
 	struct exception_action    *tro_exc_actions;
 };
+
+/*
+ * Flags for `thread set status`.
+ */
+__options_decl(thread_set_status_flags_t, uint32_t, {
+	TSSF_FLAGS_NONE = 0,
+
+	/* Translate the state to user. */
+	TSSF_TRANSLATE_TO_USER = 0x01,
+
+	/* Translate the state to user. Preserve flags */
+	TSSF_PRESERVE_FLAGS = 0x02,
+
+	/* Check kernel signed flag */
+	TSSF_CHECK_USER_FLAGS = 0x04,
+
+	/* Allow only user state PTRS */
+	TSSF_ALLOW_ONLY_USER_PTRS = 0x08,
+
+	/* Allow only user state */
+	TSSF_ALLOW_ONLY_USER_STATE = 0x10,
+
+	/* Stash sigreturn token */
+	TSSF_STASH_SIGRETURN_TOKEN = 0x20,
+
+	/* Check sigreturn token */
+	TSSF_CHECK_SIGRETURN_TOKEN = 0x40,
+
+	/* Allow only matching sigreturn token */
+	TSSF_ALLOW_ONLY_MATCHING_TOKEN = 0x80,
+});
 
 #endif /* XNU_KERNEL_PRIVATE */
 #ifdef MACH_KERNEL_PRIVATE
@@ -241,7 +273,7 @@ struct thread {
 
 	event64_t               wait_event;     /* wait queue event */
 	processor_t             runq;           /* run queue assignment */
-	struct waitq           *waitq;          /* wait queue this thread is enqueued on */
+	waitq_t                 waitq;          /* wait queue this thread is enqueued on */
 	struct turnstile       *turnstile;      /* thread's turnstile, protected by primitives interlock */
 	void                   *inheritor;      /* inheritor of the primitive the thread will block on */
 	struct priority_queue_sched_max sched_inheritor_queue; /* Inheritor queue for kernel promotion */
@@ -1026,13 +1058,17 @@ extern kern_return_t    machine_thread_state_convert_from_user(
 	thread_t                                thread,
 	thread_flavor_t                 flavor,
 	thread_state_t                  tstate,
-	mach_msg_type_number_t  count);
+	mach_msg_type_number_t  count,
+	thread_state_t old_tstate,
+	mach_msg_type_number_t old_count,
+	thread_set_status_flags_t tssf_flags);
 
 extern kern_return_t    machine_thread_state_convert_to_user(
 	thread_t                                thread,
 	thread_flavor_t                 flavor,
 	thread_state_t                  tstate,
-	mach_msg_type_number_t  *count);
+	mach_msg_type_number_t  *count,
+	thread_set_status_flags_t tssf_flags);
 
 extern kern_return_t    machine_thread_dup(
 	thread_t                self,
@@ -1173,7 +1209,10 @@ extern kern_return_t    thread_setstatus_from_user(
 	thread_t                                thread,
 	int                                             flavor,
 	thread_state_t                  tstate,
-	mach_msg_type_number_t  count);
+	mach_msg_type_number_t  count,
+	thread_state_t                  old_tstate,
+	mach_msg_type_number_t  old_count,
+	thread_set_status_flags_t flags);
 
 extern kern_return_t    thread_getstatus(
 	thread_t                                thread,
@@ -1194,18 +1233,9 @@ extern kern_return_t    thread_create_with_continuation(
 	thread_t *new_thread,
 	thread_continue_t continuation);
 
-/* thread_create_waiting options */
-__options_decl(th_create_waiting_options_t, uint32_t, {
-	TH_CREATE_WAITING_OPTION_NONE      = 0x00,
-	TH_CREATE_WAITING_OPTION_PINNED    = 0x10,
-	TH_CREATE_WAITING_OPTION_IMMOVABLE = 0x20,
-});
-#define TH_CREATE_WAITING_OPTION_MASK          0x30
-
-extern kern_return_t thread_create_waiting(task_t    task,
+extern kern_return_t main_thread_create_waiting(task_t    task,
     thread_continue_t              continuation,
     event_t                        event,
-    th_create_waiting_options_t    options,
     thread_t                       *new_thread);
 
 extern kern_return_t    thread_create_workq_waiting(
@@ -1333,6 +1363,8 @@ extern task_t   get_threadtask_early(thread_t) __pure2;
 #define thread_is_64bit_data(thd)       \
 	task_has_64Bit_data(get_threadtask(thd))
 
+struct uthread;
+
 #if defined(__x86_64__)
 extern int              thread_task_has_ldt(thread_t);
 #endif
@@ -1350,6 +1382,7 @@ extern void             clear_thread_ro_proc(thread_t);
 extern struct uthread  *get_bsdthread_info(thread_t) __pure2;
 extern thread_t         get_machthread(struct uthread *) __pure2;
 extern uint64_t         uthread_tid(struct uthread *) __pure2;
+extern user_addr_t      thread_get_sigreturn_token(thread_t thread);
 extern void             uthread_init(task_t, struct uthread *, thread_ro_t, int);
 extern void             uthread_cleanup_name(struct uthread *uthread);
 extern void             uthread_cleanup(struct uthread *, thread_ro_t);
@@ -1372,6 +1405,9 @@ extern void             uthread_assert_zero_proc_refcount(struct uthread *);
 #if CONFIG_DEBUG_SYSCALL_REJECTION
 extern uint64_t         *uthread_get_syscall_rejection_mask(void *);
 #endif /* CONFIG_DEBUG_SYSCALL_REJECTION */
+extern mach_port_name_t  uthread_joiner_port(struct uthread *);
+extern user_addr_t       uthread_joiner_address(struct uthread *);
+extern void              uthread_joiner_wake(task_t task, struct uthread *);
 
 extern boolean_t        thread_should_halt(
 	thread_t                thread);
@@ -1530,6 +1566,7 @@ extern ipc_port_t convert_thread_to_port(thread_t);
 extern ipc_port_t convert_thread_to_port_pinned(thread_t);
 extern ipc_port_t convert_thread_inspect_to_port(thread_inspect_t);
 extern ipc_port_t convert_thread_read_to_port(thread_read_t);
+extern boolean_t is_external_pageout_thread(void);
 extern boolean_t is_vm_privileged(void);
 extern boolean_t set_vm_privilege(boolean_t);
 extern kern_allocation_name_t thread_set_allocation_name(kern_allocation_name_t new_name);
@@ -1539,6 +1576,9 @@ extern int thread_self_region_page_shift(void);
 extern void thread_self_region_page_shift_set(int pgshift);
 extern kern_return_t thread_create_immovable(task_t task, thread_t *new_thread);
 extern kern_return_t thread_terminate_pinned(thread_t thread);
+
+struct thread_attr_for_ipc_propagation;
+extern kern_return_t thread_get_ipc_propagate_attr(thread_t thread, struct thread_attr_for_ipc_propagation *attr);
 
 #endif /* KERNEL_PRIVATE */
 #ifdef XNU_KERNEL_PRIVATE

@@ -369,31 +369,6 @@ errOut:
     CFReleaseNull(root);
 }
 
-- (void)testAppTrustLegacy_MissingEKU_AfterJul2019
-{
-    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _noEKU_AfterJul2019, sizeof(_noEKU_AfterJul2019));
-    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _EKUTestSSLRoot, sizeof(_EKUTestSSLRoot));
-    NSArray *certs = @[(__bridge id)leaf, (__bridge id)root];
-
-    SecPolicyRef policy = SecPolicyCreateLegacySSL(true, CFSTR("example.com"));
-    NSDate *date = [NSDate dateWithTimeIntervalSinceReferenceDate:590000000.0]; // September 12, 2019 at 9:53:20 AM PDT
-    SecTrustRef trustRef = NULL;
-    CFErrorRef cferror = NULL;
-
-    require_noerr(SecTrustCreateWithCertificates((__bridge CFArrayRef)certs, policy, &trustRef), errOut);
-    require_noerr(SecTrustSetVerifyDate(trustRef, (__bridge CFDateRef)date), errOut);
-    require_noerr(SecTrustSetAnchorCertificates(trustRef, (__bridge CFArrayRef)@[(__bridge id)root]), errOut);
-
-    XCTAssertTrue(SecTrustEvaluateWithError(trustRef, &cferror));
-
-errOut:
-    CFReleaseNull(policy);
-    CFReleaseNull(trustRef);
-    CFReleaseNull(cferror);
-    CFReleaseNull(leaf);
-    CFReleaseNull(root);
-}
-
 - (void)testAppTrustRoot_AnyEKU_AfterJul2019
 {
     SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _anyEKU_AfterJul2019, sizeof(_anyEKU_AfterJul2019));

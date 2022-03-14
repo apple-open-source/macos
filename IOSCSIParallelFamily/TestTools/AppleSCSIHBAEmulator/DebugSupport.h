@@ -96,7 +96,7 @@ AppleSCSIEmulatorDebugAssert (
 #endif	/* KERNEL */
 
 
-#include </usr/include/AssertMacros.h>
+#include <AssertMacros.h>
 
 
 #define require_success( errorCode, exceptionLabel ) \

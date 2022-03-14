@@ -323,7 +323,7 @@ bool isValidMessageName(MessageName messageName)
 #endif
     if (messageName == IPC::MessageName::TestWithLegacyReceiver_DidReceivePolicyDecision)
         return true;
-#if ENABLE(EXPERIMENTAL_FEATURE)
+#if ENABLE(FEATURE_FOR_TESTING)
     if (messageName == IPC::MessageName::TestWithLegacyReceiver_ExperimentalOperation)
         return true;
 #endif
@@ -419,7 +419,7 @@ bool isValidMessageName(MessageName messageName)
 #endif
     if (messageName == IPC::MessageName::TestWithoutAttributes_DidReceivePolicyDecision)
         return true;
-#if ENABLE(EXPERIMENTAL_FEATURE)
+#if ENABLE(FEATURE_FOR_TESTING)
     if (messageName == IPC::MessageName::TestWithoutAttributes_ExperimentalOperation)
         return true;
 #endif

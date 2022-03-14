@@ -20,6 +20,7 @@
 
 #pragma once
 
+#include "Animation.h"
 #include "CSSStyleDeclaration.h"
 #include "RenderStyleConstants.h"
 #include "SVGRenderStyleDefs.h"
@@ -77,6 +78,8 @@ public:
     static Ref<CSSFontStyleValue> fontNonKeywordStyleFromStyleValue(FontSelectionValue);
     static Ref<CSSFontStyleValue> fontStyleFromStyleValue(std::optional<FontSelectionValue>, FontStyleAxis);
 
+    static void addValueForAnimationPropertyToList(CSSValueList&, CSSPropertyID, const Animation*);
+
 private:
     // The styled element is either the element passed into
     // computedPropertyValue, or the PseudoElement for :before and :after if
@@ -96,7 +99,11 @@ private:
     Ref<CSSValueList> getCSSPropertyValuesForShorthandProperties(const StylePropertyShorthand&);
     RefPtr<CSSValueList> getCSSPropertyValuesFor2SidesShorthand(const StylePropertyShorthand&);
     RefPtr<CSSValueList> getCSSPropertyValuesFor4SidesShorthand(const StylePropertyShorthand&);
-    Ref<CSSValueList> getBackgroundShorthandValue();
+
+    size_t getLayerCount(CSSPropertyID);
+    RefPtr<CSSValue> getFillLayerPropertyShorthandValue(CSSPropertyID, const StylePropertyShorthand& propertiesBeforeSlashSeparator, const StylePropertyShorthand& propertiesAfterSlashSeparator, CSSPropertyID lastLayerProperty);
+    RefPtr<CSSValue> getBackgroundShorthandValue();
+    RefPtr<CSSValue> getMaskShorthandValue();
     Ref<CSSValueList> getCSSPropertyValuesForGridShorthand(const StylePropertyShorthand&);
 
     RefPtr<Element> m_element;

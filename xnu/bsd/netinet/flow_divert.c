@@ -151,9 +151,9 @@ static struct ip6protosw                *g_tcp6_protosw         = NULL;
 static struct protosw                   *g_udp_protosw          = NULL;
 static struct ip6protosw                *g_udp6_protosw         = NULL;
 
-ZONE_DECLARE(flow_divert_group_zone, "flow_divert_group",
+ZONE_DEFINE(flow_divert_group_zone, "flow_divert_group",
     sizeof(struct flow_divert_group), ZC_ZFREE_CLEARMEM);
-ZONE_DECLARE(flow_divert_pcb_zone, "flow_divert_pcb",
+ZONE_DEFINE(flow_divert_pcb_zone, "flow_divert_pcb",
     sizeof(struct flow_divert_pcb), ZC_ZFREE_CLEARMEM);
 
 static errno_t
@@ -2849,7 +2849,7 @@ flow_divert_handle_app_map_create(struct flow_divert_group *group, mbuf_t packet
 
 	/* Re-set the current trie */
 	if (group->signing_id_trie.memory != NULL) {
-		FREE(group->signing_id_trie.memory, M_TEMP);
+		kfree_data_addr(group->signing_id_trie.memory);
 	}
 	memset(&group->signing_id_trie, 0, sizeof(group->signing_id_trie));
 	group->signing_id_trie.root = NULL_TRIE_IDX;
@@ -2926,7 +2926,7 @@ flow_divert_handle_app_map_create(struct flow_divert_group *group, mbuf_t packet
 		return;
 	}
 
-	MALLOC(new_trie.memory, void *, trie_memory_size, M_TEMP, M_WAITOK);
+	new_trie.memory = kalloc_data(trie_memory_size, Z_WAITOK);
 	if (new_trie.memory == NULL) {
 		FDLOG(LOG_ERR, &nil_pcb, "Failed to allocate %lu bytes of memory for the signing ID trie",
 		    nodes_mem_size + child_maps_mem_size + bytes_mem_size);
@@ -2988,7 +2988,7 @@ flow_divert_handle_app_map_create(struct flow_divert_group *group, mbuf_t packet
 	if (!insert_error) {
 		group->signing_id_trie = new_trie;
 	} else {
-		FREE(new_trie.memory, M_TEMP);
+		kfree_data(new_trie.memory, trie_memory_size);
 	}
 
 	lck_rw_done(&group->lck);
@@ -4109,16 +4109,11 @@ flow_divert_kctl_connect(kern_ctl_ref kctlref __unused, struct sockaddr_ctl *sac
 	lck_rw_lock_exclusive(&g_flow_divert_group_lck);
 
 	if (g_flow_divert_groups == NULL) {
-		MALLOC(g_flow_divert_groups,
-		    struct flow_divert_group **,
-		    GROUP_COUNT_MAX * sizeof(struct flow_divert_group *),
-		    M_TEMP,
-		    M_WAITOK | M_ZERO);
+		g_flow_divert_groups = kalloc_type(struct flow_divert_group *,
+		    GROUP_COUNT_MAX, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	}
 
-	if (g_flow_divert_groups == NULL) {
-		error = ENOBUFS;
-	} else if (g_flow_divert_groups[sac->sc_unit] != NULL) {
+	if (g_flow_divert_groups[sac->sc_unit] != NULL) {
 		error = EALREADY;
 	} else {
 		g_flow_divert_groups[sac->sc_unit] = new_group;
@@ -4169,7 +4164,8 @@ flow_divert_kctl_disconnect(kern_ctl_ref kctlref __unused, uint32_t unit, void *
 	g_active_group_count--;
 
 	if (g_active_group_count == 0) {
-		FREE(g_flow_divert_groups, M_TEMP);
+		kfree_type(struct flow_divert_group *,
+		    GROUP_COUNT_MAX, g_flow_divert_groups);
 		g_flow_divert_groups = NULL;
 	}
 
@@ -4189,7 +4185,7 @@ flow_divert_kctl_disconnect(kern_ctl_ref kctlref __unused, uint32_t unit, void *
 
 		/* Re-set the current trie */
 		if (group->signing_id_trie.memory != NULL) {
-			FREE(group->signing_id_trie.memory, M_TEMP);
+			kfree_data_addr(group->signing_id_trie.memory);
 		}
 		memset(&group->signing_id_trie, 0, sizeof(group->signing_id_trie));
 		group->signing_id_trie.root = NULL_TRIE_IDX;

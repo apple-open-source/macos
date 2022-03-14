@@ -55,6 +55,8 @@ CKKSState* const CKKSStateReencryptOutgoingItems = (CKKSState*) @"reencrypt_outg
 CKKSState* const CKKSStateProcessOutgoingQueue = (CKKSState*) @"process_outgoing_queue";
 CKKSState* const CKKSStateOutgoingQueueOperationFailed = (CKKSState*) @"process_outgoing_queue_failed";
 
+CKKSState* const CKKSStateExpandToHandleAllViews = (CKKSState*)@"handle_all_views";
+
 NSSet<CKKSState*>* CKKSAllStates(void)
 {
     static NSSet<CKKSState*>* set = nil;
@@ -102,6 +104,8 @@ NSSet<CKKSState*>* CKKSAllStates(void)
             CKKSStateReencryptOutgoingItems,
             CKKSStateProcessOutgoingQueue,
             CKKSStateOutgoingQueueOperationFailed,
+
+            CKKSStateExpandToHandleAllViews,
         ]];
     });
     return set;
@@ -138,6 +142,8 @@ CKKSFlag* const CKKSFlagCheckQueues = (CKKSFlag*) @"check_queues";
 CKKSFlag* const CKKSFlagProcessIncomingQueueWithFreshPolicy = (CKKSFlag*) @"policy_fresh";
 CKKSFlag* const CKKSFlagOutgoingQueueOperationRateToken = (CKKSFlag*) @"oqo_token";
 
+CKKSFlag* const CKKSFlagNewPriorityViews = (CKKSFlag*)@"new_priority_views";
+
 NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
 {
     static NSSet<CKKSFlag*>* s = nil;
@@ -164,6 +170,7 @@ NSSet<CKKSFlag*>* CKKSAllStateFlags(void)
             CKKSFlagCheckQueues,
             CKKSFlagProcessIncomingQueueWithFreshPolicy,
             CKKSFlagOutgoingQueueOperationRateToken,
+            CKKSFlagNewPriorityViews,
         ]];
     });
     return s;

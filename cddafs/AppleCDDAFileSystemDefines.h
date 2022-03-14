@@ -370,6 +370,7 @@ typedef struct AppleCDDAMount * AppleCDDAMountPtr;
 
 struct AppleCDDADirectoryNode
 {
+	void *				dbg_unused;		// This is an unused pointer.
 	UInt32 				entryCount;		// Number of directory entries
 	UInt64				directorySize;	// Size of the directory
 };
@@ -385,8 +386,8 @@ typedef struct AppleCDDADirectoryNode * AppleCDDADirectoryNodePtr;
 
 struct AppleCDDAFileNode
 {
+	AppleCDDANodeInfoPtr	nodeInfoPtr;    // Ptr to AppleCDDANodeInfo about this track
 	CDAIFFHeader			aiffHeader;		// AIFF File Header
-	AppleCDDANodeInfoPtr	nodeInfoPtr;	// Ptr to AppleCDDANodeInfo about this track
 };
 typedef struct AppleCDDAFileNode AppleCDDAFileNode;
 typedef struct AppleCDDAFileNode * AppleCDDAFileNodePtr;
@@ -399,8 +400,8 @@ typedef struct AppleCDDAFileNode * AppleCDDAFileNodePtr;
 
 struct AppleCDDAXMLFileNode
 {
+	UInt8 *		fileDataPtr;    // Ptr to file data
 	UInt32		fileSize;		// size of the XML file
-	UInt8 *		fileDataPtr;	// Ptr to file data
 };
 typedef struct AppleCDDAXMLFileNode AppleCDDAXMLFileNode;
 typedef struct AppleCDDAXMLFileNode * AppleCDDAXMLFileNodePtr;
@@ -418,6 +419,7 @@ struct AppleCDDANode
 	vnode_t							vNodePtr;				// Pointer to vnode this node is "hung-off"
 	vnode_t							blockDeviceVNodePtr;	// block device vnode pointer
 	UInt32							nodeID;					// Node ID
+	// NOTE: When adding fields to any members of this union, ensure that like types are aligned to the same offsets within each structure or class
 	union
 	{
 		AppleCDDADirectoryNode	directory;

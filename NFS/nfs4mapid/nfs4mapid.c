@@ -2,14 +2,14 @@
  * Copyright (c) 2014-2016 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <stdint.h>
@@ -39,7 +39,7 @@ extern int nfsclnt(int, void *);
 char guid_grp_prefix[12] = "\xab\xcd\xef\xab\xcd\xef\xab\xcd\xef\xab\xcd\xef";
 
 void
-Usage()
+Usage(void)
 {
 	errx(1, "Usage: %s {-g gid | -u uid} | [-G] { name | guid}", getprogname());
 }
@@ -55,7 +55,7 @@ print_map(struct nfs_testmapid *map)
 	switch (map->ntm_lookup) {
 	case NTM_NAME2ID:
 		printf("%s %s maps to id %d\n",
-		       type, map->ntm_name,  map->ntm_id);
+		    type, map->ntm_name, map->ntm_id);
 		printf("\tmapping done through guid %s\n", guidstr);
 		break;
 	case NTM_ID2NAME:
@@ -86,23 +86,26 @@ main(int argc, char *argv[])
 	size_t namelen;
 	const char *name;
 	int grpflag = 0;
-	
-	memset(&map, 0, sizeof (map));
+
+	memset(&map, 0, sizeof(map));
 	map.ntm_lookup = NTM_INVALID;
 
 	while ((opt = getopt(argc, argv, "u:g:G")) != -1) {
 		switch (opt) {
 		case 'g': map.ntm_grpflag = 1;
 		case 'u': map.ntm_id = (uint32_t)strtoul(optarg, &eptr, 0);
-			if (*eptr)
+			if (*eptr) {
 				errx(1, "%s is not a valid uid/gid", optarg);
-			if (map.ntm_lookup != NTM_INVALID )
+			}
+			if (map.ntm_lookup != NTM_INVALID) {
 				Usage();
+			}
 			map.ntm_lookup = NTM_ID2NAME;
 			break;
 		case 'G': map.ntm_grpflag = 1;
-			if (map.ntm_lookup != NTM_INVALID)
+			if (map.ntm_lookup != NTM_INVALID) {
 				Usage();
+			}
 			break;
 		default:
 			Usage();
@@ -114,15 +117,17 @@ main(int argc, char *argv[])
 	name = *argv;
 
 	if (map.ntm_lookup == NTM_INVALID) {
-		if (argc != 1)
+		if (argc != 1) {
 			Usage();
+		}
 		if (uuid_parse(name, map.ntm_guid.g_guid)) {
 			/* Not a guid */
 			namelen = strnlen(*argv, MAXIDNAMELEN);
-			if (namelen == MAXIDNAMELEN)
+			if (namelen == MAXIDNAMELEN) {
 				errx(1, "Passed in name is to long\n");
+			}
 			/* All "Well Known IDs" are groups */
-			if (name[namelen-1] == '@') {
+			if (name[namelen - 1] == '@') {
 				grpflag = 1;
 				map.ntm_lookup = NTM_NAME2GUID;
 			} else {
@@ -130,7 +135,7 @@ main(int argc, char *argv[])
 			}
 			strlcpy(map.ntm_name, *argv, MAXIDNAMELEN);
 		} else {
-				grpflag = (memcmp(guid_grp_prefix, map.ntm_guid.g_guid, sizeof (guid_grp_prefix)) == 0);
+			grpflag = (memcmp(guid_grp_prefix, map.ntm_guid.g_guid, sizeof(guid_grp_prefix)) == 0);
 			map.ntm_lookup = NTM_GUID2NAME;
 		}
 	} else if (argc != 0) {
@@ -143,12 +148,11 @@ main(int argc, char *argv[])
 	}
 
 	error = nfsclnt(NFSCLNT_TESTIDMAP, &map);
-	if (error)
+	if (error) {
 		err(1, "nfsclnt failed");
+	}
 
 	print_map(&map);
 
-	return (0);
+	return 0;
 }
-
-		

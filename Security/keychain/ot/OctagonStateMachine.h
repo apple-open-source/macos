@@ -89,6 +89,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)registerStateTransitionWatcher:(OctagonStateTransitionWatcher*)watcher;
 - (void)registerMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher;
+- (void)_onqueueRegisterMultiStateArrivalWatcher:(OctagonStateMultiStateArrivalWatcher*)watcher;
 
 - (void)doSimpleStateMachineRPC:(NSString*)name
                              op:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)op

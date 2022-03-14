@@ -317,6 +317,9 @@ boolean_t
 ServiceGetDHCPWaiting(ServiceRef service_p);
 
 void
+ServiceDetachIPv4(ServiceRef service_p);
+
+void
 service_publish_failure(ServiceRef service_p, ipconfig_status_t status);
 
 void

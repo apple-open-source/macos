@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)ul.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/ul/ul.1,v 1.18 2005/05/21 09:55:09 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd August 4, 2004
+.Dd October 7, 2020
 .Dt UL 1
 .Os
 .Sh NAME
@@ -64,13 +60,11 @@ degenerates to
 If the terminal cannot underline, underlining is ignored.
 .Pp
 The following options are available:
-.Bl -tag -width Ds
+.Bl -tag -width indent
 .It Fl i
 Underlining is indicated by a separate line containing appropriate
-dashes `\-'; this is useful when you want to look at the underlining
-which is present in an
-.Xr nroff 1
-output stream on a crt-terminal.
+dashes
+.Ql \- .
 .It Fl t Ar terminal
 Overrides the terminal type specified in the environment with
 .Ar terminal .
@@ -87,18 +81,10 @@ as described in
 .Sh EXIT STATUS
 .Ex -std
 .Sh SEE ALSO
-.Xr colcrt 1 ,
 .Xr man 1 ,
-.Xr nroff 1
+.Xr mandoc 1
 .Sh HISTORY
 The
 .Nm
 command appeared in
 .Bx 3.0 .
-.Sh BUGS
-The
-.Xr nroff 1
-command usually outputs a series of backspaces and underlines intermixed
-with the text to indicate underlining.
-No attempt is made to optimize
-the backward motion.

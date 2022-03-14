@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>chmod</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/chmod?id=2dfa4b66b3d0caaaae6ce2df476b5615f8415a19</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-28</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>chmod.1, chmod.c: ACL support (3672698)</string>
+			<string>chmod.c: emit warning when -H/L/P used without -R</string>
+			<string>chmod.c: avoid discarded return warnings in fts_* calls</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

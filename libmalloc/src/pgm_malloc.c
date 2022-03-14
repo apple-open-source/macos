@@ -1113,7 +1113,7 @@ should_activate(bool internal_build)
 	return true;
 }
 
-#if TARGET_OS_WATCH
+#if TARGET_OS_WATCH || TARGET_OS_TV
 static bool
 is_high_memory_device(void)
 {
@@ -1131,12 +1131,14 @@ pgm_should_enable(bool internal_build)
 	if (FEATURE_FLAG(ProbGuard, true) && should_activate(internal_build)) {
 #if TARGET_OS_OSX || TARGET_OS_IOS
 		return true;
-#elif TARGET_OS_TV
-		if (internal_build) {
+#elif TARGET_OS_WATCH || TARGET_OS_TV
+		if (is_high_memory_device()) {
 			return true;
 		}
-#elif TARGET_OS_WATCH
-		if (internal_build && is_high_memory_device()) {
+#elif TARGET_OS_DRIVERKIT
+		// Never enable for DriverKit
+#else
+		if (internal_build) {
 			return true;
 		}
 #endif

@@ -64,7 +64,7 @@ bool AppleRAIDConcatSet::init()
 
 void AppleRAIDConcatSet::free(void)
 {
-    if (arMemberBlockCounts) IODelete(arMemberBlockCounts, UInt64, arMemberCount);
+    if (arMemberBlockCounts) IODeleteData(arMemberBlockCounts, UInt64, arMemberCount);
     
     super::free();
 }
@@ -125,12 +125,11 @@ bool AppleRAIDConcatSet::resizeSet(UInt32 newMemberCount)
     UInt32 oldMemberCount = arMemberCount;
     UInt64 *oldBlockCounts = arMemberBlockCounts;
 
-    arMemberBlockCounts = IONew(UInt64, newMemberCount);
-    bzero(arMemberBlockCounts, sizeof(UInt64) * newMemberCount);
+    arMemberBlockCounts = IONewZeroData(UInt64, newMemberCount);
 
     if (oldBlockCounts) {
 	bcopy(oldBlockCounts, arMemberBlockCounts, sizeof(UInt64) * MIN(newMemberCount, oldMemberCount));
-	IODelete(oldBlockCounts, sizeof(UInt64), oldMemberCount);
+	IODeleteData(oldBlockCounts, UInt64, oldMemberCount);
     }
 
     if (super::resizeSet(newMemberCount) == false) return false;

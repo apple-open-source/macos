@@ -44,9 +44,6 @@
 extern lck_grp_t *autofs_lck_grp;
 extern lck_mtx_t *autofs_nodeid_lock;
 
-/* XXX Get rid of this as soon as sys/malloc.h can be updated to define a real M_AUTOFS */
-#define M_AUTOFS M_TEMP
-
 /* XXX Get rid of this as soon as sys/vnode.h can be updated to define a real VT_AUTOFS */
 #define VT_AUTOFS (VT_OTHER+1)
 

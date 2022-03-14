@@ -490,18 +490,24 @@ mac_vnode_notify_rename(vfs_context_t ctx, struct vnode *fvp,
 		/* BEGIN IGNORE CODESTYLE */
 		if (swap) {
 			if (mpc->mpc_ops->mpo_vnode_notify_swap != NULL) {
+				MAC_PERFORM_CALL(vnode_notify_swap, mpc);
 				mpc->mpc_ops->mpo_vnode_notify_swap(cred, fvp, mac_vnode_label(fvp),
 					tvp, mac_vnode_label(tvp));
+				MAC_PERFORM_RSLT(vnode_notify_swap, mpc);
 			} else if (mpc->mpc_ops->mpo_vnode_notify_rename != NULL) {
+				MAC_PERFORM_CALL(vnode_notify_swap_rename, mpc);
 				/* Call notify_rename twice, one for each member of the swap. */
 				mpc->mpc_ops->mpo_vnode_notify_rename(cred, fvp, mac_vnode_label(fvp),
 					tdvp, mac_vnode_label(tdvp), tcnp);
 				mpc->mpc_ops->mpo_vnode_notify_rename(cred, tvp, mac_vnode_label(tvp),
 					fdvp, mac_vnode_label(fdvp), fcnp);
+				MAC_PERFORM_RSLT(vnode_notify_swap_rename, mpc);
 			}
 		} else if (mpc->mpc_ops->mpo_vnode_notify_rename != NULL) {
+			MAC_PERFORM_CALL(vnode_notify_rename, mpc);
 			mpc->mpc_ops->mpo_vnode_notify_rename(cred, fvp, mac_vnode_label(fvp),
-		        tdvp, mac_vnode_label(tdvp), tcnp);
+		            tdvp, mac_vnode_label(tdvp), tcnp);
+			MAC_PERFORM_RSLT(vnode_notify_rename, mpc);
 		}
 		/* END IGNORE CODESTYLE */
 	});
@@ -2743,6 +2749,8 @@ mac_vnode_label_associate_fdesc(struct mount *mp, struct fdescnode *fnp,
 	case DTYPE_FSEVENTS:
 	case DTYPE_ATALK:
 	case DTYPE_NETPOLICY:
+	case DTYPE_CHANNEL:
+	case DTYPE_NEXUS:
 	default:
 		MAC_PERFORM(vnode_label_associate_file, vfs_context_ucred(ctx),
 		    mp, mac_mount_label(mp), fp->fp_glob, NULL,

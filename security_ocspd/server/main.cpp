@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011,2022 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -101,6 +101,16 @@ void TimeoutTimer::action()
 
 int main(int argc, char **argv)
 {
+/* ****************************************************************************
+ * IMPORTANT: The functionality provided by the OCSP helper daemon (ocspd)
+ * has been subsumed by trustd as of macOS 12.0 (Monterey). SecTrust APIs
+ * no longer rely on the ocspd daemon, and CDSA APIs have been deprecated
+ * for the past decade. The daemon is currently disabled and will be removed.
+ * ****************************************************************************
+ */
+	Syslog::alert("ocspd is disabled and not intended to be invoked directly.");
+	exit(1);
+#if 0
 	signal (SIGTERM, HandleSigTerm);
 	enableAutoreleasePool(1);
 
@@ -182,4 +192,5 @@ int main(int argc, char **argv)
 	Syslog::alert("Aborting");
 	#endif
 	return 1;
+#endif
 }

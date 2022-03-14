@@ -36,7 +36,7 @@ int main(int argc, char * argv[])
     uint32_t			idx;
     uint64_t            totalAllocs;
 
-    vtd = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleVTD"));
+    vtd = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("AppleVTD"));
     assert(vtd);
 	statsData = IORegistryEntryCreateCFProperty(vtd, CFSTR("stats"),
 								kCFAllocatorDefault, kNilOptions);

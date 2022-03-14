@@ -56,7 +56,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestGenerateAddOpaqueRootPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestGenerateAddOpaqueRootPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestGenerateAddOpaqueRootPrototype>(vm.heap)) JSTestGenerateAddOpaqueRootPrototype(vm, globalObject, structure);
+        JSTestGenerateAddOpaqueRootPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestGenerateAddOpaqueRootPrototype>(vm)) JSTestGenerateAddOpaqueRootPrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -66,7 +66,7 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestGenerateAddOpaqueRootPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
@@ -95,9 +95,11 @@ template<> JSValue JSTestGenerateAddOpaqueRootDOMConstructor::prototypeForStruct
 
 template<> void JSTestGenerateAddOpaqueRootDOMConstructor::initializeProperties(VM& vm, JSDOMGlobalObject& globalObject)
 {
-    putDirect(vm, vm.propertyNames->prototype, JSTestGenerateAddOpaqueRoot::prototype(vm, globalObject), JSC::PropertyAttribute::DontDelete | JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
-    putDirect(vm, vm.propertyNames->name, jsNontrivialString(vm, "TestGenerateAddOpaqueRoot"_s), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
     putDirect(vm, vm.propertyNames->length, jsNumber(0), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    JSString* nameString = jsNontrivialString(vm, "TestGenerateAddOpaqueRoot"_s);
+    m_originalName.set(vm, this, nameString);
+    putDirect(vm, vm.propertyNames->name, nameString, JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum);
+    putDirect(vm, vm.propertyNames->prototype, JSTestGenerateAddOpaqueRoot::prototype(vm, globalObject), JSC::PropertyAttribute::ReadOnly | JSC::PropertyAttribute::DontEnum | JSC::PropertyAttribute::DontDelete);
 }
 
 /* Hash table for prototype */
@@ -185,9 +187,9 @@ JSC::IsoSubspace* JSTestGenerateAddOpaqueRoot::subspaceForImpl(JSC::VM& vm)
         return space;
     static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestGenerateAddOpaqueRoot> || !JSTestGenerateAddOpaqueRoot::needsDestruction);
     if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestGenerateAddOpaqueRoot>)
-        spaces.m_subspaceForTestGenerateAddOpaqueRoot = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestGenerateAddOpaqueRoot);
+        spaces.m_subspaceForTestGenerateAddOpaqueRoot = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestGenerateAddOpaqueRoot);
     else
-        spaces.m_subspaceForTestGenerateAddOpaqueRoot = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestGenerateAddOpaqueRoot);
+        spaces.m_subspaceForTestGenerateAddOpaqueRoot = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestGenerateAddOpaqueRoot);
     auto* space = spaces.m_subspaceForTestGenerateAddOpaqueRoot.get();
 IGNORE_WARNINGS_BEGIN("unreachable-code")
 IGNORE_WARNINGS_BEGIN("tautological-compare")

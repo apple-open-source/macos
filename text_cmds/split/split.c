@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1987, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -32,7 +30,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/split/split.c,v 1.17 2005/08/30 12:32:18 tjr Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char copyright[] =
@@ -45,14 +43,18 @@ static const char sccsid[] = "@(#)split.c	8.2 (Berkeley) 4/16/94";
 #endif
 
 #include <sys/param.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <inttypes.h>
+#include <libutil.h>
 #include <limits.h>
 #include <locale.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,32 +65,35 @@ static const char sccsid[] = "@(#)split.c	8.2 (Berkeley) 4/16/94";
 
 #define DEFLINE	1000			/* Default num lines per file. */
 
-off_t	 bytecnt;			/* Byte count to split on. */
-long	 numlines;			/* Line count to split on. */
-int	 file_open;			/* If a file open. */
-int	 ifd = -1, ofd = -1;		/* Input/output file descriptors. */
-char	 bfr[MAXBSIZE];			/* I/O buffer. */
-char	 fname[MAXPATHLEN];		/* File name prefix. */
-regex_t	 rgx;
-int	 pflag;
-long	 sufflen = 2;			/* File name suffix length. */
+static off_t	 bytecnt;		/* Byte count to split on. */
+static off_t	 chunks = 0;		/* Chunks count to split into. */
+static long	 numlines;		/* Line count to split on. */
+static int	 file_open;		/* If a file open. */
+static int	 ifd = -1, ofd = -1;	/* Input/output file descriptors. */
+static char	 bfr[MAXBSIZE];		/* I/O buffer. */
+static char	 fname[MAXPATHLEN];	/* File name prefix. */
+static regex_t	 rgx;
+static int	 pflag;
+static bool	 dflag;
+static long	 sufflen = 2;		/* File name suffix length. */
 
-void newfile(void);
-void split1(void);
-void split2(void);
+static void newfile(void);
+static void split1(void);
+static void split2(void);
+static void split3(void);
 static void usage(void);
 
 int
 main(int argc, char **argv)
 {
-	intmax_t bytecnti;
-	long scale;
 	int ch;
+	int error;
 	char *ep, *p;
 
 	setlocale(LC_ALL, "");
 
-	while ((ch = getopt(argc, argv, "0123456789a:b:l:p:")) != -1)
+	dflag = false;
+	while ((ch = getopt(argc, argv, "0123456789a:b:dl:n:p:")) != -1)
 		switch (ch) {
 		case '0': case '1': case '2': case '3': case '4':
 		case '5': case '6': case '7': case '8': case '9':
@@ -115,25 +120,12 @@ main(int argc, char **argv)
 			break;
 		case 'b':		/* Byte count. */
 			errno = 0;
-			if ((bytecnti = strtoimax(optarg, &ep, 10)) <= 0 ||
-			    (*ep != '\0' && *ep != 'k' && *ep != 'm') ||
-			    errno != 0)
-				errx(EX_USAGE,
-				    "%s: illegal byte count", optarg);
-			if (*ep == 'k')
-				scale = 1024;
-			else if (*ep == 'm')
-				scale = 1024 * 1024;
-			else
-				scale = 1;
-			if (bytecnti > OFF_MAX / scale)
+			error = expand_number(optarg, &bytecnt);
+			if (error == -1)
 				errx(EX_USAGE, "%s: offset too large", optarg);
-			bytecnt = (off_t)(bytecnti * scale);
 			break;
-		case 'p' :      /* pattern matching. */
-			if (regcomp(&rgx, optarg, REG_EXTENDED|REG_NOSUB) != 0)
-				errx(EX_USAGE, "%s: illegal regexp", optarg);
-			pflag = 1;
+		case 'd':		/* Decimal suffix */
+			dflag = true;
 			break;
 		case 'l':		/* Line count. */
 			if (numlines != 0)
@@ -141,6 +133,20 @@ main(int argc, char **argv)
 			if ((numlines = strtol(optarg, &ep, 10)) <= 0 || *ep)
 				errx(EX_USAGE,
 				    "%s: illegal line count", optarg);
+			break;
+		case 'n':		/* Chunks. */
+			if (!isdigit((unsigned char)optarg[0]) ||
+			    (chunks = (size_t)strtoul(optarg, &ep, 10)) == 0 ||
+			    *ep != '\0') {
+				errx(EX_USAGE, "%s: illegal number of chunks",
+				     optarg);
+			}
+			break;
+
+		case 'p':		/* pattern matching. */
+			if (regcomp(&rgx, optarg, REG_EXTENDED|REG_NOSUB) != 0)
+				errx(EX_USAGE, "%s: illegal regexp", optarg);
+			pflag = 1;
 			break;
 		default:
 			usage();
@@ -163,12 +169,15 @@ main(int argc, char **argv)
 
 	if (strlen(fname) + (unsigned long)sufflen >= sizeof(fname))
 		errx(EX_USAGE, "suffix is too long");
-	if (pflag && (numlines != 0 || bytecnt != 0))
+	if (pflag && (numlines != 0 || bytecnt != 0 || chunks != 0))
 		usage();
 
 	if (numlines == 0)
 		numlines = DEFLINE;
-	else if (bytecnt != 0)
+	else if (bytecnt != 0 || chunks != 0)
+		usage();
+
+	if (bytecnt && chunks)
 		usage();
 
 	if (ifd == -1)				/* Stdin by default. */
@@ -176,6 +185,9 @@ main(int argc, char **argv)
 
 	if (bytecnt) {
 		split1();
+		exit (0);
+	} else if (chunks) {
+		split3();
 		exit (0);
 	}
 	split2();
@@ -188,12 +200,15 @@ main(int argc, char **argv)
  * split1 --
  *	Split the input by bytes.
  */
-void
+static void
 split1(void)
 {
 	off_t bcnt;
 	char *C;
 	ssize_t dist, len;
+	int nfiles;
+
+	nfiles = 0;
 
 	for (bcnt = 0;;)
 		switch ((len = read(ifd, bfr, MAXBSIZE))) {
@@ -203,8 +218,12 @@ split1(void)
 			err(EX_IOERR, "read");
 			/* NOTREACHED */
 		default:
-			if (!file_open)
-				newfile();
+			if (!file_open) {
+				if (!chunks || (nfiles < chunks)) {
+					newfile();
+					nfiles++;
+				}
+			}
 			if (bcnt + len >= bytecnt) {
 				dist = bytecnt - bcnt;
 				if (write(ofd, bfr, dist) != dist)
@@ -212,13 +231,19 @@ split1(void)
 				len -= dist;
 				for (C = bfr + dist; len >= bytecnt;
 				    len -= bytecnt, C += bytecnt) {
+					if (!chunks || (nfiles < chunks)) {
 					newfile();
+						nfiles++;
+					}
 					if (write(ofd,
 					    C, bytecnt) != bytecnt)
 						err(EX_IOERR, "write");
 				}
 				if (len != 0) {
+					if (!chunks || (nfiles < chunks)) {
 					newfile();
+						nfiles++;
+					}
 					if (write(ofd, C, len) != len)
 						err(EX_IOERR, "write");
 				} else
@@ -236,7 +261,7 @@ split1(void)
  * split2 --
  *	Split the input by lines.
  */
-void
+static void
 split2(void)
 {
 	long lcnt = 0;
@@ -285,33 +310,69 @@ writeit:
 }
 
 /*
+ * split3 --
+ *	Split the input into specified number of chunks
+ */
+static void
+split3(void)
+{
+	struct stat sb;
+
+	if (fstat(ifd, &sb) == -1) {
+		err(1, "stat");
+		/* NOTREACHED */
+	}
+
+	if (chunks > sb.st_size) {
+		errx(1, "can't split into more than %d files",
+		    (int)sb.st_size);
+		/* NOTREACHED */
+	}
+
+	bytecnt = sb.st_size / chunks;
+	split1();
+}
+
+
+/*
  * newfile --
  *	Open a new output file.
  */
-void
+static void
 newfile(void)
 {
 	long i, maxfiles, tfnum;
 	static long fnum;
-	static int defname;
 	static char *fpnt;
+	char beg, end;
+	int pattlen;
 
 	if (ofd == -1) {
 		if (fname[0] == '\0') {
 			fname[0] = 'x';
 			fpnt = fname + 1;
-			defname = 1;
 		} else {
 			fpnt = fname + strlen(fname);
-			defname = 0;
 		}
 		ofd = fileno(stdout);
 	}
 
-	/* maxfiles = 26^sufflen, but don't use libm. */
+	if (dflag) {
+		beg = '0';
+		end = '9';
+	}
+	else {
+		beg = 'a';
+		end = 'z';
+	}
+	pattlen = end - beg + 1;
+
+	/* maxfiles = pattlen^sufflen, but don't use libm. */
 	for (maxfiles = 1, i = 0; i < sufflen; i++)
-		if ((maxfiles *= 26) <= 0)
+		if (LONG_MAX / pattlen < maxfiles)
 			errx(EX_USAGE, "suffix is too long (max %ld)", i);
+		else
+			maxfiles *= pattlen;
 
 	if (fnum == maxfiles)
 		errx(EX_DATAERR, "too many files");
@@ -320,8 +381,8 @@ newfile(void)
 	tfnum = fnum;
 	i = sufflen - 1;
 	do {
-		fpnt[i] = tfnum % 26 + 'a';
-		tfnum /= 26;
+		fpnt[i] = tfnum % pattlen + beg;
+		tfnum /= pattlen;
 	} while (i-- > 0);
 	fpnt[sufflen] = '\0';
 
@@ -335,8 +396,9 @@ static void
 usage(void)
 {
 	(void)fprintf(stderr,
-"usage: split [-a sufflen] [-b byte_count] [-l line_count] [-p pattern]\n");
-	(void)fprintf(stderr,
-"             [file [prefix]]\n");
+"usage: split [-l line_count] [-a suffix_length] [file [prefix]]\n"
+"       split -b byte_count[K|k|M|m|G|g] [-a suffix_length] [file [prefix]]\n"
+"       split -n chunk_count [-a suffix_length] [file [prefix]]\n"
+"       split -p pattern [-a suffix_length] [file [prefix]]\n");
 	exit(EX_USAGE);
 }

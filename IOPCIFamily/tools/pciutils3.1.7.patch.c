@@ -119,7 +119,7 @@ diff -rupN pciutils-3.1.7.orig/lib/darwin-device.c pciutils-3.1.7/lib/darwin-dev
 +	io_connect_t           connect;
 +	kern_return_t          status;
 +
-+	service = IOServiceGetMatchingService(kIOMasterPortDefault, 
++	service = IOServiceGetMatchingService(kIOMainPortDefault, 
 +																					IOServiceMatching("AppleACPIPlatformExpert"));
 +	if (service) 
 +	{

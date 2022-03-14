@@ -65,16 +65,15 @@ bool IOFWCommand::initWithController(IOFireWireController *control)
 	if( success )
 	{
 		fControl = control;
-		fMembers = (IOFWCommand::MemberVariables*)IOMalloc( sizeof(MemberVariables) );
+		fMembers = IOMallocType( MemberVariables );
 		if( fMembers == NULL )
 			success = false;
 	}
 	
-	// zero member variables
+	// initialize member variables
 	
 	if( success )
 	{
-		bzero( fMembers, sizeof(MemberVariables) );
 		fMembers->fFlush = true;
 	}
 	
@@ -91,7 +90,7 @@ void IOFWCommand::free()
 	{		
 		// free member variables
 		
-		IOFree( fMembers, sizeof(MemberVariables) );
+		IOFreeType( fMembers, MemberVariables );
 		fMembers = NULL;
 	}
 	

@@ -569,7 +569,6 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
      * Close the session, update the PVCs, decrement the async count, and callback if we're all done.  */
     if (orvc->done) {
         secdebug("rvc", "builder %p, done with OCSP fetches for cert: %ld", orvc->builder, orvc->certIX);
-        urlContext.context = nil;
         SecORVCUpdatePVC(orvc);
         if (0 == SecPathBuilderDecrementAsyncJobCount(orvc->builder)) {
             /* We're the last async job to finish, jump back into the state machine */
@@ -634,11 +633,13 @@ bool SecValidUpdateUpdateNow(dispatch_queue_t queue, CFStringRef server, CFIndex
 
     secdebug("rvc", "got metrics with task interval %f", taskMetrics.taskInterval.duration);
     SecORVCRef orvc = (SecORVCRef)urlContext.context;
-    if (orvc && orvc->builder) {
-        TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(orvc->builder);
+    SecPathBuilderRef builder = NULL;
+    if (orvc && (builder = CFRetainSafe(orvc->builder))) {
+        TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(builder);
         if (analytics) {
             analytics->ocsp_fetch_time += (uint64_t)(taskMetrics.taskInterval.duration * NSEC_PER_SEC);
         }
+        CFReleaseNull(builder);
     }
 }
 @end

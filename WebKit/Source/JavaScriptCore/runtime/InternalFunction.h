@@ -41,7 +41,7 @@ public:
     static IsoSubspace* subspaceFor(VM& vm)
     {
         static_assert(sizeof(CellType) == sizeof(InternalFunction), "InternalFunction subclasses that add fields need to override subspaceFor<>()");
-        return &vm.internalFunctionSpace;
+        return &vm.internalFunctionSpace();
     }
 
     DECLARE_EXPORT_INFO;
@@ -88,6 +88,7 @@ protected:
 
     enum class PropertyAdditionMode { WithStructureTransition, WithoutStructureTransition };
     JS_EXPORT_PRIVATE void finishCreation(VM&, unsigned length, const String& name, PropertyAdditionMode = PropertyAdditionMode::WithStructureTransition);
+    JS_EXPORT_PRIVATE void finishCreation(VM&);
 
     JS_EXPORT_PRIVATE static CallData getConstructData(JSCell*);
     JS_EXPORT_PRIVATE static CallData getCallData(JSCell*);

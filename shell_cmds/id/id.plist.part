@@ -1,0 +1,21 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>id</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-06-11</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/id?id=4a06e9377398b34922f8a67d7cb3ea980b95bde8</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-28</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>id.1, id.c: add -F, "full name" (4709390)</string>
+			<string>id.1, id.c: remove -c class (83510759)</string>
+			<string>id.c: dynamically allocate group lists (5235093)</string>
+			<string>id.c: warn if group fetching fails (6581502)</string>
+			<string>id.c: switch from deprecated getaudit_addr (8907607)</string>
+			<string>id.c: note that -M is unsupported (3930739)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

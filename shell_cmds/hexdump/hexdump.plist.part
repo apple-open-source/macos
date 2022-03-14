@@ -1,0 +1,21 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>hexdump</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-06-29</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/hexdump/?id=ac2adfb86dd0816c99135bf4885515a6b4ba9232</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-05</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>od/hexdump truncates last partial repeat line (5650060)</string>
+			<string>Support gigabyte skip size</string>
+			<string>Remove capsicum support</string>
+			<string>Prevent pointer sign comparison warnings</string>
+			<string>Add blank line with -A n to fix VSC od.ex{5,16} (83913513)</string>
+			<string>Fix VSC od.ex{1011} conformance test failure (83913803)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

@@ -32,6 +32,7 @@
 #include "JSCInlines.h"
 #include "JSWebAssemblyException.h"
 #include "JSWebAssemblyHelpers.h"
+#include "JSWebAssemblyTag.h"
 #include "WebAssemblyExceptionPrototype.h"
 
 #include "WebAssemblyExceptionConstructor.lut.h"
@@ -91,7 +92,7 @@ JSC_DEFINE_HOST_FUNCTION(callJSWebAssemblyException, (JSGlobalObject* globalObje
 
 WebAssemblyExceptionConstructor* WebAssemblyExceptionConstructor::create(VM& vm, Structure* structure, WebAssemblyExceptionPrototype* thisPrototype)
 {
-    auto* constructor = new (NotNull, allocateCell<WebAssemblyExceptionConstructor>(vm.heap)) WebAssemblyExceptionConstructor(vm, structure);
+    auto* constructor = new (NotNull, allocateCell<WebAssemblyExceptionConstructor>(vm)) WebAssemblyExceptionConstructor(vm, structure);
     constructor->finishCreation(vm, thisPrototype);
     return constructor;
 }

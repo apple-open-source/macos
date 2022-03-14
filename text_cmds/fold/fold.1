@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)fold.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/fold/fold.1,v 1.12 2004/08/02 11:15:01 tjr Exp $
+.\" $FreeBSD$
 .\"
-.Dd August 2, 2004
+.Dd October 29, 2020
 .Dt FOLD 1
 .Os
 .Sh NAME
@@ -62,7 +58,9 @@ Fold line after the last blank character within the first
 column positions (or bytes).
 .It Fl w Ar width
 Specify a line width to use instead of the default 80 columns.
-.Ar Width
+The
+.Ar width
+value
 should be a multiple of 8 if tabs are present, or the tabs should
 be expanded using
 .Xr expand 1
@@ -78,6 +76,22 @@ environment variables affect the execution of
 .Nm
 as described in
 .Xr environ 7 .
+.Sh EXAMPLES
+Fold text in standard input with a width of 20 columns:
+.Bd -literal -offset indent
+$ echo "I am smart enough to know that I am dumb" | fold -w 15
+I am smart enou
+gh to know that
+ I am dumb
+.Ed
+.Pp
+Same as above but breaking lines after the last blank character:
+.Bd -literal -offset indent
+$ echo "I am smart enough to know that I am dumb" | fold -s -w 15
+I am smart
+enough to know
+that I am dumb
+.Ed
 .Sh SEE ALSO
 .Xr expand 1 ,
 .Xr fmt 1
@@ -86,5 +100,34 @@ The
 .Nm
 utility conforms to
 .St -p1003.1-2001 .
+.Sh HISTORY
+The
+.Nm
+utility first appeared in
+.Bx 1 .
+It was rewritten for
+.Bx 4.3 Reno
+to improve speed and modernize style.
+The
+.Fl b
+and
+.Fl s
+options were added to
+.Nx 1.0
+for
+.St -p1003.2
+compliance.
+.Sh AUTHORS
+.An -nosplit
+.An Bill Joy
+wrote the original version of
+.Nm
+on June 28, 1977.
+.An Kevin Ruddy
+rewrote the command in 1990, and
+.An J. T. Conklin
+added the missing options in 1993.
 .Sh BUGS
-If underlining is present it may be messed up by folding.
+If underlining (see
+.Xr ul 1 )
+is present it may be messed up by folding.

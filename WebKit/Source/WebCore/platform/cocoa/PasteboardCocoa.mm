@@ -47,7 +47,7 @@ static NSBitmapImageFileType bitmapPNGFileType()
 }
 #endif // PLATFORM(MAC)
 
-// Making this non-inline so that WebKit 2's decoding doesn't have to include SharedBuffer.h.
+// Making this non-inline so that WebKit 2's decoding doesn't have to include FragmentedSharedBuffer.h.
 PasteboardWebContent::PasteboardWebContent() = default;
 PasteboardWebContent::~PasteboardWebContent() = default;
 
@@ -211,9 +211,9 @@ Vector<String> Pasteboard::typesForLegacyUnsafeBindings()
 }
 
 #if PLATFORM(MAC)
-static Ref<SharedBuffer> convertTIFFToPNG(SharedBuffer& tiffBuffer)
+static Ref<SharedBuffer> convertTIFFToPNG(FragmentedSharedBuffer& tiffBuffer)
 {
-    auto image = adoptNS([[NSBitmapImageRep alloc] initWithData: tiffBuffer.createNSData().get()]);
+    auto image = adoptNS([[NSBitmapImageRep alloc] initWithData: tiffBuffer.makeContiguous()->createNSData().get()]);
     NSData *pngData = [image representationUsingType:bitmapPNGFileType() properties:@{ }];
     return SharedBuffer::create(pngData);
 }

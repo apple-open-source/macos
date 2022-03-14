@@ -112,9 +112,9 @@ JSObject* GetterSetterAccessCase::alternateBase() const
     return Base::alternateBase();
 }
 
-void GetterSetterAccessCase::dumpImpl(PrintStream& out, CommaPrinter& comma) const
+void GetterSetterAccessCase::dumpImpl(PrintStream& out, CommaPrinter& comma, Indenter& indent) const
 {
-    Base::dumpImpl(out, comma);
+    Base::dumpImpl(out, comma, indent);
     out.print(comma, "customSlotBase = ", RawPointer(customSlotBase()));
     if (callLinkInfo())
         out.print(comma, "callLinkInfo = ", RawPointer(callLinkInfo()));
@@ -124,6 +124,7 @@ void GetterSetterAccessCase::dumpImpl(PrintStream& out, CommaPrinter& comma) con
 void GetterSetterAccessCase::emitDOMJITGetter(AccessGenerationState& state, const DOMJIT::GetterSetter* domJIT, GPRReg baseForGetGPR)
 {
     CCallHelpers& jit = *state.jit;
+    StructureStubInfo& stubInfo = *state.stubInfo;
     JSValueRegs valueRegs = state.valueRegs;
     GPRReg baseGPR = state.baseGPR;
     GPRReg scratchGPR = state.scratchGPR;
@@ -183,7 +184,7 @@ void GetterSetterAccessCase::emitDOMJITGetter(AccessGenerationState& state, cons
 
     // Let's store the reused registers to the stack. After that, we can use allocated scratch registers.
     ScratchRegisterAllocator::PreservedState preservedState =
-    allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::SpaceForCCall);
+        allocator.preserveReusedRegistersByPushing(jit, ScratchRegisterAllocator::ExtraStackSpace::SpaceForCCall);
 
     if (GetterSetterAccessCaseInternal::verbose) {
         dataLog("baseGPR = ", baseGPR, "\n");
@@ -218,12 +219,9 @@ void GetterSetterAccessCase::emitDOMJITGetter(AccessGenerationState& state, cons
         registersToSpillForCCall.set(reg);
     for (FPRReg reg : fpScratch)
         registersToSpillForCCall.set(reg);
+    if (jit.codeBlock()->useDataIC())
+        registersToSpillForCCall.set(stubInfo.m_stubInfoGPR);
     registersToSpillForCCall.exclude(RegisterSet::registersToNotSaveForCCall());
-#if CPU(ARM64)
-    CodeBlock* codeBlock = jit.codeBlock();
-    if (codeBlock->useDataIC())
-        registersToSpillForCCall.set(ARM64Registers::lr);
-#endif
 
     AccessCaseSnippetParams params(state.m_vm, WTFMove(regs), WTFMove(gpScratch), WTFMove(fpScratch));
     snippet->generator()->run(jit, params);

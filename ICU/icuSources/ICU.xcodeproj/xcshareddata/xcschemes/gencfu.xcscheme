@@ -52,7 +52,7 @@
       </BuildableProductRunnable>
       <CommandLineArguments>
          <CommandLineArgument
-            argument = "-d /Users/richardgillam/Code/icu/build/data/out/build/icudt66l -i /Users/richardgillam/Code/icu/build/data/out/build/icudt66l -c -r /Users/richardgillam/Code/icu/icuSources/data/unidata/confusables.txt -w /Users/richardgillam/Code/icu/icuSources/data/unidata/confusablesWholeScript.txt -o confusables.cfu"
+            argument = "-d /Users/richardgillam/Code/icu/build/data/out/build/icudt70l -i /Users/richardgillam/Code/icu/build/data/out/build/icudt66l -c -r /Users/richardgillam/Code/icu/icuSources/data/unidata/confusables.txt -w /Users/richardgillam/Code/icu/icuSources/data/unidata/confusablesWholeScript.txt -o confusables.cfu"
             isEnabled = "YES">
          </CommandLineArgument>
       </CommandLineArguments>

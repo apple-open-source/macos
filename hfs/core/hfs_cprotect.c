@@ -1256,7 +1256,7 @@ cp_getrootxattr(struct hfsmount* hfsmp, struct cp_root_xattr *outxattr)
 
 	hfs_assert(outxattr);
 
-	buf = hfs_malloc(bufsize);
+	buf = hfs_malloc_data(bufsize);
 
 	uio_t uio = uio_create(1, 0, UIO_SYSSPACE, UIO_READ);
 
@@ -1304,7 +1304,7 @@ cp_getrootxattr(struct hfsmount* hfsmp, struct cp_root_xattr *outxattr)
 	}
 
 out:
-	hfs_free(buf, bufsize);
+	hfs_free_data(buf, bufsize);
 	return error;
 }
 
@@ -1421,7 +1421,7 @@ int cp_setxattr(struct cnode *cp, struct cprotect *entry, struct hfsmount *hfsmp
 	}
 
 	struct cp_xattr_v5 *xattr;
-	xattr = hfs_malloc(sizeof(*xattr));
+	xattr = hfs_malloc_type(struct cp_xattr_v5);
 
 	xattr->xattr_major_version	= OSSwapHostToLittleConstInt16(CP_VERS_5);
 	xattr->xattr_minor_version	= OSSwapHostToLittleConstInt16(CP_MINOR_VERS);
@@ -1464,7 +1464,7 @@ int cp_setxattr(struct cnode *cp, struct cprotect *entry, struct hfsmount *hfsmp
 
 	error = hfs_setxattr_internal(cp, xattr, xattr_len, &args, hfsmp, fileid);
 
-	hfs_free(xattr, sizeof(*xattr));
+	hfs_free_type(xattr, struct cp_xattr_v5);
 
 	if (error == 0 ) {
 		entry->cp_flags &= ~CP_NO_XATTR;
@@ -1575,7 +1575,7 @@ cp_entry_alloc(cprotect_t old, uint16_t pers_key_len,
 	size += 4;	// Extra for magic2
 #endif
 
-	cp_entry = hfs_mallocz(size);
+	cp_entry = hfs_malloc_zero(size);
 
 	if (old) {
 		memcpy(cp_entry, old, offsetof(struct cprotect, cp_keys));
@@ -1826,7 +1826,8 @@ cp_getxattr(struct cnode *cp, struct hfsmount *hfsmp, cprotect_t *outentry)
 	size_t xattr_len;
 	struct cp_xattr_v5 *xattr;
 
-	xattr = hfs_malloc(xattr_len = sizeof(*xattr));
+	xattr_len = sizeof(*xattr);
+	xattr = hfs_malloc_type(struct cp_xattr_v5);
 
 	int error = hfs_xattr_read(cp->c_vp, CONTENT_PROTECTION_XATTR_NAME,
 							   xattr, &xattr_len);
@@ -1847,7 +1848,7 @@ cp_getxattr(struct cnode *cp, struct hfsmount *hfsmp, cprotect_t *outentry)
 	}
 #endif
 
-	hfs_free(xattr, sizeof(*xattr));
+	hfs_free_type(xattr, struct cp_xattr_v5);
 
 	return error;
 }

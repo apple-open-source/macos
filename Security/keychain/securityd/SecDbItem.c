@@ -2055,6 +2055,19 @@ bool SecDbItemSelectBind(SecDbQueryRef query, sqlite3_stmt *stmt, CFErrorRef *er
     return ok;
 }
 
+/*!
+    @function   SecDbItemSelect
+    @abstract   Build a keychain query using blocks to customize parameters and selected attributes, and perform a block for each returned row
+    @param query    What are we searching on today? Queries are in themselves complicated. Create with query_create_with_limit, not query_create, if you pass an attributes dictionary
+    @param dbconn   Database connection to run this query on
+    @param error    This is unmodified when result is true, or potentially set to the error that occurred when ok = false
+    @param return_attr  What attributes are we selecting? This fills x for SELECT x FROM
+    @param use_attr_in_where    For some reason the query is insufficient to cause the WHERE clause to be populated
+    @param add_where_sql    Custom search?
+    @param bind_added_where Bind custom search parameters?
+    @param handle_row   What do you want to do with the items returned by this thing?
+    @result Did everything go according to plan?
+*/
 bool SecDbItemSelect(SecDbQueryRef query, SecDbConnectionRef dbconn, CFErrorRef *error,
                      bool (^return_attr)(const SecDbAttr *attr),
                      bool (^use_attr_in_where)(const SecDbAttr *attr),

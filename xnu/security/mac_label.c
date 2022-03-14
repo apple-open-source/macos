@@ -37,9 +37,8 @@
 #include <sys/systm.h>
 #include <security/mac_internal.h>
 
-static SECURITY_READ_ONLY_LATE(zone_t) zone_label;
-ZONE_INIT(&zone_label, "MAC Labels", sizeof(struct label),
-    ZC_READONLY | ZC_ZFREE_CLEARMEM, ZONE_ID_MAC_LABEL, NULL);
+ZONE_DEFINE_ID(ZONE_ID_MAC_LABEL, "MAC Labels", struct label,
+    ZC_READONLY | ZC_ZFREE_CLEARMEM);
 
 #define MAC_LABEL_NULL_SLOT (void *)~0ULL
 
@@ -79,8 +78,7 @@ mac_labelzone_alloc(int flags)
 
 	label = label_alloc_noinit(flags);
 	if (label) {
-		struct label tmp_label = empty_label;
-		zalloc_ro_update_elem(ZONE_ID_MAC_LABEL, label, &tmp_label);
+		zalloc_ro_update_elem(ZONE_ID_MAC_LABEL, label, &empty_label);
 	}
 
 	return label;

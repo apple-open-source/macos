@@ -55,7 +55,7 @@ bool IOAudioTimeIntervalFilter::initFilter(uint32_t expectedInterval, uint32_t m
 	
 	if ( super::init() )
 	{
-		mIntervalTimeHistory = (uint64_t*) IOMalloc ( mMultiIntervalCount * sizeof(uint64_t) );
+		mIntervalTimeHistory = (uint64_t*) IONewData ( uint64_t, mMultiIntervalCount);
 		if ( NULL == mIntervalTimeHistory ) goto Exit;
 		
 		timeIntervalLock = IOLockAlloc();
@@ -77,7 +77,7 @@ void IOAudioTimeIntervalFilter::free()
 	}
 	if ( mIntervalTimeHistory )
 	{
-		IOFree ( mIntervalTimeHistory, mMultiIntervalCount * sizeof(uint64_t) );
+		IODeleteData( mIntervalTimeHistory, uint64_t, mMultiIntervalCount);
 	}
 	
 	super::free();
@@ -112,13 +112,13 @@ IOReturn IOAudioTimeIntervalFilter::reInitialiseFilter(uint32_t expectedInterval
 
 	if ( mIntervalTimeHistory )
 	{
-		IOFree ( mIntervalTimeHistory, mMultiIntervalCount * sizeof(uint64_t));
+		IODeleteData ( mIntervalTimeHistory, uint64_t, mMultiIntervalCount);
 		mIntervalTimeHistory = NULL;
 	}
 
 	mMultiIntervalCount = multiIntervalCount + 1;
 
-	mIntervalTimeHistory = (uint64_t*) IOMalloc ( mMultiIntervalCount * sizeof(uint64_t) );
+	mIntervalTimeHistory = (uint64_t*) IONewData ( uint64_t, mMultiIntervalCount);
 	if ( NULL == mIntervalTimeHistory ) goto Exit;
 	
 	result = kIOReturnSuccess;
@@ -356,32 +356,32 @@ IOReturn IOAudioTimeIntervalFilterFIR::setNewFilter(uint32_t numCoeffs, const ui
 	// Free up the previous buffers
 	if ( mDataHistory )
 	{
-		IOFree ( mDataHistory, mNumCoeffs * sizeof(uint64_t) );
+		IODeleteData ( mDataHistory, uint64_t, mNumCoeffs );
 		mDataHistory = NULL;
 	}
 	if ( mDataOffsetHistory )
 	{
-		IOFree ( mDataOffsetHistory, mNumCoeffs * sizeof(uint64_t) );
+		IODeleteData ( mDataOffsetHistory, uint64_t, mNumCoeffs );
 		mDataOffsetHistory = NULL;
 	}
 	if ( mCoeffs )
 	{
-		IOFree ( mCoeffs, mNumCoeffs * sizeof(uint64_t) );
+		IODeleteData ( mCoeffs, uint64_t, mNumCoeffs );
 		mCoeffs = NULL;
 	}
 	
 	mNumCoeffs = numCoeffs;
 
-	mCoeffs = (uint64_t*) IOMalloc ( mNumCoeffs * sizeof(uint64_t) );
+	mCoeffs = (uint64_t*) IONewData ( uint64_t, mNumCoeffs );
 	if ( NULL == mCoeffs) goto Exit;
 	
 	memcpy(mCoeffs, filterCoefficients,  mNumCoeffs * sizeof(uint64_t));
 	mFilterScale = scale;
 	
-	mDataHistory = (uint64_t*) IOMalloc ( mNumCoeffs * sizeof(uint64_t) );
+	mDataHistory = (uint64_t*) IONewData ( uint64_t, mNumCoeffs );
 	if ( NULL == mDataHistory) goto Exit;
 	
-	mDataOffsetHistory = (uint64_t*) IOMalloc ( mNumCoeffs * sizeof(uint64_t) );
+	mDataOffsetHistory = (uint64_t*) IONewData ( uint64_t, mNumCoeffs );
 	if ( NULL == mDataHistory) goto Exit;
 	
 	reInitialiseFilter ( mExpectedInterval, mMultiIntervalCount );
@@ -405,17 +405,17 @@ void IOAudioTimeIntervalFilterFIR::free()
 {
 	if ( mDataHistory )
 	{
-		IOFree ( mDataHistory, mNumCoeffs * sizeof(uint64_t) );
+		IODeleteData ( mDataHistory, uint64_t, mNumCoeffs );
 		mDataHistory = NULL;
 	}
 	if ( mDataOffsetHistory )
 	{
-		IOFree ( mDataOffsetHistory, mNumCoeffs * sizeof(uint64_t) );
+		IODeleteData ( mDataOffsetHistory, uint64_t, mNumCoeffs );
 		mDataOffsetHistory = NULL;
 	}
 	if ( mCoeffs )
 	{
-		IOFree ( mCoeffs, mNumCoeffs * sizeof(uint64_t) );
+		IODeleteData ( mCoeffs, uint64_t, mNumCoeffs );
 		mCoeffs = NULL;
 	}
 	

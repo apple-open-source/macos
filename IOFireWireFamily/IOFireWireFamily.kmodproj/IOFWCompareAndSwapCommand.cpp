@@ -163,16 +163,9 @@ bool IOFWCompareAndSwapCommand::createMemberVariables( void )
 		
 		if( success )
 		{
-			fMembers = (MemberVariables*)IOMalloc( sizeof(MemberVariables) );
+			fMembers = IOMallocType( MemberVariables );
 			if( fMembers == NULL )
 				success = false;
-		}
-		
-		// zero member variables
-		
-		if( success )
-		{
-			bzero( fMembers, sizeof(MemberVariables) );
 		}
 		
 		// clean up on failure
@@ -194,8 +187,7 @@ void IOFWCompareAndSwapCommand::destroyMemberVariables( void )
 {
 	if( fMembers != NULL )
 	{
-		IOFree( fMembers, sizeof(MemberVariables) );
-		fMembers = NULL;
+		IOFreeType( fMembers, MemberVariables );
 	}
 }
 

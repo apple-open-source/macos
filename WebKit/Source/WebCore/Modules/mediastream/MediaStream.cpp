@@ -50,23 +50,29 @@ Ref<MediaStream> MediaStream::create(Document& document)
 
 Ref<MediaStream> MediaStream::create(Document& document, MediaStream& stream)
 {
-    return adoptRef(*new MediaStream(document, stream.getTracks()));
+    auto mediaStream = adoptRef(*new MediaStream(document, stream.getTracks()));
+    mediaStream->suspendIfNeeded();
+    return mediaStream;
 }
 
 Ref<MediaStream> MediaStream::create(Document& document, const MediaStreamTrackVector& tracks)
 {
-    return adoptRef(*new MediaStream(document, tracks));
+    auto mediaStream = adoptRef(*new MediaStream(document, tracks));
+    mediaStream->suspendIfNeeded();
+    return mediaStream;
 }
 
 Ref<MediaStream> MediaStream::create(Document& document, Ref<MediaStreamPrivate>&& streamPrivate)
 {
-    return adoptRef(*new MediaStream(document, WTFMove(streamPrivate)));
+    auto mediaStream = adoptRef(*new MediaStream(document, WTFMove(streamPrivate)));
+    mediaStream->suspendIfNeeded();
+    return mediaStream;
 }
 
 static inline MediaStreamTrackPrivateVector createTrackPrivateVector(const MediaStreamTrackVector& tracks)
 {
     return map(tracks, [](auto& track) {
-        return makeRefPtr(&track->privateTrack());
+        return RefPtr { &track->privateTrack() };
     });
 }
 
@@ -82,7 +88,6 @@ MediaStream::MediaStream(Document& document, const MediaStreamTrackVector& track
 
     setIsActive(m_private->active());
     m_private->addObserver(*this);
-    suspendIfNeeded();
 }
 
 MediaStream::MediaStream(Document& document, Ref<MediaStreamPrivate>&& streamPrivate)
@@ -96,7 +101,6 @@ MediaStream::MediaStream(Document& document, Ref<MediaStreamPrivate>&& streamPri
 
     setIsActive(m_private->active());
     m_private->addObserver(*this);
-    suspendIfNeeded();
 }
 
 MediaStream::~MediaStream()
@@ -277,9 +281,9 @@ void MediaStream::stopProducingData()
     m_private->stopProducingData();
 }
 
-MediaProducer::MediaStateFlags MediaStream::mediaState() const
+MediaProducerMediaStateFlags MediaStream::mediaState() const
 {
-    MediaProducer::MediaStateFlags state;
+    MediaProducerMediaStateFlags state;
 
     if (!m_isActive || !document() || !document()->page())
         return state;

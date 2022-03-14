@@ -288,7 +288,7 @@ myUCharsToChars(char* resultOfLen4, const UChar* currency) {
  * four integers.  The first is the fraction digits.  The second is the
  * rounding increment, or 0 if none.  The rounding increment is in
  * units of 10^(-fraction_digits).  The third and fourth are the same
- * except that they are those used in cash transations ( cashDigits
+ * except that they are those used in cash transactions ( cashDigits
  * and cashRounding ).
  */
 static const int32_t*
@@ -897,7 +897,7 @@ typedef struct {
 #endif
 
 
-// Comparason function used in quick sort.
+// Comparison function used in quick sort.
 static int U_CALLCONV currencyNameComparator(const void* a, const void* b) {
     const CurrencyNameStruct* currName_1 = (const CurrencyNameStruct*)a;
     const CurrencyNameStruct* currName_2 = (const CurrencyNameStruct*)b;
@@ -1365,7 +1365,7 @@ searchCurrencyName(const CurrencyNameStruct* currencyNames,
     // The 2nd round binary search search the second "B" in the text against
     // the 2nd char in currency names, and narrow the matching range to
     // "BB BBEX BBEXYZ" (and the maximum matching "BB").
-    // The 3rd round returnes the range as "BBEX BBEXYZ" (without changing
+    // The 3rd round returns the range as "BBEX BBEXYZ" (without changing
     // maximum matching).
     // The 4th round returns the same range (the maximum matching is "BBEX").
     // The 5th round returns no matching range.
@@ -1583,7 +1583,7 @@ uprv_parseCurrency(const char* locale,
 
     int32_t max = 0;
     int32_t matchIndex = -1;
-    // case in-sensitive comparision against currency names
+    // case in-sensitive comparison against currency names
     searchCurrencyName(currencyNames, total_currency_name_count, 
                        upperText, textLen, partialMatchLen, &max, &matchIndex);
 
@@ -1844,7 +1844,6 @@ static const struct CurrencyList {
     {"ECV", UCURR_UNCOMMON|UCURR_DEPRECATED},
     {"EEK", UCURR_COMMON|UCURR_DEPRECATED},
     {"EGP", UCURR_COMMON|UCURR_NON_DEPRECATED},
-    {"EQE", UCURR_COMMON|UCURR_DEPRECATED}, // questionable, remove?
     {"ERN", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"ESA", UCURR_UNCOMMON|UCURR_DEPRECATED},
     {"ESB", UCURR_UNCOMMON|UCURR_DEPRECATED},
@@ -2020,6 +2019,7 @@ static const struct CurrencyList {
     {"UZS", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VEB", UCURR_COMMON|UCURR_DEPRECATED},
     {"VEF", UCURR_COMMON|UCURR_NON_DEPRECATED},
+    {"VES", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VND", UCURR_COMMON|UCURR_NON_DEPRECATED},
     {"VNN", UCURR_COMMON|UCURR_DEPRECATED},
     {"VUV", UCURR_COMMON|UCURR_NON_DEPRECATED},

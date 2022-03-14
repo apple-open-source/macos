@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -43,7 +41,7 @@ static char sccsid[] = "@(#)id.c	8.2 (Berkeley) 2/16/94";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/id/id.c,v 1.33 2006/12/29 12:28:34 stefanf Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #ifndef __APPLE__
@@ -58,22 +56,29 @@ __FBSDID("$FreeBSD: src/usr.bin/id/id.c,v 1.33 2006/12/29 12:28:34 stefanf Exp $
 #include <errno.h>
 #include <grp.h>
 #include <pwd.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-void	id_print(struct passwd *, int, int, int);
-void	pline(struct passwd *);
-void	pretty(struct passwd *);
-void	auditid(void);
-void	fullname(struct passwd *);
-void	group(struct passwd *, int);
-void	maclabel(void);
-void	usage(void);
-struct passwd *who(char *);
+static void	id_print(struct passwd *, int, int, int);
+static void	pline(struct passwd *);
+static void	pretty(struct passwd *);
+#ifdef USE_BSM_AUDIT
+static void	auditid(void);
+#endif
+#ifdef __APPLE__
+static void	fullname(struct passwd *);
+#endif
+static void	group(struct passwd *, int);
+#ifndef __APPLE__
+static void	maclabel(void);
+#endif
+static void	usage(void);
+static struct passwd *who(char *);
 
-int isgroups, iswhoami;
+static int isgroups, iswhoami;
 
 #ifdef __APPLE__
 // SPI for 5235093
@@ -85,14 +90,26 @@ main(int argc, char *argv[])
 {
 	struct group *gr;
 	struct passwd *pw;
+#ifdef __APPLE__
+	int Gflag, Pflag, ch, gflag, id, nflag, pflag, rflag, uflag;
+	int Aflag, Fflag;
+#else
 	int Gflag, Mflag, Pflag, ch, gflag, id, nflag, pflag, rflag, uflag;
-	int Aflag;
-	int Fflag;
+	int Aflag, cflag;
+	int error;
+#endif
 	const char *myname;
+#ifndef __APPLE__
+	char loginclass[MAXLOGNAME];
+#endif
 
+#ifdef __APPLE__
+	Gflag = Pflag = gflag = nflag = pflag = rflag = uflag = 0;
+	Aflag = Fflag = 0;
+#else
 	Gflag = Mflag = Pflag = gflag = nflag = pflag = rflag = uflag = 0;
-	Aflag = 0;
-	Fflag = 0;
+	Aflag = cflag = 0;
+#endif
 
 	myname = strrchr(argv[0], '/');
 	myname = (myname != NULL) ? myname + 1 : argv[0];
@@ -106,27 +123,40 @@ main(int argc, char *argv[])
 	}
 
 	while ((ch = getopt(argc, argv,
-	    (isgroups || iswhoami) ? "" : "AFPGMagnpru")) != -1)
+#ifdef __APPLE__
+	    (isgroups || iswhoami) ? "" : "AFPGagnpru")) != -1)
+#else
+	    (isgroups || iswhoami) ? "" : "APGMacgnpru")) != -1)
+#endif
 		switch(ch) {
 #ifdef USE_BSM_AUDIT
 		case 'A':
 			Aflag = 1;
 			break;
 #endif
+#ifdef __APPLE__
 		case 'F':
 			Fflag = 1;
 			break;
+#endif
 		case 'G':
 			Gflag = 1;
 			break;
+#ifndef __APPLE__
 		case 'M':
 			Mflag = 1;
 			break;
+#endif
 		case 'P':
 			Pflag = 1;
 			break;
 		case 'a':
 			break;
+#ifndef __APPLE__
+		case 'c':
+			cflag = 1;
+			break;
+#endif
 		case 'g':
 			gflag = 1;
 			break;
@@ -151,8 +181,19 @@ main(int argc, char *argv[])
 
 	if (iswhoami && argc > 0)
 		usage();
+#ifdef __APPLE__
+	if (Aflag && argc > 0)
+		usage();
+#else
+	if ((cflag || Aflag || Mflag) && argc > 0)
+		usage();
+#endif
 
-	switch(Aflag + Fflag + Gflag + Mflag + Pflag + gflag + pflag + uflag) {
+#ifdef __APPLE__
+	switch(Aflag + Fflag + Gflag + Pflag + gflag + pflag + uflag) {
+#else
+	switch(Aflag + Gflag + Mflag + Pflag + gflag + pflag + uflag) {
+#endif
 	case 1:
 		break;
 	case 0:
@@ -165,8 +206,10 @@ main(int argc, char *argv[])
 
 	pw = *argv ? who(*argv) : NULL;
 
+#ifndef __APPLE__
 	if (Mflag && pw != NULL)
 		usage();
+#endif
 
 #ifdef USE_BSM_AUDIT
 	if (Aflag) {
@@ -175,10 +218,22 @@ main(int argc, char *argv[])
 	}
 #endif
 
+#ifdef __APPLE__
 	if (Fflag) {
 		fullname(pw);
 		exit(0);
 	}
+#endif
+
+#ifndef __APPLE__
+	if (cflag) {
+		error = getloginclass(loginclass, sizeof(loginclass));
+		if (error != 0)
+			err(1, "loginclass");
+		(void)printf("%s\n", loginclass);
+		exit(0);
+	}
+#endif
 
 	if (gflag) {
 		id = pw ? pw->pw_gid : rflag ? getgid() : getegid();
@@ -203,10 +258,12 @@ main(int argc, char *argv[])
 		exit(0);
 	}
 
+#ifndef __APPLE__
 	if (Mflag) {
 		maclabel();
 		exit(0);
 	}
+#endif
 
 	if (Pflag) {
 		pline(pw);
@@ -229,7 +286,7 @@ main(int argc, char *argv[])
 	exit(0);
 }
 
-void
+static void
 pretty(struct passwd *pw)
 {
 	struct group *gr;
@@ -269,28 +326,25 @@ pretty(struct passwd *pw)
 	}
 }
 
-void
+static void
 id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 {
 	struct group *gr;
 	gid_t gid, egid, lastgid;
 	uid_t uid, euid;
 	int cnt, ngroups;
-#ifdef __APPLE__
-	gid_t *groups = NULL;
-#else
-	gid_t groups[NGROUPS + 1];
-#endif
+	long ngroups_max;
+	gid_t *groups;
 	const char *fmt;
 
 #ifdef __APPLE__
+	groups = NULL;
 	if (pw == NULL) {
 		pw = getpwuid(getuid());
 	}
 
 	use_ggl = 1;
 #endif
-
 	if (pw != NULL) {
 		uid = pw->pw_uid;
 		gid = pw->pw_gid;
@@ -300,27 +354,34 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 		gid = getgid();
 	}
 
+#ifndef __APPLE__
+	ngroups_max = sysconf(_SC_NGROUPS_MAX) + 1;
+	if ((groups = malloc(sizeof(gid_t) * ngroups_max)) == NULL)
+		err(1, "malloc");
+#endif
+
 	if (use_ggl && pw != NULL) {
 #ifdef __APPLE__
 		// 5235093
 		ngroups = getgrouplist_2(pw->pw_name, gid, &groups);
 #else
-		ngroups = NGROUPS + 1;
+		ngroups = ngroups_max;
 		getgrouplist(pw->pw_name, gid, groups, &ngroups);
 #endif
 	}
 	else {
 #ifdef __APPLE__
-		groups = malloc((NGROUPS + 1) * sizeof(gid_t));
+		ngroups_max = sysconf(_SC_NGROUPS_MAX) + 1;
+		if ((groups = malloc(sizeof(gid_t) * ngroups_max)) == NULL)
+			err(1, "malloc");
 #endif
-		ngroups = getgroups(NGROUPS + 1, groups);
+		ngroups = getgroups(ngroups_max, groups);
 	}
 
 #ifdef __APPLE__
 	if (ngroups < 0)
 		warn("failed to retrieve group list");
 #endif
-
 	if (pw != NULL)
 		printf("uid=%u(%s)", uid, pw->pw_name);
 	else 
@@ -349,28 +410,72 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 		lastgid = gid;
 	}
 	printf("\n");
-#ifdef __APPLE__
 	free(groups);
-#endif
 }
 
 #ifdef USE_BSM_AUDIT
-void
+static void
 auditid(void)
 {
-	auditinfo_addr_t auditinfo;
+#ifdef __APPLE__
+	auditinfo_addr_t ainfo_addr;
+	/* Keeps the diff looking somewhat sane, always 1 for Apple. */
+	int extended = 1;
+#else
+	auditinfo_t auditinfo;
+	auditinfo_addr_t ainfo_addr;
+	int ret, extended;
+#endif
 
-	if (getaudit_addr(&auditinfo, sizeof(auditinfo)) < 0)
+#ifdef __APPLE__
+	if (getaudit_addr(&ainfo_addr, sizeof(ainfo_addr)) < 0)
+		err(1, "getaudit_addr");
+#else
+	extended = 0;
+	ret = getaudit(&auditinfo);
+	if (ret < 0 && errno == E2BIG) {
+		if (getaudit_addr(&ainfo_addr, sizeof(ainfo_addr)) < 0)
+			err(1, "getaudit_addr");
+		extended = 1;
+	} else if (ret < 0)
 		err(1, "getaudit");
-	printf("auid=%d\n", auditinfo.ai_auid);
-	printf("mask.success=0x%08x\n", auditinfo.ai_mask.am_success);
-	printf("mask.failure=0x%08x\n", auditinfo.ai_mask.am_failure);
-	printf("termid.port=0x%08x\n", auditinfo.ai_termid.at_port);
-	printf("asid=%d\n", auditinfo.ai_asid);
+#endif
+	if (extended != 0) {
+		(void) printf("auid=%d\n"
+		    "mask.success=0x%08x\n"
+		    "mask.failure=0x%08x\n"
+		    "asid=%d\n"
+		    "termid_addr.port=0x%08jx\n"
+		    "termid_addr.addr[0]=0x%08x\n"
+		    "termid_addr.addr[1]=0x%08x\n"
+		    "termid_addr.addr[2]=0x%08x\n"
+		    "termid_addr.addr[3]=0x%08x\n",
+			ainfo_addr.ai_auid, ainfo_addr.ai_mask.am_success,
+			ainfo_addr.ai_mask.am_failure, ainfo_addr.ai_asid,
+			(uintmax_t)ainfo_addr.ai_termid.at_port,
+			ainfo_addr.ai_termid.at_addr[0],
+			ainfo_addr.ai_termid.at_addr[1],
+			ainfo_addr.ai_termid.at_addr[2],
+			ainfo_addr.ai_termid.at_addr[3]);
+	} else {
+#ifndef __APPLE__
+		(void) printf("auid=%d\n"
+		    "mask.success=0x%08x\n"
+		    "mask.failure=0x%08x\n"
+		    "asid=%d\n"
+		    "termid.port=0x%08jx\n"
+		    "termid.machine=0x%08x\n",
+			auditinfo.ai_auid, auditinfo.ai_mask.am_success,
+			auditinfo.ai_mask.am_failure,
+			auditinfo.ai_asid, (uintmax_t)auditinfo.ai_termid.port,
+			auditinfo.ai_termid.machine);
+#endif
+	}
 }
 #endif
 
-void
+#ifdef __APPLE__
+static void
 fullname(struct passwd *pw)
 {
 
@@ -381,23 +486,26 @@ fullname(struct passwd *pw)
 
 	(void)printf("%s\n", pw->pw_gecos);
 }
+#endif
 
-void
+static void
 group(struct passwd *pw, int nflag)
 {
 	struct group *gr;
 	int cnt, id, lastid, ngroups;
-#ifdef __APPLE__
-	gid_t *groups = NULL;
-#else
-	gid_t groups[NGROUPS + 1];
-#endif
+	long ngroups_max;
+	gid_t *groups;
 	const char *fmt;
 
 #ifdef __APPLE__
+	groups = NULL;
 	if (pw == NULL) {
 		pw = getpwuid(getuid());
 	}
+#else
+	ngroups_max = sysconf(_SC_NGROUPS_MAX) + 1;
+	if ((groups = malloc(sizeof(gid_t) * (ngroups_max))) == NULL)
+		err(1, "malloc");
 #endif
 
 	if (pw) {
@@ -405,15 +513,16 @@ group(struct passwd *pw, int nflag)
 		// 5235093
 		ngroups = getgrouplist_2(pw->pw_name, pw->pw_gid, &groups);
 #else
-		ngroups = NGROUPS + 1;
+		ngroups = ngroups_max;
 		(void) getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups);
 #endif
 	} else {
 #ifdef __APPLE__
-		groups = malloc((NGROUPS + 1) * sizeof(gid_t));
+		ngroups_max = sysconf(_SC_NGROUPS_MAX) + 1;
+		if ((groups = malloc(sizeof(gid_t) * (ngroups_max))) == NULL)
+			err(1, "malloc");
 #endif
-		groups[0] = getgid();
-		ngroups = getgroups(NGROUPS, groups + 1) + 1;
+		ngroups = getgroups(ngroups_max, groups);
 	}
 	fmt = nflag ? "%s" : "%u";
 	for (lastid = -1, cnt = 0; cnt < ngroups; ++cnt) {
@@ -433,17 +542,13 @@ group(struct passwd *pw, int nflag)
 		lastid = id;
 	}
 	(void)printf("\n");
-#ifdef __APPLE__
 	free(groups);
-#endif
 }
 
-void
+#ifndef __APPLE__
+static void
 maclabel(void)
 {
-#ifdef __APPLE__
-	errx(1, "-M unsupported");
-#else /* !__APPLE__ */
 	char *string;
 	mac_t label;
 	int error;
@@ -463,10 +568,10 @@ maclabel(void)
 	(void)printf("%s\n", string);
 	mac_free(label);
 	free(string);
-#endif /* __APPLE__ */
 }
+#endif /* __APPLE__ */
 
-struct passwd *
+static struct passwd *
 who(char *u)
 {
 	struct passwd *pw;
@@ -486,7 +591,7 @@ who(char *u)
 	/* NOTREACHED */
 }
 
-void
+static void
 pline(struct passwd *pw)
 {
 
@@ -502,7 +607,7 @@ pline(struct passwd *pw)
 }
 
 
-void
+static void
 usage(void)
 {
 
@@ -518,10 +623,19 @@ usage(void)
 #else
 		    "",
 #endif
+#ifdef __APPLE__
 		    "       id -F [user]",
+#endif
 		    "       id -G [-n] [user]",
+#ifdef __APPLE__
+		    "",
+#else
 		    "       id -M",
+#endif
 		    "       id -P [user]",
+#ifndef __APPLE__
+		    "       id -c",
+#endif
 		    "       id -g [-nr] [user]",
 		    "       id -p [user]",
 		    "       id -u [-nr] [user]");

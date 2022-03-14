@@ -1,6 +1,6 @@
 #!/bin/sh -
 #
-#	$NetBSD: shar.sh,v 1.2 1994/12/21 08:42:04 jtc Exp $
+# SPDX-License-Identifier: BSD-3-Clause
 #
 # Copyright (c) 1990, 1993
 #	The Regents of the University of California.  All rights reserved.
@@ -13,11 +13,7 @@
 # 2. Redistributions in binary form must reproduce the above copyright
 #    notice, this list of conditions and the following disclaimer in the
 #    documentation and/or other materials provided with the distribution.
-# 3. All advertising materials mentioning features or use of this software
-#    must display the following acknowledgement:
-#	This product includes software developed by the University of
-#	California, Berkeley and its contributors.
-# 4. Neither the name of the University nor the names of its contributors
+# 3. Neither the name of the University nor the names of its contributors
 #    may be used to endorse or promote products derived from this software
 #    without specific prior written permission.
 #
@@ -35,11 +31,20 @@
 #
 #	@(#)shar.sh	8.1 (Berkeley) 6/6/93
 #
+# $FreeBSD$
 
 if [ $# -eq 0 ]; then
-	echo 'usage: shar file ...'
-	exit 1
+	echo 'usage: shar file ...' 1>&2
+	exit 64			# EX_USAGE
 fi
+
+for i
+do
+	if [ ! \( -d $i -o -r $i \) ]; then
+		echo "$i inaccessible or not exist" 1>&2
+		exit 66		# EX_NOINPUT
+	fi
+done
 
 cat << EOF
 # This is a shell archive.  Save it in a file, remove anything before
@@ -64,10 +69,11 @@ do
 		echo "echo c - $i"
 		echo "mkdir -p $i > /dev/null 2>&1"
 	else
+		md5sum=`echo -n $i | md5`
 		echo "echo x - $i"
-		echo "sed 's/^X//' >$i << 'END-of-$i'"
-		sed 's/^/X/' $i
-		echo "END-of-$i"
+		echo "sed 's/^X//' >$i << '$md5sum'"
+		sed 's/^/X/' $i || exit
+		echo "$md5sum"
 	fi
 done
 echo exit

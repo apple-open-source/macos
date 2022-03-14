@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1992, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,42 +29,44 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__used static char const copyright[] =
+static char const copyright[] =
 "@(#) Copyright (c) 1992, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)rmdir.c	8.3 (Berkeley) 4/2/94";
-#endif
 #endif /* not lint */
+#endif
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/bin/rmdir/rmdir.c,v 1.13 2002/06/30 05:15:03 obrien Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <err.h>
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 
-int rm_path(char *);
-void usage(void);
+static int rm_path(char *);
+static void usage(void);
+
+static int pflag;
+static int vflag;
 
 int
 main(int argc, char *argv[])
 {
 	int ch, errors;
-	int pflag;
 
-	pflag = 0;
-	while ((ch = getopt(argc, argv, "p")) != -1)
+	while ((ch = getopt(argc, argv, "pv")) != -1)
 		switch(ch) {
 		case 'p':
 			pflag = 1;
+			break;
+		case 'v':
+			vflag = 1;
 			break;
 		case '?':
 		default:
@@ -82,14 +82,18 @@ main(int argc, char *argv[])
 		if (rmdir(*argv) < 0) {
 			warn("%s", *argv);
 			errors = 1;
-		} else if (pflag)
-			errors |= rm_path(*argv);
+		} else {
+			if (vflag)
+				printf("%s\n", *argv);
+			if (pflag)
+				errors |= rm_path(*argv);
+		}
 	}
 
 	exit(errors);
 }
 
-int
+static int
 rm_path(char *path)
 {
 	char *p;
@@ -100,23 +104,27 @@ rm_path(char *path)
 	*++p = '\0';
 	while ((p = strrchr(path, '/')) != NULL) {
 		/* Delete trailing slashes. */
-		while (--p > path && *p == '/')
+		while (--p >= path && *p == '/')
 			;
 		*++p = '\0';
+		if (p == path)
+			break;
 
 		if (rmdir(path) < 0) {
 			warn("%s", path);
 			return (1);
 		}
+		if (vflag)
+			printf("%s\n", path);
 	}
 
 	return (0);
 }
 
-void
+static void
 usage(void)
 {
 
-	(void)fprintf(stderr, "usage: rmdir [-p] directory ...\n");
+	(void)fprintf(stderr, "usage: rmdir [-pv] directory ...\n");
 	exit(1);
 }

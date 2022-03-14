@@ -30,6 +30,8 @@
 
 #include "AuxiliaryBarrierInlines.h"
 #include "JSCInlines.h"
+#include "JSWebAssemblyException.h"
+#include "JSWebAssemblyTag.h"
 
 namespace JSC {
 static JSC_DECLARE_HOST_FUNCTION(webAssemblyExceptionProtoFuncGetArg);
@@ -51,7 +53,7 @@ const ClassInfo WebAssemblyExceptionPrototype::s_info = { "WebAssembly.Exception
 
 WebAssemblyExceptionPrototype* WebAssemblyExceptionPrototype::create(VM& vm, JSGlobalObject*, Structure* structure)
 {
-    auto* object = new (NotNull, allocateCell<WebAssemblyExceptionPrototype>(vm.heap)) WebAssemblyExceptionPrototype(vm, structure);
+    auto* object = new (NotNull, allocateCell<WebAssemblyExceptionPrototype>(vm)) WebAssemblyExceptionPrototype(vm, structure);
     object->finishCreation(vm);
     return object;
 }

@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include "AnimationFrameRate.h"
 #include "AnimationTimeline.h"
 #include "DocumentTimelineOptions.h"
 #include "Timer.h"
@@ -34,9 +35,12 @@
 namespace WebCore {
 
 class AnimationEventBase;
+class CustomEffectCallback;
 class DocumentTimelinesController;
 class RenderBoxModelObject;
 class RenderElement;
+
+struct CustomAnimationOptions;
 
 class DocumentTimeline final : public AnimationTimeline
 {
@@ -50,6 +54,7 @@ public:
     Document* document() const { return m_document.get(); }
 
     std::optional<Seconds> currentTime() override;
+    ExceptionOr<Ref<WebAnimation>> animate(Ref<CustomEffectCallback>&&, std::optional<std::variant<double, CustomAnimationOptions>>&&);
 
     void animationTimingDidChange(WebAnimation&) override;
     void removeAnimation(WebAnimation&) override;
@@ -60,7 +65,6 @@ public:
     // transform animation but we were unable to cheaply compute its effect on the extent.
     bool computeExtentOfAnimation(RenderElement&, LayoutRect&) const;
     std::unique_ptr<RenderStyle> animatedStyleForRenderer(RenderElement& renderer);
-    bool isRunningAnimationOnRenderer(RenderElement&, CSSPropertyID) const;
     bool isRunningAcceleratedAnimationOnRenderer(RenderElement&, CSSPropertyID) const;
     void animationAcceleratedRunningStateDidChange(WebAnimation&);
     bool runningAnimationsForRendererAreAllAccelerated(const RenderBoxModelObject&) const;
@@ -81,6 +85,8 @@ public:
     WEBCORE_EXPORT unsigned numberOfActiveAnimationsForTesting() const;
     WEBCORE_EXPORT Vector<std::pair<String, double>> acceleratedAnimationsForElement(Element&) const;    
     WEBCORE_EXPORT unsigned numberOfAnimationTimelineInvalidationsForTesting() const;
+
+    std::optional<FramesPerSecond> maximumFrameRate() const;
 
 private:
     DocumentTimeline(Document&, Seconds);

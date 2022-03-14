@@ -847,6 +847,108 @@ class OctagonResetTests: OctagonTestsBase {
         XCTAssertEqual(self.cuttlefishContext.stateMachine.paused.wait(5 * NSEC_PER_SEC), 0, "State machine should have paused")
         self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 1 * NSEC_PER_SEC)
     }
+
+    func testResetAndEstablishClearsContextState() throws {
+        let contextName = OTDefaultContext
+        let containerName = OTCKContainerName
+
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
+
+        let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        self.manager.createInheritanceKey(OTCKContainerName, contextID: self.cuttlefishContext.contextID, uuid: nil) { irk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(irk, "irk should be non-nil")
+            XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
+            createInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [createInheritanceKeyExpectation], timeout: 10)
+
+        let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
+        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: self.cuttlefishContext.contextID, uuid: nil) { crk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(crk, "crk should be non-nil")
+            XCTAssertNotNil(crk?.uuid, "uuid should be non-nil")
+            createCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
+
+        let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.cuttlefishContext.contextID, recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createKeyExpectation.fulfill()
+        }
+        self.wait(for: [createKeyExpectation], timeout: 10)
+
+        let resetExpectation = self.expectation(description: "status callback occurs")
+        self.manager.resetAndEstablish(containerName,
+                                       context: contextName,
+                                       altDSID: "new altDSID",
+                                       resetReason: .testGenerated) { resetError in
+                                        XCTAssertNil(resetError, "Should be no error calling resetAndEstablish")
+            XCTAssertTrue(self.cuttlefishContext.checkAllStateCleared(), "all cuttlefish state should be cleared")
+            resetExpectation.fulfill()
+        }
+
+        self.wait(for: [resetExpectation], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+    }
+
+    func testLocalResetClearsContextState() throws {
+        let contextName = OTDefaultContext
+        let containerName = OTCKContainerName
+
+        self.startCKAccountStatusMock()
+
+        self.assertResetAndBecomeTrusted(context: self.cuttlefishContext)
+
+        let createInheritanceKeyExpectation = self.expectation(description: "createInheritanceKey returns")
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        self.manager.createInheritanceKey(OTCKContainerName, contextID: self.cuttlefishContext.contextID, uuid: nil) { irk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(irk, "irk should be non-nil")
+            XCTAssertNotNil(irk?.uuid, "uuid should be non-nil")
+            createInheritanceKeyExpectation.fulfill()
+        }
+        self.wait(for: [createInheritanceKeyExpectation], timeout: 10)
+
+        let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
+        self.manager.createCustodianRecoveryKey(OTCKContainerName, contextID: self.cuttlefishContext.contextID, uuid: nil) { crk, error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertNotNil(crk, "crk should be non-nil")
+            XCTAssertNotNil(crk?.uuid, "uuid should be non-nil")
+            createCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [createCustodianRecoveryKeyExpectation], timeout: 10)
+
+        let createKeyExpectation = self.expectation(description: "createKeyExpectation returns")
+        let recoveryKey = SecPasswordGenerate(SecPasswordType(kSecPasswordTypeiCloudRecoveryKey), nil, nil)! as String
+        XCTAssertNotNil(recoveryKey, "recoveryKey should not be nil")
+        self.manager.createRecoveryKey(OTCKContainerName, contextID: self.cuttlefishContext.contextID, recoveryKey: recoveryKey) { error in
+            XCTAssertNil(error, "error should be nil")
+            createKeyExpectation.fulfill()
+        }
+        self.wait(for: [createKeyExpectation], timeout: 10)
+
+        let resetCallback = self.expectation(description: "resetCallback callback occurs")
+        self.tphClient.localReset(withContainer: containerName, context: contextName) { error in
+            XCTAssertNil(error, "error should be nil")
+            XCTAssertTrue(self.cuttlefishContext.checkAllStateCleared(), "all cuttlefish state should be cleared")
+            resetCallback.fulfill()
+        }
+        self.wait(for: [resetCallback], timeout: 10)
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+    }
 }
 
 #endif // OCTAGON

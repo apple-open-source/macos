@@ -71,23 +71,23 @@ extension OctagonTestsBase {
         return OTClique(contextData: try! self.otconfigurationContextFor(context: context))
     }
 
-    func assertFetchUserControllableViewsSyncStatus(clique: OTClique, status: Bool) {
+    func assertFetchUserControllableViewsSyncStatus(clique: OTClique, status: Bool, file: StaticString = #file, line: UInt = #line) {
         do {
             let result = try clique.fetchUserControllableViewsSyncingEnabled()
-            XCTAssertEqual(result, status, "API should report that sync status matches expectation")
+            XCTAssertEqual(result, status, "API should report that sync status matches expectation", file: file, line: line)
         } catch {
-            XCTFail("Should be no error fetching status: \(error)")
+            XCTFail("Should be no error fetching status: \(error)", file: file, line: line)
         }
     }
 
-    func assertModifyUserViews(clique: OTClique, intendedSyncStatus: Bool) {
+    func assertModifyUserViews(clique: OTClique, intendedSyncStatus: Bool, file: StaticString = #file, line: UInt = #line) {
         let updateTrustExpectation = self.expectation(description: "updateTrust")
         self.fakeCuttlefishServer.updateListener = { request in
             let newStableInfo = request.stableInfoAndSig.stableInfo()
             if intendedSyncStatus {
-                XCTAssertEqual(newStableInfo.syncUserControllableViews, .ENABLED, "User views should now be enabled")
+                XCTAssertEqual(newStableInfo.syncUserControllableViews, .ENABLED, "User views should now be enabled", file: file, line: line)
             } else {
-                XCTAssertEqual(newStableInfo.syncUserControllableViews, .DISABLED, "User views should now be disabled")
+                XCTAssertEqual(newStableInfo.syncUserControllableViews, .DISABLED, "User views should now be disabled", file: file, line: line)
             }
             updateTrustExpectation.fulfill()
 
@@ -96,16 +96,16 @@ extension OctagonTestsBase {
 
         let ucvStatusChangeNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTUserControllableViewStatusChanged))
 
-        XCTAssertNoThrow(try clique.setUserControllableViewsSyncStatus(intendedSyncStatus), "Should be no error setting user-visible sync status")
+        XCTAssertNoThrow(try clique.setUserControllableViewsSyncStatus(intendedSyncStatus), "Should be no error setting user-visible sync status", file: file, line: line)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: intendedSyncStatus)
 
         self.wait(for: [updateTrustExpectation, ucvStatusChangeNotificationExpectation], timeout: 10)
         self.fakeCuttlefishServer.updateListener = nil
     }
 
-    func assertModifyUserViewsWithNoPeerUpdate(clique: OTClique, intendedSyncStatus: Bool, finalSyncStatus: Bool? = nil) {
+    func assertModifyUserViewsWithNoPeerUpdate(clique: OTClique, intendedSyncStatus: Bool, finalSyncStatus: Bool? = nil, file: StaticString = #file, line: UInt = #line) {
         self.fakeCuttlefishServer.updateListener = { _ in
-            XCTFail("Expected no updates during user view status modification")
+            XCTFail("Expected no updates during user view status modification", file: file, line: line)
             return nil
         }
 
@@ -113,7 +113,7 @@ extension OctagonTestsBase {
         // This should happen rarely enough that it's not a performance issue
         let ucvStatusChangeNotificationExpectation = XCTNSNotificationExpectation(name: NSNotification.Name(rawValue: OTUserControllableViewStatusChanged))
 
-        XCTAssertNoThrow(try clique.setUserControllableViewsSyncStatus(intendedSyncStatus), "Should be no error setting user-visible sync status")
+        XCTAssertNoThrow(try clique.setUserControllableViewsSyncStatus(intendedSyncStatus), "Should be no error setting user-visible sync status", file: file, line: line)
         self.assertFetchUserControllableViewsSyncStatus(clique: clique, status: finalSyncStatus ?? intendedSyncStatus)
 
         self.wait(for: [ucvStatusChangeNotificationExpectation], timeout: 10)

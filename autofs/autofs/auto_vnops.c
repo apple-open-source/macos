@@ -895,7 +895,7 @@ again:
 	 * Not past the "magic" offset, so we return only the entries
 	 * we get without talking to the daemon.
 	 */
-	MALLOC(outbuf, void *, alloc_count, M_AUTOFS, M_WAITOK);
+	outbuf = kalloc_data(alloc_count, Z_WAITOK);
 	dp = outbuf;
 	if (uio_offset(uiop) == 0) {
 		/*
@@ -1050,7 +1050,7 @@ again:
 	}
 	
 cleanup:
-	FREE(outbuf, M_AUTOFS);
+	kfree_data(outbuf, alloc_count);
 
 done:
 	lck_rw_unlock_shared(fnp->fn_rwlock);

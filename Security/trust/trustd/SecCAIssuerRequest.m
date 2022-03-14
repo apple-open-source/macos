@@ -145,7 +145,6 @@ static NSArray *certificatesFromData(NSData *data) {
         /* Found some parents, add to cache, close session, and return to SecPathBuilder */
         secdebug("caissuer", "found parents for %@", task.originalRequest.URL);
         SecCAIssuerCacheAddCertificates((__bridge CFArrayRef)parents, (__bridge CFURLRef)task.originalRequest.URL, urlContext.maxAge + CFAbsoluteTimeGetCurrent());
-        urlContext.context = nil; // set the context to NULL before we call back because the callback may free the builder
         dispatch_async(SecPathBuilderGetQueue(builder), ^{
             urlContext.callback(builder, (__bridge CFArrayRef)parents);
         });
@@ -154,7 +153,6 @@ static NSArray *certificatesFromData(NSData *data) {
         if ([self fetchNext:session context:urlContext]) { // Try the next CAIssuer URI
             /* no fetch scheduled, jump back into the state machine on the builder's queue */
             secdebug("caissuer", "no more fetches. returning to builder");
-            urlContext.context = nil; // set the context to NULL before we call back because the callback may free the builder
             dispatch_async(SecPathBuilderGetQueue(builder), ^{
                 // Use whatever parents we have cached, even if the they are expired
                 CFArrayRef cachedParents = SecCAIssuerRequestCacheCopyParents(NULL, (__bridge CFArrayRef)urlContext.URIs, true);
@@ -281,7 +279,7 @@ bool SecCAIssuerCopyParents(SecCertificateRef certificate, void *context, void (
 
         NSData *auditToken = CFBridgingRelease(SecPathBuilderCopyClientAuditToken(builder));
         NSURLSession *session = [sessionCache sessionForAuditToken:auditToken];
-        CAIssuerContext *urlContext = [[CAIssuerContext alloc] initWithContext:context uris:nsIssuers];
+        CAIssuerContext *urlContext = [[CAIssuerContext alloc] initWithContext:builder uris:nsIssuers];
         urlContext.callback = callback;
         return [delegate fetchNext:session context:urlContext];
     }

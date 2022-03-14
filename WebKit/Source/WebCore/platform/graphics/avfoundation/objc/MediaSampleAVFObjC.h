@@ -26,7 +26,7 @@
 #pragma once
 
 #include "MediaSample.h"
-#include <JavaScriptCore/Uint8ClampedArray.h>
+#include <JavaScriptCore/Forward.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
 #include <wtf/Forward.h>
 
@@ -42,7 +42,7 @@ public:
     static Ref<MediaSampleAVFObjC> create(CMSampleBufferRef sample, AtomString trackID) { return adoptRef(*new MediaSampleAVFObjC(sample, trackID)); }
     static Ref<MediaSampleAVFObjC> create(CMSampleBufferRef sample, VideoRotation rotation = VideoRotation::None, bool mirrored = false) { return adoptRef(*new MediaSampleAVFObjC(sample, rotation, mirrored)); }
     static RefPtr<MediaSampleAVFObjC> createImageSample(PixelBuffer&&);
-    static RefPtr<MediaSampleAVFObjC> createImageSample(RetainPtr<CVPixelBufferRef>&&, VideoRotation, bool mirrored);
+    WEBCORE_EXPORT static RefPtr<MediaSampleAVFObjC> createImageSample(RetainPtr<CVPixelBufferRef>&&, VideoRotation, bool mirrored);
 
     WEBCORE_EXPORT static void setAsDisplayImmediately(MediaSample&);
     static RetainPtr<CMSampleBufferRef> cloneSampleBufferAndSetAsDisplayImmediately(CMSampleBufferRef);
@@ -72,7 +72,7 @@ public:
     VideoRotation videoRotation() const override { return m_rotation; }
     bool videoMirrored() const override { return m_mirrored; }
     WEBCORE_EXPORT uint32_t videoPixelFormat() const final;
-
+    WEBCORE_EXPORT std::optional<MediaSampleVideoFrame> videoFrame() const final;
     CMSampleBufferRef sampleBuffer() const { return m_sample.get(); }
 
     bool isHomogeneous() const;

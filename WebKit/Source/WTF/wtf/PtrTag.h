@@ -166,6 +166,10 @@ WTF_EXPORT_PRIVATE void registerPtrTagLookup(PtrTagLookup*);
 WTF_EXPORT_PRIVATE void reportBadTag(const void*, PtrTag expectedTag);
 
 #if ENABLE(PTRTAG_DEBUGGING)
+
+WTF_EXPORT_PRIVATE const char* ptrTagName(PtrTag);
+WTF_EXPORT_PRIVATE const char* tagForPtr(const void*);
+
 constexpr bool enablePtrTagDebugAssert = true;
 #define REPORT_BAD_TAG(success, ptr, expectedTag) do { \
         if (UNLIKELY(!success)) \
@@ -325,20 +329,6 @@ void assertIsNotTagged(PtrType value)
 {
     void* ptr = bitwise_cast<void*>(value);
     WTF_PTRTAG_ASSERT(PtrTagAction::DebugAssert, ptr, NoPtrTag, ptr == removeCodePtrTag(ptr));
-}
-
-template<typename PtrType>
-void assertIsTagged(PtrType value)
-{
-    void* ptr = bitwise_cast<void*>(value);
-    WTF_PTRTAG_ASSERT(PtrTagAction::DebugAssert, ptr, AnyPtrTag, ptr != removeCodePtrTag(ptr));
-}
-
-template<typename PtrType>
-void assertIsNullOrTagged(PtrType ptr)
-{
-    if (ptr)
-        assertIsTagged(ptr);
 }
 
 template<PtrTag tag, typename PtrType>
@@ -598,8 +588,6 @@ using WTF::untagInt;
 using WTF::assertIsCFunctionPtr;
 using WTF::assertIsNullOrCFunctionPtr;
 using WTF::assertIsNotTagged;
-using WTF::assertIsTagged;
-using WTF::assertIsNullOrTagged;
 using WTF::isTaggedWith;
 using WTF::assertIsTaggedWith;
 using WTF::assertIsNullOrTaggedWith;

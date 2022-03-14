@@ -277,16 +277,15 @@ bool IOFWAddressSpace::init(IOFireWireBus *bus)
 	
 	if( success )
 	{
-		fIOFWAddressSpaceExpansion = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+		fIOFWAddressSpaceExpansion = IOMallocType( ExpansionData );
 		if( fIOFWAddressSpaceExpansion == NULL )
 			success = false;
 	}
 	
-	// zero expansion data
+	// initialize expansion data
 	
 	if( success )
 	{
-		bzero( fIOFWAddressSpaceExpansion, sizeof(ExpansionData) );
 		fIOFWAddressSpaceExpansion->fAuxiliary = createAuxiliary();
 		if( fIOFWAddressSpaceExpansion->fAuxiliary == NULL )
 			success = false;
@@ -304,8 +303,7 @@ bool IOFWAddressSpace::init(IOFireWireBus *bus)
 		
 		if( fIOFWAddressSpaceExpansion != NULL )
 		{
-			IOFree ( fIOFWAddressSpaceExpansion, sizeof(ExpansionData) );
-			fIOFWAddressSpaceExpansion = NULL;
+			IOFreeType ( fIOFWAddressSpaceExpansion, ExpansionData );
 		}
 	}
 	
@@ -350,8 +348,7 @@ void IOFWAddressSpace::free()
 		
 		// free expansion data
 		
-		IOFree ( fIOFWAddressSpaceExpansion, sizeof(ExpansionData) );
-		fIOFWAddressSpaceExpansion = NULL;
+		IOFreeType ( fIOFWAddressSpaceExpansion, ExpansionData );
 	}
 	
     OSObject::free();

@@ -88,9 +88,9 @@
 #include <JavaScriptCore/IdentifiersFactory.h>
 #include <JavaScriptCore/ScriptCallStackFactory.h>
 #include <JavaScriptCore/TypedArrays.h>
+#include <variant>
 #include <wtf/Function.h>
 #include <wtf/RefPtr.h>
-#include <wtf/Variant.h>
 #include <wtf/Vector.h>
 #include <wtf/text/WTFString.h>
 
@@ -111,7 +111,7 @@ InspectorCanvas::InspectorCanvas(CanvasRenderingContext& context)
 
 CanvasRenderingContext* InspectorCanvas::canvasContext() const
 {
-    if (auto* contextWrapper = WTF::get_if<std::reference_wrapper<CanvasRenderingContext>>(m_context))
+    if (auto* contextWrapper = std::get_if<std::reference_wrapper<CanvasRenderingContext>>(&m_context))
         return &contextWrapper->get();
     return nullptr;
 }
@@ -124,8 +124,7 @@ HTMLCanvasElement* InspectorCanvas::canvasElement() const
             if (is<HTMLCanvasElement>(context.canvasBase()))
                 return &downcast<HTMLCanvasElement>(context.canvasBase());
             return nullptr;
-        },
-        [] (Monostate) {
+        }, [] (std::monostate) -> HTMLCanvasElement* {
             ASSERT_NOT_REACHED();
             return nullptr;
         }
@@ -139,8 +138,7 @@ ScriptExecutionContext* InspectorCanvas::scriptExecutionContext() const
         [] (std::reference_wrapper<CanvasRenderingContext> contextWrapper) {
             auto& context = contextWrapper.get();
             return context.canvasBase().scriptExecutionContext();
-        },
-        [] (Monostate) {
+        }, [] (std::monostate) -> ScriptExecutionContext* {
             ASSERT_NOT_REACHED();
             return nullptr;
         }
@@ -170,7 +168,7 @@ JSC::JSValue InspectorCanvas::resolveContext(JSC::JSGlobalObject* exec) const
 #endif
             return JSC::JSValue();
         },
-        [] (Monostate) {
+        [] (std::monostate) {
             ASSERT_NOT_REACHED();
             return JSC::JSValue();
         }
@@ -184,7 +182,7 @@ HashSet<Element*> InspectorCanvas::clientNodes() const
             auto& context = contextWrapper.get();
             return context.canvasBase().cssCanvasClients();
         },
-        [] (Monostate) {
+        [] (std::monostate) {
             ASSERT_NOT_REACHED();
             return HashSet<Element*>();
         }
@@ -821,12 +819,12 @@ static RefPtr<Inspector::Protocol::Canvas::ContextAttributes> buildObjectForCanv
             .release();
         switch (attributes.colorSpace) {
         case PredefinedColorSpace::SRGB:
-            contextAttributesPayload->setColorSpace("srgb"_s);
+            contextAttributesPayload->setColorSpace(Protocol::Canvas::ColorSpace::SRGB);
             break;
 
 #if ENABLE(PREDEFINED_COLOR_SPACE_DISPLAY_P3)
         case PredefinedColorSpace::DisplayP3:
-            contextAttributesPayload->setColorSpace("display-p3"_s);
+            contextAttributesPayload->setColorSpace(Protocol::Canvas::ColorSpace::DisplayP3);
             break;
 #endif
         }
@@ -893,8 +891,7 @@ Ref<Protocol::Canvas::Canvas> InspectorCanvas::buildObjectForCanvas(bool capture
                 return Protocol::Canvas::ContextType::WebGL2;
 #endif
             return std::nullopt;
-        },
-        [] (Monostate) {
+        }, [] (std::monostate) -> ContextTypeType {
             ASSERT_NOT_REACHED();
             return std::nullopt;
         }
@@ -920,8 +917,7 @@ Ref<Protocol::Canvas::Canvas> InspectorCanvas::buildObjectForCanvas(bool capture
     auto contextAttributes = WTF::switchOn(m_context,
         [] (std::reference_wrapper<CanvasRenderingContext> contextWrapper) {
             return buildObjectForCanvasContextAttributes(contextWrapper);
-        },
-        [] (Monostate) {
+        }, [] (std::monostate) -> RefPtr<Inspector::Protocol::Canvas::ContextAttributes> {
             ASSERT_NOT_REACHED();
             return nullptr;
         }
@@ -1040,8 +1036,8 @@ int InspectorCanvas::indexForData(DuplicateDataVariant data)
         if (data == item)
             return true;
 
-        auto traceA = WTF::get_if<RefPtr<ScriptCallStack>>(data);
-        auto traceB = WTF::get_if<RefPtr<ScriptCallStack>>(item);
+        auto traceA = std::get_if<RefPtr<ScriptCallStack>>(&data);
+        auto traceB = std::get_if<RefPtr<ScriptCallStack>>(&item);
         if (traceA && *traceA && traceB && *traceB)
             return (*traceA)->isEqual((*traceB).get());
 

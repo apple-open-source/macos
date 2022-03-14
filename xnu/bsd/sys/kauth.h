@@ -752,7 +752,7 @@ __END_DECLS
 #if 0
 # ifndef _FN_KPRINTF
 #  define       _FN_KPRINTF
-void kprintf(const char *fmt, ...);
+void kprintf(const char *fmt, ...) __printflike(1, 2);
 # endif /* !_FN_KPRINTF */
 # define KAUTH_DEBUG_ENABLE
 # define K_UUID_FMT "%08x:%08x:%08x:%08x"

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Andy VanWagoner (andy@vanwagoner.family)
- * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2020 Sony Interactive Entertainment Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -60,6 +60,13 @@ JSC_INTL_RELEVANT_EXTENSION_KEYS(JSC_DECLARE_INTL_RELEVANT_EXTENSION_KEYS)
 static constexpr uint8_t numberOfRelevantExtensionKeys = 0 JSC_INTL_RELEVANT_EXTENSION_KEYS(JSC_COUNT_INTL_RELEVANT_EXTENSION_KEYS);
 #undef JSC_COUNT_INTL_RELEVANT_EXTENSION_KEYS
 
+struct MeasureUnit {
+    ASCIILiteral type;
+    ASCIILiteral subType;
+};
+
+extern JS_EXPORT_PRIVATE const MeasureUnit simpleUnits[43];
+
 class IntlObject final : public JSNonFinalObject {
 public:
     using Base = JSNonFinalObject;
@@ -69,7 +76,7 @@ public:
     static IsoSubspace* subspaceFor(VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(IntlObject, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     static IntlObject* create(VM&, JSGlobalObject*, Structure*);
@@ -93,6 +100,26 @@ inline const LocaleSet& intlNumberFormatAvailableLocales() { return intlAvailabl
 inline const LocaleSet& intlPluralRulesAvailableLocales() { return intlAvailableLocales(); }
 inline const LocaleSet& intlRelativeTimeFormatAvailableLocales() { return intlAvailableLocales(); }
 inline const LocaleSet& intlListFormatAvailableLocales() { return intlAvailableLocales(); }
+
+using CalendarID = unsigned;
+const Vector<String>& intlAvailableCalendars();
+
+extern CalendarID iso8601CalendarIDStorage;
+CalendarID iso8601CalendarIDSlow();
+inline CalendarID iso8601CalendarID()
+{
+    unsigned value = iso8601CalendarIDStorage;
+    if (value == std::numeric_limits<CalendarID>::max())
+        return iso8601CalendarIDSlow();
+    return value;
+}
+
+using TimeZoneID = unsigned;
+const Vector<String>& intlAvailableTimeZones();
+
+extern TimeZoneID utcTimeZoneIDStorage;
+TimeZoneID utcTimeZoneIDSlow();
+CalendarID utcTimeZoneID();
 
 TriState intlBooleanOption(JSGlobalObject*, JSObject* options, PropertyName);
 String intlStringOption(JSGlobalObject*, JSObject* options, PropertyName, std::initializer_list<const char*> values, const char* notFound, const char* fallback);
@@ -127,6 +154,7 @@ bool isUnicodeRegionSubtag(StringView);
 bool isUnicodeVariantSubtag(StringView);
 bool isUnicodeLanguageId(StringView);
 bool isStructurallyValidLanguageTag(StringView);
+String canonicalizeUnicodeLocaleID(const CString& languageTag);
 
 bool isWellFormedCurrencyCode(StringView);
 
@@ -135,5 +163,18 @@ std::optional<Vector<char, 32>> canonicalizeLocaleIDWithoutNullTerminator(const 
 struct UFieldPositionIteratorDeleter {
     void operator()(UFieldPositionIterator*) const;
 };
+
+std::optional<String> mapICUCollationKeywordToBCP47(const String&);
+std::optional<String> mapICUCalendarKeywordToBCP47(const String&);
+std::optional<String> mapBCP47ToICUCalendarKeyword(const String&);
+
+
+inline CalendarID utcTimeZoneID()
+{
+    unsigned value = utcTimeZoneIDStorage;
+    if (value == std::numeric_limits<TimeZoneID>::max())
+        return utcTimeZoneIDSlow();
+    return value;
+}
 
 } // namespace JSC

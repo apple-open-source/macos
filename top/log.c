@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include "log.h"
 
 static FILE *log_file = NULL;
 

@@ -111,8 +111,6 @@ typedef SOSDataSourceFactoryRef (^SOSCCAccountDataSourceFactoryBlock)(void);
 
 static SOSCCAccountDataSourceFactoryBlock accountDataSourceOverride = NULL;
 
-
-
 //
 // Forward declared
 //
@@ -696,7 +694,7 @@ static bool do_with_account_while_unlocked(CFErrorRef *error, bool (^action)(SOS
         do_with_account(^(SOSAccountTransaction* txn) {
             if(SOSVisibleKeychainNotAllowed()) {
                 SOSAccount *account = txn.account;
-                if([account isInCircle:(NULL)] && SOSPeerInfoV0ViewsEnabled(txn.account.peerInfo)) {
+                if([account isInCircle:(NULL)] && SOSPeerInfoHasUserVisibleViewsEnabled(txn.account.peerInfo)) {
                     secnotice("views", "Cannot have visible keychain views due to profile restrictions");
                     [txn.account.trust updateViewSets:txn.account enabled:nil disabled:SOSViewsGetV0ViewSet()];
                 }
@@ -809,10 +807,67 @@ CFTypeRef SOSKeychainAccountGetSharedAccount()
 // Mark: Credential processing
 //
 
+#if (TARGET_OS_IOS || TARGET_OS_OSX)
+
+// this should be called outside the account lock
+static int sosOTViewCheck(void) {
+    OTManager* otm = [OTManager manager];
+    __block int retval = -1;
+    
+    if(otm) {
+        dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+        [otm fetchUserControllableViewsSyncStatus:nil
+                                        contextID: OTDefaultContext
+                                            reply:^(BOOL nowSyncing, NSError* _Nullable fetchError) {
+            if(fetchError) {
+                secnotice("SOSMonitorMode", "fetching user-controllable-sync status errored: %@", fetchError);
+                retval = -1;
+            } else {
+                secnotice("SOSMonitorMode", "fetched OT user-controllable-sync status as : %@", nowSyncing ? @"enabled" : @"paused");
+                retval = nowSyncing ? 1 : 0;
+            }
+            dispatch_semaphore_signal(sema);
+        }];
+        if(dispatch_semaphore_wait(sema, dispatch_time(DISPATCH_TIME_NOW, NSEC_PER_SEC * 10)) != 0) {
+            secnotice("SOSMonitorMode", "Timed out waiting for OTM");
+            retval = -1;
+        }
+    } else {
+        secnotice("SOSMonitorMode", "Can't get OTManager to check view status");
+        retval = -1;
+    }
+    return retval;
+}
+
+// this should be called when not holding rhe account lock
+int SOSCCMatchOTViews_Server(void) {
+    secnotice("SOSMonitorMode", "Checking OT View Handling to match");
+    int otHasUserViewsEnabled = sosOTViewCheck();
+    bool changeMade = false;
+    if(otHasUserViewsEnabled != -1) {
+        changeMade =  do_with_account_if_after_first_unlock(NULL, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+            return [txn.account.trust matchOTUserViewSettings: txn.account userViewsEnabled: otHasUserViewsEnabled err: block_error];
+        });
+    } else {
+        secnotice("SOSMonitorMode", "Failed to get OT view status");
+        return 0;
+    }
+    if(changeMade) {
+        secnotice("SOSMonitorMode", "Changed User Visible View status");
+    }
+    return 1;
+}
+
+#endif
+
 
 SOSViewResultCode SOSCCView_Server(CFStringRef viewname, SOSViewActionCode action, CFErrorRef *error) {
     __block SOSViewResultCode status = kSOSCCGeneralViewError;
-
+    
+#if (TARGET_OS_IOS || TARGET_OS_OSX)
+    (void) SOSCCMatchOTViews_Server();
+#endif
+    
     do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         bool retval = false;
         if(![txn.account sosIsEnabled]) {
@@ -844,19 +899,18 @@ SOSViewResultCode SOSCCView_Server(CFStringRef viewname, SOSViewActionCode actio
 
 bool SOSCCViewSet_Server(CFSetRef enabledViews, CFSetRef disabledViews) {
     OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCViewSet);
-    __block bool status = false;
-    
-    do_with_account_if_after_first_unlock(NULL, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
-        if(![txn.account sosIsEnabled]) {
-            return true;
-        }
+    bool status = do_with_account_if_after_first_unlock(NULL, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         // Block enabling V0 views if managed preferences doesn't allow it.
         if(SOSVisibleKeychainNotAllowed() && enabledViews && CFSetGetCount(enabledViews) && SOSViewSetIntersectsV0(enabledViews)) {
             secnotice("views", "Cannot enable visible keychain views due to profile restrictions");
             return false;
         }
-        status = [txn.account.trust updateViewSets:txn.account enabled:enabledViews disabled:disabledViews];
-        return true;
+        CFStringSetPerformWithDescription(enabledViews, ^(CFStringRef enabledDescription) {
+            CFStringSetPerformWithDescription(disabledViews, ^(CFStringRef disabledDescription) {
+                secnotice("viewChange", "Calling updateViewSets to enable %@ and disable %@", enabledDescription, disabledDescription);
+            });
+        });
+        return [txn.account.trust updateViewSets:txn.account enabled:enabledViews disabled:disabledViews];
     });
     OctagonSignpostEnd(signPost, SOSSignpostNameSOSCCViewSet, OctagonSignpostNumber1(SOSSignpostNameSOSCCViewSet), (int)status);
     return status;
@@ -1088,6 +1142,17 @@ bool SOSCCPurgeUserCredentials_Server(CFErrorRef *error)
 SOSCCStatus SOSCCThisDeviceIsInCircle_Server(CFErrorRef *error)
 {
     __block SOSCCStatus status = kSOSCCError;
+#if (TARGET_OS_IOS || TARGET_OS_OSX)
+    static bool checkWithOT = true;
+    
+    if(checkWithOT) {
+        int i = SOSCCMatchOTViews_Server();
+        if(i == 1) {
+            checkWithOT = false;
+        }
+    }
+    
+#endif
 
     return do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
         status = [txn.account getCircleStatus:block_error];
@@ -1540,6 +1605,19 @@ CFArrayRef SOSCCCopyConcurringPeerPeerInfo_Server(CFErrorRef* error)
     return result;
 }
 
+CFStringRef SOSCCCopyMyPID_Server(CFErrorRef* error)
+{
+    __block CFStringRef result = NULL;
+    (void) do_with_account_if_after_first_unlock(error, ^bool (SOSAccountTransaction* txn, CFErrorRef* block_error) {
+        CFStringRef tmp = SOSPeerInfoGetPeerID(txn.account.peerInfo);
+        if(tmp) {
+            result = CFStringCreateCopy(kCFAllocatorDefault, tmp);
+        }
+        return result != NULL;
+    });
+    return result;
+}
+
 SOSPeerInfoRef SOSCCCopyMyPeerInfo_Server(CFErrorRef* error)
 {
     __block SOSPeerInfoRef result = NULL;
@@ -1911,6 +1989,7 @@ bool SOSCCJoinWithCircleJoiningBlob_Server(CFDataRef joiningBlob, PiggyBackProto
 
 CFBooleanRef SOSCCPeersHaveViewsEnabled_Server(CFArrayRef viewNames, CFErrorRef *error) {
     __block CFBooleanRef result = NULL;
+
     do_with_account_if_after_first_unlock(error, ^bool(SOSAccountTransaction* txn, CFErrorRef *error) {
         OctagonSignpost signPost = OctagonSignpostBegin(SOSSignpostNameSOSCCPeersHaveViewsEnabled);
         result = SOSAccountPeersHaveViewsEnabled(txn.account, viewNames, error);

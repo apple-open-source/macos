@@ -10,7 +10,7 @@
 #include <malloc/malloc.h>
 #include <stdlib.h>  // free()
 
-#include <../src/platform.h>  // CONFIG_NANOZONE
+#include "../src/platform.h"  // CONFIG_NANOZONE
 
 T_GLOBAL_META(T_META_RUN_CONCURRENTLY(true));
 

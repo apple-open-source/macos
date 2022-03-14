@@ -83,15 +83,54 @@ zh{
             }
         }
         compound{
+            1024p3{"Gib{0}"}
+            10p-1{"分{0}"}
+            10p-12{"皮{0}"}
+            10p-15{"飞{0}"}
+            10p-18{"阿{0}"}
+            10p-2{"厘{0}"}
+            10p-21{"仄{0}"}
+            10p-24{"幺{0}"}
+            10p-3{"毫{0}"}
+            10p-6{"微{0}"}
+            10p-9{"纳{0}"}
+            10p1{"十{0}"}
+            10p12{"太{0}"}
+            10p15{"拍{0}"}
+            10p18{"艾{0}"}
+            10p2{"百{0}"}
+            10p21{"泽{0}"}
+            10p24{"尧{0}"}
+            10p3{"千{0}"}
+            10p6{"兆{0}"}
+            10p9{"吉{0}"}
             per{"每{1}{0}"}
+            power2{
+                other{
+                    _{
+                        _{"平方{0}"}
+                    }
+                }
+            }
+            power3{
+                other{
+                    _{
+                        _{"立方{0}"}
+                    }
+                }
+            }
             times{"{0}⋅{1}"}
         }
         concentr{
+            item{
+                dnam{"项"}
+                other{"{0}项"}
+            }
             karat{
                 dnam{"克拉"}
                 other{"{0}克拉"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"毫克/分升"}
                 other{"每分升{0}毫克"}
             }
@@ -296,6 +335,10 @@ zh{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"千瓦时/100千米"}
+                other{"{0}千瓦时/100千米"}
+            }
             newton{
                 dnam{"牛顿"}
                 other{"{0}牛顿"}
@@ -849,6 +892,8 @@ zh{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            10p-1{"d{0}"}
             per{"{0}/{1}"}
             times{"{0}⋅{1}"}
         }
@@ -866,6 +911,9 @@ zh{
             liter-per-100-kilometer{
                 dnam{"升/100千米"}
                 other{"{0}L/100km"}
+            }
+            mile-per-gallon-imperial{
+                other{"{0}m/gUK"}
             }
         }
         coordinate{
@@ -950,6 +998,24 @@ zh{
                 other{"{0}美制克卡"}
             }
         }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                other{"{0}kWh/100km"}
+            }
+        }
+        graphics{
+            dot{
+                dnam{"dot"}
+                other{"{0}dot"}
+            }
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                other{"{0}dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+            }
+        }
         length{
             astronomical-unit{
                 dnam{"天文单位"}
@@ -963,6 +1029,9 @@ zh{
             decimeter{
                 dnam{"分米"}
                 other{"{0}分米"}
+            }
+            earth-radius{
+                other{"{0}R⊕"}
             }
             fathom{
                 dnam{"英寻"}
@@ -1033,7 +1102,19 @@ zh{
                 other{"{0}码"}
             }
         }
+        light{
+            candela{
+                other{"{0}cd"}
+            }
+            lumen{
+                other{"{0}lm"}
+            }
+        }
         mass{
+            grain{
+                dnam{"格令"}
+                other{"{0}格令"}
+            }
             gram{
                 dnam{"克"}
                 other{"{0}克"}
@@ -1158,6 +1239,9 @@ zh{
                 dnam{"分升"}
                 other{"{0}分升"}
             }
+            dessert-spoon-imperial{
+                dnam{"英制甜点匙"}
+            }
             fluid-ounce{
                 dnam{"液盎司"}
                 other{"{0}液盎司"}
@@ -1200,6 +1284,10 @@ zh{
             quart{
                 dnam{"夸脱"}
                 other{"{0}夸脱"}
+            }
+            quart-imperial{
+                dnam{"英制夸脱"}
+                other{"{0}英制夸脱"}
             }
             tablespoon{
                 dnam{"汤匙"}
@@ -1296,11 +1384,15 @@ zh{
             times{"{0}⋅{1}"}
         }
         concentr{
+            item{
+                dnam{"项"}
+                other{"{0}项"}
+            }
             karat{
                 dnam{"克拉"}
                 other{"{0}克拉"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"毫克/分升"}
                 other{"{0}毫克/分升"}
             }
@@ -1539,6 +1631,16 @@ zh{
             megahertz{
                 dnam{"兆赫"}
                 other{"{0}兆赫"}
+            }
+        }
+        graphics{
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                other{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                other{"{0} dpi"}
             }
         }
         length{

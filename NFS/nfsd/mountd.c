@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2018 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -104,9 +104,9 @@ int bindresvport_sa(int sd, struct sockaddr *sa);
 #include <DiskArbitration/DiskArbitration.h>
 
 #ifdef __LP64__
-typedef int		xdr_long_t;
+typedef int             xdr_long_t;
 #else
-typedef long		xdr_long_t;
+typedef long            xdr_long_t;
 #endif
 
 #include "pathnames.h"
@@ -116,31 +116,31 @@ typedef long		xdr_long_t;
  * Structure for maintaining list of export IDs for exported volumes
  */
 struct expidlist {
-	LIST_ENTRY(expidlist)	xid_list;
-	char			xid_path[MAXPATHLEN];	/* exported sub-directory */
-	u_int32_t		xid_id;			/* export ID */
+	LIST_ENTRY(expidlist)   xid_list;
+	char                    xid_path[MAXPATHLEN];   /* exported sub-directory */
+	u_int32_t               xid_id;                 /* export ID */
 };
 
 /*
  * Structure for maintaining list of UUIDs for exported volumes
  */
 struct uuidlist {
-	TAILQ_ENTRY(uuidlist)		ul_list;
-	char				ul_mntfromname[MAXPATHLEN];
-	char				ul_mntonname[MAXPATHLEN];
-	u_char				ul_uuid[16];	/* UUID used */
-	u_char				ul_dauuid[16];	/* DiskArb UUID */
-	char				ul_davalid;	/* DiskArb UUID valid */
-	char				ul_exported;	/* currently exported? */
-	u_int32_t			ul_fsid;	/* exported FS ID */
-	LIST_HEAD(expidhead,expidlist)	ul_exportids;	/* export ID list */
+	TAILQ_ENTRY(uuidlist)           ul_list;
+	char                            ul_mntfromname[MAXPATHLEN];
+	char                            ul_mntonname[MAXPATHLEN];
+	u_char                          ul_uuid[16];    /* UUID used */
+	u_char                          ul_dauuid[16];  /* DiskArb UUID */
+	char                            ul_davalid;     /* DiskArb UUID valid */
+	char                            ul_exported;    /* currently exported? */
+	u_int32_t                       ul_fsid;        /* exported FS ID */
+	LIST_HEAD(expidhead, expidlist)  ul_exportids;   /* export ID list */
 };
-TAILQ_HEAD(,uuidlist) ulhead;
-#define UL_CHECK_MNTFROM	0x1
-#define UL_CHECK_MNTON		0x2
-#define UL_CHECK_ALL		0x3
+TAILQ_HEAD(, uuidlist) ulhead;
+#define UL_CHECK_MNTFROM        0x1
+#define UL_CHECK_MNTON          0x2
+#define UL_CHECK_ALL            0x3
 
-#define AOK	(void *)	// assert alignment is OK
+#define AOK     (void *)        // assert alignment is OK
 
 /*
  * Default FSID is just a "hash" of UUID
@@ -153,17 +153,17 @@ TAILQ_HEAD(,uuidlist) ulhead;
  * Structure for keeping the (outstanding) mount list
  */
 struct mountlist {
-	struct mountlist	*ml_next;
-	char			*ml_host;	/* NFS client name or address */
-	char			*ml_dir;	/* mounted directory */
+	struct mountlist        *ml_next;
+	char                    *ml_host;       /* NFS client name or address */
+	char                    *ml_dir;        /* mounted directory */
 };
 
 /*
  * Structure used to hold a list of names
  */
 struct namelist {
-	TAILQ_ENTRY(namelist)	nl_next;
-	char			*nl_name;
+	TAILQ_ENTRY(namelist)   nl_next;
+	char                    *nl_name;
 };
 TAILQ_HEAD(namelisttqh, namelist);
 
@@ -171,18 +171,18 @@ TAILQ_HEAD(namelisttqh, namelist);
  * Structure used to hold a list of directories
  */
 struct dirlist {
-	struct dirlist		*dl_next;
-	char			*dl_dir;
-	char			*dl_realpath;
+	struct dirlist          *dl_next;
+	char                    *dl_dir;
+	char                    *dl_realpath;
 };
 
 /*
  * Structure used to hold an export error message.
  */
 struct errlist {
-	LIST_ENTRY(errlist)	el_next;
-	uint32_t		el_linenum;
-	char			*el_msg;
+	LIST_ENTRY(errlist)     el_next;
+	uint32_t                el_linenum;
+	char                    *el_msg;
 };
 
 /*
@@ -197,34 +197,34 @@ TAILQ_HEAD(hosttqh, host);
  * Structure to hold the exports for each exported file system.
  */
 struct expfs {
-	TAILQ_ENTRY(expfs)	xf_next;
-	struct expdirtqh	xf_dirl;	/* list of exported directories */
-	int			xf_flag;	/* internal flags for this struct */
-	u_char			xf_uuid[16];	/* file system's UUID */
-	u_int32_t		xf_fsid;	/* exported FS ID */
-	char			*xf_fsdir;	/* mount point of this file system (physical path) */
+	TAILQ_ENTRY(expfs)      xf_next;
+	struct expdirtqh        xf_dirl;        /* list of exported directories */
+	int                     xf_flag;        /* internal flags for this struct */
+	u_char                  xf_uuid[16];    /* file system's UUID */
+	u_int32_t               xf_fsid;        /* exported FS ID */
+	char                    *xf_fsdir;      /* mount point of this file system (physical path) */
 };
 /* xf_flag bits */
-#define	XF_LINKED	0x1
+#define XF_LINKED       0x1
 
 /*
  * Structure to hold info about an exported directory
  */
 struct expdir {
-	TAILQ_ENTRY(expdir)	xd_next;
-	struct hosttqh		xd_hosts;	/* List of hosts this dir exported to */
-	struct expdirtqh	xd_mountdirs;	/* list of mountable sub-directories */
-	int			xd_iflags;	/* internal flags for this structure */
-	int			xd_flags;	/* default export flags */
-	struct xucred		xd_cred;	/* default export mapped credential */
-	struct nfs_sec		xd_sec;		/* default security flavors */
-	int			xd_oflags;	/* old default export flags */
-	struct xucred		xd_ocred;	/* old default export mapped credential */
-	struct nfs_sec		xd_osec;	/* old default security flavors */
-	struct nfs_sec		xd_ssec;	/* security flavors for showmount */
-	char			*xd_dir;	/* pathname of exported directory */
-	char			*xd_realpath;	/* resolved version of above */
-	struct expidlist 	*xd_xid;	/* corresponding export ID */
+	TAILQ_ENTRY(expdir)     xd_next;
+	struct hosttqh          xd_hosts;       /* List of hosts this dir exported to */
+	struct expdirtqh        xd_mountdirs;   /* list of mountable sub-directories */
+	int                     xd_iflags;      /* internal flags for this structure */
+	int                     xd_flags;       /* default export flags */
+	struct xucred           xd_cred;        /* default export mapped credential */
+	struct nfs_sec          xd_sec;         /* default security flavors */
+	int                     xd_oflags;      /* old default export flags */
+	struct xucred           xd_ocred;       /* old default export mapped credential */
+	struct nfs_sec          xd_osec;        /* old default security flavors */
+	struct nfs_sec          xd_ssec;        /* security flavors for showmount */
+	char                    *xd_dir;        /* pathname of exported directory */
+	char                    *xd_realpath;   /* resolved version of above */
+	struct expidlist        *xd_xid;        /* corresponding export ID */
 };
 
 /*
@@ -233,139 +233,139 @@ struct expdir {
 
 /* holds a host address list and name */
 struct hostinfo {
-	char 		*h_name;	/* host name */
-	struct addrinfo *h_ailist;	/* address list */
+	char            *h_name;        /* host name */
+	struct addrinfo *h_ailist;      /* address list */
 };
 
 /* holds a network/mask and name */
 struct netmsk {
-	char 		*nt_name;	/* network name */
-	sa_family_t	nt_family;	/* network family */
+	char            *nt_name;       /* network name */
+	sa_family_t     nt_family;      /* network family */
 	union {
-	    struct {
-		in_addr_t	net;	/* IPv4 network address */
-		in_addr_t	mask;	/* IPv4 network mask */
-	    } ipv4;
-	    struct {
-		struct in6_addr	net;	/* IPv6 network address */
-		struct in6_addr	mask;	/* IPv6 network mask */
-	    } ipv6;
+		struct {
+			in_addr_t       net;/* IPv4 network address */
+			in_addr_t       mask;/* IPv4 network mask */
+		} ipv4;
+		struct {
+			struct in6_addr net; /* IPv6 network address */
+			struct in6_addr mask; /* IPv6 network mask */
+		} ipv6;
 	} nt_u;
 };
 
-#define nt_net		nt_u.ipv4.net
-#define nt_mask		nt_u.ipv4.mask
-#define nt_net6		nt_u.ipv6.net
-#define nt_mask6	nt_u.ipv6.mask
+#define nt_net          nt_u.ipv4.net
+#define nt_mask         nt_u.ipv4.mask
+#define nt_net6         nt_u.ipv6.net
+#define nt_mask6        nt_u.ipv6.mask
 
 /* holds either a host or network */
 union grouptypes {
 	struct hostinfo gt_hostinfo;
-	struct netmsk	gt_net;
-	char *		gt_netgroup;
+	struct netmsk   gt_net;
+	char *          gt_netgroup;
 };
 
 /* host/network list entry */
 struct grouplist {
-	struct grouplist *gr_cache;	/* linked list in cache */
-	struct grouplist *gr_next;	/* linked list in get_exportlist() */
-	int gr_refcnt;			/* #references on this group */
-	int16_t gr_type;		/* type of group */
-	int16_t gr_flags;		/* group flags */
-	union grouptypes gr_u;		/* the host/network */
+	struct grouplist *gr_cache;     /* linked list in cache */
+	struct grouplist *gr_next;      /* linked list in get_exportlist() */
+	int gr_refcnt;                  /* #references on this group */
+	int16_t gr_type;                /* type of group */
+	int16_t gr_flags;               /* group flags */
+	union grouptypes gr_u;          /* the host/network */
 };
 /* Group types */
-#define	GT_NULL		0x0		/* not fully-initialized yet */
-#define	GT_NETGROUP	0x1		/* this is a netgroup */
-#define	GT_NET		0x2		/* this is a network */
-#define	GT_HOST		0x3		/* this is a single host address */
+#define GT_NULL         0x0             /* not fully-initialized yet */
+#define GT_NETGROUP     0x1             /* this is a netgroup */
+#define GT_NET          0x2             /* this is a network */
+#define GT_HOST         0x3             /* this is a single host address */
 /* Group flags */
-#define	GF_SHOW		0x1		/* show this entry in export list */
+#define GF_SHOW         0x1             /* show this entry in export list */
 
 /*
  * host/network flags list entry
  */
 struct host {
 	TAILQ_ENTRY(host) ht_next;
-	int		 ht_flags;	/* export options for these hosts */
-	struct xucred	 ht_cred;	/* mapped credential for these hosts */
-	struct grouplist *ht_grp;	/* host/network flags applies to */
-	struct nfs_sec	 ht_sec;	/* security flavors for these hosts */
+	int              ht_flags;      /* export options for these hosts */
+	struct xucred    ht_cred;       /* mapped credential for these hosts */
+	struct grouplist *ht_grp;       /* host/network flags applies to */
+	struct nfs_sec   ht_sec;        /* security flavors for these hosts */
 };
 
 struct fhreturn {
-	int		fhr_flags;
-	int		fhr_vers;
-	struct nfs_sec	fhr_sec;
-	fhandle_t	fhr_fh;
+	int             fhr_flags;
+	int             fhr_vers;
+	struct nfs_sec  fhr_sec;
+	fhandle_t       fhr_fh;
 };
 
 /* Global defs */
-int	add_name(struct namelisttqh *, char *);
-void	free_namelist(struct namelisttqh *);
-int	add_dir(struct dirlist **, char *);
-char *	add_expdir(struct expdir **, char *, int);
-int	add_grp(struct grouplist **, struct grouplist *);
-int	add_host(struct hosttqh *, struct host *);
-void	add_mlist(char *, char *);
-int	addrinfo_cmp(struct addrinfo *, struct addrinfo *);
-int	check_dirpath(char *);
-int	check_options(int);
-void	clear_export_error(uint32_t);
-int	cmp_secflavs(struct nfs_sec *, struct nfs_sec *);
-void	merge_secflavs(struct nfs_sec *, struct nfs_sec *);
-void	del_mlist(char *, char *);
-int	expdir_search(struct expfs *, char *, struct sockaddr *, int *, struct nfs_sec *);
-int	do_export(int, struct expfs *, struct expdir *, struct grouplist *, int,
-		struct xucred *, struct nfs_sec *, u_int *);
-int	do_opt(char **, char **, struct grouplist *, int *,
-		int *, int *, struct xucred *, struct nfs_sec *, char *, u_char *);
+int     add_name(struct namelisttqh *, char *);
+void    free_namelist(struct namelisttqh *);
+int     add_dir(struct dirlist **, char *);
+char *  add_expdir(struct expdir **, char *, int);
+int     add_grp(struct grouplist **, struct grouplist *);
+int     add_host(struct hosttqh *, struct host *);
+void    add_mlist(char *, char *);
+int     addrinfo_cmp(struct addrinfo *, struct addrinfo *);
+int     check_dirpath(char *);
+int     check_options(int);
+void    clear_export_error(uint32_t);
+int     cmp_secflavs(struct nfs_sec *, struct nfs_sec *);
+void    merge_secflavs(struct nfs_sec *, struct nfs_sec *);
+void    del_mlist(char *, char *);
+int     expdir_search(struct expfs *, char *, struct sockaddr *, int *, struct nfs_sec *);
+int     do_export(int, struct expfs *, struct expdir *, struct grouplist *, int,
+    struct xucred *, struct nfs_sec *, u_int *);
+int     do_opt(char **, char **, struct grouplist *, int *,
+    int *, int *, struct xucred *, struct nfs_sec *, char *, u_char *);
 struct expfs *ex_search(u_char *);
-void	export_error(int, const char *, ...);
-void	export_error_cleanup(struct expfs *);
+void    export_error(int, const char *, ...);
+void    export_error_cleanup(struct expfs *);
 struct host *find_group_address_match_in_host_list(struct hosttqh *, struct grouplist *);
 struct host *find_host(struct hosttqh *, struct sockaddr *);
-void	free_dirlist(struct dirlist *dl);
-void	free_expdir(struct expdir *);
-void	free_expfs(struct expfs *);
-void	free_grp(struct grouplist *);
-void	free_hosts(struct hosttqh *);
-void	free_host(struct host *);
+void    free_dirlist(struct dirlist *dl);
+void    free_expdir(struct expdir *);
+void    free_expfs(struct expfs *);
+void    free_grp(struct grouplist *);
+void    free_hosts(struct hosttqh *);
+void    free_host(struct host *);
 struct expdir *get_expdir(void);
 struct expfs *get_expfs(void);
-int	get_host_addresses(char *, struct grouplist *);
+int     get_host_addresses(char *, struct grouplist *);
 struct host *get_host(void);
-int	get_export_entry(void);
-void	get_mountlist(void);
-int	get_net(char *, struct netmsk *, int);
-int	get_sec_flavors(char *flavorlist, struct nfs_sec *);
+int     get_export_entry(void);
+void    get_mountlist(void);
+int     get_net(char *, struct netmsk *, int);
+int     get_sec_flavors(char *flavorlist, struct nfs_sec *);
 struct grouplist *get_grp(struct grouplist *);
 const char *grp_addr(struct grouplist *);
-char *	grp_name(struct grouplist *);
-int	hang_options_setup(struct expdir *, int, struct xucred *, struct grouplist *, struct nfs_sec *, int *);
-void	hang_options_finalize(struct expdir *);
-void	hang_options_cleanup(struct expdir *);
-int	hang_options_mountdir(struct expdir *, char *, int, struct grouplist *, struct nfs_sec *);
-void	mntsrv(struct svc_req *, SVCXPRT *);
-void	nextfield(char **, char **);
-int	parsecred(char *, struct xucred *);
-int	put_exlist(struct expdir *, XDR *);
-int	subdir_check(char *, char *);
-int	xdr_dir(XDR *, char *);
-int	xdr_explist(XDR *, caddr_t);
-int	xdr_fhs(XDR *, caddr_t);
-int	xdr_mlist(XDR *, caddr_t);
+char *  grp_name(struct grouplist *);
+int     hang_options_setup(struct expdir *, int, struct xucred *, struct grouplist *, struct nfs_sec *, int *);
+void    hang_options_finalize(struct expdir *);
+void    hang_options_cleanup(struct expdir *);
+int     hang_options_mountdir(struct expdir *, char *, int, struct grouplist *, struct nfs_sec *);
+void    mntsrv(struct svc_req *, SVCXPRT *);
+void    nextfield(char **, char **);
+int     parsecred(char *, struct xucred *);
+int     put_exlist(struct expdir *, XDR *);
+int     subdir_check(char *, char *);
+int     xdr_dir(XDR *, char *);
+int     xdr_explist(XDR *, caddr_t);
+int     xdr_fhs(XDR *, caddr_t);
+int     xdr_mlist(XDR *, caddr_t);
 
-int	get_uuid_from_diskarb(const char *, u_char *);
+int     get_uuid_from_diskarb(const char *, u_char *);
 struct uuidlist * get_uuid_from_list(const struct statfs *, u_char *, const int);
 struct uuidlist * add_uuid_to_list(const struct statfs *, u_char *, u_char *);
 struct uuidlist * get_uuid(const struct statfs *, u_char *);
 struct uuidlist * find_uuid(u_char *);
 struct uuidlist * find_uuid_by_fsid(u_int32_t);
-void	uuidlist_clearexport(void);
-char *	uuidstring(u_char *, char *);
-void	uuidlist_save(void);
-void	uuidlist_restore(void);
+void    uuidlist_clearexport(void);
+char *  uuidstring(u_char *, char *);
+void    uuidlist_save(void);
+void    uuidlist_restore(void);
 
 struct expidlist * find_export_id(struct uuidlist *, u_int32_t);
 struct expidlist * get_export_id(struct uuidlist *, char *);
@@ -373,21 +373,21 @@ struct expidlist * get_export_id(struct uuidlist *, char *);
 void dump_exports(void);
 void snprintf_cred(char *buf, int, struct xucred *cr);
 
-pthread_mutex_t export_mutex;		/* lock for mountd/export globals */
-struct expfstqh xfshead;		/* list of exported file systems */
-struct dirlist *xpaths;			/* list of exported paths */
+pthread_mutex_t export_mutex;           /* lock for mountd/export globals */
+struct expfstqh xfshead;                /* list of exported file systems */
+struct dirlist *xpaths;                 /* list of exported paths */
 int xpaths_complete = 1;
-struct mountlist *mlhead;		/* remote mount list */
-pthread_mutex_t ml_mutex;		/* lock for remote mount list */
-struct grouplist *grpcache;		/* host/net group cache */
-struct xucred def_anon = {		/* default map credential: "nobody" */
+struct mountlist *mlhead;               /* remote mount list */
+pthread_mutex_t ml_mutex;               /* lock for remote mount list */
+struct grouplist *grpcache;             /* host/net group cache */
+struct xucred def_anon = {              /* default map credential: "nobody" */
 	XUCRED_VERSION,
 	(uid_t) -2,
 	1,
 	{ (gid_t) -2 },
 };
 
-LIST_HEAD(,errlist) xerrs;		/* list of export errors */
+LIST_HEAD(, errlist) xerrs;              /* list of export errors */
 int export_errors, hostnamecount, hostnamegoodcount, missingexportcount;
 SVCXPRT *udptransp, *tcptransp;
 SVCXPRT *udp6transp, *tcp6transp;
@@ -411,34 +411,34 @@ int  mountticlsock = -1, mountticosock = -1;
  * lock.
  */
 #include <IOKit/pwr_mgt/IOPMLib.h>
-IOPMAssertionID	prevent_idle_sleep_assertion = kIOPMNullAssertionID;
-void		prevent_idle_sleep_assertion_update(u_int);
+IOPMAssertionID prevent_idle_sleep_assertion = kIOPMNullAssertionID;
+void            prevent_idle_sleep_assertion_update(u_int);
 
 /* export options */
-#define	OP_MAPROOT	0x00000001	/* map root credentials */
-#define	OP_MAPALL	0x00000002	/* map all credentials */
-#define	OP_SECFLAV	0x00000004	/* security flavor(s) specified */
-#define	OP_MASK		0x00000008	/* network mask specified */
-#define	OP_NET		0x00000010	/* network address specified */
-#define	OP_MANGLEDNAMES	0x00000020	/* tell the vfs to mangle names that are > 255 bytes */
-#define	OP_ALLDIRS	0x00000040	/* allow mounting subdirs */
-#define	OP_READONLY	0x00000080	/* export read-only */
-#define	OP_32BITCLIENTS	0x00000100	/* use 32-bit directory cookies */
-#define	OP_FSPATH	0x00000200	/* file system path specified */
-#define	OP_FSUUID	0x00000400	/* file system UUID specified */
-#define	OP_OFFLINE	0x00000800	/* export is offline */
-#define	OP_ONLINE	0x04000000	/* export is online */
-#define	OP_SHOW		0x08000000	/* show this entry in export list */
-#define	OP_MISSING	0x10000000	/* export is missing */
-#define	OP_DEFEXP	0x20000000	/* default export for everyone (else) */
-#define	OP_ADD		0x40000000	/* tag export for potential addition */
-#define	OP_DEL		0x80000000	/* tag export for potential deletion */
-#define	OP_EXOPTMASK	0x100009E3	/* export options mask */
-#define	OP_EXOPTS(X)	((X) & OP_EXOPTMASK)
+#define OP_MAPROOT      0x00000001      /* map root credentials */
+#define OP_MAPALL       0x00000002      /* map all credentials */
+#define OP_SECFLAV      0x00000004      /* security flavor(s) specified */
+#define OP_MASK         0x00000008      /* network mask specified */
+#define OP_NET          0x00000010      /* network address specified */
+#define OP_MANGLEDNAMES 0x00000020      /* tell the vfs to mangle names that are > 255 bytes */
+#define OP_ALLDIRS      0x00000040      /* allow mounting subdirs */
+#define OP_READONLY     0x00000080      /* export read-only */
+#define OP_32BITCLIENTS 0x00000100      /* use 32-bit directory cookies */
+#define OP_FSPATH       0x00000200      /* file system path specified */
+#define OP_FSUUID       0x00000400      /* file system UUID specified */
+#define OP_OFFLINE      0x00000800      /* export is offline */
+#define OP_ONLINE       0x04000000      /* export is online */
+#define OP_SHOW         0x08000000      /* show this entry in export list */
+#define OP_MISSING      0x10000000      /* export is missing */
+#define OP_DEFEXP       0x20000000      /* default export for everyone (else) */
+#define OP_ADD          0x40000000      /* tag export for potential addition */
+#define OP_DEL          0x80000000      /* tag export for potential deletion */
+#define OP_EXOPTMASK    0x100009E3      /* export options mask */
+#define OP_EXOPTS(X)    ((X) & OP_EXOPTMASK)
 
-#define RECHECKEXPORTS_TIMEOUT			600
-#define RECHECKEXPORTS_DELAYED_STARTUP_TIMEOUT	120
-#define RECHECKEXPORTS_DELAYED_STARTUP_INTERVAL	5
+#define RECHECKEXPORTS_TIMEOUT                  600
+#define RECHECKEXPORTS_DELAYED_STARTUP_TIMEOUT  120
+#define RECHECKEXPORTS_DELAYED_STARTUP_INTERVAL 5
 
 static char *
 mountd_realpath(const char *file_name, char *resolved_name)
@@ -458,9 +458,10 @@ mountd_realpath(const char *file_name, char *resolved_name)
 	int rv;
 
 	rv = getattrlist(file_name, &al, &ab, sizeof(ab),
-			 FSOPT_ATTR_CMN_EXTENDED);
-	if (rv == -1)
+	    FSOPT_ATTR_CMN_EXTENDED);
+	if (rv == -1) {
 		return NULL;
+	}
 
 	result = (char *)&ab.path_attr + ab.path_attr.attr_dataoffset;
 	if (resolved_name != NULL) {
@@ -568,8 +569,9 @@ mountd(void)
 	bzero(&nxa, sizeof(nxa));
 	nxa.nxa_flags = NXA_DELETE_ALL;
 	error = nfssvc(NFSSVC_EXPORT, &nxa);
-	if (error && (errno != ENOENT))
+	if (error && (errno != ENOENT)) {
 		log(LOG_ERR, "Can't delete all exports: %s (%d)", strerror(errno), errno);
+	}
 
 	/* set up the export and mount lists */
 
@@ -590,8 +592,9 @@ mountd(void)
 		DEBUG(1, "Getting export list.");
 		get_exportlist();
 		if (!hostnamecount || hostnamegoodcount) {
-			if (init_retry)
+			if (init_retry) {
 				log(LOG_WARNING, "host name resolution seems to be working now... continuing initialization");
+			}
 			break;
 		}
 		if (!init_retry) {
@@ -620,10 +623,10 @@ mountd(void)
 
 	/* If we are serving UDP, set up the MOUNT/UDP socket. */
 	if (config.udp) {
-
 		/* IPv4 */
-		if ((mountudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+		if ((mountudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_ERR, "can't create MOUNT/UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (mountudpsock >= 0) {
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
@@ -658,14 +661,16 @@ mountd(void)
 		}
 		if (mountudpsock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(udptransp, RPCPROG_MNT, 1, mntsrv, 0))
+			if (!svc_register(udptransp, RPCPROG_MNT, 1, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv4 MOUNT/UDP v1 service");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(udptransp, RPCPROG_MNT, 3, mntsrv, 0))
+			}
+			if (!svc_register(udptransp, RPCPROG_MNT, 3, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv4 MOUNT/UDP v3 service");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(udptransp);
 				close(mountudpsock);
@@ -675,11 +680,13 @@ mountd(void)
 		}
 
 		/* IPv6 */
-		if ((mountudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+		if ((mountudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_ERR, "can't create MOUNT/UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (mountudp6sock >= 0) {
-			if (setsockopt(mountudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)))
+			if (setsockopt(mountudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on))) {
 				log(LOG_WARNING, "can't set IPV6_V6ONLY on socket: %s (%d)", strerror(errno), errno);
+			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.mount_port);
@@ -713,14 +720,16 @@ mountd(void)
 		}
 		if (mountudp6sock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(udp6transp, RPCPROG_MNT, 1, mntsrv, 0))
+			if (!svc_register(udp6transp, RPCPROG_MNT, 1, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv6 MOUNT/UDP v1 service");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(udp6transp, RPCPROG_MNT, 3, mntsrv, 0))
+			}
+			if (!svc_register(udp6transp, RPCPROG_MNT, 3, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv6 MOUNT/UDP v3 service");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(udp6transp);
 				close(mountudp6sock);
@@ -728,17 +737,17 @@ mountd(void)
 				mountudp6port = 0;
 			}
 		}
-
 	}
 
 #ifdef _PATH_MOUNTD_TICLTS_SOCK
 	/*XXX if (config.ticlts?) */
 	{
-		if ((mountticlsock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+		if ((mountticlsock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_ERR, "can't create MOUNT/TICLTS socket: %s (%d)", strerror(errno), errno);
+		}
 		if (mountticlsock >= 0) {
 			sun->sun_family = AF_LOCAL:
-			sun->sun_len = sizeof(struct sockaddr_un);
+			    sun->sun_len = sizeof(struct sockaddr_un);
 			strlcpy(sun->sun_path, _PATH_MOUNTD_TICLTS_SOCK, sizeof(sun->sun_path));
 			(void)unlink(_PATH_MOUNTD_TICLTS_SOCK);
 			socklen = sizeof(*sun);
@@ -762,33 +771,35 @@ mountd(void)
 		}
 		if (mountticlsock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(ticltransp, RPCPROG_MNT, 1, mntsrv, 0))
+			if (!svc_register(ticltransp, RPCPROG_MNT, 1, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register TICLTS MOUNT v1 service");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(ticltransp, RPCPROG_MNT, 3, mntsrv, 0))
+			}
+			if (!svc_register(ticltransp, RPCPROG_MNT, 3, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register TICLTS  MOUNT v3 service");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(ticltransp);
 				close(mountticlsock);
 				mountticlsock = -1;
 			}
 		}
-
 	}
 #endif
 
 	/* If we are serving TCP, set up the MOUNT/TCP socket. */
 	if (config.tcp) {
-
 		/* IPv4 */
-		if ((mounttcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+		if ((mounttcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			log(LOG_ERR, "can't create MOUNT/TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (mounttcpsock >= 0) {
-			if (setsockopt(mounttcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+			if (setsockopt(mounttcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt MOUNT/TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
 			sin->sin_port = htons(config.mount_port);
@@ -822,14 +833,16 @@ mountd(void)
 		}
 		if (mounttcpsock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(tcptransp, RPCPROG_MNT, 1, mntsrv, 0))
+			if (!svc_register(tcptransp, RPCPROG_MNT, 1, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv4 MOUNT/TCP v1 service");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(tcptransp, RPCPROG_MNT, 3, mntsrv, 0))
+			}
+			if (!svc_register(tcptransp, RPCPROG_MNT, 3, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv4 MOUNT/TCP v3 service");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(tcptransp);
 				close(mounttcpsock);
@@ -839,11 +852,13 @@ mountd(void)
 		}
 
 		/* IPv6 */
-		if ((mounttcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+		if ((mounttcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
 			log(LOG_ERR, "can't create MOUNT/TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+		}
 		if (mounttcp6sock >= 0) {
-			if (setsockopt(mounttcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+			if (setsockopt(mounttcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt MOUNT/TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			setsockopt(mounttcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
@@ -878,14 +893,16 @@ mountd(void)
 		}
 		if (mounttcp6sock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(tcp6transp, RPCPROG_MNT, 1, mntsrv, 0))
+			if (!svc_register(tcp6transp, RPCPROG_MNT, 1, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv6 MOUNT/TCP v1 service");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(tcp6transp, RPCPROG_MNT, 3, mntsrv, 0))
+			}
+			if (!svc_register(tcp6transp, RPCPROG_MNT, 3, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register IPv6 MOUNT/TCP v3 service");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(tcp6transp);
 				close(mounttcp6sock);
@@ -893,14 +910,14 @@ mountd(void)
 				mounttcp6port = 0;
 			}
 		}
-
 	}
 
 #ifdef _PATH_MOUNTD_TICOTSORD_SOCK
 	/* XXX if (config.ticotsord?) */
 	{
-		if ((mountticosock = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0)
+		if ((mountticosock = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0) {
 			log(LOG_ERR, "can't create MOUNT/TICOTSORD socket: %s (%d)", strerror(errno), errno);
+		}
 		if (mountticosock >= 0) {
 			sun->sun_family = AF_LOCAL;
 			sun->sun_len = sizeof(struct sockaddr_un);
@@ -927,33 +944,37 @@ mountd(void)
 		}
 		if (mountticosock >= 0) {
 			svcregcnt = 0;
-			if (!svc_register(ticotransp, RPCPROG_MNT, 1, mntsrv, 0))
+			if (!svc_register(ticotransp, RPCPROG_MNT, 1, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register TICOTSORD MOUNT v1 service");
-			else
+			} else {
 				svcregcnt++;
-			if (!svc_register(ticotransp, RPCPROG_MNT, 3, mntsrv, 0))
+			}
+			if (!svc_register(ticotransp, RPCPROG_MNT, 3, mntsrv, 0)) {
 				log(LOG_ERR, "Can't register TICOTSORD  MOUNT v3 service");
-			else
+			} else {
 				svcregcnt++;
+			}
 			if (!svcregcnt) {
 				svc_destroy(ticotransp);
 				close(mountticosock);
 				mountticosock = -1;
 			}
 		}
-
 	}
 #endif
 
-	if ((mountudp6sock < 0) && (mounttcp6sock < 0))
+	if ((mountudp6sock < 0) && (mounttcp6sock < 0)) {
 		log(LOG_WARNING, "Can't create MOUNT IPv6 sockets");
-	if ((mountudpsock < 0) && (mounttcpsock < 0))
+	}
+	if ((mountudpsock < 0) && (mounttcpsock < 0)) {
 		log(LOG_WARNING, "Can't create MOUNT IPv4 sockets");
-	if ((mountticlsock < 0) && (mountticosock < 0))
+	}
+	if ((mountticlsock < 0) && (mountticosock < 0)) {
 		log(LOG_WARNING, "Can't create MOUNT TI sockets");
+	}
 	if ((mountudp6sock < 0) && (mounttcp6sock < 0) &&
 	    (mountudpsock < 0) && (mounttcpsock < 0) &&
-	    (mountticlsock < 0) && (mountticosock < 0))  {
+	    (mountticlsock < 0) && (mountticosock < 0)) {
 		log(LOG_ERR, "Can't create any MOUNT sockets!");
 		exit(1);
 	}
@@ -962,9 +983,11 @@ mountd(void)
 	if (config.nfsd_threads)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wint-to-void-pointer-cast"
+	{
 		rpc_control(RPC_SVC_MIN_THREADS_SET, (void *)config.nfsd_threads);
+	}
 #pragma clang diagnostic pop
-    
+
 	/* launch mountd pthread */
 	error = pthread_create(&thd, &pattr, mountd_thread, NULL);
 	if (error) {
@@ -981,24 +1004,28 @@ lock_exports(void)
 {
 	int error;
 
-	if (checkexports)
+	if (checkexports) {
 		return;
+	}
 
 	error = pthread_mutex_lock(&export_mutex);
-	if (error)
+	if (error) {
 		log(LOG_ERR, "export mutex lock failed: %s (%d)", strerror(error), error);
+	}
 }
 void
 unlock_exports(void)
 {
 	int error;
 
-	if (checkexports)
+	if (checkexports) {
 		return;
+	}
 
 	error = pthread_mutex_unlock(&export_mutex);
-	if (error)
+	if (error) {
 		log(LOG_ERR, "export mutex unlock failed: %s (%d)", strerror(error), error);
+	}
 }
 
 /*
@@ -1010,8 +1037,9 @@ lock_mlist(void)
 	int error;
 
 	error = pthread_mutex_lock(&ml_mutex);
-	if (error)
+	if (error) {
 		log(LOG_ERR, "remote mount list mutex lock failed: %s (%d)", strerror(error), error);
+	}
 }
 void
 unlock_mlist(void)
@@ -1019,8 +1047,9 @@ unlock_mlist(void)
 	int error;
 
 	error = pthread_mutex_unlock(&ml_mutex);
-	if (error)
+	if (error) {
 		log(LOG_ERR, "remote mount list mutex unlock failed: %s (%d)", strerror(error), error);
+	}
 }
 
 /*
@@ -1037,25 +1066,27 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 	struct sockaddr *sa;
 	u_short sport;
 	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN], mlistpath[MAXPATHLEN];
-	char addrbuf[2*INET6_ADDRSTRLEN], hostbuf[NI_MAXHOST];
+	char addrbuf[2 * INET6_ADDRSTRLEN], hostbuf[NI_MAXHOST];
 	int bad = ENOENT, options;
 	u_char uuid[16];
 
 	sa = svc_getcaller_sa(transp);
-	if (sa->sa_family == AF_INET)
+	if (sa->sa_family == AF_INET) {
 		sport = ntohs(((struct sockaddr_in*) AOK sa)->sin_port);
-	else if (sa->sa_family == AF_INET6)
+	} else if (sa->sa_family == AF_INET6) {
 		sport = ntohs(((struct sockaddr_in6*) AOK sa)->sin6_port);
-	else
+	} else {
 		sport = 0;
+	}
 
 	strlcpy(hostbuf, "unknown_host", sizeof(hostbuf));
 	strlcpy(addrbuf, "unknown_host", sizeof(addrbuf));
 
 	switch (rqstp->rq_proc) {
 	case NULLPROC:
-		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
+		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL)) {
 			log(LOG_ERR, "Can't send NULL MOUNT reply");
+		}
 		return;
 	case RPCMNT_MOUNT:
 		if ((sport >= IPPORT_RESERVED) && config.mount_require_resv_port) {
@@ -1078,13 +1109,14 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		    realpath(rpcpath, mlistpath) == NULL ||
 		    stat(dirpath, &stb) < 0 ||
 		    (!S_ISDIR(stb.st_mode) &&
-		     (!config.mount_regular_files || !S_ISREG(stb.st_mode))) ||
+		    (!config.mount_regular_files || !S_ISREG(stb.st_mode))) ||
 		    mountd_statfs(dirpath, &fsb) < 0) {
 			unlock_exports();
-			chdir("/");	/* Just in case realpath doesn't */
+			chdir("/");     /* Just in case realpath doesn't */
 			DEBUG(1, "stat failed on %s", dirpath);
-			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
+			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad)) {
 				log(LOG_ERR, "Can't send reply for failed mount");
+			}
 			if (config.verbose) {
 				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
@@ -1096,8 +1128,9 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		if (!get_uuid_from_list(&fsb, uuid, UL_CHECK_ALL)) {
 			unlock_exports();
 			DEBUG(1, "no exported volume uuid for %s", dirpath);
-			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
+			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad)) {
 				log(LOG_ERR, "Can't send reply for failed mount");
+			}
 			if (config.verbose) {
 				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
@@ -1116,15 +1149,17 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			fhr.fhr_fh.fh_len = (fhr.fhr_vers < 3) ? NFSV2_MAX_FH_SIZE : NFSV3_MAX_FH_SIZE;
 			if (getfh(dirpath, (fhandle_t *)&fhr.fhr_fh) < 0) {
 				DEBUG(1, "Can't get fh for %s: %s (%d)", dirpath,
-					strerror(errno), errno);
+				    strerror(errno), errno);
 				bad = EACCES; /* path must not be exported */
-				if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
+				if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad)) {
 					log(LOG_ERR, "Can't send reply for failed mount");
+				}
 				unlock_exports();
 				return;
 			}
-			if (!svc_sendreply(transp, (xdrproc_t)xdr_fhs, (caddr_t)&fhr))
+			if (!svc_sendreply(transp, (xdrproc_t)xdr_fhs, (caddr_t)&fhr)) {
 				log(LOG_ERR, "Can't send mount reply");
+			}
 			if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0)) {
 				lock_mlist();
 				add_mlist(hostbuf, mlistpath);
@@ -1137,15 +1172,17 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
 				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
 			}
-			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
+			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad)) {
 				log(LOG_ERR, "Can't send reply for failed mount");
+			}
 		}
 		unlock_exports();
 		return;
 	case RPCMNT_DUMP:
 		lock_mlist();
-		if (!svc_sendreply(transp, (xdrproc_t)xdr_mlist, (caddr_t)NULL))
+		if (!svc_sendreply(transp, (xdrproc_t)xdr_mlist, (caddr_t)NULL)) {
 			log(LOG_ERR, "Can't send MOUNT dump reply");
+		}
 		unlock_mlist();
 		if (config.verbose >= 3) {
 			getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
@@ -1161,19 +1198,22 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			svcerr_decode(transp);
 			return;
 		}
-		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
+		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL)) {
 			log(LOG_ERR, "Can't send UMOUNT reply");
+		}
 		if (realpath(rpcpath, mlistpath) == NULL) {
 			log(LOG_ERR, "realpath(%s) failed", rpcpath);
 			return;
 		}
 		lock_mlist();
-		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
+		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD)) {
 			del_mlist(hostbuf, mlistpath);
-		else
+		} else {
 			hostbuf[0] = '\0';
-		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
+		}
+		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST)) {
 			del_mlist(addrbuf, mlistpath);
+		}
 		unlock_mlist();
 		log(LOG_INFO, "umount: %s %s", hostbuf[0] ? hostbuf : addrbuf, mlistpath);
 		return;
@@ -1182,22 +1222,26 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			svcerr_weakauth(transp);
 			return;
 		}
-		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
+		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL)) {
 			log(LOG_ERR, "Can't send UMNTALL reply");
+		}
 		lock_mlist();
-		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
+		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD)) {
 			del_mlist(hostbuf, NULL);
-		else
+		} else {
 			hostbuf[0] = '\0';
-		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
+		}
+		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST)) {
 			del_mlist(addrbuf, (char *)NULL);
+		}
 		unlock_mlist();
 		log(LOG_INFO, "umount all: %s", hostbuf[0] ? hostbuf : addrbuf);
 		return;
 	case RPCMNT_EXPORT:
 		lock_exports();
-		if (!svc_sendreply(transp, (xdrproc_t)xdr_explist, (caddr_t)NULL))
+		if (!svc_sendreply(transp, (xdrproc_t)xdr_explist, (caddr_t)NULL)) {
 			log(LOG_ERR, "Can't send EXPORT reply");
+		}
 		unlock_exports();
 		if (config.verbose >= 3) {
 			getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
@@ -1216,7 +1260,7 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 int
 xdr_dir(XDR *xdrsp, char *dirp)
 {
-	return (xdr_string(xdrsp, &dirp, RPCMNT_PATHLEN));
+	return xdr_string(xdrsp, &dirp, RPCMNT_PATHLEN);
 }
 
 /*
@@ -1229,37 +1273,44 @@ xdr_fhs(XDR *xdrsp, caddr_t cp)
 	xdr_long_t ok = 0, len, auth;
 	int32_t i;
 
-	if (!xdr_long(xdrsp, &ok))
-		return (0);
+	if (!xdr_long(xdrsp, &ok)) {
+		return 0;
+	}
 	switch (fhrp->fhr_vers) {
 	case 1:
-		return (xdr_opaque(xdrsp, fhrp->fhr_fh.fh_data, NFSX_V2FH));
+		return xdr_opaque(xdrsp, fhrp->fhr_fh.fh_data, NFSX_V2FH);
 	case 3:
 		len = fhrp->fhr_fh.fh_len;
-		if (!xdr_long(xdrsp, &len))
-			return (0);
-		if (!xdr_opaque(xdrsp, fhrp->fhr_fh.fh_data, fhrp->fhr_fh.fh_len))
-			return (0);
+		if (!xdr_long(xdrsp, &len)) {
+			return 0;
+		}
+		if (!xdr_opaque(xdrsp, fhrp->fhr_fh.fh_data, fhrp->fhr_fh.fh_len)) {
+			return 0;
+		}
 		/* security flavors */
 		if (fhrp->fhr_sec.count == 0) {
 			auth = RPCAUTH_SYS;
 			len = 1;
-			if (!xdr_long(xdrsp, &len))
-				return (0);
-			return (xdr_long(xdrsp, &auth));
+			if (!xdr_long(xdrsp, &len)) {
+				return 0;
+			}
+			return xdr_long(xdrsp, &auth);
 		}
 
 		len = fhrp->fhr_sec.count;
-		if (!xdr_long(xdrsp, &len))
-			return (0);
+		if (!xdr_long(xdrsp, &len)) {
+			return 0;
+		}
 		for (i = 0; i < fhrp->fhr_sec.count; i++) {
 			auth = (xdr_long_t)fhrp->fhr_sec.flavors[i];
-			if (!xdr_long(xdrsp, &auth))
-				return (0);
+			if (!xdr_long(xdrsp, &auth)) {
+				return 0;
+			}
 		}
-		return (TRUE);
-	};
-	return (0);
+		return TRUE;
+	}
+	;
+	return 0;
 }
 
 /* This function must be called with ml_mutex locked */
@@ -1272,17 +1323,21 @@ xdr_mlist(XDR *xdrsp, __unused caddr_t cp)
 
 	mlp = mlhead;
 	while (mlp) {
-		if (!xdr_bool(xdrsp, &trueval))
-			return (0);
-		if (!xdr_string(xdrsp, &mlp->ml_host, RPCMNT_NAMELEN))
-			return (0);
-		if (!xdr_string(xdrsp, &mlp->ml_dir, RPCMNT_PATHLEN))
-			return (0);
+		if (!xdr_bool(xdrsp, &trueval)) {
+			return 0;
+		}
+		if (!xdr_string(xdrsp, &mlp->ml_host, RPCMNT_NAMELEN)) {
+			return 0;
+		}
+		if (!xdr_string(xdrsp, &mlp->ml_dir, RPCMNT_PATHLEN)) {
+			return 0;
+		}
 		mlp = mlp->ml_next;
 	}
-	if (!xdr_bool(xdrsp, &falseval))
-		return (0);
-	return (1);
+	if (!xdr_bool(xdrsp, &falseval)) {
+		return 0;
+	}
+	return 1;
 }
 
 /*
@@ -1297,15 +1352,17 @@ xdr_explist(XDR *xdrsp, __unused caddr_t cp)
 
 	TAILQ_FOREACH(xf, &xfshead, xf_next) {
 		TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
-			if (put_exlist(xd, xdrsp))
+			if (put_exlist(xd, xdrsp)) {
 				goto errout;
+			}
 		}
 	}
-	if (!xdr_bool(xdrsp, &falseval))
-		return (0);
-	return (1);
+	if (!xdr_bool(xdrsp, &falseval)) {
+		return 0;
+	}
+	return 1;
 errout:
-	return (0);
+	return 0;
 }
 
 /*
@@ -1324,84 +1381,100 @@ put_exlist(struct expdir *xd, XDR *xdrsp)
 	char offline_all[] = "<offline>";
 	char offline_some[] = "<offline*>";
 	char everyone[] = "(Everyone)";
-	char abuf[RPCMNT_NAMELEN+1];
+	char abuf[RPCMNT_NAMELEN + 1];
 	int offline = 0, auth = 0, i;
 
-	if (!xd)
-		return (0);
+	if (!xd) {
+		return 0;
+	}
 
-	if (!xdr_bool(xdrsp, &trueval))
-		return (1);
+	if (!xdr_bool(xdrsp, &trueval)) {
+		return 1;
+	}
 	strp = xd->xd_dir;
-	if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN))
-		return (1);
+	if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN)) {
+		return 1;
+	}
 	if (xd->xd_iflags & OP_OFFLINE) {
 		/* report if export is offline for all or some* hosts */
-		if (!xdr_bool(xdrsp, &trueval))
-			return (1);
+		if (!xdr_bool(xdrsp, &trueval)) {
+			return 1;
+		}
 		strp = (xd->xd_iflags & OP_ONLINE) ? offline_some : offline_all;
-		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
-			return (1);
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
+			return 1;
+		}
 		offline = 1;
 	}
 	if ((xd->xd_ssec.count > 1) || (xd->xd_ssec.flavors[0] != RPCAUTH_SYS)) {
 		/* report non-default auth flavors */
-		if (!xdr_bool(xdrsp, &trueval))
-			return (1);
+		if (!xdr_bool(xdrsp, &trueval)) {
+			return 1;
+		}
 		abuf[0] = '\0';
 		strlcpy(abuf, "<", sizeof(abuf));
-		for (i=0; i < xd->xd_ssec.count; i++) {
-			if (xd->xd_ssec.flavors[i] == RPCAUTH_SYS)
+		for (i = 0; i < xd->xd_ssec.count; i++) {
+			if (xd->xd_ssec.flavors[i] == RPCAUTH_SYS) {
 				strlcat(abuf, "sys", sizeof(abuf));
-			else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5)
+			} else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5) {
 				strlcat(abuf, "krb5", sizeof(abuf));
-			else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5I)
+			} else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5I) {
 				strlcat(abuf, "krb5i", sizeof(abuf));
-			else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5P)
+			} else if (xd->xd_ssec.flavors[i] == RPCAUTH_KRB5P) {
 				strlcat(abuf, "krb5p", sizeof(abuf));
-			else
+			} else {
 				continue;
-			if (i < xd->xd_ssec.count-1)
+			}
+			if (i < xd->xd_ssec.count - 1) {
 				strlcat(abuf, ":", sizeof(abuf));
+			}
 		}
 		strlcat(abuf, ">", sizeof(abuf));
 		strp = abuf;
-		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
-			return (1);
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
+			return 1;
+		}
 		auth = 1;
 	}
 	if (!(xd->xd_flags & OP_DEFEXP)) {
 		TAILQ_FOREACH(hp, &xd->xd_hosts, ht_next) {
-			if (!(hp->ht_flags & OP_SHOW))
+			if (!(hp->ht_flags & OP_SHOW)) {
 				continue;
+			}
 			grp = hp->ht_grp;
 			switch (grp->gr_type) {
 			case GT_HOST:
 			case GT_NET:
 			case GT_NETGROUP:
-				if (!xdr_bool(xdrsp, &trueval))
-					return (1);
+				if (!xdr_bool(xdrsp, &trueval)) {
+					return 1;
+				}
 				strp = grp_name(grp);
-				if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
-					return (1);
+				if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
+					return 1;
+				}
 			}
 		}
 	} else if (offline || auth) {
-		if (!xdr_bool(xdrsp, &trueval))
-			return (1);
+		if (!xdr_bool(xdrsp, &trueval)) {
+			return 1;
+		}
 		strp = everyone;
-		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
-			return (1);
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
+			return 1;
+		}
 	}
-	if (!xdr_bool(xdrsp, &falseval))
-		return (1);
+	if (!xdr_bool(xdrsp, &falseval)) {
+		return 1;
+	}
 
 	TAILQ_FOREACH(mxd, &xd->xd_mountdirs, xd_next) {
-		if (put_exlist(mxd, xdrsp))
-			return (1);
+		if (put_exlist(mxd, xdrsp)) {
+			return 1;
+		}
 	}
 
-	return (0);
+	return 0;
 }
 
 
@@ -1412,16 +1485,18 @@ put_exlist(struct expdir *xd, XDR *xdrsp)
 char *
 clean_pathname(char *line)
 {
-    size_t len;
-    int esc;
+	size_t len;
+	int esc;
 	char c, *p, *s;
 
-	if (line == NULL)
+	if (line == NULL) {
 		return NULL;
+	}
 	len = strlen(line);
 	s = malloc(len + 1);
-	if (s == NULL)
+	if (s == NULL) {
 		return NULL;
+	}
 
 	len = 0;
 	esc = 0;
@@ -1434,26 +1509,29 @@ clean_pathname(char *line)
 		p++;
 	}
 
-	for (;*p != '\0'; p++) {
+	for (; *p != '\0'; p++) {
 		if (esc == 1) {
 			s[len++] = *p;
 			esc = 0;
-		} else if (*p == c)
+		} else if (*p == c) {
 			break;
-		else if (*p == '\\')
+		} else if (*p == '\\') {
 			esc = 1;
-		else if (c == '\0' && (*p == ' ' || *p == '\t'))
+		} else if (c == '\0' && (*p == ' ' || *p == '\t')) {
 			break;
-		else s[len++] = *p;
+		} else {
+			s[len++] = *p;
+		}
 	}
 
 	/* strip trailing slashes */
-	for (; len > 1 && s[len-1] == '/'; len--)
+	for (; len > 1 && s[len - 1] == '/'; len--) {
 		;
+	}
 
 	s[len] = '\0';
 
-	return (s);
+	return s;
 }
 
 
@@ -1502,10 +1580,16 @@ get_uuid_from_diskarb(const char *path, u_char *uuid)
 	bcopy(&uuidbytes, uuid, sizeof(uuidbytes));
 
 out:
-	if (session) CFRelease(session);
-	if (disk) CFRelease(disk);
-	if (dd) CFRelease(dd);
-	return (rv);
+	if (session) {
+		CFRelease(session);
+	}
+	if (disk) {
+		CFRelease(disk);
+	}
+	if (dd) {
+		CFRelease(dd);
+	}
+	return rv;
 }
 
 /*
@@ -1516,21 +1600,25 @@ get_uuid_from_list(const struct statfs *fsb, u_char *uuid, const int flags)
 {
 	struct uuidlist *ulp;
 
-	if (!(flags & UL_CHECK_ALL))
-		return (NULL);
+	if (!(flags & UL_CHECK_ALL)) {
+		return NULL;
+	}
 
 	TAILQ_FOREACH(ulp, &ulhead, ul_list) {
 		if ((flags & UL_CHECK_MNTFROM) &&
-		    strcmp(fsb->f_mntfromname, ulp->ul_mntfromname))
+		    strcmp(fsb->f_mntfromname, ulp->ul_mntfromname)) {
 			continue;
+		}
 		if ((flags & UL_CHECK_MNTON) &&
-		    strcmp(fsb->f_mntonname, ulp->ul_mntonname))
+		    strcmp(fsb->f_mntonname, ulp->ul_mntonname)) {
 			continue;
-		if (uuid)
+		}
+		if (uuid) {
 			bcopy(&ulp->ul_uuid, uuid, sizeof(ulp->ul_uuid));
+		}
 		break;
 	}
-	return (ulp);
+	return ulp;
 }
 
 /*
@@ -1542,10 +1630,11 @@ find_uuid(u_char *uuid)
 	struct uuidlist *ulp;
 
 	TAILQ_FOREACH(ulp, &ulhead, ul_list) {
-		if (!bcmp(ulp->ul_uuid, uuid, sizeof(ulp->ul_uuid)))
+		if (!bcmp(ulp->ul_uuid, uuid, sizeof(ulp->ul_uuid))) {
 			break;
+		}
 	}
-	return (ulp);
+	return ulp;
 }
 
 /*
@@ -1557,10 +1646,11 @@ find_uuid_by_fsid(u_int32_t fsid)
 	struct uuidlist *ulp;
 
 	TAILQ_FOREACH(ulp, &ulhead, ul_list) {
-		if (ulp->ul_fsid == fsid)
+		if (ulp->ul_fsid == fsid) {
 			break;
+		}
 	}
-	return (ulp);
+	return ulp;
 }
 
 /*
@@ -1575,7 +1665,7 @@ add_uuid_to_list(const struct statfs *fsb, u_char *dauuid, u_char *uuid)
 	ulpnew = malloc(sizeof(struct uuidlist));
 	if (!ulpnew) {
 		log(LOG_ERR, "add_uuid_to_list: out of memory");
-		return (NULL);
+		return NULL;
 	}
 	bzero(ulpnew, sizeof(*ulpnew));
 	LIST_INIT(&ulpnew->ul_exportids);
@@ -1590,17 +1680,18 @@ add_uuid_to_list(const struct statfs *fsb, u_char *dauuid, u_char *uuid)
 	/* make sure exported FS ID is unique */
 	xfsid = UUID2FSID(uuid);
 	ulpnew->ul_fsid = xfsid;
-	while (find_uuid_by_fsid(ulpnew->ul_fsid))
+	while (find_uuid_by_fsid(ulpnew->ul_fsid)) {
 		if (++ulpnew->ul_fsid == xfsid) {
 			/* exhausted exported FS ID values! */
 			log(LOG_ERR, "exported FS ID values exhausted, can't add %s",
-				ulpnew->ul_mntonname);
+			    ulpnew->ul_mntonname);
 			free(ulpnew);
-			return (NULL);
+			return NULL;
 		}
+	}
 
 	TAILQ_INSERT_TAIL(&ulhead, ulpnew, ul_list);
-	return (ulpnew);
+	return ulpnew;
 }
 
 /*
@@ -1622,26 +1713,27 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 
 	if (davalid) {
 		DEBUG(2, "get_uuid: %s %s DiskArb says: %s",
-			fsb->f_mntfromname, fsb->f_mntonname,
-			uuidstring(dauuid, buf));
+		    fsb->f_mntfromname, fsb->f_mntonname,
+		    uuidstring(dauuid, buf));
 	}
 
 	/* try to get UUID out of UUID list */
 	if ((ulp = get_uuid_from_list(fsb, uuid, UL_CHECK_MNTON))) {
 		DEBUG(2, "get_uuid: %s %s found: %s",
-			fsb->f_mntfromname, fsb->f_mntonname,
-			uuidstring(uuid, buf));
+		    fsb->f_mntfromname, fsb->f_mntonname,
+		    uuidstring(uuid, buf));
 		/*
 		 * Check against any DiskArb UUID.
 		 * If diskarb UUID is different then drop the uuid entry.
 		 */
 		if (davalid) {
-			if (!ulp->ul_davalid)
+			if (!ulp->ul_davalid) {
 				uuidchanged = 1;
-			else if (bcmp(ulp->ul_dauuid, dauuid, sizeof(dauuid)))
+			} else if (bcmp(ulp->ul_dauuid, dauuid, sizeof(dauuid))) {
 				uuidchanged = 1;
-			else
+			} else {
 				uuidchanged = 0;
+			}
 		} else {
 			if (ulp->ul_davalid) {
 				/*
@@ -1651,10 +1743,11 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 				 */
 				uuidstring(ulp->ul_dauuid, buf);
 				log(LOG_WARNING, "lost UUID for %s, was %s, keeping old UUID",
-					fsb->f_mntonname, buf);
+				    fsb->f_mntonname, buf);
 				uuidchanged = 0;
-			} else
+			} else {
 				uuidchanged = 0;
+			}
 		}
 		if (uuidchanged) {
 			uuidstring(ulp->ul_dauuid, buf);
@@ -1674,13 +1767,13 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 				 * seem to be hitting this problem?
 				 */
 				log(LOG_WARNING, "ignoring UUID change for already exported file system %s, was %s now %s",
-					fsb->f_mntonname, buf, buf2);
+				    fsb->f_mntonname, buf, buf2);
 				uuidchanged = 0;
 			}
 		}
 		if (uuidchanged) {
 			log(LOG_WARNING, "UUID changed for %s, was %s now %s",
-				fsb->f_mntonname, buf, buf2);
+			    fsb->f_mntonname, buf, buf2);
 			bcopy(dauuid, uuid, sizeof(dauuid));
 			/* remove old UUID from list */
 			TAILQ_REMOVE(&ulhead, ulp, ul_list);
@@ -1719,7 +1812,7 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 			reportuuid = 1;
 			uuidstring(uuid, buf);
 			log(LOG_WARNING, "%s UUID conflict with %s, %s",
-				fsb->f_mntonname, ulp->ul_mntonname, buf);
+			    fsb->f_mntonname, ulp->ul_mntonname, buf);
 			cfuuid = CFUUIDCreate(NULL);
 			uuidbytes = CFUUIDGetUUIDBytes(cfuuid);
 			bcopy(&uuidbytes, uuid, sizeof(uuidbytes));
@@ -1743,12 +1836,13 @@ get_uuid(const struct statfs *fsb, u_char *uuid)
 		strlcpy(ulp->ul_mntfromname, fsb->f_mntfromname, sizeof(ulp->ul_mntfromname));
 	}
 
-	if (reportuuid)
+	if (reportuuid) {
 		log(LOG_WARNING, "%s using UUID %s", fsb->f_mntonname, uuidstring(uuid, buf));
-	else
+	} else {
 		DEBUG(1, "%s using UUID %s", fsb->f_mntonname, uuidstring(uuid, buf));
+	}
 
-	return (ulp);
+	return ulp;
 }
 
 /*
@@ -1773,15 +1867,15 @@ uuidlist_clearexport(void)
 char *
 uuidstring(u_char *uuid, char *string)
 {
-	snprintf(string, (16*2)+4+1, /* XXX silly, yes. But at least we're not using sprintf. [sigh] */
-		"%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
-		uuid[0] & 0xff, uuid[1] & 0xff, uuid[2] & 0xff, uuid[3] & 0xff,
-		uuid[4] & 0xff, uuid[5] & 0xff,
-		uuid[6] & 0xff, uuid[7] & 0xff,
-		uuid[8] & 0xff, uuid[9] & 0xff,
-		uuid[10] & 0xff, uuid[11] & 0xff, uuid[12] & 0xff,
-		uuid[13] & 0xff, uuid[14] & 0xff, uuid[15] & 0xff);
-	return (string);
+	snprintf(string, (16 * 2) + 4 + 1, /* XXX silly, yes. But at least we're not using sprintf. [sigh] */
+	    "%02X%02X%02X%02X-%02X%02X-%02X%02X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+	    uuid[0] & 0xff, uuid[1] & 0xff, uuid[2] & 0xff, uuid[3] & 0xff,
+	    uuid[4] & 0xff, uuid[5] & 0xff,
+	    uuid[6] & 0xff, uuid[7] & 0xff,
+	    uuid[8] & 0xff, uuid[9] & 0xff,
+	    uuid[10] & 0xff, uuid[11] & 0xff, uuid[12] & 0xff,
+	    uuid[13] & 0xff, uuid[14] & 0xff, uuid[15] & 0xff);
+	return string;
 }
 
 /*
@@ -1808,23 +1902,25 @@ uuidlist_save(void)
 
 	if ((ulfile = fopen(_PATH_MOUNTEXPLIST, "w")) == NULL) {
 		log(LOG_ERR, "Can't write %s: %s (%d)", _PATH_MOUNTEXPLIST,
-			strerror(errno), errno);
+		    strerror(errno), errno);
 		return;
 	}
 	TAILQ_FOREACH(ulp, &ulhead, ul_list) {
 #ifdef SAVE_ONLY_EXPORTED_UUIDS
-		if (!ulp->ul_exported)
+		if (!ulp->ul_exported) {
 			continue;
+		}
 #endif
-		if (ulp->ul_davalid)
+		if (ulp->ul_davalid) {
 			uuidstring(ulp->ul_dauuid, buf);
-		else
+		} else {
 			strlcpy(buf, "------------------------------------", sizeof(buf));
+		}
 		uuidstring(ulp->ul_uuid, buf2);
 		fprintf(ulfile, "%s %s 0x%08X %s\n", buf, buf2, ulp->ul_fsid, ulp->ul_mntonname);
 		LIST_FOREACH(xid, &ulp->ul_exportids, xid_list) {
 			fprintf(ulfile, "XID 0x%08X %s\n", xid->xid_id,
-				((xid->xid_path[0] == '\0') ? "." : xid->xid_path));
+			    ((xid->xid_path[0] == '\0') ? "." : xid->xid_path));
 		}
 	}
 	fclose(ulfile);
@@ -1838,36 +1934,38 @@ uuidlist_restore(void)
 {
 	struct uuidlist *ulp;
 	struct expidlist *xid;
-	char *cp, str[2*MAXPATHLEN];
+	char *cp, str[2 * MAXPATHLEN];
 	FILE *ulfile;
 	int i, davalid, uuidchanged;
-    size_t slen;
+	size_t slen;
 	uint32_t linenum;
 	struct statfs fsb;
 	u_char dauuid[16];
 	char buf[64], buf2[64];
 
 	if ((ulfile = fopen(_PATH_MOUNTEXPLIST, "r")) == NULL) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			log(LOG_WARNING, "Can't open %s: %s (%d)", _PATH_MOUNTEXPLIST,
-				strerror(errno), errno);
-		else
+			    strerror(errno), errno);
+		} else {
 			DEBUG(1, "Can't open %s, %s (%d)", _PATH_MOUNTEXPLIST,
-				strerror(errno), errno);
+			    strerror(errno), errno);
+		}
 		return;
 	}
 	ulp = NULL;
 	linenum = 0;
-	while (fgets(str, 2*MAXPATHLEN, ulfile) != NULL) {
+	while (fgets(str, 2 * MAXPATHLEN, ulfile) != NULL) {
 		linenum++;
 		slen = strlen(str);
-		if (str[slen-1] == '\n')
-			str[slen-1] = '\0';
+		if (str[slen - 1] == '\n') {
+			str[slen - 1] = '\0';
+		}
 		if (!strncmp(str, "XID ", 4)) {
 			/* we have an export ID line for the current UUID */
 			if (!ulp) {
 				log(LOG_ERR, "ignoring orphaned export ID at line %d of %s",
-					linenum, _PATH_MOUNTEXPLIST);
+				    linenum, _PATH_MOUNTEXPLIST);
 				continue;
 			}
 			/* parse XID and add to current UUID */
@@ -1880,7 +1978,7 @@ uuidlist_restore(void)
 			slen -= 4;
 			if (sscanf(cp, "%i", &xid->xid_id) != 1) {
 				log(LOG_ERR, "invalid export ID at line %d of %s",
-					linenum, _PATH_MOUNTEXPLIST);
+				    linenum, _PATH_MOUNTEXPLIST);
 				free(xid);
 				continue;
 			}
@@ -1892,14 +1990,15 @@ uuidlist_restore(void)
 			slen--;
 			if (slen >= (int)sizeof(xid->xid_path)) {
 				log(LOG_ERR, "export ID path too long at line %d of %s",
-					linenum, _PATH_MOUNTEXPLIST);
+				    linenum, _PATH_MOUNTEXPLIST);
 				free(xid);
 				continue;
 			}
-			if ((cp[0] == '.') && (cp[1] == '\0'))
+			if ((cp[0] == '.') && (cp[1] == '\0')) {
 				xid->xid_path[0] = '\0';
-			else
+			} else {
 				strlcpy(xid->xid_path, cp, sizeof(xid->xid_path));
+			}
 			LIST_INSERT_HEAD(&ulp->ul_exportids, xid, xid_list);
 			continue;
 		}
@@ -1915,16 +2014,18 @@ uuidlist_restore(void)
 			/* DiskArb UUID not present */
 			ulp->ul_davalid = 0;
 			bzero(ulp->ul_dauuid, sizeof(ulp->ul_dauuid));
-			while (*cp && (*cp != ' '))
+			while (*cp && (*cp != ' ')) {
 				cp++;
+			}
 		} else {
 			ulp->ul_davalid = 1;
-			for (i=0; i < (int)sizeof(ulp->ul_dauuid); i++, cp+=2) {
-				if (*cp == '-')
+			for (i = 0; i < (int)sizeof(ulp->ul_dauuid); i++, cp += 2) {
+				if (*cp == '-') {
 					cp++;
-				if (!isxdigit(*cp) || !isxdigit(*(cp+1))) {
+				}
+				if (!isxdigit(*cp) || !isxdigit(*(cp + 1))) {
 					log(LOG_ERR, "invalid UUID at line %d of %s",
-						linenum, _PATH_MOUNTEXPLIST);
+					    linenum, _PATH_MOUNTEXPLIST);
 					free(ulp);
 					ulp = NULL;
 					break;
@@ -1932,26 +2033,29 @@ uuidlist_restore(void)
 				ulp->ul_dauuid[i] = HEXSTRTOI(cp);
 			}
 		}
-		if (ulp == NULL)
+		if (ulp == NULL) {
 			continue;
+		}
 		cp++;
-		for (i=0; i < (int)sizeof(ulp->ul_uuid); i++, cp+=2) {
-			if (*cp == '-')
+		for (i = 0; i < (int)sizeof(ulp->ul_uuid); i++, cp += 2) {
+			if (*cp == '-') {
 				cp++;
-			if (!isxdigit(*cp) || !isxdigit(*(cp+1))) {
+			}
+			if (!isxdigit(*cp) || !isxdigit(*(cp + 1))) {
 				log(LOG_ERR, "invalid UUID at line %d of %s",
-					linenum, _PATH_MOUNTEXPLIST);
+				    linenum, _PATH_MOUNTEXPLIST);
 				free(ulp);
 				ulp = NULL;
 				break;
 			}
 			ulp->ul_uuid[i] = HEXSTRTOI(cp);
 		}
-		if (ulp == NULL)
+		if (ulp == NULL) {
 			continue;
+		}
 		if (*cp != ' ') {
 			log(LOG_ERR, "invalid entry at line %d of %s",
-				linenum, _PATH_MOUNTEXPLIST);
+			    linenum, _PATH_MOUNTEXPLIST);
 			free(ulp);
 			ulp = NULL;
 			continue;
@@ -1959,23 +2063,24 @@ uuidlist_restore(void)
 		cp++;
 		if (sscanf(cp, "%i", &ulp->ul_fsid) != 1) {
 			log(LOG_ERR, "invalid entry at line %d of %s",
-				linenum, _PATH_MOUNTEXPLIST);
+			    linenum, _PATH_MOUNTEXPLIST);
 			free(ulp);
 			ulp = NULL;
 			continue;
 		}
-		while (*cp && (*cp != ' '))
+		while (*cp && (*cp != ' ')) {
 			cp++;
+		}
 		if (*cp != ' ') {
 			log(LOG_ERR, "invalid entry at line %d of %s",
-				linenum, _PATH_MOUNTEXPLIST);
+			    linenum, _PATH_MOUNTEXPLIST);
 			free(ulp);
 			ulp = NULL;
 			continue;
 		}
 		cp++;
 		strncpy(ulp->ul_mntonname, cp, MAXPATHLEN);
-		ulp->ul_mntonname[MAXPATHLEN-1] = '\0';
+		ulp->ul_mntonname[MAXPATHLEN - 1] = '\0';
 
 		/* verify the path exists and that it is a mount point */
 		if (!check_dirpath(ulp->ul_mntonname) ||
@@ -1984,7 +2089,7 @@ uuidlist_restore(void)
 			/* don't drop the UUID record if the volume isn't currently mounted! */
 			/* If it's mounted/exported later, we want to use the same record. */
 			DEBUG(1, "export entry for non-existent file system %s at line %d of %s",
-				ulp->ul_mntonname, linenum, _PATH_MOUNTEXPLIST);
+			    ulp->ul_mntonname, linenum, _PATH_MOUNTEXPLIST);
 			ulp->ul_mntfromname[0] = '\0';
 			TAILQ_INSERT_TAIL(&ulhead, ulp, ul_list);
 			continue;
@@ -1992,7 +2097,7 @@ uuidlist_restore(void)
 
 		/* grab the path's mntfromname */
 		strncpy(ulp->ul_mntfromname, fsb.f_mntfromname, MAXPATHLEN);
-		ulp->ul_mntfromname[MAXPATHLEN-1] = '\0';
+		ulp->ul_mntfromname[MAXPATHLEN - 1] = '\0';
 
 		/*
 		 * Grab DiskArb's UUID for this volume (if any) and
@@ -2000,12 +2105,13 @@ uuidlist_restore(void)
 		 */
 		davalid = get_uuid_from_diskarb(ulp->ul_mntfromname, dauuid);
 		if (davalid) {
-			if (!ulp->ul_davalid)
+			if (!ulp->ul_davalid) {
 				uuidchanged = 1;
-			else if (bcmp(ulp->ul_dauuid, dauuid, sizeof(dauuid)))
+			} else if (bcmp(ulp->ul_dauuid, dauuid, sizeof(dauuid))) {
 				uuidchanged = 1;
-			else
+			} else {
 				uuidchanged = 0;
+			}
 		} else {
 			if (ulp->ul_davalid) {
 				/*
@@ -2015,10 +2121,11 @@ uuidlist_restore(void)
 				 */
 				uuidstring(ulp->ul_dauuid, buf);
 				log(LOG_WARNING, "lost UUID for %s, was %s, keeping old UUID",
-					fsb.f_mntonname, buf);
+				    fsb.f_mntonname, buf);
 				uuidchanged = 0;
-			} else
+			} else {
 				uuidchanged = 0;
+			}
 		}
 		if (uuidchanged) {
 			/* The UUID changed, so we'll drop any entry */
@@ -2026,7 +2133,7 @@ uuidlist_restore(void)
 			uuidstring(ulp->ul_dauuid, buf);
 			uuidstring(dauuid, buf2);
 			log(LOG_WARNING, "UUID changed for %s, was %s now %s",
-				ulp->ul_mntonname, buf, buf2);
+			    ulp->ul_mntonname, buf, buf2);
 			free(ulp);
 			ulp = NULL;
 			continue;
@@ -2043,11 +2150,12 @@ find_export_id(struct uuidlist *ulp, u_int32_t id)
 	struct expidlist *xid;
 
 	LIST_FOREACH(xid, &ulp->ul_exportids, xid_list) {
-		if (xid->xid_id == id)
+		if (xid->xid_id == id) {
 			break;
+		}
 	}
 
-	return (xid);
+	return xid;
 }
 
 struct expidlist *
@@ -2057,18 +2165,21 @@ get_export_id(struct uuidlist *ulp, char *path)
 	u_int32_t maxid = 0;
 
 	LIST_FOREACH(xid, &ulp->ul_exportids, xid_list) {
-		if (!strcmp(xid->xid_path, path))
+		if (!strcmp(xid->xid_path, path)) {
 			break;
-		if (maxid < xid->xid_id)
+		}
+		if (maxid < xid->xid_id) {
 			maxid = xid->xid_id;
+		}
 	}
-	if (xid)
-		return (xid);
+	if (xid) {
+		return xid;
+	}
 	/* add it */
 	xid = malloc(sizeof(*xid));
 	if (!xid) {
 		log(LOG_ERR, "get_export_id: out of memory");
-		return (NULL);
+		return NULL;
 	}
 	bzero(xid, sizeof(*xid));
 	strlcpy(xid->xid_path, path, sizeof(xid->xid_path));
@@ -2078,13 +2189,13 @@ get_export_id(struct uuidlist *ulp, char *path)
 		if (xid->xid_id == maxid) {
 			/* exhausted export id values! */
 			log(LOG_ERR, "export ID values exhausted for %s",
-				ulp->ul_mntonname);
+			    ulp->ul_mntonname);
 			free(xid);
-			return (NULL);
+			return NULL;
 		}
 	}
 	LIST_INSERT_HEAD(&ulp->ul_exportids, xid, xid_list);
-	return (xid);
+	return xid;
 }
 
 /*
@@ -2111,21 +2222,25 @@ find_exported_fs_by_path_and_uuid(char *fspath, u_char *fsuuid)
 	while (ulp) {
 		/* find next matching uuid */
 		while (ulp && fsuuid) {
-			if (ulp->ul_davalid && !bcmp(ulp->ul_dauuid, fsuuid, sizeof(ulp->ul_dauuid)))
+			if (ulp->ul_davalid && !bcmp(ulp->ul_dauuid, fsuuid, sizeof(ulp->ul_dauuid))) {
 				break;
-			if (!bcmp(ulp->ul_uuid, fsuuid, sizeof(ulp->ul_uuid)))
+			}
+			if (!bcmp(ulp->ul_uuid, fsuuid, sizeof(ulp->ul_uuid))) {
 				break;
+			}
 			ulp = TAILQ_NEXT(ulp, ul_list);
 		}
-		if (!ulp)
+		if (!ulp) {
 			break;
+		}
 		/* we're done if fspath ommitted or matches */
-		if (!fspath || !strcmp(ulp->ul_mntonname, fspath))
+		if (!fspath || !strcmp(ulp->ul_mntonname, fspath)) {
 			break;
+		}
 		ulp = TAILQ_NEXT(ulp, ul_list);
 	}
 
-	return (ulp);
+	return ulp;
 }
 
 /*
@@ -2139,12 +2254,13 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 {
 	struct dirlist *dirl;
 	char *path, *p;
-    int cmp;
-    size_t bestlen, len;
+	int cmp;
+	size_t bestlen, len;
 	struct uuidlist *ulp, *bestulp;
 
-	if (!dirhead)
-		return (NULL);
+	if (!dirhead) {
+		return NULL;
+	}
 
 	path = strdup(dirhead->dl_realpath);
 
@@ -2173,8 +2289,9 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 	bestulp = NULL;
 	bestlen = -1;
 	TAILQ_FOREACH(ulp, &ulhead, ul_list) {
-		if (subdir_check(ulp->ul_mntonname, path) < 0)
+		if (subdir_check(ulp->ul_mntonname, path) < 0) {
 			continue;
+		}
 		len = strlen(ulp->ul_mntonname);
 		if (len > bestlen) {
 			bestulp = ulp;
@@ -2184,7 +2301,7 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 
 	free(path);
 	DEBUG(4, "find_exported_fs: best exported fs: %s", bestulp ? bestulp->ul_mntonname : "<none>");
-	return (bestulp);
+	return bestulp;
 }
 
 /*
@@ -2201,20 +2318,21 @@ find_exported_fs_by_dirlist(struct dirlist *dirhead)
 int
 subdir_check(char *s1, char *s2)
 {
-    size_t len1, len2;
-    int rv;
+	size_t len1, len2;
+	int rv;
 	len1 = strlen(s1);
 	len2 = strlen(s2);
-	if (len1 > len2)
+	if (len1 > len2) {
 		rv = -3;
-	else if (strncmp(s1, s2, len1))
+	} else if (strncmp(s1, s2, len1)) {
 		rv = -2;
-	else if (len1 == len2)
+	} else if (len1 == len2) {
 		rv = 0;
-	else if ((s2[len1] == '/') || (len1 == 1))
+	} else if ((s2[len1] == '/') || (len1 == 1)) {
 		rv = 1;
-	else
+	} else {
 		rv = -1;
+	}
 	DEBUG(4, "subdir_check: %s %s %d", s1, s2, rv);
 	return rv;
 }
@@ -2244,7 +2362,7 @@ get_exportlist(void)
 	struct nfs_sec secflavs;
 	char *cp, *endcp, *name, *word, *hst, *usr, *dom, savedc, *savedcp, *subdir, *mntonname, *word2;
 	int hostcount, badhostcount, exflags, got_nondir, netgrp, cmp, show;
-    size_t len, dlen;
+	size_t len, dlen;
 	char fspath[MAXPATHLEN];
 	u_char uuid[16], fsuuid[16];
 	struct uuidlist *ulp, *bestulp;
@@ -2260,18 +2378,18 @@ get_exportlist(void)
 	 */
 	TAILQ_FOREACH(xf, &xfshead, xf_next) {
 		TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
-			xd->xd_iflags &= ~(OP_ADD|OP_OFFLINE|OP_ONLINE);
+			xd->xd_iflags &= ~(OP_ADD | OP_OFFLINE | OP_ONLINE);
 			xd->xd_ssec.count = 0;
 			xd->xd_oflags = xd->xd_flags;
 			xd->xd_ocred = xd->xd_cred;
 			xd->xd_osec = xd->xd_sec;
 			xd->xd_flags |= OP_DEL;
 			TAILQ_FOREACH(ht, &xd->xd_hosts, ht_next)
-				ht->ht_flags |= OP_DEL;
+			ht->ht_flags |= OP_DEL;
 			TAILQ_FOREACH(xd2, &xd->xd_mountdirs, xd_next) {
 				xd2->xd_flags |= OP_DEL;
 				TAILQ_FOREACH(ht, &xd2->xd_hosts, ht_next)
-					ht->ht_flags |= OP_DEL;
+				ht->ht_flags |= OP_DEL;
 			}
 		}
 	}
@@ -2341,11 +2459,12 @@ get_exportlist(void)
 		 */
 		cp = line;
 		nextfield(&cp, &endcp);
-		if (*cp == '#')
+		if (*cp == '#') {
 			goto nextline;
+		}
 
 		while (endcp > cp) {
-			DEBUG(2, "got field: %.*s", endcp-cp, cp);
+			DEBUG(2, "got field: %.*s", endcp - cp, cp);
 			if (*cp == '-') {
 				/*
 				 * looks like we have some options
@@ -2355,20 +2474,20 @@ get_exportlist(void)
 					export_error_cleanup(xf);
 					goto nextline;
 				}
-				DEBUG(3, "processing option: %.*s", endcp-cp, cp);
+				DEBUG(3, "processing option: %.*s", endcp - cp, cp);
 				got_nondir = 1;
 				savedcp = cp;
 				if (do_opt(&cp, &endcp, &ngrp, &hostcount, &opt_flags,
-					   &exflags, &anon, &secflavs, fspath, fsuuid)) {
+				    &exflags, &anon, &secflavs, fspath, fsuuid)) {
 					export_error(LOG_ERR, "error processing options: %s", savedcp);
 					export_error_cleanup(xf);
 					goto nextline;
 				}
-			} else if ((*cp == '/') || ((*cp == '\'' || *cp == '"') && (*(cp+1) == '/'))) {
+			} else if ((*cp == '/') || ((*cp == '\'' || *cp == '"') && (*(cp + 1) == '/'))) {
 				/*
 				 * looks like we have a pathname
 				 */
-				DEBUG(2, "processing pathname: %.*s", endcp-cp, cp);
+				DEBUG(2, "processing pathname: %.*s", endcp - cp, cp);
 				word = clean_pathname(cp);
 				DEBUG(3, "   cleaned pathname: %s", word);
 				if (word == NULL) {
@@ -2391,8 +2510,9 @@ get_exportlist(void)
 				}
 				/* Add path to this global exported path list */
 				word2 = strdup(word);
-				if ((error = add_dir(&xpaths, word2)))
+				if ((error = add_dir(&xpaths, word2))) {
 					free(word2);
+				}
 				if (error == ENOMEM) {
 					log(LOG_WARNING, "Can't allocate memory to add export path: %s", word);
 					xpaths_complete = 0;
@@ -2526,7 +2646,7 @@ get_exportlist(void)
 		 */
 
 		/* check options and hosts */
-		if (!(opt_flags & (OP_MAPROOT|OP_MAPALL))) {
+		if (!(opt_flags & (OP_MAPROOT | OP_MAPALL))) {
 			/* If no mapping option specified, map root by default */
 			exflags |= NX_MAPROOT;
 			opt_flags |= OP_MAPROOT;
@@ -2557,7 +2677,7 @@ get_exportlist(void)
 			tgrp = get_grp(&ngrp);
 			if (!tgrp) {
 				export_error(LOG_ERR, "Can't allocate memory to add network - %s",
-					grp_name(&ngrp));
+				    grp_name(&ngrp));
 				export_error_cleanup(xf);
 				goto nextline;
 			}
@@ -2572,12 +2692,13 @@ get_exportlist(void)
 		}
 
 		mntonname = NULL;
-		if (opt_flags & (OP_FSPATH|OP_FSUUID))
+		if (opt_flags & (OP_FSPATH | OP_FSUUID)) {
 			bestulp = find_exported_fs_by_path_and_uuid(
-					(opt_flags & OP_FSPATH) ? fspath : NULL,
-					(opt_flags & OP_FSUUID) ? fsuuid : NULL);
-		else
+				(opt_flags & OP_FSPATH) ? fspath : NULL,
+				(opt_flags & OP_FSUUID) ? fsuuid : NULL);
+		} else {
 			bestulp = find_exported_fs_by_dirlist(dirhead);
+		}
 
 		dirl = dirhead;
 		/* Look for an exported directory that passes check_dirpath() */
@@ -2585,8 +2706,9 @@ get_exportlist(void)
 			export_error(LOG_WARNING, "path contains non-directory or non-existent components: %s", dirl->dl_dir);
 			/* skip subdirectories */
 			dirl2 = dirl->dl_next;
-			while (dirl2 && (subdir_check(dirl->dl_dir, dirl2->dl_dir) == 1))
+			while (dirl2 && (subdir_check(dirl->dl_dir, dirl2->dl_dir) == 1)) {
 				dirl2 = dirl2->dl_next;
+			}
 			dirl = dirl2;
 		}
 		if (!dirl) {
@@ -2600,7 +2722,7 @@ get_exportlist(void)
 		}
 		if (mountd_statfs(dirl->dl_realpath, &fsb) < 0) {
 			export_error(LOG_ERR, "statfs failed (%s (%d)) for path: %s (%s)",
-				strerror(errno), errno, dirl->dl_dir, dirl->dl_realpath);
+			    strerror(errno), errno, dirl->dl_dir, dirl->dl_realpath);
 			export_error_cleanup(xf);
 			goto nextline;
 		}
@@ -2615,13 +2737,13 @@ get_exportlist(void)
 				/* fspath doesn't match export fs path? */
 				if (!bestulp) {
 					export_error(LOG_ERR, "file system path (%s) does not match fspath (%s) (%s) and no fallback",
-						fsb.f_mntonname, fspath, real_fspath);
+					    fsb.f_mntonname, fspath, real_fspath);
 					free(real_fspath);
 					export_error_cleanup(xf);
 					goto nextline;
 				}
 				export_error(LOG_WARNING, "file system path (%s) does not match fspath (%s) (%s)",
-					fsb.f_mntonname, fspath, real_fspath);
+				    fsb.f_mntonname, fspath, real_fspath);
 				free(real_fspath);
 				goto prepare_offline_export;
 			}
@@ -2629,9 +2751,10 @@ get_exportlist(void)
 		}
 		if (bestulp && (subdir_check(fsb.f_mntonname, bestulp->ul_mntonname) > 0)) {
 			export_error(LOG_WARNING, "Exported file system (%s) doesn't match best guess (%s).",
-				fsb.f_mntonname, bestulp->ul_mntonname);
-			if (!(opt_flags & (OP_FSUUID|OP_FSPATH)))
+			    fsb.f_mntonname, bestulp->ul_mntonname);
+			if (!(opt_flags & (OP_FSUUID | OP_FSPATH))) {
 				export_error(LOG_WARNING, "Suggest using fspath=/path and/or fsuuid=uuid to disambiguate.");
+			}
 			goto prepare_offline_export;
 		}
 		if (!(ulp = get_uuid(&fsb, uuid))) {
@@ -2643,12 +2766,12 @@ get_exportlist(void)
 			/* fsuuid doesn't match export fs uuid? */
 			if (!bestulp) {
 				export_error(LOG_ERR, "file system UUID (%s) does not match fsuuid (%s) and no fallback",
-					uuidstring(uuid, buf), uuidstring(fsuuid, buf2));
+				    uuidstring(uuid, buf), uuidstring(fsuuid, buf2));
 				export_error_cleanup(xf);
 				goto nextline;
 			}
 			export_error(LOG_WARNING, "file system UUID (%s) does not match fsuuid (%s)",
-				uuidstring(uuid, buf), uuidstring(fsuuid, buf2));
+			    uuidstring(uuid, buf), uuidstring(fsuuid, buf2));
 			goto prepare_offline_export;
 		}
 
@@ -2674,7 +2797,7 @@ prepare_offline_export:
 			}
 			if (!xf || !xf->xf_fsdir) {
 				export_error(LOG_ERR, "Can't allocate memory to export volume: %s",
-					mntonname);
+				    mntonname);
 				export_error_cleanup(xf);
 				goto nextline;
 			}
@@ -2686,8 +2809,9 @@ prepare_offline_export:
 		}
 
 		/* verify the rest of the directories in the list are kosher */
-		if (dirl)
+		if (dirl) {
 			dirl = dirl->dl_next;
+		}
 		for (; dirl; dirl = dirl->dl_next) {
 			DEBUG(2, "dir: %s", dirl->dl_dir);
 			if (!check_dirpath(dirl->dl_dir)) {
@@ -2696,7 +2820,7 @@ prepare_offline_export:
 			}
 			if (mountd_statfs(dirl->dl_realpath, &fsb) < 0) {
 				export_error(LOG_WARNING, "statfs failed (%s (%d)) for path: %s",
-					strerror(errno), errno, dirl->dl_dir);
+				    strerror(errno), errno, dirl->dl_dir);
 				continue;
 			}
 			if (strcmp(xf->xf_fsdir, fsb.f_mntonname)) {
@@ -2725,9 +2849,9 @@ prepare_offline_export:
 			TAILQ_FOREACH(xd2, &xf->xf_dirl, xd_next) {
 				if ((xd2->xd_iflags & OP_ADD) &&
 				    ((subdir_check(xd2->xd_dir, dirl->dl_dir) == 1) ||
-				     (subdir_check(dirl->dl_dir, xd2->xd_dir) == 1))) {
+				    (subdir_check(dirl->dl_dir, xd2->xd_dir) == 1))) {
 					export_error(LOG_ERR, "%s conflicts with existing export %s",
-						dirl->dl_dir, xd2->xd_dir);
+					    dirl->dl_dir, xd2->xd_dir);
 					export_error_cleanup(xf);
 					goto nextline;
 				}
@@ -2743,15 +2867,17 @@ prepare_offline_export:
 				dlen = strlen(xd2->xd_dir);
 				cmp = strncmp(dirl->dl_dir, xd2->xd_dir, dlen);
 				DEBUG(3, "     %s compare %s %d", dirl->dl_dir,
-					xd2->xd_dir, cmp);
+				    xd2->xd_dir, cmp);
 				if (!cmp) {
-					if (len == dlen) /* found an exact match */
+					if (len == dlen) { /* found an exact match */
 						break;
+					}
 					/* dirl was actually longer than xd2 */
 					cmp = 1;
 				}
-				if (cmp > 0)
+				if (cmp > 0) {
 					break;
+				}
 				xd3 = xd2;
 			}
 
@@ -2761,11 +2887,11 @@ prepare_offline_export:
 			} else {
 				/* go ahead and create a new expdir structure */
 				if (strncmp(dirl->dl_realpath, xf->xf_fsdir,
-					    strlen(xf->xf_fsdir))) {
-					export_error(LOG_ERR,"exported dir/fs mismatch: %s (%s) %s",
-						     dirl->dl_dir,
-						     dirl->dl_realpath,
-						     xf->xf_fsdir);
+				    strlen(xf->xf_fsdir))) {
+					export_error(LOG_ERR, "exported dir/fs mismatch: %s (%s) %s",
+					    dirl->dl_dir,
+					    dirl->dl_realpath,
+					    xf->xf_fsdir);
 					export_error_cleanup(xf);
 					goto nextline;
 				}
@@ -2773,8 +2899,9 @@ prepare_offline_export:
 				/* point subdir beyond mount path string */
 				subdir = dirl->dl_realpath + strlen(mntonname);
 				/* skip "/" between mount and subdir */
-				while (*subdir && (*subdir == '/'))
+				while (*subdir && (*subdir == '/')) {
 					subdir++;
+				}
 				xid = get_export_id(ulp, subdir);
 				if (!xid) {
 					export_error(LOG_ERR, "unable to get export ID for %s", dirl->dl_dir);
@@ -2787,8 +2914,9 @@ prepare_offline_export:
 					xd->xd_realpath = strdup(dirl->dl_realpath);
 				}
 				if (!xd || !xd->xd_dir || !xd->xd_realpath) {
-					if (xd)
+					if (xd) {
 						free_expdir(xd);
+					}
 					export_error(LOG_ERR, "can't allocate memory for export %s", dirl->dl_dir);
 					export_error_cleanup(xf);
 					goto nextline;
@@ -2802,8 +2930,9 @@ prepare_offline_export:
 				export_error(LOG_ERR, "export option conflict for %s", xd->xd_dir);
 				/* XXX what to do about already successful exports? */
 				hang_options_cleanup(xd);
-				if (cmp)
+				if (cmp) {
 					free_expdir(xd);
+				}
 				export_error_cleanup(xf);
 				goto nextline;
 			}
@@ -2819,15 +2948,16 @@ prepare_offline_export:
 						/* if ENOTSUP report lack of NFS export support */
 						/* if EISDIR report lack of extended readdir support */
 						export_error(LOG_ERR, "kernel export registration failed: "
-							"NFS exporting not supported by fstype \"%s\" (%s)",
-							mountd_statfs(xf->xf_fsdir, &fsb) ? "?" : fsb.f_fstypename,
-							(errno == EISDIR) ? "readdir" : "fh");
+						    "NFS exporting not supported by fstype \"%s\" (%s)",
+						    mountd_statfs(xf->xf_fsdir, &fsb) ? "?" : fsb.f_fstypename,
+						    (errno == EISDIR) ? "readdir" : "fh");
 					} else {
 						export_error(LOG_ERR, "kernel export registration failed");
 					}
 					hang_options_cleanup(xd);
-					if (cmp)
+					if (cmp) {
 						free_expdir(xd);
+					}
 					export_error_cleanup(xf);
 					goto nextline;
 				}
@@ -2840,15 +2970,16 @@ prepare_offline_export:
 			/* add mount subdirectories of this directory */
 			dirl2 = dirl->dl_next;
 			while (dirl2) {
-				if (subdir_check(dirl->dl_dir, dirl2->dl_dir) != 1)
+				if (subdir_check(dirl->dl_dir, dirl2->dl_dir) != 1) {
 					break;
+				}
 				error = hang_options_mountdir(xd, dirl2->dl_dir, opt_flags, tgrp, &secflavs);
 				if (error == EEXIST) {
 					export_error(LOG_WARNING, "mount subdirectory export option conflict for %s",
-						dirl2->dl_dir);
+					    dirl2->dl_dir);
 				} else if (error == ENOMEM) {
 					export_error(LOG_WARNING, "unable to add mount subdirectory for %s, %s",
-						xd->xd_dir, dirl2->dl_dir);
+					    xd->xd_dir, dirl2->dl_dir);
 				}
 				dirl2 = dirl2->dl_next;
 			}
@@ -2868,15 +2999,15 @@ prepare_offline_export:
 					TAILQ_INSERT_HEAD(&xf->xf_dirl, xd, xd_next);
 				}
 			}
-
 		}
 
 		if ((xf->xf_flag & XF_LINKED) == 0) {
 			/* Insert in the list in alphabetical order. */
 			xf3 = NULL;
 			TAILQ_FOREACH(xf2, &xfshead, xf_next) {
-				if (strcmp(xf->xf_fsdir, xf2->xf_fsdir) < 0)
+				if (strcmp(xf->xf_fsdir, xf2->xf_fsdir) < 0) {
 					break;
+				}
 				xf3 = xf2;
 			}
 			if (xf3) {
@@ -2889,14 +3020,17 @@ prepare_offline_export:
 
 		if (export_errors == saved_errors) {
 			/* no errors, clear any previous errors for this entry */
-			if (clear_export_errors(linenum))
+			if (clear_export_errors(linenum)) {
 				log(LOG_WARNING, "exports:%d: export entry OK (previous errors cleared)", linenum);
+			}
 		}
 nextline:
-		if (!TAILQ_EMPTY(&netgroups))
+		if (!TAILQ_EMPTY(&netgroups)) {
 			free_namelist(&netgroups);
-		if (!TAILQ_EMPTY(&names))
+		}
+		if (!TAILQ_EMPTY(&names)) {
 			free_namelist(&names);
+		}
 		if (dirhead) {
 			free_dirlist(dirhead);
 			dirhead = NULL;
@@ -2904,8 +3038,9 @@ nextline:
 		/* release groups */
 		switch (ngrp.gr_type) {
 		case GT_NET:
-			if (ngrp.gr_u.gt_net.nt_name)
+			if (ngrp.gr_u.gt_net.nt_name) {
 				free(ngrp.gr_u.gt_net.nt_name);
+			}
 			break;
 		}
 		while (tgrp) {
@@ -2943,12 +3078,13 @@ exports_read:
 			 */
 			TAILQ_FOREACH_SAFE(xd2, &xd->xd_mountdirs, xd_next, xd3) {
 				TAILQ_FOREACH_SAFE(ht, &xd2->xd_hosts, ht_next, ht2)
-					if (ht->ht_flags & OP_DEL) {
-						TAILQ_REMOVE(&xd2->xd_hosts, ht, ht_next);
-						free_host(ht);
-					}
-				if (xd2->xd_flags & OP_DEL)
+				if (ht->ht_flags & OP_DEL) {
+					TAILQ_REMOVE(&xd2->xd_hosts, ht, ht_next);
+					free_host(ht);
+				}
+				if (xd2->xd_flags & OP_DEL) {
 					xd2->xd_flags = xd2->xd_oflags = 0;
+				}
 				if (!(xd2->xd_flags & OP_DEFEXP) && TAILQ_EMPTY(&xd2->xd_hosts)) {
 					/* No more exports here, delete */
 					TAILQ_REMOVE(&xd->xd_mountdirs, xd2, xd_next);
@@ -2961,10 +3097,10 @@ exports_read:
 			 */
 			TAILQ_INIT(&htfree);
 			TAILQ_FOREACH_SAFE(ht, &xd->xd_hosts, ht_next, ht2)
-				if (ht->ht_flags & OP_DEL) {
-					TAILQ_REMOVE(&xd->xd_hosts, ht, ht_next);
-					TAILQ_INSERT_TAIL(&htfree, ht, ht_next);
-				}
+			if (ht->ht_flags & OP_DEL) {
+				TAILQ_REMOVE(&xd->xd_hosts, ht, ht_next);
+				TAILQ_INSERT_TAIL(&htfree, ht, ht_next);
+			}
 			/*
 			 * Go through htfree and find the groups/addresses
 			 * that are no longer being exported to and place
@@ -3010,13 +3146,16 @@ exports_read:
 					while (a1) {
 						/* scan exports host list for GT_HOSTs w/matching address */
 						TAILQ_FOREACH(ht3, &xd->xd_hosts, ht_next) {
-							if (ht3->ht_grp->gr_type != GT_HOST)
+							if (ht3->ht_grp->gr_type != GT_HOST) {
 								continue;
+							}
 							a2 = ht3->ht_grp->gr_u.gt_hostinfo.h_ailist;
-							while (a2 && addrinfo_cmp(a1, a2))
+							while (a2 && addrinfo_cmp(a1, a2)) {
 								a2 = a2->ai_next;
-							if (a2) /* we found a match */
+							}
+							if (a2) { /* we found a match */
 								break;
+							}
 						}
 						if (!ht3) {
 							/* didn't find address, so "add" it to the array */
@@ -3042,8 +3181,9 @@ exports_read:
 						/* some of the addresses are being exported again */
 						/* we've compacted the list of addresses that aren't */
 						/* and here we will free up the rest of them */
-						if (prea3)
+						if (prea3) {
 							prea3->ai_next = NULL;
+						}
 						freeaddrinfo(a3);
 						/* steal the grp from the host */
 						ht->ht_grp = NULL;
@@ -3070,20 +3210,20 @@ exports_read:
 			}
 			if (tgrp && do_export(NXA_DELETE, xf, xd, tgrp, 0, NULL, NULL, NULL)) {
 				log(LOG_ERR, "kernel export unregistration failed for %s, %s%s",
-					xd->xd_dir, grp_name(tgrp), tgrp->gr_next ? ", ..." : "");
+				    xd->xd_dir, grp_name(tgrp), tgrp->gr_next ? ", ..." : "");
 			}
 			while (tgrp) {
 				grp = tgrp;
 				tgrp = tgrp->gr_next;
 				free_grp(grp);
 			}
-			if ((xd->xd_flags & (OP_DEL|OP_DEFEXP)) == (OP_DEL|OP_DEFEXP)) {
+			if ((xd->xd_flags & (OP_DEL | OP_DEFEXP)) == (OP_DEL | OP_DEFEXP)) {
 				DEBUG(1, "deleting default export for %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
 				/* we need to delete this default export */
 				xd->xd_flags = xd->xd_oflags = 0;
 				if (do_export(NXA_DELETE, xf, xd, NULL, 0, NULL, NULL, NULL)) {
 					log(LOG_ERR, "kernel export unregistration failed for %s,"
-						" default export", xd->xd_dir);
+					    " default export", xd->xd_dir);
 				}
 			}
 			xd3 = TAILQ_NEXT(xd, xd_next);
@@ -3111,8 +3251,9 @@ exports_read:
 		dump_exports();
 	}
 
-	if (!checkexports)
+	if (!checkexports) {
 		uuidlist_save();
+	}
 
 	/*
 	 * If we appear to be having problems resolving host names on startup,
@@ -3123,7 +3264,7 @@ exports_read:
 	 * On subsequent export checks, turn off the recheck timer once we no
 	 * longer need it or the timer expires.
 	 */
-	if (!checkexports && (recheckexports_until == 0)) {	/* first time through... */
+	if (!checkexports && (recheckexports_until == 0)) {     /* first time through... */
 		/* did we have any host names and were any of them problematic? */
 		if (hostnamegoodcount != hostnamecount) {
 			log(LOG_WARNING, "There seem to be problems resolving host names...");
@@ -3142,21 +3283,23 @@ exports_read:
 		}
 	}
 	/* should we be rechecking exports? */
-	if (!checkexports && ((recheckexports_until > 0) || missingexportcount))
+	if (!checkexports && ((recheckexports_until > 0) || missingexportcount)) {
 		recheckexports = 1;
-	else
+	} else {
 		recheckexports = 0;
+	}
 
 	/*
 	 * Now that we've recomputed the export table, obtain / releaes our power
 	 * assertion as necessary.
 	 */
-	if (!checkexports)
+	if (!checkexports) {
 		prevent_idle_sleep_assertion_update(non_loopback_exports);
+	}
 
 	unlock_exports();
 
-	return (export_errors);
+	return export_errors;
 }
 
 /*
@@ -3168,11 +3311,12 @@ get_expfs(void)
 	struct expfs *xf;
 
 	xf = malloc(sizeof(*xf));
-	if (xf == NULL)
-		return (NULL);
+	if (xf == NULL) {
+		return NULL;
+	}
 	memset(xf, 0, sizeof(*xf));
 	TAILQ_INIT(&xf->xf_dirl);
-	return (xf);
+	return xf;
 }
 
 /*
@@ -3184,12 +3328,13 @@ get_expdir(void)
 	struct expdir *xd;
 
 	xd = malloc(sizeof(*xd));
-	if (xd == NULL)
-		return (NULL);
+	if (xd == NULL) {
+		return NULL;
+	}
 	memset(xd, 0, sizeof(*xd));
 	TAILQ_INIT(&xd->xd_hosts);
 	TAILQ_INIT(&xd->xd_mountdirs);
-	return (xd);
+	return xd;
 }
 
 /*
@@ -3199,13 +3344,16 @@ static char unknown_group[] = "unknown group";
 char *
 grp_name(struct grouplist *grp)
 {
-	if (grp->gr_type == GT_NETGROUP)
-		return (grp->gr_u.gt_netgroup);
-	if (grp->gr_type == GT_NET)
-		return (grp->gr_u.gt_net.nt_name);
-	if (grp->gr_type == GT_HOST)
-		return (grp->gr_u.gt_hostinfo.h_name);
-	return (unknown_group);
+	if (grp->gr_type == GT_NETGROUP) {
+		return grp->gr_u.gt_netgroup;
+	}
+	if (grp->gr_type == GT_NET) {
+		return grp->gr_u.gt_net.nt_name;
+	}
+	if (grp->gr_type == GT_HOST) {
+		return grp->gr_u.gt_hostinfo.h_name;
+	}
+	return unknown_group;
 }
 
 /*
@@ -3222,32 +3370,37 @@ grp_addr(struct grouplist *grp)
 	if (grp->gr_type == GT_HOST) {
 		if ((ai = grp->gr_u.gt_hostinfo.h_ailist)) {
 			sinaddr = (ai->ai_family == AF_INET) ?
-				(void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
-				(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
-			if (inet_ntop(ai->ai_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf)))
+			    (void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
+			    (void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+			if (inet_ntop(ai->ai_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf))) {
 				s = grpaddrbuf;
+			}
 		}
 	} else if (grp->gr_type == GT_NET) {
 		sinaddr = (grp->gr_u.gt_net.nt_family == AF_INET) ?
-			(void*)&grp->gr_u.gt_net.nt_net : (void*)&grp->gr_u.gt_net.nt_net6;
-		if (inet_ntop(grp->gr_u.gt_net.nt_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf)))
+		    (void*)&grp->gr_u.gt_net.nt_net : (void*)&grp->gr_u.gt_net.nt_net6;
+		if (inet_ntop(grp->gr_u.gt_net.nt_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf))) {
 			s = grpaddrbuf;
+		}
 	} else if (grp->gr_type == GT_NETGROUP) {
 		s = "";
 	}
 
-	if (!s)
+	if (!s) {
 		s = "???";
-	return (s);
+	}
+	return s;
 }
 
 int
 addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
 {
-	if (a1->ai_family != a2->ai_family)
-		return (a1->ai_family - a2->ai_family);
-	if (a1->ai_addrlen != a2->ai_addrlen)
-		return (a1->ai_addrlen - a2->ai_addrlen);
+	if (a1->ai_family != a2->ai_family) {
+		return a1->ai_family - a2->ai_family;
+	}
+	if (a1->ai_addrlen != a2->ai_addrlen) {
+		return a1->ai_addrlen - a2->ai_addrlen;
+	}
 	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
 }
 
@@ -3262,8 +3415,9 @@ grpcmp(struct grouplist *g1, struct grouplist *g2)
 	int rv;
 
 	rv = g1->gr_type - g2->gr_type;
-	if (rv)
-		return (rv);
+	if (rv) {
+		return rv;
+	}
 	switch (g1->gr_type) {
 	case GT_NETGROUP:
 		rv = strcmp(g1->gr_u.gt_netgroup, g2->gr_u.gt_netgroup);
@@ -3272,45 +3426,52 @@ grpcmp(struct grouplist *g1, struct grouplist *g2)
 		n1 = &g1->gr_u.gt_net;
 		n2 = &g2->gr_u.gt_net;
 		rv = strcmp(n1->nt_name, n2->nt_name);
-		if (rv)
+		if (rv) {
 			break;
+		}
 		rv = n1->nt_family - n2->nt_family;
-		if (rv)
+		if (rv) {
 			break;
+		}
 		if (n1->nt_family == AF_INET) {
 			rv = bcmp(&n1->nt_net, &n2->nt_net, sizeof(n1->nt_net));
-			if (rv)
+			if (rv) {
 				break;
+			}
 			rv = bcmp(&n1->nt_mask, &n2->nt_mask, sizeof(n1->nt_mask));
 		} else if (n1->nt_family == AF_INET6) {
 			rv = bcmp(&n1->nt_net6, &n2->nt_net6, sizeof(n1->nt_net6));
-			if (rv)
+			if (rv) {
 				break;
+			}
 			rv = bcmp(&n1->nt_mask6, &n2->nt_mask6, sizeof(n1->nt_mask6));
 		}
 		break;
 	case GT_HOST:
 		rv = strcmp(g1->gr_u.gt_hostinfo.h_name, g2->gr_u.gt_hostinfo.h_name);
-		if (rv)
+		if (rv) {
 			break;
+		}
 		a1 = g1->gr_u.gt_hostinfo.h_ailist;
 		a2 = g2->gr_u.gt_hostinfo.h_ailist;
 		while (a1 && a2) {
 			rv = addrinfo_cmp(a1, a2);
-			if (rv)
+			if (rv) {
 				break;
+			}
 			a1 = a1->ai_next;
 			a2 = a2->ai_next;
 		}
 		if (!rv && !(!a1 && !a2)) {
-			if (a1)
+			if (a1) {
 				rv = 1;
-			else
+			} else {
 				rv = -1;
+			}
 		}
 		break;
 	}
-	return (rv);
+	return rv;
 }
 
 /*
@@ -3344,15 +3505,17 @@ get_grp(struct grouplist *grptmp)
 
 	if (!cmp) {
 		g->gr_refcnt++;
-		if (config.verbose >= 7)
+		if (config.verbose >= 7) {
 			DEBUG(5, "get_grp: found %p %d %s %s", g, g->gr_refcnt, grp_name(g), grp_addr(g));
+		}
 		g->gr_flags |= grptmp->gr_flags;
 		goto out;
 	}
 
 	g = malloc(sizeof(*g));
-	if (g == NULL)
+	if (g == NULL) {
 		goto out;
+	}
 	memset(g, 0, sizeof(*g));
 	g->gr_refcnt = 1;
 	g->gr_type = grptmp->gr_type;
@@ -3382,23 +3545,27 @@ out:
 		/* free up the contents of grptmp->gr_u */
 		switch (grptmp->gr_type) {
 		case GT_HOST:
-			if (grptmp->gr_u.gt_hostinfo.h_ailist)
+			if (grptmp->gr_u.gt_hostinfo.h_ailist) {
 				freeaddrinfo(grptmp->gr_u.gt_hostinfo.h_ailist);
-			if (grptmp->gr_u.gt_hostinfo.h_name)
+			}
+			if (grptmp->gr_u.gt_hostinfo.h_name) {
 				free(grptmp->gr_u.gt_hostinfo.h_name);
+			}
 			break;
 		case GT_NET:
-			if (grptmp->gr_u.gt_net.nt_name)
+			if (grptmp->gr_u.gt_net.nt_name) {
 				free(grptmp->gr_u.gt_net.nt_name);
+			}
 			break;
 		case GT_NETGROUP:
-			if (grptmp->gr_u.gt_netgroup)
+			if (grptmp->gr_u.gt_netgroup) {
 				free(grptmp->gr_u.gt_netgroup);
+			}
 			break;
 		}
 	}
 
-	return (g);
+	return g;
 }
 
 /*
@@ -3412,31 +3579,39 @@ free_grp(struct grouplist *grp)
 	/* decrement reference count */
 	grp->gr_refcnt--;
 
-	if (config.verbose >= 7)
+	if (config.verbose >= 7) {
 		DEBUG(5, "free_grp: %p %d %s %s", grp, grp->gr_refcnt, grp_name(grp), grp_addr(grp));
+	}
 
-	if (grp->gr_refcnt > 0)
+	if (grp->gr_refcnt > 0) {
 		return;
+	}
 
 	/* remove group from grpcache list */
 	g = &grpcache;
-	while (*g && (*g != grp))
+	while (*g && (*g != grp)) {
 		g = &(*g)->gr_cache;
-	if (*g)
+	}
+	if (*g) {
 		*g = (*g)->gr_cache;
+	}
 
 	/* free up the memory */
 	if (grp->gr_type == GT_HOST) {
-		if (grp->gr_u.gt_hostinfo.h_ailist)
+		if (grp->gr_u.gt_hostinfo.h_ailist) {
 			freeaddrinfo(grp->gr_u.gt_hostinfo.h_ailist);
-		if (grp->gr_u.gt_hostinfo.h_name)
+		}
+		if (grp->gr_u.gt_hostinfo.h_name) {
 			free(grp->gr_u.gt_hostinfo.h_name);
+		}
 	} else if (grp->gr_type == GT_NET) {
-		if (grp->gr_u.gt_net.nt_name)
+		if (grp->gr_u.gt_net.nt_name) {
 			free(grp->gr_u.gt_net.nt_name);
+		}
 	} else if (grp->gr_type == GT_NETGROUP) {
-		if (grp->gr_u.gt_netgroup)
+		if (grp->gr_u.gt_netgroup) {
 			free(grp->gr_u.gt_netgroup);
+		}
 	}
 	free((caddr_t)grp);
 }
@@ -3458,9 +3633,10 @@ add_grp(struct grouplist **glp, struct grouplist *newg)
 	}
 	if (!cmp) {
 		/* already in list, make sure SHOW bit is set */
-		if (newg->gr_flags & GF_SHOW)
+		if (newg->gr_flags & GF_SHOW) {
 			g1->gr_flags |= GF_SHOW;
-		return (0);
+		}
+		return 0;
 	}
 	if (g2) {
 		newg->gr_next = g2->gr_next;
@@ -3469,7 +3645,7 @@ add_grp(struct grouplist **glp, struct grouplist *newg)
 		newg->gr_next = *glp;
 		*glp = newg;
 	}
-	return (1);
+	return 1;
 }
 
 /*
@@ -3484,19 +3660,22 @@ add_host(struct hosttqh *head, struct host *newht)
 	int cmp = 1;
 
 	TAILQ_FOREACH(ht, head, ht_next)
-		if ((cmp = grpcmp(newht->ht_grp, ht->ht_grp)) <= 0)
-			break;
+	if ((cmp = grpcmp(newht->ht_grp, ht->ht_grp)) <= 0) {
+		break;
+	}
 	if (!cmp && !(ht->ht_flags & OP_DEL)) {
 		/* already in list, make sure SHOW bit is set */
-		if (newht->ht_flags & OP_SHOW)
+		if (newht->ht_flags & OP_SHOW) {
 			ht->ht_flags |= OP_SHOW;
-		return (0);
+		}
+		return 0;
 	}
-	if (ht)
+	if (ht) {
 		TAILQ_INSERT_BEFORE(ht, newht, ht_next);
-	else
+	} else {
 		TAILQ_INSERT_TAIL(head, newht, ht_next);
-	return (1);
+	}
+	return 1;
 }
 
 /*
@@ -3520,19 +3699,22 @@ export_error(int level, const char *fmt, ...)
 
 	/* check if we've already logged this error */
 	LIST_FOREACH(el, &xerrs, el_next) {
-		if (linenum < el->el_linenum)
+		if (linenum < el->el_linenum) {
 			continue;
+		}
 		if (linenum > el->el_linenum) {
 			el = NULL;
 			break;
 		}
-		if (!strcmp(el->el_msg, s))
+		if (!strcmp(el->el_msg, s)) {
 			break;
+		}
 	}
 
 	/* log the message if we haven't already */
-	if (!el)
+	if (!el) {
 		log(level, "exports:%d: %s", linenum, s);
+	}
 
 	/* add this error to the list */
 	elnew = malloc(sizeof(*elnew));
@@ -3544,14 +3726,16 @@ export_error(int level, const char *fmt, ...)
 	elnew->el_msg = s;
 	elp = NULL;
 	LIST_FOREACH(el, &xerrs, el_next) {
-		if (linenum < el->el_linenum)
+		if (linenum < el->el_linenum) {
 			break;
+		}
 		elp = el;
 	}
-	if (elp)
+	if (elp) {
 		LIST_INSERT_AFTER(elp, elnew, el_next);
-	else
+	} else {
 		LIST_INSERT_HEAD(&xerrs, elnew, el_next);
+	}
 }
 
 /*
@@ -3565,19 +3749,22 @@ clear_export_errors(uint32_t linenum)
 
 	LIST_FOREACH_SAFE(el, &xerrs, el_next, elnext) {
 		if (linenum) {
-			if (linenum < el->el_linenum)
+			if (linenum < el->el_linenum) {
 				break;
-			if (linenum > el->el_linenum)
+			}
+			if (linenum > el->el_linenum) {
 				continue;
+			}
 		}
 		cleared = 1;
 		LIST_REMOVE(el, el_next);
-		if (el->el_msg)
+		if (el->el_msg) {
 			free(el->el_msg);
+		}
 		free(el);
 	}
 
-	return (cleared);
+	return cleared;
 }
 
 /*
@@ -3586,8 +3773,9 @@ clear_export_errors(uint32_t linenum)
 void
 export_error_cleanup(struct expfs *xf)
 {
-	if (xf && (xf->xf_flag & XF_LINKED) == 0)
+	if (xf && (xf->xf_flag & XF_LINKED) == 0) {
 		free_expfs(xf);
+	}
 }
 
 /*
@@ -3599,10 +3787,11 @@ ex_search(u_char *uuid)
 	struct expfs *xf;
 
 	TAILQ_FOREACH(xf, &xfshead, xf_next) {
-		if (!bcmp(xf->xf_uuid, uuid, 16))
-			return (xf);
+		if (!bcmp(xf->xf_uuid, uuid, 16)) {
+			return xf;
+		}
 	}
-	return (xf);
+	return xf;
 }
 
 /*
@@ -3618,8 +3807,8 @@ int
 add_dir(struct dirlist **dlpp, char *cp)
 {
 	struct dirlist *newdl, *dl, *dl2, *dl3, *dlstop;
-    size_t cplen, dlen;
-    int cmp;
+	size_t cplen, dlen;
+	int cmp;
 
 	dlstop = NULL;
 	dl2 = NULL;
@@ -3630,11 +3819,13 @@ add_dir(struct dirlist **dlpp, char *cp)
 		dlen = strlen(dl->dl_dir);
 		cmp = strncmp(cp, dl->dl_dir, dlen);
 		DEBUG(3, "add_dir: %s compare %s %d", cp, dl->dl_dir, cmp);
-		if (cmp < 0)
+		if (cmp < 0) {
 			break;
+		}
 		if (cmp == 0) {
-			if (cplen == dlen) /* duplicate */
-				return (EEXIST);
+			if (cplen == dlen) { /* duplicate */
+				return EEXIST;
+			}
 			if (cp[dlen] == '/') {
 				/*
 				 * Find the next entry that isn't a
@@ -3643,43 +3834,45 @@ add_dir(struct dirlist **dlpp, char *cp)
 				 * the insertion point.
 				 */
 				DEBUG(3, "add_dir: %s compare %s %d subdir match",
-					cp, dl->dl_dir, cmp);
+				    cp, dl->dl_dir, cmp);
 				dlstop = dl->dl_next;
-				while (dlstop && (subdir_check(dl->dl_dir, dlstop->dl_dir) == 1))
+				while (dlstop && (subdir_check(dl->dl_dir, dlstop->dl_dir) == 1)) {
 					dlstop = dlstop->dl_next;
+				}
 			} else {
 				/*
 				 * The new dir should go after this directory and
 				 * its subdirectories.  So, skip subdirs of this dir.
 				 */
 				DEBUG(3, "add_dir: %s compare %s %d partial match",
-					cp, dl->dl_dir, cmp);
+				    cp, dl->dl_dir, cmp);
 				dl3 = dl;
 				dl2 = dl;
 				dl = dl->dl_next;
 				while (dl && (subdir_check(dl3->dl_dir, dl->dl_dir) == 1)) {
 					dl2 = dl;
 					dl = dl->dl_next;
-					}
+				}
 				continue;
 			}
 		}
 		dl2 = dl;
 		dl = dl->dl_next;
 	}
-	if (dl && (dl == dlstop))
+	if (dl && (dl == dlstop)) {
 		DEBUG(3, "add_dir: %s stopped before %s", cp, dlstop->dl_dir);
+	}
 	newdl = malloc(sizeof(*dl));
 	if (newdl == NULL) {
 		log(LOG_ERR, "can't allocate memory to add dir %s", cp);
-		return (ENOMEM);
+		return ENOMEM;
 	}
 	newdl->dl_dir = cp;
 	newdl->dl_realpath = mountd_realpath(cp, NULL);
 	if (newdl->dl_realpath == NULL) {
 		log(LOG_ERR, "can't get physical path for %s", cp);
 		free(newdl);
-		return (ENOMEM);
+		return ENOMEM;
 	}
 	if (dl2 == NULL) {
 		newdl->dl_next = *dlpp;
@@ -3692,11 +3885,11 @@ add_dir(struct dirlist **dlpp, char *cp)
 		dl = *dlpp;
 		while (dl) {
 			DEBUG(4, "DIRLIST: %s (%s)", dl->dl_dir,
-			      dl->dl_realpath);
+			    dl->dl_realpath);
 			dl = dl->dl_next;
 		}
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -3709,10 +3902,12 @@ free_dirlist(struct dirlist *dl)
 
 	while (dl) {
 		dl2 = dl->dl_next;
-		if (dl->dl_dir)
+		if (dl->dl_dir) {
 			free(dl->dl_dir);
-		if (dl->dl_realpath)
+		}
+		if (dl->dl_realpath) {
 			free(dl->dl_realpath);
+		}
 		free(dl);
 		dl = dl2;
 	}
@@ -3729,18 +3924,20 @@ add_name(struct namelisttqh *names, char *name)
 	struct namelist *nl;
 
 	TAILQ_FOREACH(nl, names, nl_next)
-		if (!strcmp(nl->nl_name, name))
-			return (-1);
+	if (!strcmp(nl->nl_name, name)) {
+		return -1;
+	}
 	nl = malloc(sizeof(*nl));
-	if (!nl)
-		return (ENOMEM);
+	if (!nl) {
+		return ENOMEM;
+	}
 	nl->nl_name = strdup(name);
 	if (!nl->nl_name) {
 		free(nl);
-		return (ENOMEM);
+		return ENOMEM;
 	}
 	TAILQ_INSERT_TAIL(names, nl, nl_next);
-	return (0);
+	return 0;
 }
 
 /*
@@ -3753,8 +3950,9 @@ free_namelist(struct namelisttqh *names)
 
 	TAILQ_FOREACH_SAFE(nl, names, nl_next, nlnext) {
 		TAILQ_REMOVE(names, nl, nl_next);
-		if (nl->nl_name)
+		if (nl->nl_name) {
 			free(nl->nl_name);
+		}
 		free(nl);
 	}
 }
@@ -3768,9 +3966,10 @@ find_group_match_in_host_list(struct hosttqh *head, struct grouplist *grp)
 	struct host *ht;
 
 	TAILQ_FOREACH(ht, head, ht_next)
-		if (!grpcmp(grp, ht->ht_grp))
-			break;
-	return (ht);
+	if (!grpcmp(grp, ht->ht_grp)) {
+		break;
+	}
+	return ht;
 }
 
 /*
@@ -3789,14 +3988,17 @@ find_group_address_match_in_host_list(struct hosttqh *head, struct grouplist *gr
 		a1 = grp->gr_u.gt_hostinfo.h_ailist;
 		while (a1) {
 			TAILQ_FOREACH(ht, head, ht_next) {
-				if (ht->ht_grp->gr_type != GT_HOST)
+				if (ht->ht_grp->gr_type != GT_HOST) {
 					continue;
-				if (ht->ht_flags & OP_DEL)
+				}
+				if (ht->ht_flags & OP_DEL) {
 					continue;
+				}
 				a2 = ht->ht_grp->gr_u.gt_hostinfo.h_ailist;
 				while (a2) {
-					if (!addrinfo_cmp(a1, a2))
-						return (ht);
+					if (!addrinfo_cmp(a1, a2)) {
+						return ht;
+					}
 					a2 = a2->ai_next;
 				}
 			}
@@ -3806,33 +4008,38 @@ find_group_address_match_in_host_list(struct hosttqh *head, struct grouplist *gr
 	case GT_NET:
 		n1 = &grp->gr_u.gt_net;
 		TAILQ_FOREACH(ht, head, ht_next) {
-			if (ht->ht_grp->gr_type != GT_NET)
+			if (ht->ht_grp->gr_type != GT_NET) {
 				continue;
-			if (ht->ht_flags & OP_DEL)
+			}
+			if (ht->ht_flags & OP_DEL) {
 				continue;
+			}
 			n2 = &ht->ht_grp->gr_u.gt_net;
-			if (n1->nt_family != n2->nt_family)
+			if (n1->nt_family != n2->nt_family) {
 				continue;
+			}
 			if (n1->nt_family == AF_INET) {
 				in_addr_t ina1, ina2;
 				ina1 = n1->nt_net & n1->nt_mask;
 				ina2 = n2->nt_net & n2->nt_mask;
-				if (ina1 == ina2)
-					return (ht);
+				if (ina1 == ina2) {
+					return ht;
+				}
 			} else if (n1->nt_family == AF_INET6) {
 				struct in6_addr ina1, ina2;
-				for (i=0; i < (int)sizeof(ina1.s6_addr); i++) {
+				for (i = 0; i < (int)sizeof(ina1.s6_addr); i++) {
 					ina1.s6_addr[i] = n1->nt_net6.s6_addr[i] & n1->nt_mask6.s6_addr[i];
 					ina2.s6_addr[i] = n2->nt_net6.s6_addr[i] & n2->nt_mask6.s6_addr[i];
 				}
-				if (!bcmp(&ina1, &ina2, sizeof(ina1)))
-					return (ht);
+				if (!bcmp(&ina1, &ina2, sizeof(ina1))) {
+					return ht;
+				}
 			}
 		}
 		break;
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -3843,19 +4050,25 @@ crcmp(struct xucred *cr1, struct xucred *cr2)
 {
 	int i;
 
-	if (cr1 == cr2)
+	if (cr1 == cr2) {
 		return 0;
-	if (cr1 == NULL || cr2 == NULL)
+	}
+	if (cr1 == NULL || cr2 == NULL) {
 		return 1;
-	if (cr1->cr_uid != cr2->cr_uid)
+	}
+	if (cr1->cr_uid != cr2->cr_uid) {
 		return 1;
-	if (cr1->cr_ngroups != cr2->cr_ngroups)
+	}
+	if (cr1->cr_ngroups != cr2->cr_ngroups) {
 		return 1;
+	}
 	/* XXX assumes groups will always be listed in some order */
-	for (i=0; i < cr1->cr_ngroups; i++)
-		if (cr1->cr_groups[i] != cr2->cr_groups[i])
+	for (i = 0; i < cr1->cr_ngroups; i++) {
+		if (cr1->cr_groups[i] != cr2->cr_groups[i]) {
 			return 1;
-	return (0);
+		}
+	}
+	return 0;
 }
 
 /*
@@ -3863,7 +4076,7 @@ crcmp(struct xucred *cr1, struct xucred *cr2)
  */
 int
 hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct grouplist *grp,
-		   struct nfs_sec *secflavs, int *need_export)
+    struct nfs_sec *secflavs, int *need_export)
 {
 	struct host *ht;
 
@@ -3874,26 +4087,28 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 		if (xd->xd_flags & OP_DEFEXP) {
 			/* exported directory already has default export! */
 			if ((OP_EXOPTS(xd->xd_flags) == OP_EXOPTS(opt_flags)) &&
-			    (!(opt_flags & (OP_MAPALL|OP_MAPROOT)) || !crcmp(&xd->xd_cred, cr)) &&
+			    (!(opt_flags & (OP_MAPALL | OP_MAPROOT)) || !crcmp(&xd->xd_cred, cr)) &&
 			    (!cmp_secflavs(&xd->xd_sec, secflavs))) {
-				if (!(xd->xd_flags & OP_DEL))
+				if (!(xd->xd_flags & OP_DEL)) {
 					log(LOG_WARNING, "duplicate default export for %s", xd->xd_dir);
+				}
 				xd->xd_flags &= ~OP_EXOPTMASK;
 				xd->xd_flags |= opt_flags | OP_DEFEXP | OP_ADD;
-				return (0);
+				return 0;
 			} else if (!(xd->xd_flags & OP_DEL)) {
 				log(LOG_ERR, "multiple/conflicting default exports for %s", xd->xd_dir);
-				return (EEXIST);
+				return EEXIST;
 			}
 		}
 		xd->xd_flags &= ~OP_EXOPTMASK;
 		xd->xd_flags |= opt_flags | OP_DEFEXP | OP_ADD;
-		if (cr)
+		if (cr) {
 			xd->xd_cred = *cr;
+		}
 		bcopy(secflavs, &xd->xd_sec, sizeof(struct nfs_sec));
 		DEBUG(3, "hang_options_setup: %s default 0x%x", xd->xd_dir, xd->xd_flags);
 		*need_export = 1;
-		return (0);
+		return 0;
 	}
 
 	while (grp) {
@@ -3902,14 +4117,16 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) == OP_EXOPTS(opt_flags)) &&
-			    (!(opt_flags & (OP_MAPALL|OP_MAPROOT)) || !crcmp(&ht->ht_cred, cr)) &&
+			    (!(opt_flags & (OP_MAPALL | OP_MAPROOT)) || !crcmp(&ht->ht_cred, cr)) &&
 			    (!cmp_secflavs(&ht->ht_sec, secflavs))) {
 				/* options match, OK, it's the same export */
-				if (!(ht->ht_flags & OP_ADD) && !(grp->gr_flags & GF_SHOW))
+				if (!(ht->ht_flags & OP_ADD) && !(grp->gr_flags & GF_SHOW)) {
 					ht->ht_flags &= ~OP_SHOW;
+				}
 				ht->ht_flags |= OP_ADD;
-				if (grp->gr_flags & GF_SHOW)
+				if (grp->gr_flags & GF_SHOW) {
 					ht->ht_flags |= OP_SHOW;
+				}
 				grp = grp->gr_next;
 				continue;
 			}
@@ -3917,7 +4134,7 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 			if (!(ht->ht_flags & OP_DEL)) {
 				/* this is a new entry, so this is a conflict */
 				log(LOG_ERR, "conflicting exports for %s, %s", xd->xd_dir, grp_name(grp));
-				return (EEXIST);
+				return EEXIST;
 			}
 			/* this entry is marked for deletion, so there is no conflict */
 			/* go ahead and add a new entry with the new options */
@@ -3927,15 +4144,15 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) != OP_EXOPTS(opt_flags)) ||
-			    ((opt_flags & (OP_MAPALL|OP_MAPROOT)) && crcmp(&ht->ht_cred, cr)) ||
+			    ((opt_flags & (OP_MAPALL | OP_MAPROOT)) && crcmp(&ht->ht_cred, cr)) ||
 			    (cmp_secflavs(&ht->ht_sec, secflavs))) {
 				/* ...with different options */
 				log(LOG_ERR, "conflicting exports for %s, %s", xd->xd_dir, grp_name(grp));
-				return (EEXIST);
+				return EEXIST;
 			}
 			/* ... with same options */
 			log(LOG_WARNING, "duplicate export for %s, %s vs. %s", xd->xd_dir,
-				grp_name(grp), grp_name(ht->ht_grp));
+			    grp_name(grp), grp_name(ht->ht_grp));
 			grp = grp->gr_next;
 			continue;
 		}
@@ -3943,29 +4160,31 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 		ht = get_host();
 		if (!ht) {
 			log(LOG_ERR, "Can't allocate memory for host: %s", grp_name(grp));
-			return(ENOMEM);
+			return ENOMEM;
 		}
 		ht->ht_flags = opt_flags | OP_ADD;
 		ht->ht_cred = *cr;
 		ht->ht_grp = grp;
 		grp->gr_refcnt++;
 		bcopy(secflavs, &ht->ht_sec, sizeof(struct nfs_sec));
-		if (grp->gr_flags & GF_SHOW)
+		if (grp->gr_flags & GF_SHOW) {
 			ht->ht_flags |= OP_SHOW;
-		if (config.verbose >= 6)
+		}
+		if (config.verbose >= 6) {
 			DEBUG(4, "grp2host: %p %d %s %s", grp, grp->gr_refcnt, grp_name(grp), grp_addr(grp));
+		}
 		if (!add_host(&xd->xd_hosts, ht)) {
 			/* This shouldn't happen given the above checks */
 			log(LOG_ERR, "duplicate host in export list: %s", grp_name(grp));
 			free_host(ht);
-			return (EEXIST);
+			return EEXIST;
 		}
 		*need_export = 1;
 		DEBUG(3, "hang_options_setup: %s %s 0x%x", xd->xd_dir, grp_name(grp), opt_flags);
 		grp = grp->gr_next;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -3978,9 +4197,9 @@ hang_options_finalize(struct expdir *xd)
 	struct expdir *mxd;
 
 	if (xd->xd_flags & OP_ADD) {
-		xd->xd_iflags |= (xd->xd_flags & (OP_OFFLINE|OP_MISSING)) ? OP_OFFLINE : OP_ONLINE;
+		xd->xd_iflags |= (xd->xd_flags & (OP_OFFLINE | OP_MISSING)) ? OP_OFFLINE : OP_ONLINE;
 		merge_secflavs(&xd->xd_ssec, &xd->xd_sec);
-		xd->xd_flags &= ~(OP_ADD|OP_DEL);
+		xd->xd_flags &= ~(OP_ADD | OP_DEL);
 		/* update old options in case subsequent export fails */
 		xd->xd_oflags = xd->xd_flags;
 		xd->xd_ocred = xd->xd_cred;
@@ -3988,10 +4207,11 @@ hang_options_finalize(struct expdir *xd)
 	}
 
 	TAILQ_FOREACH(ht, &xd->xd_hosts, ht_next) {
-		if (!(ht->ht_flags & OP_ADD))
+		if (!(ht->ht_flags & OP_ADD)) {
 			continue;
-		ht->ht_flags &= ~(OP_ADD|OP_DEL);
-		xd->xd_iflags |= (ht->ht_flags & (OP_OFFLINE|OP_MISSING)) ? OP_OFFLINE : OP_ONLINE;
+		}
+		ht->ht_flags &= ~(OP_ADD | OP_DEL);
+		xd->xd_iflags |= (ht->ht_flags & (OP_OFFLINE | OP_MISSING)) ? OP_OFFLINE : OP_ONLINE;
 		merge_secflavs(&xd->xd_ssec, &ht->ht_sec);
 	}
 
@@ -4015,8 +4235,9 @@ hang_options_cleanup(struct expdir *xd)
 	}
 
 	TAILQ_FOREACH_SAFE(ht, &xd->xd_hosts, ht_next, htnext) {
-		if (!(ht->ht_flags & OP_ADD))
+		if (!(ht->ht_flags & OP_ADD)) {
 			continue;
+		}
 		if (ht->ht_flags & OP_DEL) {
 			ht->ht_flags &= ~OP_ADD;
 			continue;
@@ -4062,10 +4283,11 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 			mxd->xd_realpath = mountd_realpath(dir, NULL);
 		}
 		if (!mxd || !mxd->xd_dir || !mxd->xd_realpath) {
-			if (mxd)
+			if (mxd) {
 				free_expdir(mxd);
+			}
 			log(LOG_ERR, "can't allocate memory for mountable sub-directory; %s", dir);
-			return (ENOMEM);
+			return ENOMEM;
 		}
 		if (mxd3) {
 			TAILQ_INSERT_AFTER(&xd->xd_mountdirs, mxd3, mxd, xd_next);
@@ -4079,23 +4301,24 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 		if (mxd->xd_flags & OP_DEFEXP) {
 			/* exported directory already has default export! */
 			if ((OP_EXOPTS(mxd->xd_flags) == OP_EXOPTS(opt_flags)) &&
-			   (!cmp_secflavs(&mxd->xd_sec, secflavs))) {
-				if (!(mxd->xd_flags & OP_DEL))
+			    (!cmp_secflavs(&mxd->xd_sec, secflavs))) {
+				if (!(mxd->xd_flags & OP_DEL)) {
 					log(LOG_WARNING, "duplicate default export for %s", mxd->xd_dir);
+				}
 				mxd->xd_flags &= ~OP_EXOPTMASK;
 				mxd->xd_flags |= opt_flags | OP_DEFEXP | OP_ADD;
-				return (0);
+				return 0;
 			} else if (!(mxd->xd_flags & OP_DEL)) {
 				log(LOG_ERR, "multiple/conflicting default exports for %s", mxd->xd_dir);
-				return (EEXIST);
+				return EEXIST;
 			}
 		}
 		mxd->xd_flags &= ~OP_EXOPTMASK;
 		mxd->xd_flags |= opt_flags | OP_DEFEXP | OP_ADD;
 		bcopy(secflavs, &mxd->xd_sec, sizeof(struct nfs_sec));
 		DEBUG(3, "hang_options_mountdir: %s default 0x%x",
-			mxd->xd_dir, mxd->xd_flags);
-		return (0);
+		    mxd->xd_dir, mxd->xd_flags);
+		return 0;
 	}
 
 	while (grp) {
@@ -4104,7 +4327,7 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) == OP_EXOPTS(opt_flags)) &&
-			   (!cmp_secflavs(&ht->ht_sec, secflavs))) {
+			    (!cmp_secflavs(&ht->ht_sec, secflavs))) {
 				/* options match, OK, it's the same export */
 				ht->ht_flags |= OP_ADD;
 				grp = grp->gr_next;
@@ -4114,8 +4337,8 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 			if (!(ht->ht_flags & OP_DEL)) {
 				/* this is a new entry, so this is a conflict */
 				log(LOG_ERR, "conflicting mountdir exports for %s, %s",
-					mxd->xd_dir, grp_name(grp));
-				return (EEXIST);
+				    mxd->xd_dir, grp_name(grp));
+				return EEXIST;
 			}
 			/* this entry is marked for deletion, so there is no conflict */
 			/* go ahead and add a new entry with the new options */
@@ -4125,15 +4348,15 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 		if (ht) {
 			/* found a match... */
 			if ((OP_EXOPTS(ht->ht_flags) != OP_EXOPTS(opt_flags)) ||
-			   (cmp_secflavs(&ht->ht_sec, secflavs))) {
+			    (cmp_secflavs(&ht->ht_sec, secflavs))) {
 				/* ...with different options */
 				log(LOG_ERR, "conflicting mountdir exports for %s, %s",
-					mxd->xd_dir, grp_name(grp));
-				return (EEXIST);
+				    mxd->xd_dir, grp_name(grp));
+				return EEXIST;
 			}
 			/* ... with same options */
 			log(LOG_WARNING, "duplicate mountdir export for %s, %s vs. %s",
-				mxd->xd_dir, grp_name(grp), grp_name(ht->ht_grp));
+			    mxd->xd_dir, grp_name(grp), grp_name(ht->ht_grp));
 			grp = grp->gr_next;
 			continue;
 		}
@@ -4141,28 +4364,30 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 		ht = get_host();
 		if (!ht) {
 			log(LOG_ERR, "Can't allocate memory for host: %s", grp_name(grp));
-			return(ENOMEM);
+			return ENOMEM;
 		}
 		ht->ht_flags = opt_flags | OP_ADD;
 		ht->ht_grp = grp;
 		grp->gr_refcnt++;
 		bcopy(secflavs, &ht->ht_sec, sizeof(struct nfs_sec));
-		if (grp->gr_flags & GF_SHOW)
+		if (grp->gr_flags & GF_SHOW) {
 			ht->ht_flags |= OP_SHOW;
-		if (config.verbose >= 6)
+		}
+		if (config.verbose >= 6) {
 			DEBUG(4, "grp2host: %p %d %s %s", grp, grp->gr_refcnt, grp_name(grp), grp_addr(grp));
+		}
 		if (!add_host(&mxd->xd_hosts, ht)) {
 			/* This shouldn't happen given the above checks */
 			log(LOG_ERR, "Can't add host to mountdir export list: %s", grp_name(grp));
 			free_host(ht);
-			return (EEXIST);
+			return EEXIST;
 		}
 		DEBUG(3, "hang_options_mountdir: %s %s 0x%x",
-			mxd->xd_dir, grp_name(grp), opt_flags);
+		    mxd->xd_dir, grp_name(grp), opt_flags);
 		grp = grp->gr_next;
 	}
 
-	return (0);
+	return 0;
 }
 
 /*
@@ -4185,12 +4410,13 @@ expdir_search(struct expfs *xf, char *dirpath, struct sockaddr *sa, int *options
 	int cmp = 1, chkalldirs = 0;
 
 	TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
-		if ((cmp = subdir_check(xd->xd_realpath, dirpath)) >= 0)
+		if ((cmp = subdir_check(xd->xd_realpath, dirpath)) >= 0) {
 			break;
+		}
 	}
 	if (!xd) {
 		DEBUG(1, "expdir_search: no matching export: %s", dirpath);
-		return (0);
+		return 0;
 	}
 
 	DEBUG(1, "expdir_search: %s -> %s", dirpath, xd->xd_realpath);
@@ -4202,47 +4428,48 @@ check_xd_hosts:
 		hp = find_host(&xd->xd_hosts, sa);
 		if (hp && (!chkalldirs || (hp->ht_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s host %s", dirpath,
-				(chkalldirs ? "alldirs" : "match"));
+			    (chkalldirs ? "alldirs" : "match"));
 			*options = hp->ht_flags;
 			bcopy(&hp->ht_sec, secflavs, sizeof(struct nfs_sec));
 		} else if ((xd->xd_flags & OP_DEFEXP) &&
-		           (!chkalldirs || (xd->xd_flags & OP_ALLDIRS))) {
+		    (!chkalldirs || (xd->xd_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s defexp %s",
-				dirpath, (chkalldirs ? "alldirs" : "match"));
+			    dirpath, (chkalldirs ? "alldirs" : "match"));
 			*options = xd->xd_flags;
 			bcopy(&xd->xd_sec, secflavs, sizeof(struct nfs_sec));
 		} else {
 			/* not exported to this host */
 			*options = 0;
 			DEBUG(2, "expdir_search: %s NO match", dirpath);
-			return (0);
+			return 0;
 		}
-		return (1);
+		return 1;
 	}
 
 	/* search for a matching mountdir */
 	TAILQ_FOREACH(mxd, &xd->xd_mountdirs, xd_next) {
 		cmp = subdir_check(mxd->xd_realpath, dirpath);
-		if (cmp < 0)
+		if (cmp < 0) {
 			continue;
+		}
 		DEBUG(1, "expdir_search: %s subdir path match %s",
-			dirpath, mxd->xd_dir);
+		    dirpath, mxd->xd_dir);
 		chkalldirs = (cmp != 0);
 		/* found a match on a mountdir */
 		hp = find_host(&mxd->xd_hosts, sa);
 		if (hp && (!chkalldirs || (hp->ht_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s -> %s subdir host %s",
-				dirpath, mxd->xd_dir, (chkalldirs ? "alldirs" : "match"));
+			    dirpath, mxd->xd_dir, (chkalldirs ? "alldirs" : "match"));
 			*options = hp->ht_flags;
 			bcopy(&hp->ht_sec, secflavs, sizeof(struct nfs_sec));
-			return (1);
+			return 1;
 		} else if ((mxd->xd_flags & OP_DEFEXP) &&
-			   (!chkalldirs || (mxd->xd_flags & OP_ALLDIRS))) {
+		    (!chkalldirs || (mxd->xd_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s -> %s subdir defexp %s",
-				dirpath, mxd->xd_dir, (chkalldirs ? "alldirs" : "match"));
+			    dirpath, mxd->xd_dir, (chkalldirs ? "alldirs" : "match"));
 			*options = mxd->xd_flags;
 			bcopy(&mxd->xd_sec, secflavs, sizeof(struct nfs_sec));
-			return (1);
+			return 1;
 		}
 		/* not exported to this host */
 	}
@@ -4268,45 +4495,53 @@ find_host(struct hosttqh *head, struct sockaddr *sa)
 		switch (grp->gr_type) {
 		case GT_HOST:
 			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next) {
-				if (ai->ai_family != sa->sa_family)
+				if (ai->ai_family != sa->sa_family) {
 					continue;
-				if (ai->ai_addrlen != sa->sa_len)
+				}
+				if (ai->ai_addrlen != sa->sa_len) {
 					continue;
+				}
 				if (ai->ai_family == AF_INET) {
 					struct sockaddr_in *sin1, *sin2;
 					sin1 = (struct sockaddr_in*) AOK ai->ai_addr;
 					sin2 = (struct sockaddr_in*) AOK sa;
-					if (!bcmp(&sin1->sin_addr, &sin2->sin_addr, sizeof(sin1->sin_addr)))
-						return (hp);
+					if (!bcmp(&sin1->sin_addr, &sin2->sin_addr, sizeof(sin1->sin_addr))) {
+						return hp;
+					}
 				} else if (ai->ai_family == AF_INET6) {
 					struct sockaddr_in6 *sin1, *sin2;
 					sin1 = (struct sockaddr_in6*) AOK ai->ai_addr;
 					sin2 = (struct sockaddr_in6*) AOK sa;
-					if (!bcmp(&sin1->sin6_addr, &sin2->sin6_addr, sizeof(sin1->sin6_addr)))
-						return (hp);
+					if (!bcmp(&sin1->sin6_addr, &sin2->sin6_addr, sizeof(sin1->sin6_addr))) {
+						return hp;
+					}
 				}
 			}
 			break;
 		case GT_NET:
-			if (grp->gr_u.gt_net.nt_family != sa->sa_family)
+			if (grp->gr_u.gt_net.nt_family != sa->sa_family) {
 				break;
+			}
 			if (grp->gr_u.gt_net.nt_family == AF_INET) {
 				in_addr_t ina = ((struct sockaddr_in*) AOK sa)->sin_addr.s_addr;
-				if ((ina & grp->gr_u.gt_net.nt_mask) == grp->gr_u.gt_net.nt_net)
-					return (hp);
+				if ((ina & grp->gr_u.gt_net.nt_mask) == grp->gr_u.gt_net.nt_net) {
+					return hp;
+				}
 			} else if (grp->gr_u.gt_net.nt_family == AF_INET6) {
 				struct sockaddr_in6 *sa6 = (struct sockaddr_in6*) AOK sa;
 				struct in6_addr ina;
-				for (i=0; i < (int)sizeof(ina.s6_addr); i++)
+				for (i = 0; i < (int)sizeof(ina.s6_addr); i++) {
 					ina.s6_addr[i] = sa6->sin6_addr.s6_addr[i] & grp->gr_u.gt_net.nt_mask6.s6_addr[i];
-				if (!bcmp(&ina, &grp->gr_u.gt_net.nt_net6, sizeof(ina)))
-					return (hp);
+				}
+				if (!bcmp(&ina, &grp->gr_u.gt_net.nt_net6, sizeof(ina))) {
+					return hp;
+				}
 			}
 			break;
 		}
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -4316,18 +4551,18 @@ find_host(struct hosttqh *head, struct sockaddr *sa)
  */
 int
 do_opt( char **cpp,
-	char **endcpp,
-	struct grouplist *ngrp,
-	int *hostcountp,
-	int *opt_flagsp,
-	int *exflagsp,
-	struct xucred *cr,
-	struct nfs_sec *sec_flavs,
-	char *fspath,
-	u_char *fsuuid)
+    char **endcpp,
+    struct grouplist *ngrp,
+    int *hostcountp,
+    int *opt_flagsp,
+    int *exflagsp,
+    struct xucred *cr,
+    struct nfs_sec *sec_flavs,
+    char *fspath,
+    u_char *fsuuid)
 {
 	char *cpoptarg = NULL, *cpoptend = NULL;
-    char *cp, *endcp = NULL, *cpopt, *cpu, savedc, savedc2 = '\0', savedc3 = '\0';
+	char *cp, *endcp = NULL, *cpopt, *cpu, savedc, savedc2 = '\0', savedc3 = '\0';
 	int mapallflag, usedarg;
 	int i, rv = 0;
 	size_t len;
@@ -4366,8 +4601,8 @@ do_opt( char **cpp,
 			*exflagsp |= NX_READONLY;
 			*opt_flagsp |= OP_READONLY;
 		} else if (cpoptarg && (!strcmp(cpopt, "maproot") ||
-			!(mapallflag = strcmp(cpopt, "mapall")) ||
-			!strcmp(cpopt, "root") || !strcmp(cpopt, "r"))) {
+		    !(mapallflag = strcmp(cpopt, "mapall")) ||
+		    !strcmp(cpopt, "root") || !strcmp(cpopt, "r"))) {
 			usedarg++;
 			rv = parsecred(cpoptarg, cr);
 			if (rv) {
@@ -4381,7 +4616,7 @@ do_opt( char **cpp,
 				*opt_flagsp |= OP_MAPROOT;
 			}
 		} else if (cpoptarg && (!strcmp(cpopt, "mask") ||
-			!strcmp(cpopt, "m"))) {
+		    !strcmp(cpopt, "m"))) {
 			if (*opt_flagsp & OP_MASK) {
 				log(LOG_ERR, "Network option conflict");
 				rv = 1;
@@ -4395,7 +4630,7 @@ do_opt( char **cpp,
 			usedarg++;
 			*opt_flagsp |= OP_MASK;
 		} else if (cpoptarg && (!strcmp(cpopt, "network") ||
-			!strcmp(cpopt, "n"))) {
+		    !strcmp(cpopt, "n"))) {
 			if (*opt_flagsp & OP_NET) {
 				log(LOG_ERR, "Network option conflict");
 				rv = 1;
@@ -4411,8 +4646,9 @@ do_opt( char **cpp,
 			usedarg++;
 			*opt_flagsp |= OP_NET;
 		} else if (cpoptarg && (!strcmp(cpopt, "sec"))) {
-			if (*opt_flagsp & OP_SECFLAV)
+			if (*opt_flagsp & OP_SECFLAV) {
 				log(LOG_WARNING, "A security option was already specified and will be replaced.");
+			}
 			if (get_sec_flavors(cpoptarg, sec_flavs)) {
 				log(LOG_ERR, "Bad security option: %s", cpoptarg);
 				rv = 1;
@@ -4449,10 +4685,11 @@ do_opt( char **cpp,
 				log(LOG_WARNING, "export option '%s' missing a value.", cpopt);
 			} else {
 				cpu = cpoptarg;
-				for (i=0; i < 16; i++, cpu+=2) {
-					if (*cpu == '-')
+				for (i = 0; i < 16; i++, cpu += 2) {
+					if (*cpu == '-') {
 						cpu++;
-					if (!isxdigit(*cpu) || !isxdigit(*(cpu+1))) {
+					}
+					if (!isxdigit(*cpu) || !isxdigit(*(cpu + 1))) {
 						log(LOG_ERR, "invalid fsuuid: %s", cpoptarg);
 						rv = 1;
 						goto out;
@@ -4475,25 +4712,29 @@ do_opt( char **cpp,
 				*cpp = cp;
 				*endcpp = endcp;
 			}
-			return (0);
+			return 0;
 		}
-		if (cpoptend)
-			*(cpoptend-1) = ',';
+		if (cpoptend) {
+			*(cpoptend - 1) = ',';
+		}
 		if (savedc3) {
-			*(cpoptarg-1) = savedc3;
+			*(cpoptarg - 1) = savedc3;
 			savedc3 = '\0';
 		}
 		cpopt = cpoptend;
 	}
 out:
-	if (savedc2)
+	if (savedc2) {
 		*endcp = savedc2;
-	if (cpoptend)
-		*(cpoptend-1) = ',';
-	if (savedc3)
-		*(cpoptarg-1) = savedc3;
+	}
+	if (cpoptend) {
+		*(cpoptend - 1) = ',';
+	}
+	if (savedc3) {
+		*(cpoptarg - 1) = savedc3;
+	}
 	**endcpp = savedc;
-	return (rv);
+	return rv;
 }
 
 /*
@@ -4505,22 +4746,23 @@ get_host_addresses(char *cp, struct grouplist *grp)
 {
 	struct addrinfo *ailist, aihints;
 
-	if (grp->gr_type != GT_NULL)
-		return (1);
+	if (grp->gr_type != GT_NULL) {
+		return 1;
+	}
 
 	bzero(&aihints, sizeof(aihints));
 	aihints.ai_socktype = SOCK_STREAM;
 	if (getaddrinfo(cp, NULL, &aihints, &ailist)) {
 		log(LOG_ERR, "getaddrinfo() failed for %s", cp);
 		hostnamecount++;
-		return (1);
+		return 1;
 	}
 	hostnamecount++;
 	hostnamegoodcount++;
 	grp->gr_type = GT_HOST;
 	grp->gr_u.gt_hostinfo.h_ailist = ailist;
 	grp->gr_u.gt_hostinfo.h_name = strdup(cp);
-	return (0);
+	return 0;
 }
 
 
@@ -4537,10 +4779,12 @@ free_expdir(struct expdir *xd)
 		TAILQ_REMOVE(&xd->xd_mountdirs, xd2, xd_next);
 		free_expdir(xd2);
 	}
-	if (xd->xd_dir)
+	if (xd->xd_dir) {
 		free(xd->xd_dir);
-	if (xd->xd_realpath)
+	}
+	if (xd->xd_realpath) {
 		free(xd->xd_realpath);
+	}
 	free(xd);
 }
 
@@ -4556,8 +4800,9 @@ free_expfs(struct expfs *xf)
 		TAILQ_REMOVE(&xf->xf_dirl, xd, xd_next);
 		free_expdir(xd);
 	}
-	if (xf->xf_fsdir)
+	if (xf->xf_fsdir) {
 		free(xf->xf_fsdir);
+	}
 	free(xf);
 }
 
@@ -4567,8 +4812,9 @@ free_expfs(struct expfs *xf)
 void
 free_host(struct host *hp)
 {
-	if (hp->ht_grp)
+	if (hp->ht_grp) {
 		free_grp(hp->ht_grp);
+	}
 	free(hp);
 }
 
@@ -4595,10 +4841,11 @@ get_host(void)
 	struct host *hp;
 
 	hp = malloc(sizeof(struct host));
-	if (hp == NULL)
-		return (NULL);
+	if (hp == NULL) {
+		return NULL;
+	}
 	hp->ht_flags = 0;
-	return (hp);
+	return hp;
 }
 
 /*
@@ -4619,15 +4866,16 @@ do_export(
 	struct nfs_export_net_args *netargs, *na;
 	struct grouplist *grp;
 	struct addrinfo *ai;
-    struct sockaddr_in *sin = NULL, *imask = NULL;
-    struct sockaddr_in6 *sin6 = NULL, *imask6 = NULL;
+	struct sockaddr_in *sin = NULL, *imask = NULL;
+	struct sockaddr_in6 *sin6 = NULL, *imask6 = NULL;
 	uint32_t net;
 	u_int non_loopback_exports = 0;
-	int rv = 1;	/* default to failure */
+	int rv = 1;     /* default to failure */
 
 	nxa.nxa_flags = expcmd;
-	if ((exflags & NX_OFFLINE) && (expcmd != NXA_CHECK))
+	if ((exflags & NX_OFFLINE) && (expcmd != NXA_CHECK)) {
 		nxa.nxa_flags |= NXA_OFFLINE;
+	}
 	nxa.nxa_fsid = xf->xf_fsid;
 	nxa.nxa_fspath = xf->xf_fsdir;
 	nxa.nxa_exppath = xd->xd_xid->xid_path;
@@ -4640,9 +4888,11 @@ do_export(
 	while (grp) {
 		if (grp->gr_type == GT_HOST) {
 			/* count # addresses given for this host */
-			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next)
-				if ((ai->ai_family == AF_INET) || (ai->ai_family == AF_INET6))
+			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next) {
+				if ((ai->ai_family == AF_INET) || (ai->ai_family == AF_INET6)) {
 					nxa.nxa_netcount++;
+				}
+			}
 		} else if (grp->gr_type == GT_NET) {
 			nxa.nxa_netcount++;
 		}
@@ -4653,36 +4903,36 @@ do_export(
 	if (!netargs) {
 		/* XXX we could possibly fall back to pushing them in, one-by-one */
 		log(LOG_ERR, "do_export(): malloc failed for %d net args", nxa.nxa_netcount);
-		return (1);
+		return 1;
 	}
 	nxa.nxa_nets = netargs;
 
 #define INIT_NETARG(N, F) \
 	do { \
-		(N)->nxna_flags = exflags; \
-		(N)->nxna_cred = cr ? *cr : def_anon; \
-		memset(&(N)->nxna_sec, 0, sizeof(struct nfs_sec)); \
-		if (secflavs != NULL) \
-			bcopy(secflavs, &(N)->nxna_sec, sizeof(struct nfs_sec)); \
-		if ((F) == AF_INET) { \
-			sin = (struct sockaddr_in*)&(N)->nxna_addr; \
-			imask = (struct sockaddr_in*)&(N)->nxna_mask; \
-			memset(sin, 0, sizeof(*sin)); \
-			memset(imask, 0, sizeof(*imask)); \
-			sin->sin_family = AF_INET; \
-			sin->sin_len = sizeof(*sin); \
-			imask->sin_family = AF_INET; \
-			imask->sin_len = sizeof(*imask); \
-		} else if ((F) == AF_INET6) { \
-			sin6 = (struct sockaddr_in6*)&(N)->nxna_addr; \
-			imask6 = (struct sockaddr_in6*)&(N)->nxna_mask; \
-			memset(sin6, 0, sizeof(*sin6)); \
-			memset(imask6, 0, sizeof(*imask6)); \
-			sin6->sin6_family = AF_INET6; \
-			sin6->sin6_len = sizeof(*sin6); \
-			imask6->sin6_family = AF_INET6; \
-			imask6->sin6_len = sizeof(*imask6); \
-		} \
+	        (N)->nxna_flags = exflags; \
+	        (N)->nxna_cred = cr ? *cr : def_anon; \
+	        memset(&(N)->nxna_sec, 0, sizeof(struct nfs_sec)); \
+	        if (secflavs != NULL) \
+	                bcopy(secflavs, &(N)->nxna_sec, sizeof(struct nfs_sec)); \
+	        if ((F) == AF_INET) { \
+	                sin = (struct sockaddr_in*)&(N)->nxna_addr; \
+	                imask = (struct sockaddr_in*)&(N)->nxna_mask; \
+	                memset(sin, 0, sizeof(*sin)); \
+	                memset(imask, 0, sizeof(*imask)); \
+	                sin->sin_family = AF_INET; \
+	                sin->sin_len = sizeof(*sin); \
+	                imask->sin_family = AF_INET; \
+	                imask->sin_len = sizeof(*imask); \
+	        } else if ((F) == AF_INET6) { \
+	                sin6 = (struct sockaddr_in6*)&(N)->nxna_addr; \
+	                imask6 = (struct sockaddr_in6*)&(N)->nxna_mask; \
+	                memset(sin6, 0, sizeof(*sin6)); \
+	                memset(imask6, 0, sizeof(*imask6)); \
+	                sin6->sin6_family = AF_INET6; \
+	                sin6->sin6_len = sizeof(*sin6); \
+	                imask6->sin6_family = AF_INET6; \
+	                imask6->sin6_len = sizeof(*imask6); \
+	        } \
 	} while (0)
 
 	na = netargs;
@@ -4700,26 +4950,30 @@ do_export(
 		case GT_HOST:
 			/* handle each host address in the list */
 			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next) {
-				if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+				if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) {
 					continue;
+				}
 				INIT_NETARG(na, ai->ai_family);
 				if (ai->ai_family == AF_INET) {
 					sin->sin_addr.s_addr = ((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr.s_addr;
 					imask->sin_len = 0;
 					net = ntohl(sin->sin_addr.s_addr);
-					if (!IN_LOOPBACK(net))
+					if (!IN_LOOPBACK(net)) {
 						non_loopback_exports++;
+					}
 				} else if (ai->ai_family == AF_INET6) {
 					bcopy(&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr, &sin6->sin6_addr,
-						sizeof(sin6->sin6_addr));
+					    sizeof(sin6->sin6_addr));
 					imask6->sin6_len = 0;
 					if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr) ||
 					    IN6_IS_ADDR_V4COMPAT(&sin6->sin6_addr)) {
 						net = ntohl(sin6->sin6_addr.__u6_addr.__u6_addr32[3]);
-						if (!IN_LOOPBACK(net))
+						if (!IN_LOOPBACK(net)) {
 							non_loopback_exports++;
-					} else if (!IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr))
+						}
+					} else if (!IN6_IS_ADDR_LOOPBACK(&sin6->sin6_addr)) {
 						non_loopback_exports++;
+					}
 				}
 				na++;
 			}
@@ -4728,20 +4982,22 @@ do_export(
 			INIT_NETARG(na, grp->gr_u.gt_net.nt_family);
 			if (grp->gr_u.gt_net.nt_family == AF_INET) {
 				net = ntohl(grp->gr_u.gt_net.nt_net);
-				if (!IN_LOOPBACK(net))
+				if (!IN_LOOPBACK(net)) {
 					non_loopback_exports++;
-				if (grp->gr_u.gt_net.nt_mask)
-				    imask->sin_addr.s_addr = grp->gr_u.gt_net.nt_mask;
-				else {
-				    if (IN_CLASSA(net))
-					imask->sin_addr.s_addr = inet_addr("255.0.0.0");
-				    else if (IN_CLASSB(net))
-					imask->sin_addr.s_addr =
-					    inet_addr("255.255.0.0");
-				    else
-					imask->sin_addr.s_addr =
-					    inet_addr("255.255.255.0");
-				    grp->gr_u.gt_net.nt_mask = imask->sin_addr.s_addr;
+				}
+				if (grp->gr_u.gt_net.nt_mask) {
+					imask->sin_addr.s_addr = grp->gr_u.gt_net.nt_mask;
+				} else {
+					if (IN_CLASSA(net)) {
+						imask->sin_addr.s_addr = inet_addr("255.0.0.0");
+					} else if (IN_CLASSB(net)) {
+						imask->sin_addr.s_addr =
+						    inet_addr("255.255.0.0");
+					} else {
+						imask->sin_addr.s_addr =
+						    inet_addr("255.255.255.0");
+					}
+					grp->gr_u.gt_net.nt_mask = imask->sin_addr.s_addr;
 				}
 				sin->sin_addr.s_addr = grp->gr_u.gt_net.nt_net;
 				na++;
@@ -4751,8 +5007,9 @@ do_export(
 				if (IN6_IS_ADDR_V4MAPPED(&sin6->sin6_addr) ||
 				    IN6_IS_ADDR_V4COMPAT(&sin6->sin6_addr)) {
 					net = ntohl(sin6->sin6_addr.__u6_addr.__u6_addr32[3]);
-					if (!IN_LOOPBACK(net))
+					if (!IN_LOOPBACK(net)) {
 						non_loopback_exports++;
+					}
 				}
 				na++;
 			}
@@ -4770,22 +5027,24 @@ do_export(
 	if (nfssvc(NFSSVC_EXPORT, &nxa)) {
 		if ((expcmd != NXA_CHECK) && (expcmd != NXA_DELETE) && (errno == EPERM)) {
 			log(LOG_ERR, "Can't change attributes for %s.  See 'exports' man page.",
-				xd->xd_dir);
+			    xd->xd_dir);
 			goto out;
 		}
 		log(LOG_ERR, "Can't %sexport %s: %s (%d)",
-			(expcmd == NXA_DELETE) ? "un" : "",
-			xd->xd_dir, strerror(errno), errno);
+		    (expcmd == NXA_DELETE) ? "un" : "",
+		    xd->xd_dir, strerror(errno), errno);
 		goto out;
 	}
 
- 	rv = 0;
-	if (non_loopback_exports_out != NULL)
+	rv = 0;
+	if (non_loopback_exports_out != NULL) {
 		*non_loopback_exports_out += non_loopback_exports;
- out:
-	if (netargs != NULL)
+	}
+out:
+	if (netargs != NULL) {
 		free(netargs);
-	return (rv);
+	}
+	return rv;
 }
 
 /*
@@ -4800,7 +5059,7 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 	struct in6_addr inet6addr;
 	const char *name;
 	sa_family_t family;
-	char addrbuf[2*INET6_ADDRSTRLEN];
+	char addrbuf[2 * INET6_ADDRSTRLEN];
 
 	if (NULL != (np = getnetbyname(cp))) {
 		inetaddr = inet_makeaddr(np->n_net, 0);
@@ -4808,8 +5067,9 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 	} else if (inet_pton(AF_INET6, cp, &inet6addr) == 1) {
 		family = AF_INET6;
 	} else if (isdigit(*cp)) {
-		if ((netaddr = inet_network(cp)) == INADDR_NONE)
-			return (1);
+		if ((netaddr = inet_network(cp)) == INADDR_NONE) {
+			return 1;
+		}
 		inetaddr = inet_makeaddr(netaddr, 0);
 		family = AF_INET;
 		/*
@@ -4823,34 +5083,38 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			setnetent(0);
 			while (NULL != (np = getnetent())) {
 				inetaddr2 = inet_makeaddr(np->n_net, 0);
-				if (inetaddr2.s_addr == inetaddr.s_addr)
+				if (inetaddr2.s_addr == inetaddr.s_addr) {
 					break;
+				}
 			}
 			endnetent();
 		}
 	} else {
-		return (1);
+		return 1;
 	}
 	if (maskflg) {
 		if (net->nt_family == AF_UNSPEC) {
 			net->nt_family = family;
 		} else if (net->nt_family != family) {
 			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", family, net->nt_family, cp);
-			return (1);
+			return 1;
 		}
 		if (family == AF_INET6)
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wconditional-uninitialized"
+		{
 			net->nt_mask6 = inet6addr;
+		}
 #pragma clang diagnostic pop
-		else
+		else {
 			net->nt_mask = inetaddr.s_addr;
+		}
 	} else {
 		if (net->nt_family == AF_UNSPEC) {
 			net->nt_family = family;
 		} else if (net->nt_family != family) {
 			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", net->nt_family, family, cp);
-			return (1);
+			return 1;
 		}
 		if (np) {
 			name = np->n_name;
@@ -4858,7 +5122,7 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			name = inet_ntop(AF_INET6, &inet6addr, addrbuf, sizeof(addrbuf));
 			if (!name) {
 				log(LOG_ERR, "can't convert IPv6 addr to name: %s", cp);
-				return (1);
+				return 1;
 			}
 		} else {
 #pragma clang diagnostic push
@@ -4869,15 +5133,16 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 		net->nt_name = strdup(name);
 		if (net->nt_name == NULL) {
 			log(LOG_ERR, "can't allocate memory for net: %s", cp);
-			return (1);
+			return 1;
 		}
-		if (family == AF_INET6)
+		if (family == AF_INET6) {
 			net->nt_net6 = inet6addr;
-		else
+		} else {
 			net->nt_net = inetaddr.s_addr;
+		}
 		DEBUG(3, "got net: %s", net->nt_name);
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -4897,14 +5162,16 @@ get_sec_flavors(char *flavorlist, struct nfs_sec *sec_flavs)
 
 	/* try to make a copy of the string so we don't butcher the original */
 	flavorlistcopy = strdup(flavorlist);
-	if (flavorlistcopy)
+	if (flavorlistcopy) {
 		flavorlist = flavorlistcopy;
+	}
 
 	bzero(sec_flavs, sizeof(struct nfs_sec));
 	flav_bits = 0;
-	while ( ((flavor = strsep(&flavorlist, ":")) != NULL) && (sec_flavs->count < NX_MAX_SEC_FLAVORS)) {
-		if (flavor[0] == '\0')
+	while (((flavor = strsep(&flavorlist, ":")) != NULL) && (sec_flavs->count < NX_MAX_SEC_FLAVORS)) {
+		if (flavor[0] == '\0') {
 			continue;
+		}
 		if (!strcmp("krb5p", flavor)) {
 			if (flav_bits & KRB5P_BIT) {
 				log(LOG_WARNING, "krb5p appears more than once: %s", flavorlist);
@@ -4940,13 +5207,15 @@ get_sec_flavors(char *flavorlist, struct nfs_sec *sec_flavs)
 		}
 	}
 
-	if (flavorlistcopy)
+	if (flavorlistcopy) {
 		free(flavorlistcopy);
+	}
 
-	if (sec_flavs->count)
+	if (sec_flavs->count) {
 		return 0;
-	else
+	} else {
 		return 1;
+	}
 }
 
 /*
@@ -4957,11 +5226,14 @@ cmp_secflavs(struct nfs_sec *sf1, struct nfs_sec *sf2)
 {
 	int32_t i;
 
-	if (sf1->count != sf2->count)
+	if (sf1->count != sf2->count) {
 		return 1;
-	for (i = 0; i < sf1->count; i++)
-		if (sf1->flavors[i] != sf2->flavors[i])
+	}
+	for (i = 0; i < sf1->count; i++) {
+		if (sf1->flavors[i] != sf2->flavors[i]) {
 			return 1;
+		}
+	}
 	return 0;
 }
 
@@ -4974,11 +5246,14 @@ merge_secflavs(struct nfs_sec *cur, struct nfs_sec *new)
 	int32_t i, j;
 
 	for (i = 0; i < new->count; i++) {
-		for (j = 0; j < cur->count; j++)
-			if (new->flavors[i] == cur->flavors[j])
+		for (j = 0; j < cur->count; j++) {
+			if (new->flavors[i] == cur->flavors[j]) {
 				break;
-		if (j < cur->count)
+			}
+		}
+		if (j < cur->count) {
 			continue;
+		}
 		if (cur->count < NX_MAX_SEC_FLAVORS) {
 			cur->flavors[j] = new->flavors[i];
 			cur->count++;
@@ -4998,13 +5273,15 @@ nextfield(char **line_start, char **line_end)
 	char *a, q;
 	u_int32_t esc;
 
-	if (line_start == NULL)
+	if (line_start == NULL) {
 		return;
+	}
 	a = *line_start;
 
 	/* Skip white space */
-	while (*a == ' ' || *a == '\t')
+	while (*a == ' ' || *a == '\t') {
 		a++;
+	}
 	*line_start = a;
 
 	/* Stop at end of line */
@@ -5018,29 +5295,33 @@ nextfield(char **line_start, char **line_end)
 		q = *a;
 		a++;
 		for (esc = 0; *a != '\0'; a++) {
-			if (esc)
+			if (esc) {
 				esc = 0;
-			else if (*a == '\\')
+			} else if (*a == '\\') {
 				esc = 1;
-			else if (*a == q || *a == '\n')
+			} else if (*a == q || *a == '\n') {
 				break;
+			}
 		}
-		if (*a == q)
+		if (*a == q) {
 			a++;
+		}
 		*line_end = a;
 		return;
 	}
 
 	/* Skip to next non-escaped white space or end of line */
 	for (;; a++) {
-		if (*a == '\0' || *a == '\n')
+		if (*a == '\0' || *a == '\n') {
 			break;
-		else if (*a == '\\') {
+		} else if (*a == '\\') {
 			a++;
-			if (*a == '\n' || *a == '\0')
+			if (*a == '\n' || *a == '\0') {
 				break;
-		} else if (*a == ' ' || *a == '\t')
+			}
+		} else if (*a == ' ' || *a == '\t') {
 			break;
+		}
 	}
 
 	*line_end = a;
@@ -5057,10 +5338,11 @@ get_export_entry(void)
 	size_t len, totlen;
 	int cont_line;
 
-	if (linenum == 0)
+	if (linenum == 0) {
 		linenum = 1;
-	else
+	} else {
 		linenum += entrylines;
+	}
 	entrylines = 1;
 
 	/*
@@ -5068,15 +5350,17 @@ get_export_entry(void)
 	 */
 	totlen = 0;
 	do {
-		if ((p = fgetln(exp_file, &len)) == NULL)
-			return (0);
+		if ((p = fgetln(exp_file, &len)) == NULL) {
+			return 0;
+		}
 		cp = p + len - 1;
 		cont_line = 0;
 		while (cp >= p &&
-		       (*cp == ' ' || *cp == '\t' || *cp == '\n' ||
-			*cp == '\\')) {
-			if (*cp == '\\')
+		    (*cp == ' ' || *cp == '\t' || *cp == '\n' ||
+		    *cp == '\\')) {
+			if (*cp == '\\') {
 				cont_line = 1;
+			}
 			cp--;
 			len--;
 		}
@@ -5084,7 +5368,7 @@ get_export_entry(void)
 			newline = realloc(line, (totlen + len + 1));
 			if (!newline) {
 				log(LOG_ERR, "Exports line too long, can't allocate memory");
-				return (0);
+				return 0;
 			}
 			line = newline;
 			linesize = (totlen + len + 1);
@@ -5099,7 +5383,7 @@ get_export_entry(void)
 			entrylines = 1;
 		}
 	} while (totlen == 0 || cont_line);
-	return (1);
+	return 1;
 }
 
 /*
@@ -5119,8 +5403,9 @@ parsecred(char *namelist, struct xucred *cr)
 
 	/* try to make a copy of the string so we don't butcher the original */
 	namelistcopy = strdup(namelist);
-	if (namelistcopy == NULL)
-		return (ENOMEM);
+	if (namelistcopy == NULL) {
+		return ENOMEM;
+	}
 
 	namelist = namelistcopy;
 
@@ -5136,48 +5421,53 @@ parsecred(char *namelist, struct xucred *cr)
 	 */
 	names = strsep(&namelist, " \t\n");
 	name = strsep(&names, ":");
-	if (isdigit(*name) || *name == '-')
+	if (isdigit(*name) || *name == '-') {
 		pw = getpwuid(atoi(name));
-	else
+	} else {
 		pw = getpwnam(name);
+	}
 	/*
 	 * Credentials specified as those of a user.
 	 */
 	if (names == NULL) {
 		if (pw == NULL) {
 			log(LOG_ERR, "Unknown user: %s", name);
-			if (namelistcopy)
+			if (namelistcopy) {
 				free(namelistcopy);
-			return (ENOENT);
+			}
+			return ENOENT;
 		}
 		cr->cr_uid = pw->pw_uid;
 		ngroups = NGROUPS;
-		if (getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups))
+		if (getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups)) {
 			log(LOG_NOTICE, "Too many groups for %s", pw->pw_name);
+		}
 		/* Convert from int's to gid_t's */
 		cr->cr_ngroups = (ngroups <= NGROUPS) ? ngroups : NGROUPS;
-		for (cnt = 0; cnt < cr->cr_ngroups; cnt++)
+		for (cnt = 0; cnt < cr->cr_ngroups; cnt++) {
 			cr->cr_groups[cnt] = groups[cnt];
+		}
 		goto out;
 	}
 	/*
 	 * Explicit credential specified as a colon separated list:
 	 *	uid:gid:gid:...
 	 */
-	if (pw != NULL)
+	if (pw != NULL) {
 		cr->cr_uid = pw->pw_uid;
-	else if (isdigit(*name) || *name == '-')
+	} else if (isdigit(*name) || *name == '-') {
 		cr->cr_uid = atoi(name);
-	else {
+	} else {
 		log(LOG_ERR, "Unknown user: %s", name);
-		if (namelistcopy)
+		if (namelistcopy) {
 			free(namelistcopy);
-		return (ENOENT);
+		}
+		return ENOENT;
 	}
 	cr->cr_ngroups = 0;
 	/*
-	* Credential containing no groups.
-	*/
+	 * Credential containing no groups.
+	 */
 	if (strcmp("", names) == 0) {
 		allow_nogroups = 1;
 		goto out;
@@ -5194,11 +5484,13 @@ parsecred(char *namelist, struct xucred *cr)
 			cr->cr_groups[cr->cr_ngroups++] = gr->gr_gid;
 		}
 	}
-	if (names != NULL && *names != '\0' && cr->cr_ngroups == NGROUPS)
+	if (names != NULL && *names != '\0' && cr->cr_ngroups == NGROUPS) {
 		log(LOG_ERR, "Too many groups in %s", namelist);
+	}
 out:
-	if (namelistcopy)
+	if (namelistcopy) {
 		free(namelistcopy);
+	}
 	if (config.verbose >= 5) {
 		char buf[256];
 		snprintf_cred(buf, sizeof(buf), cr);
@@ -5206,12 +5498,12 @@ out:
 	}
 	if (cr->cr_ngroups < 1 && !allow_nogroups) {
 		log(LOG_ERR, "no groups found: %s", namelist);
-		return (EINVAL);
+		return EINVAL;
 	}
-	return (0);
+	return 0;
 }
 
-#define	STRSIZ	(RPCMNT_NAMELEN+RPCMNT_PATHLEN+50)
+#define STRSIZ  (RPCMNT_NAMELEN+RPCMNT_PATHLEN+50)
 /*
  * Routines that maintain the remote mounttab
  */
@@ -5225,12 +5517,13 @@ get_mountlist(void)
 	size_t hlen, dlen;
 
 	if ((mlfile = fopen(_PATH_RMOUNTLIST, "r")) == NULL) {
-		if (errno != ENOENT)
+		if (errno != ENOENT) {
 			log(LOG_ERR, "Can't open %s: %s (%d)",
 			    _PATH_RMOUNTLIST, strerror(errno), errno);
-		else
+		} else {
 			DEBUG(1, "Can't open %s: %s (%d)",
 			    _PATH_RMOUNTLIST, strerror(errno), errno);
+		}
 		return;
 	}
 	lastmlp = NULL;
@@ -5239,27 +5532,32 @@ get_mountlist(void)
 		cp = str;
 		host = strsep(&cp, " \t\n");
 		dir = strsep(&cp, " \t\n");
-		if ((host == NULL) || (dir == NULL))
+		if ((host == NULL) || (dir == NULL)) {
 			continue;
+		}
 		hlen = strlen(host);
-		if (hlen > RPCMNT_NAMELEN)
+		if (hlen > RPCMNT_NAMELEN) {
 			hlen = RPCMNT_NAMELEN;
+		}
 		dlen = strlen(dir);
-		if (dlen > RPCMNT_PATHLEN)
+		if (dlen > RPCMNT_PATHLEN) {
 			dlen = RPCMNT_PATHLEN;
+		}
 		mlp = malloc(sizeof(*mlp));
 		if (mlp) {
-			mlp->ml_host = malloc(hlen+1);
-			mlp->ml_dir = malloc(dlen+1);
+			mlp->ml_host = malloc(hlen + 1);
+			mlp->ml_dir = malloc(dlen + 1);
 		}
 		if (!mlp || !mlp->ml_host || !mlp->ml_dir) {
 			log(LOG_ERR, "can't allocate memory while reading in mount list: %s %s",
-				host, dir);
+			    host, dir);
 			if (mlp) {
-				if (mlp->ml_host)
+				if (mlp->ml_host) {
 					free(mlp->ml_host);
-				if (mlp->ml_dir)
+				}
+				if (mlp->ml_dir) {
 					free(mlp->ml_dir);
+				}
 				free(mlp);
 			}
 			break;
@@ -5269,10 +5567,11 @@ get_mountlist(void)
 		strncpy(mlp->ml_dir, dir, dlen);
 		mlp->ml_dir[dlen] = '\0';
 		mlp->ml_next = NULL;
-		if (lastmlp)
+		if (lastmlp) {
 			lastmlp->ml_next = mlp;
-		else
+		} else {
 			mlhead = mlp;
+		}
 		lastmlp = mlp;
 	}
 	unlock_mlist();
@@ -5330,30 +5629,35 @@ add_mlist(char *host, char *dir)
 	mlpp = &mlhead;
 	mlp = mlhead;
 	while (mlp) {
-		if (!strcmp(mlp->ml_host, host) && !strcmp(mlp->ml_dir, dir))
+		if (!strcmp(mlp->ml_host, host) && !strcmp(mlp->ml_dir, dir)) {
 			return;
+		}
 		mlpp = &mlp->ml_next;
 		mlp = mlp->ml_next;
 	}
 
 	hlen = strlen(host);
-	if (hlen > RPCMNT_NAMELEN)
+	if (hlen > RPCMNT_NAMELEN) {
 		hlen = RPCMNT_NAMELEN;
+	}
 	dlen = strlen(dir);
-	if (dlen > RPCMNT_PATHLEN)
+	if (dlen > RPCMNT_PATHLEN) {
 		dlen = RPCMNT_PATHLEN;
+	}
 
 	mlp = malloc(sizeof(*mlp));
 	if (mlp) {
-		mlp->ml_host = malloc(hlen+1);
-		mlp->ml_dir = malloc(dlen+1);
+		mlp->ml_host = malloc(hlen + 1);
+		mlp->ml_dir = malloc(dlen + 1);
 	}
 	if (!mlp || !mlp->ml_host || !mlp->ml_dir) {
 		if (mlp) {
-			if (mlp->ml_host)
+			if (mlp->ml_host) {
 				free(mlp->ml_host);
-			if (mlp->ml_dir)
+			}
+			if (mlp->ml_dir) {
 				free(mlp->ml_dir);
+			}
 			free(mlp);
 		}
 		log(LOG_ERR, "can't allocate memory to add to mount list: %s %s", host, dir);
@@ -5380,15 +5684,15 @@ add_mlist(char *host, char *dir)
 int
 check_options(int opt_flags)
 {
-	if ((opt_flags & (OP_MAPROOT|OP_MAPALL)) == (OP_MAPROOT|OP_MAPALL)) {
+	if ((opt_flags & (OP_MAPROOT | OP_MAPALL)) == (OP_MAPROOT | OP_MAPALL)) {
 		log(LOG_ERR, "-mapall and -maproot mutually exclusive");
-		return (1);
+		return 1;
 	}
 	if ((opt_flags & OP_MASK) && (opt_flags & OP_NET) == 0) {
 		log(LOG_ERR, "-mask requires -network");
-		return (1);
+		return 1;
 	}
-	return (0);
+	return 0;
 }
 
 /*
@@ -5402,16 +5706,19 @@ check_dirpath(char *dir)
 	int ret = 1;
 	struct stat sb;
 
-	for (cp = dir + 1; *cp && ret; cp++)
+	for (cp = dir + 1; *cp && ret; cp++) {
 		if (*cp == '/') {
 			*cp = '\0';
-			if ((lstat(dir, &sb) < 0) || !S_ISDIR(sb.st_mode))
+			if ((lstat(dir, &sb) < 0) || !S_ISDIR(sb.st_mode)) {
 				ret = 0;
+			}
 			*cp = '/';
 		}
-	if (ret && ((lstat(dir, &sb) < 0) || !S_ISDIR(sb.st_mode)))
+	}
+	if (ret && ((lstat(dir, &sb) < 0) || !S_ISDIR(sb.st_mode))) {
 		ret = 0;
-	return (ret);
+	}
+	return ret;
 }
 
 void
@@ -5421,11 +5728,12 @@ snprintf_cred(char *buf, int buflen, struct xucred *cr)
 	int i;
 
 	buf[0] = '\0';
-	if (!cr)
+	if (!cr) {
 		return;
+	}
 	snprintf(crbuf2, sizeof(crbuf2), "%d", cr->cr_uid);
 	strlcat(buf, crbuf2, buflen);
-	for (i=0; i < cr->cr_ngroups; i++) {
+	for (i = 0; i < cr->cr_ngroups; i++) {
 		snprintf(crbuf2, sizeof(crbuf2), ":%d", cr->cr_groups[i]);
 		strlcat(buf, crbuf2, buflen);
 	}
@@ -5436,31 +5744,32 @@ snprintf_flags(char *buf, int buflen, int flags, struct xucred *cr)
 {
 	char crbuf[256];
 
-	if (flags & (OP_MAPALL|OP_MAPROOT))
+	if (flags & (OP_MAPALL | OP_MAPROOT)) {
 		snprintf_cred(crbuf, sizeof(crbuf), cr);
-	else
+	} else {
 		crbuf[0] = '\0';
+	}
 
 	snprintf(buf, buflen, "FLAGS: 0x%08x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s %s",
-		flags,
-		(flags & OP_DEL) ? " DEL" : "",
-		(flags & OP_ADD) ? " ADD" : "",
-		(flags & OP_DEFEXP) ? " DEFEXP" : "",
-		(flags & OP_MISSING) ? " MISSING" : "",
-		(flags & OP_SHOW) ? " SHOW" : "",
-		(flags & OP_ONLINE) ? " ONLINE" : "",
-		(flags & OP_OFFLINE) ? " OFFLINE" : "",
-		(flags & OP_FSUUID) ? " FSUUID" : "",
-		(flags & OP_FSPATH) ? " FSPATH" : "",
-		(flags & OP_32BITCLIENTS) ? " 32" : "",
-		(flags & OP_READONLY) ? " READONLY" : "",
-		(flags & OP_ALLDIRS) ? " ALLDIRS" : "",
-		(flags & OP_NET) ? " NET" : "",
-		(flags & OP_MASK) ? " MASK" : "",
-		(flags & OP_SECFLAV) ? " SEC" : "",
-		(flags & OP_MAPALL) ? " MAPALL" : "",
-		(flags & OP_MAPROOT) ? " MAPROOT" : "",
-		crbuf);
+	    flags,
+	    (flags & OP_DEL) ? " DEL" : "",
+	    (flags & OP_ADD) ? " ADD" : "",
+	    (flags & OP_DEFEXP) ? " DEFEXP" : "",
+	    (flags & OP_MISSING) ? " MISSING" : "",
+	    (flags & OP_SHOW) ? " SHOW" : "",
+	    (flags & OP_ONLINE) ? " ONLINE" : "",
+	    (flags & OP_OFFLINE) ? " OFFLINE" : "",
+	    (flags & OP_FSUUID) ? " FSUUID" : "",
+	    (flags & OP_FSPATH) ? " FSPATH" : "",
+	    (flags & OP_32BITCLIENTS) ? " 32" : "",
+	    (flags & OP_READONLY) ? " READONLY" : "",
+	    (flags & OP_ALLDIRS) ? " ALLDIRS" : "",
+	    (flags & OP_NET) ? " NET" : "",
+	    (flags & OP_MASK) ? " MASK" : "",
+	    (flags & OP_SECFLAV) ? " SEC" : "",
+	    (flags & OP_MAPALL) ? " MAPALL" : "",
+	    (flags & OP_MAPROOT) ? " MAPROOT" : "",
+	    crbuf);
 }
 
 void
@@ -5472,7 +5781,7 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 	char buf[2048];
 	struct addrinfo *ai;
 	void *sinaddr;
-	char addrbuf[2*INET6_ADDRSTRLEN];
+	char addrbuf[2 * INET6_ADDRSTRLEN];
 	const char *s;
 
 	snprintf_flags(buf, sizeof(buf), xd->xd_iflags, NULL);
@@ -5490,43 +5799,47 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 		DEBUG(1, "      * %s", buf);
 		gr = ht->ht_grp;
 		if (gr) {
-			switch(gr->gr_type) {
+			switch (gr->gr_type) {
 			case GT_NET:
 				sinaddr = (gr->gr_u.gt_net.nt_family == AF_INET) ?
-					(void*)&gr->gr_u.gt_net.nt_net : (void*)&gr->gr_u.gt_net.nt_net6;
-				if (inet_ntop(gr->gr_u.gt_net.nt_family, sinaddr, addrbuf, sizeof(addrbuf)))
+				    (void*)&gr->gr_u.gt_net.nt_net : (void*)&gr->gr_u.gt_net.nt_net6;
+				if (inet_ntop(gr->gr_u.gt_net.nt_family, sinaddr, addrbuf, sizeof(addrbuf))) {
 					s = addrbuf;
-				else
+				} else {
 					s = "???";
+				}
 				snprintf(buf, sizeof(buf), "%s %s/", grp_name(gr), s);
 				sinaddr = (gr->gr_u.gt_net.nt_family == AF_INET) ?
-					(void*)&gr->gr_u.gt_net.nt_mask : (void*)&gr->gr_u.gt_net.nt_mask6;
-				if (inet_ntop(gr->gr_u.gt_net.nt_family, sinaddr, addrbuf, sizeof(addrbuf)))
+				    (void*)&gr->gr_u.gt_net.nt_mask : (void*)&gr->gr_u.gt_net.nt_mask6;
+				if (inet_ntop(gr->gr_u.gt_net.nt_family, sinaddr, addrbuf, sizeof(addrbuf))) {
 					s = addrbuf;
-				else
+				} else {
 					s = "???";
+				}
 				strlcat(buf, s, sizeof(buf));
 				break;
 			case GT_HOST:
 				ai = gr->gr_u.gt_hostinfo.h_ailist;
 				sinaddr = (ai->ai_family == AF_INET) ?
-					(void*)&((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr :
-					(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
-				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
+				    (void*)&((struct sockaddr_in*) AOK ai->ai_addr)->sin_addr :
+				    (void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf))) {
 					s = addrbuf;
-				else
+				} else {
 					s = "???";
+				}
 				snprintf(buf, sizeof(buf), "%s %s", grp_name(gr), s);
 				ai = ai->ai_next;
 				while (ai) {
 					strlcat(buf, " ", sizeof(buf));
 					sinaddr = (ai->ai_family == AF_INET) ?
-						(void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
-						(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
-					if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
+					    (void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
+					    (void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+					if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf))) {
 						s = addrbuf;
-					else
+					} else {
 						s = "???";
+					}
 					if (strlcat(buf, s, sizeof(buf)) > 2000) {
 						strlcat(buf, " ...", sizeof(buf));
 						break;
@@ -5542,8 +5855,9 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 		} /* ht_grp */
 	} /* for xd_hosts list */
 
-	if (mdir)
+	if (mdir) {
 		return;
+	}
 
 	DEBUG(1, "   MOUNTDIRS:");
 	TAILQ_FOREACH(mxd, &xd->xd_mountdirs, xd_next) {
@@ -5558,12 +5872,13 @@ dump_exports(void)
 	struct expdir *xd;
 	char buf[64];
 
-	if (!config.verbose)
+	if (!config.verbose) {
 		return;
+	}
 
 	TAILQ_FOREACH(xf, &xfshead, xf_next) {
 		DEBUG(1, "** %s %s (0x%08x)", xf->xf_fsdir,
-			uuidstring(xf->xf_uuid, buf), UUID2FSID(xf->xf_uuid));
+		    uuidstring(xf->xf_uuid, buf), UUID2FSID(xf->xf_uuid));
 		TAILQ_FOREACH(xd, &xf->xf_dirl, xd_next) {
 			dump_expdir(xf, xd, 0);
 		}
@@ -5575,7 +5890,7 @@ dump_exports(void)
  */
 static struct statfs *sfs[2];
 static int size[2], cnt[2], cur, lastfscnt;
-#define PREV	((cur + 1) & 1)
+#define PREV    ((cur + 1) & 1)
 
 static int
 sfscmp(const void *arg1, const void *arg2)
@@ -5593,8 +5908,9 @@ get_mounts(void)
 		free(sfs[cur]);
 		size[cur] = lastfscnt + 32;
 		sfs[cur] = malloc(size[cur] * sizeof(struct statfs));
-		if (!sfs[cur])
+		if (!sfs[cur]) {
 			err(1, "no memory");
+		}
 	}
 	cnt[cur] = lastfscnt;
 	qsort(sfs[cur], cnt[cur], sizeof(struct statfs), sfscmp);
@@ -5608,12 +5924,12 @@ check_xpaths(char *path)
 	while (dirl) {
 		if (subdir_check(path, dirl->dl_dir) >= 0) {
 			DEBUG(1, "check_for_mount_changes: %s %s\n", path, dirl->dl_dir);
-			return (1);
+			return 1;
 		}
 		dirl = dirl->dl_next;
 	}
 
-	return (0);
+	return 0;
 }
 
 int
@@ -5621,16 +5937,16 @@ check_for_mount_changes(void)
 {
 	int i, j, cmp, gotmount = 0;
 
-#define RETURN_IF_DONE	do { if (gotmount && (config.verbose < 3)) return (gotmount); } while (0)
+#define RETURN_IF_DONE  do { if (gotmount && (config.verbose < 3)) return (gotmount); } while (0)
 
 	get_mounts();
 
 	if (!xpaths_complete) {
 		DEBUG(1, "check_for_mount_changes: xpaths not complete\n");
-		return (1);
+		return 1;
 	}
 
-	for (i=j=0; (i < cnt[PREV]) && (j < cnt[cur]); ) {
+	for (i = j = 0; (i < cnt[PREV]) && (j < cnt[cur]);) {
 		cmp = sfscmp(&sfs[PREV][i], &sfs[cur][j]);
 		if (!cmp) {
 			i++;
@@ -5663,7 +5979,7 @@ check_for_mount_changes(void)
 		j++;
 	}
 
-	return (gotmount);
+	return gotmount;
 }
 
 void
@@ -5672,23 +5988,26 @@ prevent_idle_sleep_assertion_update(u_int non_loopback_exports)
 	IOReturn ioret;
 
 	if (non_loopback_exports) {
-		if (prevent_idle_sleep_assertion != kIOPMNullAssertionID)
+		if (prevent_idle_sleep_assertion != kIOPMNullAssertionID) {
 			return;
+		}
 		ioret = IOPMAssertionCreateWithName(kIOPMAssertionTypePreventUserIdleSystemSleep,
-						    kIOPMAssertionLevelOn,
-						    CFSTR("com.apple.nfsd"),
-						    &prevent_idle_sleep_assertion);
+		    kIOPMAssertionLevelOn,
+		    CFSTR("com.apple.nfsd"),
+		    &prevent_idle_sleep_assertion);
 		if (ioret != kIOReturnSuccess) {
 			prevent_idle_sleep_assertion = kIOPMNullAssertionID;
 			log(LOG_ERR, "Unable to take idle system sleep assertion");
 		}
 	} else {
-		if (prevent_idle_sleep_assertion == kIOPMNullAssertionID)
+		if (prevent_idle_sleep_assertion == kIOPMNullAssertionID) {
 			return;
+		}
 		ioret = IOPMAssertionRelease(prevent_idle_sleep_assertion);
-		if (ioret != kIOReturnSuccess)
+		if (ioret != kIOReturnSuccess) {
 			log(LOG_ERR, "Unable to release idle system sleep assertion");
-		else
+		} else {
 			prevent_idle_sleep_assertion = kIOPMNullAssertionID;
+		}
 	}
 }

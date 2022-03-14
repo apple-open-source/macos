@@ -128,7 +128,7 @@ ATADeviceNub::init(IOATAController* provider, ataUnitID unit, ataDeviceType devT
 	_deviceType = devType;
 
 	// allocate a buffer for the identify info from the device	
-	buffer = (UInt8*) IOMalloc( kIDBufferBytes );
+	buffer = (UInt8*) IOMallocZeroData( kIDBufferBytes );
 	
 	if( !buffer )
 		return false;
@@ -142,7 +142,7 @@ ATADeviceNub::init(IOATAController* provider, ataUnitID unit, ataDeviceType devT
 	{
 		DLOG("ATADeviceNub failed identify device %ld\n", (long int) err);
 
-		IOFree( buffer, kIDBufferBytes);	
+		IOFreeData( buffer, kIDBufferBytes);
 		return false;	
 	}
 	
@@ -150,7 +150,7 @@ ATADeviceNub::init(IOATAController* provider, ataUnitID unit, ataDeviceType devT
 	publishBusProperties();
 	publishVendorProperties();
 
-	IOFree( buffer, kIDBufferBytes);	
+	IOFreeData( buffer, kIDBufferBytes);
 	buffer = 0L;
 		
 	return true;
@@ -321,7 +321,7 @@ ATADeviceNub::getDeviceID( void )
 
 	
 	// set the refCon so the callback knows what to do.
-	completionInfo* completion = (completionInfo*)IOMalloc(sizeof(completionInfo));
+	completionInfo* completion = (completionInfo*)IOMallocType(completionInfo);
 	completion->whatToDo = 	kDoIDDataComplete;
 	completion->sync = IOSyncer::create();
 	cmd->refCon = (void*) completion;
@@ -339,7 +339,7 @@ ATADeviceNub::getDeviceID( void )
 	
 	desc->complete( kIODirectionIn );
 		
-	IOFree( completion, sizeof(completionInfo));
+	IOFreeType( completion, completionInfo );
 
 	if( cmd->getResult() )
 	{

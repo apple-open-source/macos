@@ -30,7 +30,7 @@ static void tests(void)
 
         const char resultSize = sizeof(expected);
 
-        uint8_t actual[resultSize];
+        uint8_t actual[sizeof(expected)];
 
         is(pbkdf2_hmac_sha256((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-256: Failed Key Derivation I-1");
 
@@ -50,7 +50,7 @@ static void tests(void)
 
         const char resultSize = sizeof(expected);
 
-        uint8_t actual[resultSize];
+        uint8_t actual[sizeof(expected)];
 
         is(pbkdf2_hmac_sha256((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-256: Failed Key Derivation I-2");
 
@@ -70,7 +70,7 @@ static void tests(void)
 
         const char resultSize = sizeof(expected);
 
-        uint8_t actual[resultSize];
+        uint8_t actual[sizeof(expected)];
 
         is(pbkdf2_hmac_sha256((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-256: Failed Key Derivation I-4096");
 
@@ -92,7 +92,7 @@ SKIP: {
 
     const char resultSize = sizeof(expected);
 
-    uint8_t actual[resultSize];
+    uint8_t actual[sizeof(expected)];
 
     is(pbkdf2_hmac_sha256((const uint8_t*) password, strlen(password), (const uint8_t*) salt, strlen(salt), iterations, actual, resultSize), errSecSuccess, "pbkdf-sha-256: Failed Key Derivation I-16777216");
 

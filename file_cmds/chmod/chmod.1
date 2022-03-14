@@ -39,35 +39,35 @@
 .Nm chmod
 .Nd change file modes or Access Control Lists
 .Sh SYNOPSIS
-.Nm chmod
-.Op Fl fv
+.Nm
+.Op Fl fhv
 .Op Fl R Op Fl H | L | P
 .Ar mode
 .Ar
-.Nm chmod
-.Op Fl fv
+.Nm
+.Op Fl fhv
 .Op Fl R Op Fl H | L | P
 .Op -a | +a | =a
 .Ar ACE
 .Ar
-.Nm chmod
+.Nm
 .Op Fl fhv
 .Op Fl R Op Fl H | L | P
 .Op Fl E
 .Ar
-.Nm chmod
+.Nm
 .Op Fl fhv
 .Op Fl R Op Fl H | L | P
 .Op Fl C
 .Ar
-.Nm chmod
+.Nm
 .Op Fl fhv
 .Op Fl R Op Fl H | L | P
 .Op Fl N
 .Ar
 .Sh DESCRIPTION
 The
-.Nm chmod
+.Nm
 utility modifies the file mode bits of the listed files
 as specified by the
 .Ar mode
@@ -78,7 +78,7 @@ The generic options are as follows:
 .Bl -tag -width indent
 .It Fl f
 Do not display a diagnostic message if
-.Nm chmod
+.Nm
 could not modify the mode for
 .Va file ,
 nor modify the exit status to reflect such failures.
@@ -109,7 +109,7 @@ hard link to the parent directory when using wildcards like
 .Dq Li ".*" .
 .It Fl v
 Cause
-.Nm chmod
+.Nm
 to be verbose, showing filenames as the mode is modified.
 If the
 .Fl v
@@ -129,7 +129,7 @@ In addition, these options override each other and the
 command's actions are determined by the last one specified.
 .Pp
 If
-.Nm chmod
+.Nm
 receives a
 .Dv SIGINFO
 signal (see the
@@ -299,6 +299,8 @@ Then, if no value is supplied for
 each permission bit specified in
 .Ar perm ,
 for which the corresponding bit in the file mode creation mask
+(see
+.Xr umask 2 )
 is clear, is set.
 Otherwise, the mode bits represented by the specified
 .Ar who
@@ -589,7 +591,7 @@ option is non-standard and its use in scripts is not recommended.
 .Xr mount 8
 .Sh STANDARDS
 The
-.Nm chmod
+.Nm
 utility is expected to be
 .St -p1003.2
 compatible with the exception of the
@@ -599,6 +601,10 @@ symbol
 which is not included in that standard.
 .Sh HISTORY
 A
-.Nm chmod
+.Nm
 command appeared in
 .At v1 .
+.Sh BUGS
+There is no
+.Ar perm
+option for the naughty bits of a horse.

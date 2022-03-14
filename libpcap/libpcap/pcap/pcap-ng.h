@@ -316,6 +316,8 @@ struct pcapng_decryption_secrets_fields {
 #define	PCAPNG_EPB_SVC		0x8002	/* 32 bits number with type of service code */
 #define	PCAPNG_EPB_E_PIB_INDEX	0x8003	/* 32 bits number of the effective process information block */
 #define	PCAPNG_EPB_PMD_FLAGS	0x8004  /* 32 bits flags word of packet metadata flags */
+#define	PCAPNG_EPB_FLOW_ID	0x8005  /* 32 bits flowid */
+#define	PCAPNG_EPB_TRACE_TAG	0x8006  /* 16 bits trace tag */
 
 /*
  * Packet Metadata Flags (PCAPNG_EPB_PMD_FLAGS option)

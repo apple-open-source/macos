@@ -106,7 +106,7 @@
  */
 #define UIPC_MAX_CMSG_FD        512
 
-ZONE_DECLARE(unp_zone, "unpzone", sizeof(struct unpcb), ZC_NONE);
+ZONE_DEFINE_TYPE(unp_zone, "unpzone", struct unpcb, ZC_NONE);
 static  unp_gen_t unp_gencnt;
 static  u_int unp_count;
 
@@ -240,10 +240,12 @@ uipc_accept(struct socket *so, struct sockaddr **nam)
 	 * if it was bound and we are still connected
 	 * (our peer may have closed already!).
 	 */
-	if (unp->unp_conn && unp->unp_conn->unp_addr) {
+	if (unp->unp_conn != NULL && unp->unp_conn->unp_addr != NULL) {
 		*nam = dup_sockaddr((struct sockaddr *)
 		    unp->unp_conn->unp_addr, 1);
 	} else {
+		os_log(OS_LOG_DEFAULT, "%s: peer disconnected unp_gencnt %llu",
+		    __func__, unp->unp_gencnt);
 		*nam = dup_sockaddr((struct sockaddr *)&sun_noname, 1);
 	}
 	return 0;
@@ -358,15 +360,24 @@ static int
 uipc_peeraddr(struct socket *so, struct sockaddr **nam)
 {
 	struct unpcb *unp = sotounpcb(so);
+	struct socket *so2;
 
 	if (unp == NULL) {
 		return EINVAL;
 	}
+	so2 = unp->unp_conn != NULL ? unp->unp_conn->unp_socket : NULL;
+	if (so2 != NULL) {
+		unp_get_locks_in_order(so, so2);
+	}
+
 	if (unp->unp_conn != NULL && unp->unp_conn->unp_addr != NULL) {
 		*nam = dup_sockaddr((struct sockaddr *)
 		    unp->unp_conn->unp_addr, 1);
 	} else {
 		*nam = dup_sockaddr((struct sockaddr *)&sun_noname, 1);
+	}
+	if (so2 != NULL) {
+		socket_unlock(so2, 1);
 	}
 	return 0;
 }

@@ -2490,7 +2490,9 @@ AppleVTD::deviceMapperActivate(AppleVTDDeviceMapper * mapper, uint32_t options)
 	space = 0;
     if ((kDeviceMapperActivate | kDeviceMapperUnpause) & options)
     {
-		if (!mapper->fSpace) mapper->fSpace = space_create(1<<(32-12), 0, 1);
+	//fSpace = space_create(kVPages, kBPagesLog2, kRPages);
+	//                      (1<<25)     18         1 << 20        
+		if (!mapper->fSpace) mapper->fSpace = space_create(kVPages, 0, 1);
 		space = mapper->fSpace;
 		if (!space) ret = kIOReturnNoMemory;
 	}

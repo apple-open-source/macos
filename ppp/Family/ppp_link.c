@@ -159,11 +159,7 @@ int ppp_link_attach(struct ppp_link *link)
     }
 
 #ifdef USE_PRIVATE_STRUCT
-    MALLOC(priv, struct ppp_priv *, sizeof(struct ppp_priv), M_TEMP, M_WAITOK);
-    if (!priv)
-        return ENOMEM;
-
-    bzero(priv, sizeof(struct ppp_priv));
+    priv = kalloc_type(struct ppp_priv, Z_WAITOK | Z_ZERO | Z_NOFAIL);
     link->lk_ppp_private = priv;
 #else
     link->lk_ppp_private = 0;
@@ -190,7 +186,7 @@ int ppp_link_detach(struct ppp_link *link)
     ppp_if_detachlink(link);
 #ifdef USE_PRIVATE_STRUCT
     ppp_proto_free(priv->host);
-    FREE(priv, M_TEMP);
+    kfree_type(struct ppp_priv, priv);
 #else
     ppp_proto_free(link->lk_ppp_private);
 #endif

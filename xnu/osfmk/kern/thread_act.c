@@ -154,6 +154,10 @@ thread_start_in_assert_wait(
 /*
  * Internal routine to terminate a thread.
  * Sometimes called with task already locked.
+ *
+ * If thread is on core, cause AST check immediately;
+ * Otherwise, let the thread continue running in kernel
+ * until it hits AST.
  */
 kern_return_t
 thread_terminate_internal(
@@ -532,9 +536,10 @@ thread_get_state_internal(
 	int                                             flavor,
 	thread_state_t                  state,                  /* pointer to OUT array */
 	mach_msg_type_number_t  *state_count,   /*IN/OUT*/
-	boolean_t                               to_user)
+	thread_set_status_flags_t  flags)
 {
 	kern_return_t           result = KERN_SUCCESS;
+	boolean_t               to_user = !!(flags & TSSF_TRANSLATE_TO_USER);
 
 	if (thread == THREAD_NULL) {
 		return KERN_INVALID_ARGUMENT;
@@ -572,7 +577,7 @@ thread_get_state_internal(
 
 	if (to_user && result == KERN_SUCCESS) {
 		result = machine_thread_state_convert_to_user(thread, flavor, state,
-		    state_count);
+		    state_count, flags);
 	}
 
 	thread_mtx_unlock(thread);
@@ -596,7 +601,7 @@ thread_get_state(
 	thread_state_t                  state,                  /* pointer to OUT array */
 	mach_msg_type_number_t  *state_count)   /*IN/OUT*/
 {
-	return thread_get_state_internal(thread, flavor, state, state_count, FALSE);
+	return thread_get_state_internal(thread, flavor, state, state_count, TSSF_FLAGS_NONE);
 }
 
 kern_return_t
@@ -606,7 +611,7 @@ thread_get_state_to_user(
 	thread_state_t                  state,                  /* pointer to OUT array */
 	mach_msg_type_number_t  *state_count)   /*IN/OUT*/
 {
-	return thread_get_state_internal(thread, flavor, state, state_count, TRUE);
+	return thread_get_state_internal(thread, flavor, state, state_count, TSSF_TRANSLATE_TO_USER);
 }
 
 /*
@@ -615,13 +620,16 @@ thread_get_state_to_user(
  */
 static inline kern_return_t
 thread_set_state_internal(
-	thread_t                thread,
-	int                                             flavor,
+	thread_t                        thread,
+	int                             flavor,
 	thread_state_t                  state,
-	mach_msg_type_number_t  state_count,
-	boolean_t                               from_user)
+	mach_msg_type_number_t          state_count,
+	thread_state_t                  old_state,
+	mach_msg_type_number_t          old_state_count,
+	thread_set_status_flags_t       flags)
 {
 	kern_return_t           result = KERN_SUCCESS;
+	boolean_t               from_user = !!(flags & TSSF_TRANSLATE_TO_USER);
 
 	if (thread == THREAD_NULL) {
 		return KERN_INVALID_ARGUMENT;
@@ -632,7 +640,7 @@ thread_set_state_internal(
 	if (thread->active) {
 		if (from_user) {
 			result = machine_thread_state_convert_from_user(thread, flavor,
-			    state, state_count);
+			    state, state_count, old_state, old_state_count, flags);
 			if (result != KERN_SUCCESS) {
 				goto out;
 			}
@@ -686,7 +694,7 @@ thread_set_state(
 	thread_state_t                  state,
 	mach_msg_type_number_t  state_count)
 {
-	return thread_set_state_internal(thread, flavor, state, state_count, FALSE);
+	return thread_set_state_internal(thread, flavor, state, state_count, NULL, 0, TSSF_FLAGS_NONE);
 }
 
 kern_return_t
@@ -696,7 +704,7 @@ thread_set_state_from_user(
 	thread_state_t                  state,
 	mach_msg_type_number_t  state_count)
 {
-	return thread_set_state_internal(thread, flavor, state, state_count, TRUE);
+	return thread_set_state_internal(thread, flavor, state, state_count, NULL, 0, TSSF_TRANSLATE_TO_USER);
 }
 
 kern_return_t
@@ -737,7 +745,7 @@ thread_convert_thread_state(
 
 	/* Authenticate and convert thread state to kernel representation */
 	kr = machine_thread_state_convert_from_user(from_thread, flavor,
-	    in_state, state_count);
+	    in_state, state_count, NULL, 0, TSSF_FLAGS_NONE);
 
 	/* Return early if one of the thread was jop disabled while other wasn't */
 	if (kr != KERN_SUCCESS) {
@@ -746,7 +754,7 @@ thread_convert_thread_state(
 
 	/* Convert thread state to target thread user representation */
 	kr = machine_thread_state_convert_to_user(to_thread, flavor,
-	    in_state, &state_count);
+	    in_state, &state_count, TSSF_PRESERVE_FLAGS);
 
 	if (kr == KERN_SUCCESS) {
 		if (state_count <= *out_state_count) {
@@ -919,9 +927,13 @@ thread_setstatus_from_user(
 	thread_t                thread,
 	int                                             flavor,
 	thread_state_t                  tstate,
-	mach_msg_type_number_t  count)
+	mach_msg_type_number_t  count,
+	thread_state_t                  old_tstate,
+	mach_msg_type_number_t  old_count,
+	thread_set_status_flags_t flags)
 {
-	return thread_set_state_from_user(thread, flavor, tstate, count);
+	return thread_set_state_internal(thread, flavor, tstate, count, old_tstate,
+	           old_count, flags | TSSF_TRANSLATE_TO_USER);
 }
 
 /*

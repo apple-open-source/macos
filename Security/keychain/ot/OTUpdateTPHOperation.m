@@ -85,7 +85,7 @@
 
             if(!fatal) {
                 if(!pendingFlag) {
-                    NSTimeInterval delay = [self.error overallCuttlefishRetry];
+                    NSTimeInterval delay = [self.error retryInterval];
 
                     pendingFlag = [[OctagonPendingFlag alloc] initWithFlag:self.retryFlag
                                                             delayInSeconds:delay];

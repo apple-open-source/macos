@@ -25,7 +25,6 @@
 
 #include "config.h"
 
-#include "PluginProcessManager.h"
 #include "WKPreferencesRef.h"
 #include "WKPreferencesRefPrivate.h"
 #include "WKAPICast.h"
@@ -183,16 +182,6 @@ void WKPreferencesSetDatabasesEnabled(WKPreferencesRef preferencesRef, bool data
 bool WKPreferencesGetDatabasesEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->databasesEnabled();
-}
-
-void WKPreferencesSetXSSAuditorEnabled(WKPreferencesRef preferencesRef, bool xssAuditorEnabled)
-{
-    toImpl(preferencesRef)->setXSSAuditorEnabled(xssAuditorEnabled);
-}
-
-bool WKPreferencesGetXSSAuditorEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->xssAuditorEnabled();
 }
 
 void WKPreferencesSetFrameFlatteningEnabled(WKPreferencesRef preferencesRef, bool frameFlatteningEnabled)
@@ -616,14 +605,13 @@ bool WKPreferencesGetPageCacheEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->usesBackForwardCache();
 }
 
-void WKPreferencesSetPageCacheSupportsPlugins(WKPreferencesRef preferencesRef, bool backForwardCacheSupportsPlugins)
+void WKPreferencesSetPageCacheSupportsPlugins(WKPreferencesRef, bool)
 {
-    toImpl(preferencesRef)->setBackForwardCacheSupportsPlugins(backForwardCacheSupportsPlugins);
 }
 
-bool WKPreferencesGetPageCacheSupportsPlugins(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetPageCacheSupportsPlugins(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->backForwardCacheSupportsPlugins();
+    return false;
 }
 
 void WKPreferencesSetPaginateDuringLayoutEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1016,34 +1004,31 @@ bool WKPreferencesGetDiagnosticLoggingEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->diagnosticLoggingEnabled();
 }
 
-void WKPreferencesSetAsynchronousPluginInitializationEnabled(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetAsynchronousPluginInitializationEnabled(WKPreferencesRef, bool)
 {
-    toImpl(preferencesRef)->setAsynchronousPluginInitializationEnabled(enabled);
 }
 
-bool WKPreferencesGetAsynchronousPluginInitializationEnabled(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetAsynchronousPluginInitializationEnabled(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->asynchronousPluginInitializationEnabled();
+    return false;
 }
 
-void WKPreferencesSetAsynchronousPluginInitializationEnabledForAllPlugins(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetAsynchronousPluginInitializationEnabledForAllPlugins(WKPreferencesRef, bool)
 {
-    toImpl(preferencesRef)->setAsynchronousPluginInitializationEnabledForAllPlugins(enabled);
 }
 
-bool WKPreferencesGetAsynchronousPluginInitializationEnabledForAllPlugins(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetAsynchronousPluginInitializationEnabledForAllPlugins(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->asynchronousPluginInitializationEnabledForAllPlugins();
+    return false;
 }
 
-void WKPreferencesSetArtificialPluginInitializationDelayEnabled(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetArtificialPluginInitializationDelayEnabled(WKPreferencesRef, bool)
 {
-    toImpl(preferencesRef)->setArtificialPluginInitializationDelayEnabled(enabled);
 }
 
-bool WKPreferencesGetArtificialPluginInitializationDelayEnabled(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetArtificialPluginInitializationDelayEnabled(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->artificialPluginInitializationDelayEnabled();
+    return false;
 }
 
 void WKPreferencesSetInteractiveFormValidationEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1075,17 +1060,13 @@ bool WKPreferencesGetPlugInSnapshottingEnabled(WKPreferencesRef preferencesRef)
     return false;
 }
 
-void WKPreferencesSetPluginSandboxProfilesEnabledForAllPlugins(WKPreferencesRef preferencesRef, bool enabled)
+void WKPreferencesSetPluginSandboxProfilesEnabledForAllPlugins(WKPreferencesRef, bool)
 {
-#if ENABLE(NETSCAPE_PLUGIN_API) && PLATFORM(MAC)
-    WebKit::PluginProcessManager::singleton().setExperimentalPlugInSandboxProfilesEnabled(enabled);
-#endif
-    toImpl(preferencesRef)->setExperimentalPlugInSandboxProfilesEnabled(enabled);
 }
 
-bool WKPreferencesGetPluginSandboxProfilesEnabledForAllPlugins(WKPreferencesRef preferencesRef)
+bool WKPreferencesGetPluginSandboxProfilesEnabledForAllPlugins(WKPreferencesRef)
 {
-    return toImpl(preferencesRef)->experimentalPlugInSandboxProfilesEnabled();
+    return false;
 }
 
 void WKPreferencesSetSnapshotAllPlugIns(WKPreferencesRef, bool)
@@ -1435,15 +1416,14 @@ bool WKPreferencesGetServiceControlsEnabled(WKPreferencesRef preferencesRef)
     return toImpl(preferencesRef)->serviceControlsEnabled();
 }
 
-void WKPreferencesSetImageControlsEnabled(WKPreferencesRef, bool)
+void WKPreferencesSetImageControlsEnabled(WKPreferencesRef preferencesRef, bool enabled)
 {
-    // Image controls are no longer supported.
+    toImpl(preferencesRef)->setImageControlsEnabled(enabled);
 }
 
-bool WKPreferencesGetImageControlsEnabled(WKPreferencesRef)
+bool WKPreferencesGetImageControlsEnabled(WKPreferencesRef preferencesRef)
 {
-    // Image controls are no longer supported.
-    return false;
+    return toImpl(preferencesRef)->imageControlsEnabled();
 }
 
 void WKPreferencesSetGamepadsEnabled(WKPreferencesRef preferencesRef, bool enabled)
@@ -1604,16 +1584,6 @@ void WKPreferencesSetCustomPasteboardDataEnabled(WKPreferencesRef preferencesRef
 bool WKPreferencesGetCustomPasteboardDataEnabled(WKPreferencesRef preferencesRef)
 {
     return toImpl(preferencesRef)->customPasteboardDataEnabled();
-}
-
-void WKPreferencesSetDialogElementEnabled(WKPreferencesRef preferencesRef, bool flag)
-{
-    toImpl(preferencesRef)->setDialogElementEnabled(flag);
-}
-
-bool WKPreferencesGetDialogElementEnabled(WKPreferencesRef preferencesRef)
-{
-    return toImpl(preferencesRef)->dialogElementEnabled();
 }
 
 void WKPreferencesSetKeygenElementEnabled(WKPreferencesRef preferencesRef, bool flag)
@@ -2225,4 +2195,23 @@ void WKPreferencesSetWebSQLDisabled(WKPreferencesRef, bool)
 bool WKPreferencesGetWebSQLDisabled(WKPreferencesRef preferencesRef)
 {
     return true;
+}
+
+void WKPreferencesSetXSSAuditorEnabled(WKPreferencesRef, bool)
+{
+}
+
+bool WKPreferencesGetXSSAuditorEnabled(WKPreferencesRef)
+{
+    return false;
+}
+
+void WKPreferencesSetRequestVideoFrameCallbackEnabled(WKPreferencesRef preferencesRef, bool enabled)
+{
+    toImpl(preferencesRef)->setRequestVideoFrameCallbackEnabled(enabled);
+}
+
+bool WKPreferencesGetRequestVideoFrameCallbackEnabled(WKPreferencesRef preferencesRef)
+{
+    return toImpl(preferencesRef)->requestVideoFrameCallbackEnabled();
 }

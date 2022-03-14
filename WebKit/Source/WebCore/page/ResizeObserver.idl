@@ -26,8 +26,7 @@
 // https://wicg.github.io/ResizeObserver/
 
 [
-    Conditional=RESIZE_OBSERVER,
-    EnabledBySetting=ResizeObserver,
+    EnabledBySetting=ResizeObserverEnabled,
     Exposed=Window,
     JSCustomMarkFunction,
     CustomIsReachable,
@@ -35,7 +34,7 @@
 ] interface ResizeObserver {
     [CallWith=Document] constructor(ResizeObserverCallback callback);
 
-    undefined observe(Element target);
+    undefined observe(Element target, optional ResizeObserverOptions options);
     undefined unobserve(Element target);
     undefined disconnect();
 };

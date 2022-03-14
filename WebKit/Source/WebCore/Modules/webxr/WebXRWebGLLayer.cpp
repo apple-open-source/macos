@@ -152,7 +152,7 @@ ExceptionOr<Ref<WebXRWebGLLayer>> WebXRWebGLLayer::create(Ref<WebXRSession>&& se
             // 10. Return layer.
             return adoptRef(*new WebXRWebGLLayer(WTFMove(session), WTFMove(context), WTFMove(framebuffer), antialias, ignoreDepthValues, isCompositionEnabled));
         },
-        [](WTF::Monostate) {
+        [](std::monostate) {
             ASSERT_NOT_REACHED();
             return Exception { InvalidStateError };
         }
@@ -273,7 +273,7 @@ HTMLCanvasElement* WebXRWebGLLayer::canvas() const
         auto canvas = baseContext->canvas();
         return WTF::switchOn(canvas, [](const RefPtr<HTMLCanvasElement>& canvas) {
             return canvas.get();
-        }, [](const RefPtr<OffscreenCanvas>) {
+        }, [](const RefPtr<OffscreenCanvas>) -> HTMLCanvasElement* {
             ASSERT_NOT_REACHED("baseLayer of a WebXRWebGLLayer must be an HTMLCanvasElement");
             return nullptr;
         });
@@ -324,18 +324,13 @@ void WebXRWebGLLayer::computeViewports()
     auto width = framebufferWidth();
     auto height = framebufferHeight();
 
-    if (m_session->mode() == XRSessionMode::ImmersiveVr) {
-        // Update left viewport
-        auto scale = m_leftViewportData.currentScale;
-        m_leftViewportData.viewport->updateViewport(IntRect(0, 0, roundDown(width * 0.5 * scale), roundDown(height * scale)));
-
-        // Update right viewport
-        scale = m_rightViewportData.currentScale;
-        m_rightViewportData.viewport->updateViewport(IntRect(width * 0.5, 0, roundDown(width * 0.5 * scale), roundDown(height * scale)));
-    } else {
-        // We reuse m_leftViewport for XREye::None.
+    if (m_session->mode() == XRSessionMode::ImmersiveVr && m_session->views().size() > 1) {
+        auto leftScale = m_leftViewportData.currentScale;
+        m_leftViewportData.viewport->updateViewport(IntRect(0, 0, roundDown(width * 0.5 * leftScale), roundDown(height * leftScale)));
+        auto rightScale = m_rightViewportData.currentScale;
+        m_rightViewportData.viewport->updateViewport(IntRect(width * 0.5, 0, roundDown(width * 0.5 * rightScale), roundDown(height * rightScale)));
+    } else
         m_leftViewportData.viewport->updateViewport(IntRect(0, 0, width, height));
-    }
 
     m_viewportsDirty = false;
 }

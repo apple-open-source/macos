@@ -797,7 +797,7 @@ prime(void)
 
 __private_extern__
 void
-prime_KernelEventMonitor()
+prime_KernelEventMonitor(void)
 {
 	dispatch_async(S_kev_queue, ^{ prime(); });
 	return;

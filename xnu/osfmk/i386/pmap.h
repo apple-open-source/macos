@@ -783,6 +783,8 @@ extern uint64_t pmap_commpage_size_min(pmap_t pmap);
 
 extern void pmap_ro_zone_memcpy(zone_id_t zid, vm_offset_t va, vm_offset_t offset,
     vm_offset_t new_data, vm_size_t new_data_size);
+extern uint64_t pmap_ro_zone_atomic_op(zone_id_t zid, vm_offset_t va, vm_offset_t offset,
+    uint32_t op, uint64_t value);
 extern void pmap_ro_zone_bzero(zone_id_t zid, vm_offset_t va, vm_offset_t offset, vm_size_t size);
 
 /*

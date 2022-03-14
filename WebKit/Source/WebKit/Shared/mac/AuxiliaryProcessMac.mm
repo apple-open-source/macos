@@ -51,10 +51,12 @@
 #import <wtf/DataLog.h>
 #import <wtf/FileSystem.h>
 #import <wtf/RandomNumber.h>
+#import <wtf/SafeStrerror.h>
 #import <wtf/Scope.h>
 #import <wtf/SoftLinking.h>
 #import <wtf/SystemTracing.h>
 #import <wtf/WallTime.h>
+#import <wtf/cocoa/Entitlements.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
 #import <wtf/text/Base64.h>
 #import <wtf/text/StringBuilder.h>
@@ -72,6 +74,9 @@ SOFT_LINK_OPTIONAL(libsystem_info, lookup_close_connections, int, (), ());
 SOFT_LINK_SYSTEM_LIBRARY(libsystem_notify)
 SOFT_LINK_OPTIONAL(libsystem_notify, notify_set_options, void, __cdecl, (uint32_t));
 #endif
+
+SOFT_LINK_FRAMEWORK_IN_UMBRELLA(ApplicationServices, HIServices)
+SOFT_LINK_OPTIONAL(HIServices, HIS_XPC_ResetMessageConnection, void, (), ())
 
 #if PLATFORM(MAC)
 #define USE_CACHE_COMPILED_SANDBOX 1
@@ -248,7 +253,7 @@ static std::optional<CString> setAndSerializeSandboxParameters(const SandboxInit
         const char* name = initializationParameters.name(i);
         const char* value = initializationParameters.value(i);
         if (sandbox_set_param(sandboxParameters.get(), name, value)) {
-            WTFLogAlways("%s: Could not set sandbox parameter: %s\n", getprogname(), strerror(errno));
+            WTFLogAlways("%s: Could not set sandbox parameter: %s\n", getprogname(), safeStrerror(errno).data());
             CRASH();
         }
         builder.append(name, ':', value, ':');
@@ -268,13 +273,13 @@ static String sandboxDataVaultParentDirectory()
     char temp[PATH_MAX];
     size_t length = confstr(_CS_DARWIN_USER_CACHE_DIR, temp, sizeof(temp));
     if (!length) {
-        WTFLogAlways("%s: Could not retrieve user temporary directory path: %s\n", getprogname(), strerror(errno));
+        WTFLogAlways("%s: Could not retrieve user temporary directory path: %s\n", getprogname(), safeStrerror(errno).data());
         exit(EX_NOPERM);
     }
     RELEASE_ASSERT(length <= sizeof(temp));
     char resolvedPath[PATH_MAX];
     if (!realpath(temp, resolvedPath)) {
-        WTFLogAlways("%s: Could not canonicalize user temporary directory path: %s\n", getprogname(), strerror(errno));
+        WTFLogAlways("%s: Could not canonicalize user temporary directory path: %s\n", getprogname(), safeStrerror(errno).data());
         exit(EX_NOPERM);
     }
     return resolvedPath;
@@ -370,7 +375,7 @@ static bool ensureSandboxCacheDirectory(const SandboxInfo& info)
         if (!makeDataVault())
             return false;
     } else {
-        WTFLogAlways("%s: Sandbox directory couldn't be created: ", getprogname(), strerror(errno));
+        WTFLogAlways("%s: Sandbox directory couldn't be created: ", getprogname(), safeStrerror(errno).data());
         return false;
     }
 #else
@@ -518,7 +523,7 @@ static bool tryApplyCachedSandbox(const SandboxInfo& info)
     setNotifyOptions();
 
     if (sandbox_apply(&profile)) {
-        WTFLogAlways("%s: Could not apply cached sandbox: %s\n", getprogname(), strerror(errno));
+        WTFLogAlways("%s: Could not apply cached sandbox: %s\n", getprogname(), safeStrerror(errno).data());
         return false;
     }
 
@@ -620,7 +625,7 @@ static bool applySandbox(const AuxiliaryProcessInitializationParameters& paramet
     setNotifyOptions();
     
     if (sandbox_apply(sandboxProfile.get())) {
-        WTFLogAlways("%s: Could not apply compiled sandbox: %s\n", getprogname(), strerror(errno));
+        WTFLogAlways("%s: Could not apply compiled sandbox: %s\n", getprogname(), safeStrerror(errno).data());
         CRASH();
     }
 
@@ -700,6 +705,8 @@ static void initializeSandboxParameters(const AuxiliaryProcessInitializationPara
         mbr_close_connectionsPtr()();
     if (lookup_close_connectionsPtr())
         lookup_close_connectionsPtr()();
+    if (HIS_XPC_ResetMessageConnectionPtr())
+        HIS_XPC_ResetMessageConnectionPtr()();
 }
 
 void AuxiliaryProcess::initializeSandbox(const AuxiliaryProcessInitializationParameters& parameters, SandboxInitializationParameters& sandboxParameters)
@@ -713,6 +720,12 @@ void AuxiliaryProcess::initializeSandbox(const AuxiliaryProcessInitializationPar
 #else
     String dataVaultParentDirectory;
 #endif
+
+    bool enableMessageFilter = false;
+#if HAVE(SANDBOX_MESSAGE_FILTERING)
+    enableMessageFilter = WTF::processHasEntitlement("com.apple.private.security.message-filter");
+#endif
+    sandboxParameters.addParameter("ENABLE_SANDBOX_MESSAGE_FILTER", enableMessageFilter ? "YES" : "NO");
 
     initializeSandboxParameters(parameters, sandboxParameters);
 

@@ -26,6 +26,7 @@
 #include "config.h"
 #include "APIWebsitePolicies.h"
 
+#include "WebProcessPool.h"
 #include "WebUserContentControllerProxy.h"
 #include "WebsiteDataStore.h"
 #include "WebsitePoliciesData.h"
@@ -38,6 +39,7 @@ Ref<WebsitePolicies> WebsitePolicies::copy() const
 {
     auto policies = WebsitePolicies::create();
     policies->setContentBlockersEnabled(m_contentBlockersEnabled);
+    policies->m_activeContentRuleListActionPatterns = m_activeContentRuleListActionPatterns;
     policies->setAllowedAutoplayQuirks(m_allowedAutoplayQuirks);
     policies->setAutoplayPolicy(m_autoplayPolicy);
 #if ENABLE(DEVICE_ORIENTATION)
@@ -72,13 +74,14 @@ Ref<WebsitePolicies> WebsitePolicies::copy() const
     policies->setAllowSiteSpecificQuirksToOverrideContentMode(m_allowSiteSpecificQuirksToOverrideContentMode);
     policies->setApplicationNameForDesktopUserAgent(m_applicationNameForDesktopUserAgent);
     policies->setAllowsContentJavaScript(m_allowsContentJavaScript);
+    policies->setCaptivePortalModeEnabled(m_captivePortalModeEnabled);
     policies->setMouseEventPolicy(m_mouseEventPolicy);
+    policies->setModalContainerObservationPolicy(m_modalContainerObservationPolicy);
+    policies->setColorSchemePreference(m_colorSchemePreference);
     return policies;
 }
 
-WebsitePolicies::~WebsitePolicies()
-{
-}
+WebsitePolicies::~WebsitePolicies() = default;
 
 void WebsitePolicies::setWebsiteDataStore(RefPtr<WebKit::WebsiteDataStore>&& websiteDataStore)
 {
@@ -102,6 +105,7 @@ WebKit::WebsitePoliciesData WebsitePolicies::data()
 
     return {
         contentBlockersEnabled(),
+        activeContentRuleListActionPatterns(),
         allowedAutoplayQuirks(),
         autoplayPolicy(),
 #if ENABLE(DEVICE_ORIENTATION)
@@ -119,8 +123,15 @@ WebKit::WebsitePoliciesData WebsitePolicies::data()
         m_allowContentChangeObserverQuirk,
         m_allowsContentJavaScript,
         m_mouseEventPolicy,
+        m_modalContainerObservationPolicy,
+        m_colorSchemePreference,
         m_idempotentModeAutosizingOnlyHonorsPercentages
     };
+}
+
+bool WebsitePolicies::captivePortalModeEnabled() const
+{
+    return m_captivePortalModeEnabled ? *m_captivePortalModeEnabled : WebKit::captivePortalModeEnabledBySystem();
 }
 
 }

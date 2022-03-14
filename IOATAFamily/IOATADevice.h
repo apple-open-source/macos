@@ -53,7 +53,7 @@ public:
 
 	// 
 	/*!@function getUnitID
-	@abstract Determine whether this device is number 0 or 1 (ie, master/slave)
+	@abstract Determine whether this device is number 0 or 1 (ie, primary/secondary)
 	@result ataUnitID - 0 or 1.
 	*/
 	virtual ataUnitID	getUnitID( void );
@@ -140,7 +140,7 @@ public:
 	
 protected:
     IOATAController*     _provider;
-    ataUnitID			_unitNumber;  // 0 - master, 1 - slave, -1 = not Valid
+    ataUnitID			_unitNumber;  // 0 - primary, 1 - secondary, -1 = not Valid
     ataDeviceType		_deviceType;  // ata, atapi, unknown	    
 protected:
 /*! @struct ExpansionData

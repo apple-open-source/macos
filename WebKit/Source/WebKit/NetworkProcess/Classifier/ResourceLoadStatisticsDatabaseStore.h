@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
 
 #include "DatabaseUtilities.h"
 #include "ResourceLoadStatisticsStore.h"
@@ -48,20 +48,12 @@ static constexpr size_t numberOfBucketsPerStatistic = 5;
 static constexpr size_t numberOfStatistics = 7;
 static constexpr std::array<unsigned, numberOfBucketsPerStatistic> bucketSizes {{ 1, 3, 10, 50, 100 }};
 
-class ResourceLoadStatisticsMemoryStore;
-class PrivateClickMeasurementManager;
-
-using SourceSite = WebCore::PrivateClickMeasurement::SourceSite;
-using AttributionDestinationSite = WebCore::PrivateClickMeasurement::AttributionDestinationSite;
-using AttributionTriggerData = WebCore::PrivateClickMeasurement::AttributionTriggerData;
-
 // This is always constructed / used / destroyed on the WebResourceLoadStatisticsStore's statistics queue.
 class ResourceLoadStatisticsDatabaseStore final : public ResourceLoadStatisticsStore, public DatabaseUtilities {
 public:
     ResourceLoadStatisticsDatabaseStore(WebResourceLoadStatisticsStore&, SuspendableWorkQueue&, ShouldIncludeLocalhost, const String& storageDirectoryPath, PAL::SessionID);
     ~ResourceLoadStatisticsDatabaseStore();
 
-    void populateFromMemoryStore(const ResourceLoadStatisticsMemoryStore&);
     void mergeStatistics(Vector<ResourceLoadStatistics>&&) override;
     void clear(CompletionHandler<void()>&&) override;
     bool isEmpty() const override;
@@ -123,11 +115,9 @@ public:
     void insertExpiredStatisticForTesting(const RegistrableDomain&, unsigned numberOfOperatingDaysPassed, bool hasUserInteraction, bool isScheduledForAllButCookieDataRemoval, bool isPrevalent) override;
     static void interruptAllDatabases();
 
-    Vector<String> columnsForTable(const String&);
-
 private:
     const MemoryCompactLookupOnlyRobinHoodHashMap<String, TableAndIndexPair>& expectedTableAndIndexQueries() final;
-    const Vector<String>& sortedTables() final;
+    Span<const ASCIILiteral> sortedTables() final;
     void includeTodayAsOperatingDateIfNecessary() override;
     void clearOperatingDates() override { }
     bool hasStatisticsExpired(WallTime mostRecentUserInteractionTime, OperatingDatesWindow) const override;

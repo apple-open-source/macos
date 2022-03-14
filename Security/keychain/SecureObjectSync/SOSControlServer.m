@@ -188,6 +188,10 @@
     [self.account iCloudIdentityStatus: complete];
 }
 
+- (void)accountStatus: (void (^)(NSData *json, NSError *error))complete {
+    [self.account accountStatus: complete];
+}
+
 - (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
 {
     if([self sosIsEnabled]) {

@@ -199,7 +199,7 @@ typedef const struct pthread_callbacks_s {
 
 	/* vm_protos.h calls */
 	ipc_space_t (*task_get_ipcspace)(task_t t);
-	mach_port_name_t (*ipc_port_copyout_send)(ipc_port_t sright, ipc_space_t space);
+	void *__unused_was_ipc_port_copyout_send;
 
 	/* osfmk/vm/vm_map.h */
 	kern_return_t (*vm_map_page_info)(vm_map_t map, vm_map_offset_t offset, vm_page_info_flavor_t flavor, vm_page_info_t info, mach_msg_type_number_t *count);
@@ -243,11 +243,8 @@ typedef const struct pthread_callbacks_s {
 	kern_return_t (*semaphore_signal_internal_trap)(mach_port_name_t sema_name);
 	vm_map_t (*current_map)(void);
 
-	/* osfmk/kern/thread.h */
-	ipc_port_t (*convert_thread_to_port)(thread_t th);
-
-	/* mach/task.h */
-	kern_return_t (*thread_create)(task_t parent_task, thread_act_t *child_act);
+	void *__unused_was_convert_thread_to_port;
+	void *__unused_was_thread_create;
 
 	/* mach/thread_act.h */
 	kern_return_t (*thread_resume)(thread_act_t target_act);

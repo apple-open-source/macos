@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000,2002,2011,2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000,2002,2011,2014,2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,16 @@
 #ifdef	__cplusplus
 extern "C" {
 #endif
+
+/* ****************************************************************************
+ * IMPORTANT: The functionality provided by the OCSP helper daemon (ocspd)
+ * has been subsumed by trustd as of macOS 12.0 (Monterey). SecTrust APIs
+ * no longer rely on this library code or the ocspd daemon, and CDSA APIs
+ * have been deprecated for the past decade. The client interface functions
+ * in this file have been disabled as a first step toward removal.
+ * ****************************************************************************
+ */
+#define OCSPD_ENABLED 0
 
 #pragma mark ----- OCSP routines -----
 

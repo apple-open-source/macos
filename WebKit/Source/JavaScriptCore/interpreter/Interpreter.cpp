@@ -75,6 +75,7 @@
 #include <wtf/text/StringBuilder.h>
 
 #if ENABLE(WEBASSEMBLY)
+#include "JSWebAssemblyInstance.h"
 #include "WasmContextInlines.h"
 #include "WebAssemblyFunction.h"
 #endif
@@ -97,12 +98,15 @@ JSValue eval(JSGlobalObject* globalObject, CallFrame* callFrame, ECMAMode ecmaMo
     if (!program.isString())
         return program;
 
+    auto* programString = asString(program);
+
     TopCallFrameSetter topCallFrame(vm, callFrame);
     if (!globalObject->evalEnabled()) {
+        globalObject->globalObjectMethodTable()->reportViolationForUnsafeEval(globalObject, programString);
         throwException(globalObject, scope, createEvalError(globalObject, globalObject->evalDisabledErrorMessage()));
         return jsUndefined();
     }
-    String programSource = asString(program)->value(globalObject);
+    String programSource = programString->value(globalObject);
     RETURN_IF_EXCEPTION(scope, JSValue());
     
     CallFrame* callerFrame = callFrame->callerFrame();
@@ -541,8 +545,8 @@ CatchInfo::CatchInfo(const Wasm::HandlerInfo* handler, const Wasm::Callee* calle
     if (m_valid) {
         m_type = HandlerType::Catch;
         m_nativeCode = handler->m_nativeCode;
-        if (const Wasm::FunctionCodeBlock* codeBlock = callee->llintFunctionCodeBlock())
-            m_catchPCForInterpreter = codeBlock->instructions().at(handler->m_target).ptr();
+        if (callee->compilationMode() == Wasm::CompilationMode::LLIntMode)
+            m_catchPCForInterpreter = static_cast<const Wasm::LLIntCallee*>(callee)->instructions().at(handler->m_target).ptr();
         else
             m_catchPCForInterpreter = nullptr;
     }
@@ -876,12 +880,11 @@ failedJSONP:
     ProgramCodeBlock* codeBlock;
     {
         CodeBlock* tempCodeBlock;
-        Exception* error = program->prepareForExecution<ProgramExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
-        EXCEPTION_ASSERT(throwScope.exception() == error);
-        if (UNLIKELY(error))
-            return checkedReturn(error);
+        program->prepareForExecution<ProgramExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
+        RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
+
         codeBlock = jsCast<ProgramCodeBlock*>(tempCodeBlock);
-        ASSERT(codeBlock->numParameters() == 1); // 1 parameter for 'this'.
+        ASSERT(codeBlock && codeBlock->numParameters() == 1); // 1 parameter for 'this'.
     }
 
     RefPtr<JITCode> jitCode;
@@ -939,12 +942,10 @@ JSValue Interpreter::executeCall(JSGlobalObject* lexicalGlobalObject, JSObject* 
     CodeBlock* newCodeBlock = nullptr;
     if (isJSCall) {
         // Compile the callee:
-        Exception* compileError = callData.js.functionExecutable->prepareForExecution<FunctionExecutable>(vm, jsCast<JSFunction*>(function), scope, CodeForCall, newCodeBlock);
-        EXCEPTION_ASSERT(throwScope.exception() == compileError);
-        if (UNLIKELY(!!compileError))
-            return checkedReturn(compileError);
+        callData.js.functionExecutable->prepareForExecution<FunctionExecutable>(vm, jsCast<JSFunction*>(function), scope, CodeForCall, newCodeBlock);
+        RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
 
-        ASSERT(!!newCodeBlock);
+        ASSERT(newCodeBlock);
         newCodeBlock->m_shouldAlwaysBeInlined = false;
     }
 
@@ -1017,12 +1018,10 @@ JSObject* Interpreter::executeConstruct(JSGlobalObject* lexicalGlobalObject, JSO
     CodeBlock* newCodeBlock = nullptr;
     if (isJSConstruct) {
         // Compile the callee:
-        Exception* compileError = constructData.js.functionExecutable->prepareForExecution<FunctionExecutable>(vm, jsCast<JSFunction*>(constructor), scope, CodeForConstruct, newCodeBlock);
-        EXCEPTION_ASSERT(throwScope.exception() == compileError);
-        if (UNLIKELY(!!compileError))
-            return nullptr;
+        constructData.js.functionExecutable->prepareForExecution<FunctionExecutable>(vm, jsCast<JSFunction*>(constructor), scope, CodeForConstruct, newCodeBlock);
+        RETURN_IF_EXCEPTION(throwScope, nullptr);
 
-        ASSERT(!!newCodeBlock);
+        ASSERT(newCodeBlock);
         newCodeBlock->m_shouldAlwaysBeInlined = false;
     }
 
@@ -1057,16 +1056,16 @@ CallFrameClosure Interpreter::prepareForRepeatCall(FunctionExecutable* functionE
     VM& vm = scope->vm();
     auto throwScope = DECLARE_THROW_SCOPE(vm);
     throwScope.assertNoException();
-    
+
     if (vm.isCollectorBusyOnCurrentThread())
-        return CallFrameClosure();
+        return { };
 
     // Compile the callee:
     CodeBlock* newCodeBlock;
-    Exception* error = functionExecutable->prepareForExecution<FunctionExecutable>(vm, function, scope, CodeForCall, newCodeBlock);
-    EXCEPTION_ASSERT(throwScope.exception() == error);
-    if (UNLIKELY(error))
-        return CallFrameClosure();
+    functionExecutable->prepareForExecution<FunctionExecutable>(vm, function, scope, CodeForCall, newCodeBlock);
+    RETURN_IF_EXCEPTION(throwScope, { });
+
+    ASSERT(newCodeBlock);
     newCodeBlock->m_shouldAlwaysBeInlined = false;
 
     size_t argsCount = argumentCountIncludingThis;
@@ -1128,23 +1127,14 @@ JSValue Interpreter::execute(EvalExecutable* eval, JSGlobalObject* lexicalGlobal
             return throwScope.exception();
     }
 
-    auto loadCodeBlock = [&](Exception*& compileError) -> EvalCodeBlock* {
-        CodeBlock* tempCodeBlock;
-        compileError = eval->prepareForExecution<EvalExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
-        EXCEPTION_ASSERT(throwScope.exception() == compileError);
-        if (UNLIKELY(!!compileError))
-            return nullptr;
-        return jsCast<EvalCodeBlock*>(tempCodeBlock);
-    };
-
     EvalCodeBlock* codeBlock;
     {
-        Exception* compileError = nullptr;
-        codeBlock = loadCodeBlock(compileError);
-        EXCEPTION_ASSERT(throwScope.exception() == compileError);
-        if (UNLIKELY(!!compileError))
-            return checkedReturn(compileError);
-        ASSERT(codeBlock->numParameters() == 1); // 1 parameter for 'this'.
+        CodeBlock* tempCodeBlock;
+        eval->prepareForExecution<EvalExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
+        RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
+
+        codeBlock = jsCast<EvalCodeBlock*>(tempCodeBlock);
+        ASSERT(codeBlock && codeBlock->numParameters() == 1); // 1 parameter for 'this'.
     }
     UnlinkedEvalCodeBlock* unlinkedCodeBlock = codeBlock->unlinkedEvalCodeBlock();
 
@@ -1235,12 +1225,12 @@ JSValue Interpreter::execute(EvalExecutable* eval, JSGlobalObject* lexicalGlobal
 
     // Reload CodeBlock. It is possible that we replaced CodeBlock while setting up the environment.
     {
-        Exception* compileError = nullptr;
-        codeBlock = loadCodeBlock(compileError);
-        EXCEPTION_ASSERT(throwScope.exception() == compileError);
-        if (UNLIKELY(!!compileError))
-            return checkedReturn(compileError);
-        ASSERT(codeBlock->numParameters() == 1); // 1 parameter for 'this'.
+        CodeBlock* tempCodeBlock;
+        eval->prepareForExecution<EvalExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
+        RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
+
+        codeBlock = jsCast<EvalCodeBlock*>(tempCodeBlock);
+        ASSERT(codeBlock && codeBlock->numParameters() == 1); // 1 parameter for 'this'.
     }
 
     RefPtr<JITCode> jitCode;
@@ -1293,12 +1283,11 @@ JSValue Interpreter::executeModuleProgram(JSModuleRecord* record, ModuleProgramE
     ModuleProgramCodeBlock* codeBlock;
     {
         CodeBlock* tempCodeBlock;
-        Exception* compileError = executable->prepareForExecution<ModuleProgramExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
-        EXCEPTION_ASSERT(throwScope.exception() == compileError);
-        if (UNLIKELY(!!compileError))
-            return checkedReturn(compileError);
+        executable->prepareForExecution<ModuleProgramExecutable>(vm, nullptr, scope, CodeForCall, tempCodeBlock);
+        RETURN_IF_EXCEPTION(throwScope, checkedReturn(throwScope.exception()));
+
         codeBlock = jsCast<ModuleProgramCodeBlock*>(tempCodeBlock);
-        ASSERT(codeBlock->numParameters() == numberOfArguments + 1);
+        ASSERT(codeBlock && codeBlock->numParameters() == numberOfArguments + 1);
     }
 
     RefPtr<JITCode> jitCode;

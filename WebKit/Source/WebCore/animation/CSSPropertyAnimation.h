@@ -29,6 +29,7 @@
 #pragma once
 
 #include "CSSPropertyNames.h"
+#include "CompositeOperation.h"
 #include <wtf/HashSet.h>
 
 namespace WebCore {
@@ -39,6 +40,7 @@ class RenderStyle;
 class CSSPropertyAnimation {
 public:
     static bool isPropertyAnimatable(CSSPropertyID);
+    static bool isPropertyAdditiveOrCumulative(CSSPropertyID);
     static bool animationOfPropertyIsAccelerated(CSSPropertyID);
     static bool propertiesEqual(CSSPropertyID, const RenderStyle& a, const RenderStyle& b);
     static bool canPropertyBeInterpolated(CSSPropertyID, const RenderStyle& a, const RenderStyle& b);
@@ -47,7 +49,7 @@ public:
 
     static HashSet<CSSPropertyID> animatableShorthandsAffectingProperty(CSSPropertyID);
 
-    static void blendProperties(const CSSPropertyBlendingClient*, CSSPropertyID, RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, double progress);
+    static void blendProperties(const CSSPropertyBlendingClient*, CSSPropertyID, RenderStyle& destination, const RenderStyle& from, const RenderStyle& to, double progress, CompositeOperation);
 };
 
 } // namespace WebCore

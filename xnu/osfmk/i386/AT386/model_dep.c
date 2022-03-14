@@ -1241,6 +1241,7 @@ panic_display_system_configuration(boolean_t launchd_exit)
 			panic_display_hib_count();
 			panic_display_uptime();
 			panic_display_times();
+			panic_display_compressor_stats();
 			panic_display_zalloc();
 			kext_dump_panic_lists(&paniclog_append_noflush);
 		}

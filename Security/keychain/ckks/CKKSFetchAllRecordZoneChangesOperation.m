@@ -196,7 +196,30 @@
     //    networkBehavior = CKOperationDiscretionaryNetworkBehaviorNonDiscretionary;
     //}
 
-    ckksnotice_global("ckksfetch", "Beginning fetch with discretionary network (%d): %@", (int)networkBehavior, self.allClientOptions);
+    // Re-check in with our clients to be sure they want to be fetched.
+    // Some views might decide they no longer need a fetch in order to prioritize other views.
+    NSMutableArray<CKRecordZoneID*>* zoneIDsToStopFetching = [NSMutableArray array];
+    for(CKRecordZoneID* zoneID in self.allClientOptions.allKeys) {
+        BOOL keepZone = [self.clientMap[zoneID] zoneIsReadyForFetching:zoneID];
+
+        if(!keepZone) {
+            [zoneIDsToStopFetching addObject:zoneID];
+        }
+    }
+
+    if(zoneIDsToStopFetching.count > 0) {
+        ckksnotice_global("ckksfetch", "Dropping the following zones from this fetch cycle: %@", zoneIDsToStopFetching);
+
+        for(CKRecordZoneID* zoneID in zoneIDsToStopFetching) {
+            [self.fetchedZoneIDs removeObject:zoneID];
+            self.allClientOptions[zoneID] = nil;
+        }
+    }
+
+    ckksnotice_global("ckksfetch", "Beginning fetch with discretionary network (%d): %@ options: %@",
+                      (int)networkBehavior,
+                      self.fetchedZoneIDs,
+                      self.allClientOptions);
     self.fetchRecordZoneChangesOperation = [[self.fetchRecordZoneChangesOperationClass alloc] initWithRecordZoneIDs:self.fetchedZoneIDs
                                                                                               configurationsByRecordZoneID:self.allClientOptions];
 

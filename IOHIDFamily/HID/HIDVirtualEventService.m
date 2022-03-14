@@ -1,9 +1,25 @@
-//
-//  HIDVirtualEventService.m
-//  HID
-//
-//  Created by ygoryachok on 12/12/18.
-//
+/*
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * Copyright (c) 2018-2022 Apple Computer, Inc.  All Rights Reserved.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 
 #import "HIDVirtualEventService.h"
 #import "HIDEventSystemClient.h"
@@ -12,8 +28,13 @@
 #import "HIDServiceClient.h"
 #import "NSError+IOReturn.h"
 #import "IOHIDPrivateKeys.h"
+#include <IOKit/hid/IOHIDLibPrivate.h>
+#include <stdatomic.h>
+#include <os/assumes.h>
 
-@interface HIDVirtualEventService ()
+@interface HIDVirtualEventService () {
+    _Atomic int _state;
+}
 
 @property  HIDEventSystemClient *   client;
 @property  HIDServiceClient *       serviceClient;
@@ -152,6 +173,10 @@ static IOHIDEventRef _Nullable  __HIDVirtualServiceClientCopyMatchingEventCallba
 
 - (void)activate
 {
+
+    typeof (self->_state) state =  atomic_fetch_or(&self->_state, kIOHIDDispatchStateActive);
+    os_assert (state == kIOHIDDispatchStateInactive,  "Invalid dispatch state: %d", state);
+
     [self.client activate];
     
     IOHIDVirtualServiceClientCallbacksV2 callbacks = {
@@ -185,7 +210,16 @@ static IOHIDEventRef _Nullable  __HIDVirtualServiceClientCopyMatchingEventCallba
 
 - (void)cancel
 {
+    typeof (self->_state) state =  atomic_fetch_or(&self->_state, kIOHIDDispatchStateCancelled);
+    os_assert (state == kIOHIDDispatchStateActive,  "Invalid dispatch state: %d", state);
+
     [self.client cancel];
+}
+
+- (void)dealloc
+{
+    typeof (self->_state) state = atomic_load(&self->_state);
+    os_assert (state != kIOHIDDispatchStateActive,  "Invalid dispatch state: %d", state);
 }
 
 - (BOOL) dispatchEvent: (HIDEvent *) event

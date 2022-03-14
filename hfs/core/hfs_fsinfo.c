@@ -249,7 +249,7 @@ hfs_count_overflow_extents(struct hfsmount *hfsmp, uint32_t fileID, uint32_t *nu
 	int i;
 
 	fcb = VTOF(hfsmp->hfs_extents_vp);
-	iterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	
 	extentKey = (HFSPlusExtentKey *) &iterator->key;	
 	extentKey->keyLength = kHFSPlusExtentKeyMaximumLength;
@@ -308,7 +308,7 @@ hfs_count_overflow_extents(struct hfsmount *hfsmp, uint32_t fileID, uint32_t *nu
 	}
 
 out:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	if (error == 0) {
 		*num_extents = extent_count;
@@ -533,7 +533,7 @@ traverse_btree(struct hfsmount *hfsmp, uint32_t btree_fileID, int flags,
 			return EINVAL;
 	}
 
-	iterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	/* The key is initialized to zero because we are traversing entire btree */
 	key = (HFSPlusKey *)&iterator->key;
@@ -612,7 +612,7 @@ traverse_btree(struct hfsmount *hfsmp, uint32_t btree_fileID, int flags,
 	}
 
 	hfs_systemfile_unlock(hfsmp, ret_lockflags);
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	return MacToVFSError(error);
 }
 

@@ -35,8 +35,8 @@
 #include "FetchResponse.h"
 #include "MIMETypeRegistry.h"
 #include "ResourceRequest.h"
+#include "ScriptExecutionContextIdentifier.h"
 #include "ServiceWorker.h"
-#include "ServiceWorkerClientIdentifier.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "ServiceWorkerThread.h"
 #include "WorkerGlobalScope.h"
@@ -46,7 +46,7 @@ namespace WebCore {
 namespace ServiceWorkerFetch {
 
 // https://fetch.spec.whatwg.org/#http-fetch step 3.3
-static inline std::optional<ResourceError> validateResponse(const ResourceResponse& response, FetchOptions::Mode mode, FetchOptions::Redirect redirect)
+static inline ResourceError validateResponse(const ResourceResponse& response, FetchOptions::Mode mode, FetchOptions::Redirect redirect)
 {
     if (response.type() == ResourceResponse::Type::Error)
         return ResourceError { errorDomainWebKitInternal, 0, response.url(), "Response served by service worker is an error"_s, ResourceError::Type::General, ResourceError::IsSanitized::Yes };
@@ -84,8 +84,8 @@ static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, s
     }
 
     auto resourceResponse = response->resourceResponse();
-    if (auto error = validateResponse(resourceResponse, mode, redirect)) {
-        client->didFail(error.value());
+    if (auto error = validateResponse(resourceResponse, mode, redirect); !error.isNull()) {
+        client->didFail(error);
         return;
     }
 
@@ -139,7 +139,7 @@ static void processResponse(Ref<Client>&& client, Expected<Ref<FetchResponse>, s
     });
 }
 
-void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalScope, std::optional<ServiceWorkerClientIdentifier> clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options)
+void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalScope, std::optional<ScriptExecutionContextIdentifier> clientId, ResourceRequest&& request, String&& referrer, FetchOptions&& options, FetchIdentifier fetchIdentifier, bool isServiceWorkerNavigationPreloadEnabled)
 {
     auto requestHeaders = FetchHeaders::create(FetchHeaders::Guard::Immutable, HTTPHeaderMap { request.httpHeaderFields() });
 
@@ -168,6 +168,10 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
     URL requestURL = request.url();
     auto fetchRequest = FetchRequest::create(globalScope, WTFMove(body), WTFMove(requestHeaders),  WTFMove(request), WTFMove(options), WTFMove(referrer));
 
+    // If service worker navigation preload is not enabled, we do not want to reuse any preload directly.
+    if (!isServiceWorkerNavigationPreloadEnabled)
+        fetchRequest->setNavigationPreloadIdentifier(fetchIdentifier);
+
     FetchEvent::Init init;
     init.request = WTFMove(fetchRequest);
     if (isNavigation) {
@@ -178,6 +182,9 @@ void dispatchFetchEvent(Ref<Client>&& client, ServiceWorkerGlobalScope& globalSc
         init.clientId = clientId->toString();
     init.cancelable = true;
     auto event = FetchEvent::create(eventNames().fetchEvent, WTFMove(init), Event::IsTrusted::Yes);
+
+    if (isServiceWorkerNavigationPreloadEnabled)
+        event->setNavigationPreloadIdentifier(fetchIdentifier);
 
     CertificateInfo certificateInfo = globalScope.certificateInfo();
 

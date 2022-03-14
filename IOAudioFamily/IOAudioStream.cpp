@@ -464,7 +464,7 @@ IOReturn IOAudioStream::setFormat(const IOAudioStreamFormat *streamFormat, const
 								newMixBufSize = validFormat.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize * audioEngine->numSampleFramesPerBuffer;
 			
 								if (newMixBufSize > 0) {
-									void *newMixBuf = IOMallocAligned(newMixBufSize, 32);
+									void *newMixBuf = IOMallocData(newMixBufSize);
 									if (newMixBuf) {
 										setMixBuffer(newMixBuf, newMixBufSize);
 										streamAllocatedMixBuffer = true;
@@ -544,7 +544,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
         IOAudioStreamFormatDesc *newAvailableFormatList;
 		IOAudioStreamFormatExtension	localFormatExtension;
         
-        newAvailableFormatList = (IOAudioStreamFormatDesc *)IOMallocAligned((numAvailableFormats+1) * sizeof(IOAudioStreamFormatDesc), sizeof (IOAudioStreamFormatDesc *));
+		newAvailableFormatList = IONew(IOAudioStreamFormatDesc, (numAvailableFormats+1));
         if (newAvailableFormatList) {
             if (availableFormats && (numAvailableFormats > 0)) {
                 memcpy(newAvailableFormatList, availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
@@ -567,7 +567,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
 			newAvailableFormatList[numAvailableFormats].numIOFunctions = 0;
 
             if (ioFunctionList && (numFunctions > 0)) {
-                newAvailableFormatList[numAvailableFormats].ioFunctionList = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
+                newAvailableFormatList[numAvailableFormats].ioFunctionList = IONew(AudioIOFunction, numFunctions);
 
 				if (newAvailableFormatList[numAvailableFormats].ioFunctionList) {
     	            newAvailableFormatList[numAvailableFormats].numIOFunctions = numFunctions;
@@ -575,7 +575,7 @@ void IOAudioStream::addAvailableFormat(const IOAudioStreamFormat *streamFormat, 
 				}
             }
 
-            IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+            IODelete(availableFormats, IOAudioStreamFormatDesc, numAvailableFormats);
             availableFormats = newAvailableFormatList;
             numAvailableFormats++;
         }
@@ -878,13 +878,12 @@ bool IOAudioStream::initWithAudioEngine(IOAudioEngine *engine, IOAudioStreamDire
 
     audioEngine = engine;
     
-	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+	reserved = IOMallocType (ExpansionData);
 	if (!reserved) {
 		return false;
 	}
 	
-	// <rdar://problem/10305944> make sure error counters are zero
-	bzero( reserved , sizeof(struct ExpansionData));
+
 	
     workLoop = audioEngine->getWorkLoop();
     if (!workLoop) {
@@ -956,7 +955,7 @@ void IOAudioStream::free()
     }
     
     if (mixBuffer && streamAllocatedMixBuffer) {
-        IOFreeAligned(mixBuffer, mixBufferSize);
+        IOFreeData(mixBuffer, mixBufferSize);
         mixBuffer = NULL;
         mixBufferSize = 0;
     }
@@ -987,7 +986,7 @@ void IOAudioStream::free()
     }
     
     if (audioIOFunctions && (numIOFunctions > 0)) {
-        IOFreeAligned(audioIOFunctions, numIOFunctions * sizeof(AudioIOFunction));
+        IODelete(audioIOFunctions, AudioIOFunction, numIOFunctions);
         audioIOFunctions = NULL;
         numIOFunctions = 0;
     }
@@ -997,17 +996,18 @@ void IOAudioStream::free()
         
         for (formatNum = 0; formatNum < numAvailableFormats; formatNum++) {
             if (availableFormats[formatNum].ioFunctionList && (availableFormats[formatNum].numIOFunctions > 0)) {
-                IOFreeAligned(availableFormats[formatNum].ioFunctionList, availableFormats[formatNum].numIOFunctions * sizeof(AudioIOFunction));
+                IODelete(availableFormats[formatNum].ioFunctionList,
+						 AudioIOFunction, availableFormats[formatNum].numIOFunctions);
             }
         }
         
-        IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+        IODelete(availableFormats, IOAudioStreamFormatDesc, numAvailableFormats);
         availableFormats = NULL;
         numAvailableFormats = 0;
     }
 
 	if (reserved) {
-		IOFree (reserved, sizeof(struct ExpansionData));
+		IOFreeType (reserved, ExpansionData);
 	}
 
     super::free();
@@ -1111,7 +1111,7 @@ void IOAudioStream::setMixBuffer(void *buffer, UInt32 size)
     lockStreamForIO();
       
     if (mixBuffer && streamAllocatedMixBuffer) {
-        IOFreeAligned(mixBuffer, mixBufferSize);
+        IOFreeData(mixBuffer, mixBufferSize);
         mixBuffer = NULL;
         mixBufferSize = 0;
         streamAllocatedMixBuffer = false;
@@ -1169,13 +1169,13 @@ void IOAudioStream::setIOFunctionList(const AudioIOFunction *ioFunctionList, UIn
     lockStreamForIO();
 
     if (audioIOFunctions && (numIOFunctions > 0)) {
-        IOFreeAligned(audioIOFunctions, numIOFunctions * sizeof(AudioIOFunction));
+        IODelete(audioIOFunctions, AudioIOFunction, numIOFunctions);
         audioIOFunctions = NULL;
         numIOFunctions = 0;
     }
     
     if (ioFunctionList && (numFunctions != 0)) {
-        audioIOFunctions = (AudioIOFunction *)IOMallocAligned(numFunctions * sizeof(AudioIOFunction), sizeof (AudioIOFunction *));
+        audioIOFunctions = IONew(AudioIOFunction, numFunctions);
         if (audioIOFunctions) {
             memcpy(audioIOFunctions, ioFunctionList, numFunctions * sizeof(AudioIOFunction));
             numIOFunctions = numFunctions;
@@ -1288,7 +1288,7 @@ void IOAudioStream::clearAvailableFormats()
 
 	//	<rdar://9059646> Clean up the available formats array.
 	if (availableFormats && (numAvailableFormats > 0)) {
-		IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+		IODelete(availableFormats, IOAudioStreamFormatDesc, numAvailableFormats);
 	}
 	availableFormats = NULL;
 	numAvailableFormats = 0;
@@ -1375,7 +1375,7 @@ IOReturn IOAudioStream::addClient(IOAudioClientBuffer *clientBuffer)
                         UInt32 mixBufSize = format.fNumChannels * kIOAudioEngineDefaultMixBufferSampleSize * audioEngine->numSampleFramesPerBuffer;
                         
                         if (mixBufSize > 0) {
-                            void *mixBuf = IOMallocAligned(mixBufSize, 32);
+                            void *mixBuf = IOMallocData(mixBufSize);
                             if (mixBuf) {
                                 setMixBuffer(mixBuf, mixBufSize);
                                 streamAllocatedMixBuffer = true;

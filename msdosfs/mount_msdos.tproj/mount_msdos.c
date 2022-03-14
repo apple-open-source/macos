@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2007, 2009-2011 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2007, 2009-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -117,15 +117,18 @@ static void FindVolumeName(struct msdosfs_args *args);
 
 /* Taken from diskdev_cmds/disklib/getmntopts.c */
 static void
-checkpath(const char *path, char resolved[MAXPATHLEN])
+checkpath(int flags, const char *path, char resolved[MAXPATHLEN])
 {
 	struct stat sb;
 
-	if (realpath(path, resolved) != NULL && stat(resolved, &sb) == 0) {
-		if (!S_ISDIR(sb.st_mode)) 
-			errx(EX_USAGE, "%s: not a directory", resolved);
-	} else
+	if (flags & MNT_NOFOLLOW) {
+		size_t sc = strlcpy(resolved, path, MAXPATHLEN);
+		if (sc >= MAXPATHLEN)
+			errx(EX_USAGE, "%s: %s", resolved, strerror(EINVAL));
+	} else if (realpath(path, resolved) == NULL)
 		errx(EX_USAGE, "%s: %s", resolved, strerror(errno));
+	if (stat(resolved, &sb) < 0 || !S_ISDIR(sb.st_mode))
+		errx(EX_USAGE, "%s: not a directory", resolved);
 }
 
 /* Adapted from diskdev_cmds/disklib/getmntopts.c, with fixes. */
@@ -158,8 +161,8 @@ static int disk_default_async(char *disk)
 	kern_return_t err;
 	int result = 0;
 	
-	err = IOServiceGetMatchingServices(kIOMasterPortDefault,
-		IOBSDNameMatching(kIOMasterPortDefault, 0, disk), &iter);
+	err = IOServiceGetMatchingServices(kIOMainPortDefault,
+		IOBSDNameMatching(kIOMainPortDefault, 0, disk), &iter);
 	if (err == 0)
 	{
 		io_object_t obj;
@@ -284,7 +287,7 @@ main(argc, argv)
 	 * Resolve the mountpoint with realpath(3) and remove unnecessary
 	 * slashes from the devicename if there are any.
 	 */
-	checkpath(argv[optind + 1], mntpath);
+	checkpath(mntflags, argv[optind + 1], mntpath);
 
 	if (!set_gid || !set_uid || !set_mask) {
 		if (stat(mntpath, &sb) == -1)

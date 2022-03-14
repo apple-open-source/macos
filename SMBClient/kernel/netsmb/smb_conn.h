@@ -858,6 +858,7 @@ int smb_session_force_reconnect(struct smbiod *iod);
 void smb_session_reset(struct smb_session *sessionp);
 int  smb_iod_create(struct smb_session *sessionp, struct smbiod **iodpp);
 int  smb_iod_destroy(struct smbiod *iod, bool selfclean);
+void smb_iod_gss_destroy(struct smbiod *iod);
 void smb_iod_lease_enqueue(struct smbiod *iod,
 						   uint16_t server_epoch, uint32_t flags,
 						   uint64_t lease_key_hi, uint64_t lease_key_low,

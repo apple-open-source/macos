@@ -58,7 +58,7 @@ LocateCatalogNodeByKey(const ExtendedVCB *volume, u_int32_t hint, CatalogKey *ke
 	struct BTreeIterator *searchIterator;
 	FCB			*fcb;
 
-	searchIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	searchIterator = hfs_malloc_type(struct BTreeIterator);
 
 	fcb = GetFileControlBlock(volume->catalogRefNum);
 
@@ -84,7 +84,7 @@ LocateCatalogNodeByKey(const ExtendedVCB *volume, u_int32_t hint, CatalogKey *ke
 	}	
 
 	if (result) {
-		hfs_free(searchIterator, sizeof(*searchIterator));
+		hfs_free_type(searchIterator, struct BTreeIterator);
 		return result;
 	}
 	
@@ -105,7 +105,7 @@ LocateCatalogNodeByKey(const ExtendedVCB *volume, u_int32_t hint, CatalogKey *ke
 	if ( threadParentID )		// found a thread
 		result = LocateCatalogRecord(volume, threadParentID, nodeName, kNoHint, keyPtr, dataPtr, newHint);
 	
-	hfs_free(searchIterator, sizeof(*searchIterator));
+	hfs_free_type(searchIterator, struct BTreeIterator);
 	return result;
 }
 
@@ -129,7 +129,7 @@ LocateCatalogRecord(const ExtendedVCB *volume, HFSCatalogNodeID folderID, const 
 	FCB *fcb;
 	BTreeControlBlock *btcb;
 
-	searchIterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	searchIterator = hfs_malloc_type(struct BTreeIterator);
 
 	fcb = GetFileControlBlock(volume->catalogRefNum);
 	btcb = (BTreeControlBlock *)fcb->fcbBTCBPtr;
@@ -146,7 +146,7 @@ LocateCatalogRecord(const ExtendedVCB *volume, HFSCatalogNodeID folderID, const 
 		BlockMoveData(&searchIterator->key, keyPtr, CalcKeySize(btcb, &searchIterator->key));
 	}
 
-	hfs_free(searchIterator, sizeof(*searchIterator));
+	hfs_free_type(searchIterator, struct BTreeIterator);
 	return (result == btNotFound ? cmNotFound : result);
 }
 

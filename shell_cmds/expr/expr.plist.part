@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>expr</string>
+		<key>OpenSourceVersion</key>
+		<string>2018-04-14</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/expr?id=41bd31e656e776866ce3f6d64923913b3cf4a712</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-07-26</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>expr.1, expr.y: remove -e flag (8319378)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

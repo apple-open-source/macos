@@ -845,7 +845,7 @@ u_int32_t ScanUnmapBlocks (struct hfsmount *hfsmp)
 			((hfsmp->hfs_flags & HFS_READ_ONLY) == 0)) {
 		/* If the underlying device supports unmap and the mount is read-write, initialize */
 		int alloc_count = PAGE_SIZE / sizeof(dk_extent_t);
-		void *extents = hfs_malloc(alloc_count * sizeof(dk_extent_t));
+		void *extents = hfs_new_data(dk_extent_t, alloc_count);
 		trimlist.extents = (dk_extent_t*)extents;
 		trimlist.allocated_count = alloc_count;
 		trimlist.extent_count = 0;
@@ -867,7 +867,7 @@ u_int32_t ScanUnmapBlocks (struct hfsmount *hfsmp)
 			hfs_issue_unmap(hfsmp, &trimlist);
 		}
 		if (trimlist.extents) {
-			hfs_free(trimlist.extents, trimlist.allocated_count * sizeof(dk_extent_t));
+			hfs_delete_data(trimlist.extents, dk_extent_t, trimlist.allocated_count);
 		}
 	}
 
@@ -907,7 +907,7 @@ static void add_to_reserved_list(hfsmount_t *hfsmp, uint32_t start,
 		}
 	}
 
-	range = hfs_malloc(sizeof(*range));
+	range = hfs_malloc_type(struct rl_entry);
 	range->rl_start = start;
 	range->rl_end = start + count - 1;
 	TAILQ_INSERT_HEAD(&hfsmp->hfs_reserved_ranges[list], range, rl_link);
@@ -964,7 +964,7 @@ static void hfs_free_locked_internal(hfsmount_t *hfsmp,
 {
 	if (*reservation) {
 		hfs_release_reserved(hfsmp, *reservation, list);
-		hfs_free(*reservation, sizeof(**reservation));
+		hfs_free_type(*reservation, struct rl_entry);
 		*reservation = NULL;
 	}
 }
@@ -4582,7 +4582,7 @@ hfs_init_summary (struct hfsmount *hfsmp) {
 	hfsmp->hfs_summary_size = summary_size;
 	hfsmp->hfs_summary_bytes = summary_size_bytes;
 
-	summary_table = hfs_mallocz(summary_size_bytes);
+	summary_table = hfs_malloc_zero_data(summary_size_bytes);
 
 	/* enable the summary table */
 	hfsmp->hfs_flags |= HFS_SUMMARY_TABLE;
@@ -4655,7 +4655,7 @@ static int hfs_rebuild_summary (struct hfsmount *hfsmp) {
 			printf("HFS Summary Table Size (in bytes) %d \n", summarybytes);
 		}
 
-		newtable = hfs_mallocz(summarybytes);
+		newtable = hfs_malloc_zero_data(summarybytes);
 
 		/* 
 		 * The new table may be smaller than the old one. If this is true, then
@@ -4671,7 +4671,7 @@ static int hfs_rebuild_summary (struct hfsmount *hfsmp) {
 		memcpy (newtable, hfsmp->hfs_summary_table, copysize); 
 
 		/* We're all good.  Destroy the old copy and update ptrs */
-		hfs_free(hfsmp->hfs_summary_table, hfsmp->hfs_summary_bytes);
+		hfs_free_data(hfsmp->hfs_summary_table, hfsmp->hfs_summary_bytes);
 
 		hfsmp->hfs_summary_table = newtable;
 		hfsmp->hfs_summary_size = new_summary_size;	

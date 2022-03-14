@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -22,6 +22,13 @@
 
 #include "charset.h"
 
+#if MSDOS_COMPILER==WIN32C
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+#endif
+
+extern int bs_mode;
+
 public int utf_mode = 0;
 
 /*
@@ -33,27 +40,27 @@ struct charset {
 	int *p_flag;
 	char *desc;
 } charsets[] = {
-	{ "ascii",		NULL,       "8bcccbcc18b95.b" },
-	{ "utf-8",		&utf_mode,  "8bcccbcc18b95.b126.bb" },
-	{ "iso8859",		NULL,       "8bcccbcc18b95.33b." },
-	{ "latin3",		NULL,       "8bcccbcc18b95.33b5.b8.b15.b4.b12.b18.b12.b." },
-	{ "arabic",		NULL,       "8bcccbcc18b95.33b.3b.7b2.13b.3b.b26.5b19.b" },
-	{ "greek",		NULL,       "8bcccbcc18b95.33b4.2b4.b3.b35.b44.b" },
-	{ "greek2005",		NULL,       "8bcccbcc18b95.33b14.b35.b44.b" },
-	{ "hebrew",		NULL,       "8bcccbcc18b95.33b.b29.32b28.2b2.b" },
-	{ "koi8-r",		NULL,       "8bcccbcc18b95.b." },
-	{ "KOI8-T",		NULL,       "8bcccbcc18b95.b8.b6.b8.b.b.5b7.3b4.b4.b3.b.b.3b." },
-	{ "georgianps",		NULL,       "8bcccbcc18b95.3b11.4b12.2b." },
-	{ "tcvn",		NULL,       "b..b...bcccbccbbb7.8b95.b48.5b." },
-	{ "TIS-620",		NULL,       "8bcccbcc18b95.b.4b.11b7.8b." },
-	{ "next",		NULL,       "8bcccbcc18b95.bb125.bb" },
-	{ "dos",		NULL,       "8bcccbcc12bc5b95.b." },
-	{ "windows-1251",	NULL,       "8bcccbcc12bc5b95.b24.b." },
-	{ "windows-1252",	NULL,       "8bcccbcc12bc5b95.b.b11.b.2b12.b." },
-	{ "windows-1255",	NULL,       "8bcccbcc12bc5b95.b.b8.b.5b9.b.4b." },
-	{ "ebcdic",		NULL,       "5bc6bcc7bcc41b.9b7.9b5.b..8b6.10b6.b9.7b9.8b8.17b3.3b9.7b9.8b8.6b10.b.b.b." },
-	{ "IBM-1047",		NULL,       "4cbcbc3b9cbccbccbb4c6bcc5b3cbbc4bc4bccbc191.b" },
-	{ NULL, NULL, NULL }
+		{ "ascii",              NULL,       "8bcccbcc18b95.b" },
+		{ "utf-8",              &utf_mode,  "8bcccbcc18b95.b126.bb" },
+		{ "iso8859",            NULL,       "8bcccbcc18b95.33b." },
+		{ "latin3",             NULL,       "8bcccbcc18b95.33b5.b8.b15.b4.b12.b18.b12.b." },
+		{ "arabic",             NULL,       "8bcccbcc18b95.33b.3b.7b2.13b.3b.b26.5b19.b" },
+		{ "greek",              NULL,       "8bcccbcc18b95.33b4.2b4.b3.b35.b44.b" },
+		{ "greek2005",          NULL,       "8bcccbcc18b95.33b14.b35.b44.b" },
+		{ "hebrew",             NULL,       "8bcccbcc18b95.33b.b29.32b28.2b2.b" },
+		{ "koi8-r",             NULL,       "8bcccbcc18b95.b." },
+		{ "KOI8-T",             NULL,       "8bcccbcc18b95.b8.b6.b8.b.b.5b7.3b4.b4.b3.b.b.3b." },
+		{ "georgianps",         NULL,       "8bcccbcc18b95.3b11.4b12.2b." },
+		{ "tcvn",               NULL,       "b..b...bcccbccbbb7.8b95.b48.5b." },
+		{ "TIS-620",            NULL,       "8bcccbcc18b95.b.4b.11b7.8b." },
+		{ "next",               NULL,       "8bcccbcc18b95.bb125.bb" },
+		{ "dos",                NULL,       "8bcccbcc12bc5b95.b." },
+		{ "windows-1251",       NULL,       "8bcccbcc12bc5b95.b24.b." },
+		{ "windows-1252",       NULL,       "8bcccbcc12bc5b95.b.b11.b.2b12.b." },
+		{ "windows-1255",       NULL,       "8bcccbcc12bc5b95.b.b8.b.5b9.b.4b." },
+		{ "ebcdic",             NULL,       "5bc6bcc7bcc41b.9b7.9b5.b..8b6.10b6.b9.7b9.8b8.17b3.3b9.7b9.8b8.6b10.b.b.b." },
+		{ "IBM-1047",           NULL,       "4cbcbc3b9cbccbccbb4c6bcc5b3cbbc4bc4bccbc191.b" },
+		{ NULL, NULL, NULL }
 };
 
 /*
@@ -63,58 +70,58 @@ struct cs_alias {
 	char *name;
 	char *oname;
 } cs_aliases[] = {
-	{ "UTF-8",		"utf-8" },
-	{ "utf8",		"utf-8" },
-	{ "UTF8",		"utf-8" },
-	{ "ANSI_X3.4-1968",	"ascii" },
-	{ "US-ASCII",		"ascii" },
-	{ "latin1",		"iso8859" },
-	{ "ISO-8859-1",		"iso8859" },
-	{ "latin9",		"iso8859" },
-	{ "ISO-8859-15",	"iso8859" },
-	{ "latin2",		"iso8859" },
-	{ "ISO-8859-2",		"iso8859" },
-	{ "ISO-8859-3",		"latin3" },
-	{ "latin4",		"iso8859" },
-	{ "ISO-8859-4",		"iso8859" },
-	{ "cyrillic",		"iso8859" },
-	{ "ISO-8859-5",		"iso8859" },
-	{ "ISO-8859-6",		"arabic" },
-	{ "ISO-8859-7",		"greek" },
-	{ "IBM9005",		"greek2005" },
-	{ "ISO-8859-8",		"hebrew" },
-	{ "latin5",		"iso8859" },
-	{ "ISO-8859-9",		"iso8859" },
-	{ "latin6",		"iso8859" },
-	{ "ISO-8859-10",	"iso8859" },
-	{ "latin7",		"iso8859" },
-	{ "ISO-8859-13",	"iso8859" },
-	{ "latin8",		"iso8859" },
-	{ "ISO-8859-14",	"iso8859" },
-	{ "latin10",		"iso8859" },
-	{ "ISO-8859-16",	"iso8859" },
-	{ "IBM437",		"dos" },
-	{ "EBCDIC-US",		"ebcdic" },
-	{ "IBM1047",		"IBM-1047" },
-	{ "KOI8-R",		"koi8-r" },
-	{ "KOI8-U",		"koi8-r" },
-	{ "GEORGIAN-PS",	"georgianps" },
-	{ "TCVN5712-1", 	"tcvn" },
-	{ "NEXTSTEP",		"next" },
-	{ "windows",		"windows-1252" }, /* backward compatibility */
-	{ "CP1251",		"windows-1251" },
-	{ "CP1252",		"windows-1252" },
-	{ "CP1255",		"windows-1255" },
+	{ "UTF-8",              "utf-8" },
+	{ "utf8",               "utf-8" },
+	{ "UTF8",               "utf-8" },
+	{ "ANSI_X3.4-1968",     "ascii" },
+	{ "US-ASCII",           "ascii" },
+	{ "latin1",             "iso8859" },
+	{ "ISO-8859-1",         "iso8859" },
+	{ "latin9",             "iso8859" },
+	{ "ISO-8859-15",        "iso8859" },
+	{ "latin2",             "iso8859" },
+	{ "ISO-8859-2",         "iso8859" },
+	{ "ISO-8859-3",         "latin3" },
+	{ "latin4",             "iso8859" },
+	{ "ISO-8859-4",         "iso8859" },
+	{ "cyrillic",           "iso8859" },
+	{ "ISO-8859-5",         "iso8859" },
+	{ "ISO-8859-6",         "arabic" },
+	{ "ISO-8859-7",         "greek" },
+	{ "IBM9005",            "greek2005" },
+	{ "ISO-8859-8",         "hebrew" },
+	{ "latin5",             "iso8859" },
+	{ "ISO-8859-9",         "iso8859" },
+	{ "latin6",             "iso8859" },
+	{ "ISO-8859-10",        "iso8859" },
+	{ "latin7",             "iso8859" },
+	{ "ISO-8859-13",        "iso8859" },
+	{ "latin8",             "iso8859" },
+	{ "ISO-8859-14",        "iso8859" },
+	{ "latin10",            "iso8859" },
+	{ "ISO-8859-16",        "iso8859" },
+	{ "IBM437",             "dos" },
+	{ "EBCDIC-US",          "ebcdic" },
+	{ "IBM1047",            "IBM-1047" },
+	{ "KOI8-R",             "koi8-r" },
+	{ "KOI8-U",             "koi8-r" },
+	{ "GEORGIAN-PS",        "georgianps" },
+	{ "TCVN5712-1",         "tcvn" },
+	{ "NEXTSTEP",           "next" },
+	{ "windows",            "windows-1252" }, /* backward compatibility */
+	{ "CP1251",             "windows-1251" },
+	{ "CP1252",             "windows-1252" },
+	{ "CP1255",             "windows-1255" },
 	{ NULL, NULL }
 };
 
-#define	IS_BINARY_CHAR	01
-#define	IS_CONTROL_CHAR	02
+#define IS_BINARY_CHAR  01
+#define IS_CONTROL_CHAR 02
 
 static char chardef[256];
 static char *binfmt = NULL;
 static char *utfbinfmt = NULL;
-public int binattr = AT_STANDOUT;
+public int binattr = AT_STANDOUT|AT_COLOR_BIN;
 
 
 /*
@@ -127,17 +134,17 @@ public int binattr = AT_STANDOUT;
  * repetition of the letter.
  *
  * Each letter is one of:
- *	. normal character
- *	b binary character
- *	c control character
+ *      . normal character
+ *      b binary character
+ *      c control character
  */
 	static void
 ichardef(s)
 	char *s;
 {
-	register char *cp;
-	register int n;
-	register char v;
+	char *cp;
+	int n;
+	char v;
 
 	n = 0;
 	v = 0;
@@ -190,11 +197,11 @@ ichardef(s)
  */
 	static int
 icharset(name, no_error)
-	register char *name;
+	char *name;
 	int no_error;
 {
-	register struct charset *p;
-	register struct cs_alias *a;
+	struct charset *p;
+	struct cs_alias *a;
 
 	if (name == NULL || *name == '\0')
 		return (0);
@@ -215,7 +222,13 @@ icharset(name, no_error)
 		{
 			ichardef(p->desc);
 			if (p->p_flag != NULL)
+			{
+#if MSDOS_COMPILER==WIN32C
+				*(p->p_flag) = 1 + (GetConsoleOutputCP() != CP_UTF8);
+#else
 				*(p->p_flag) = 1;
+#endif
+			}
 			return (1);
 		}
 	}
@@ -232,9 +245,9 @@ icharset(name, no_error)
  * Define a charset, given a locale name.
  */
 	static void
-ilocale()
+ilocale(VOID_PARAM)
 {
-	register int c;
+	int c;
 
 	for (c = 0;  c < (int) sizeof(chardef);  c++)
 	{
@@ -251,16 +264,17 @@ ilocale()
 /*
  * Define the printing format for control (or binary utf) chars.
  */
-   	static void
-setbinfmt(s, fmtvarptr, default_fmt)
+	public void
+setfmt(s, fmtvarptr, attrptr, default_fmt)
 	char *s;
 	char **fmtvarptr;
+	int *attrptr;
 	char *default_fmt;
 {
 	if (s && utf_mode)
 	{
 		/* It would be too hard to account for width otherwise.  */
-		char *t = s;
+		char constant *t = s;
 		while (*t)
 		{
 			if (*t < ' ' || *t > '~')
@@ -282,15 +296,15 @@ setbinfmt(s, fmtvarptr, default_fmt)
 	 * Select the attributes if it starts with "*".
 	 */
  attr:
-	if (*s == '*')
+	if (*s == '*' && s[1] != '\0')
 	{
 		switch (s[1])
 		{
-		case 'd':  binattr = AT_BOLD;      break;
-		case 'k':  binattr = AT_BLINK;     break;
-		case 's':  binattr = AT_STANDOUT;  break;
-		case 'u':  binattr = AT_UNDERLINE; break;
-		default:   binattr = AT_NORMAL;    break;
+		case 'd':  *attrptr = AT_BOLD;      break;
+		case 'k':  *attrptr = AT_BLINK;     break;
+		case 's':  *attrptr = AT_STANDOUT;  break;
+		case 'u':  *attrptr = AT_UNDERLINE; break;
+		default:   *attrptr = AT_NORMAL;    break;
 		}
 		s += 2;
 	}
@@ -301,10 +315,18 @@ setbinfmt(s, fmtvarptr, default_fmt)
  *
  */
 	static void
-set_charset()
+set_charset(VOID_PARAM)
 {
 	char *s;
 
+#if MSDOS_COMPILER==WIN32C
+	/*
+	 * If the Windows console is using UTF-8, we'll use it too.
+	 */
+	if (GetConsoleOutputCP() == CP_UTF8)
+		if (icharset("utf-8", 1))
+			return;
+#endif
 	/*
 	 * See if environment variable LESSCHARSET is defined.
 	 */
@@ -316,7 +338,7 @@ set_charset()
 	 * LESSCHARSET is not defined: try LESSCHARDEF.
 	 */
 	s = lgetenv("LESSCHARDEF");
-	if (s != NULL && *s != '\0')
+	if (!isnullenv(s))
 	{
 		ichardef(s);
 		return;
@@ -354,6 +376,7 @@ set_charset()
 	 * rather than from predefined charset entry.
 	 */
 	ilocale();
+#else
 #if MSDOS_COMPILER
 	/*
 	 * Default to "dos".
@@ -372,7 +395,7 @@ set_charset()
  * Initialize charset data structures.
  */
 	public void
-init_charset()
+init_charset(VOID_PARAM)
 {
 	char *s;
 
@@ -383,10 +406,10 @@ init_charset()
 	set_charset();
 
 	s = lgetenv("LESSBINFMT");
-	setbinfmt(s, &binfmt, "*s<%02X>");
+	setfmt(s, &binfmt, &binattr, "*s<%02X>");
 	
 	s = lgetenv("LESSUTFBINFMT");
-	setbinfmt(s, &utfbinfmt, "<U+%04lX>");
+	setfmt(s, &utfbinfmt, &binattr, "<U+%04lX>");
 }
 
 /*
@@ -434,16 +457,16 @@ prchar(c)
 		SNPRINTF1(buf, sizeof(buf), "^%c",
 		/*
 		 * This array roughly inverts CONTROL() #defined in less.h,
-	 	 * and should be kept in sync with CONTROL() and IBM-1047.
- 	 	 */
+		 * and should be kept in sync with CONTROL() and IBM-1047.
+		 */
 		"@ABC.I.?...KLMNO"
 		"PQRS.JH.XY.."
 		"\\]^_"
 		"......W[.....EFG"
 		"..V....D....TU.Z"[c]);
 #else
-  	else if (c < 128 && !control_char(c ^ 0100))
-  		SNPRINTF1(buf, sizeof(buf), "^%c", (int) (c ^ 0100));
+	else if (c < 128 && !control_char(c ^ 0100))
+		SNPRINTF1(buf, sizeof(buf), "^%c", (int) (c ^ 0100));
 #endif
 	else
 		SNPRINTF1(buf, sizeof(buf), binfmt, c);
@@ -461,7 +484,7 @@ prutfchar(ch)
 
 	if (ch == ESC)
 		strcpy(buf, "ESC");
-  	else if (ch < 128 && control_char(ch))
+	else if (ch < 128 && control_char(ch))
 	{
 		if (!control_char(ch ^ 0100))
 			SNPRINTF1(buf, sizeof(buf), "^%c", ((char) ch) ^ 0100);
@@ -486,7 +509,7 @@ prutfchar(ch)
  */
 	public int
 utf_len(ch)
-	char ch;
+	int ch;
 {
 	if ((ch & 0x80) == 0)
 		return 1;
@@ -508,17 +531,18 @@ utf_len(ch)
  * Does the parameter point to the lead byte of a well-formed UTF-8 character?
  */
 	public int
-is_utf8_well_formed(s, slen)
-	unsigned char *s;
+is_utf8_well_formed(ss, slen)
+	char *ss;
 	int slen;
 {
 	int i;
 	int len;
+	unsigned char *s = (unsigned char *) ss;
 
 	if (IS_UTF8_INVALID(s[0]))
 		return (0);
 
-	len = utf_len((char) s[0]);
+	len = utf_len(s[0]);
 	if (len > slen)
 		return (0);
 	if (len == 1)
@@ -542,40 +566,25 @@ is_utf8_well_formed(s, slen)
 }
 
 /*
- * Return number of invalid UTF-8 sequences found in a buffer.
+ * Skip bytes until a UTF-8 lead byte (11xxxxxx) or ASCII byte (0xxxxxxx) is found.
  */
-	public int
-utf_bin_count(data, len)
-	unsigned char *data;
-	int len;
+	public void
+utf_skip_to_lead(pp, limit)
+	char **pp;
+	char *limit;
 {
-	int bin_count = 0;
-	while (len > 0)
-	{
-		if (is_utf8_well_formed(data, len))
-		{
-			int clen = utf_len(*data);
-			data += clen;
-			len -= clen;
-		} else
-		{
-			/* Skip to next lead byte. */
-			bin_count++;
-			do {
-				++data;
-				--len;
-			} while (len > 0 && !IS_UTF8_LEAD(*data));
-		}
-	}
-	return (bin_count);
+	do {
+		++(*pp);
+	} while (*pp < limit && !IS_UTF8_LEAD((*pp)[0] & 0377) && !IS_ASCII_OCTET((*pp)[0]));
 }
+
 
 /*
  * Get the value of a UTF-8 character.
  */
 	public LWCHAR
 get_wchar(p)
-	char *p;
+	constant char *p;
 {
 	switch (utf_len(p[0]))
 	{
@@ -679,7 +688,7 @@ put_wchar(pp, ch)
 step_char(pp, dir, limit)
 	char **pp;
 	signed int dir;
-	char *limit;
+	constant char *limit;
 {
 	LWCHAR ch;
 	int len;
@@ -689,16 +698,16 @@ step_char(pp, dir, limit)
 	{
 		/* It's easy if chars are one byte. */
 		if (dir > 0)
-			ch = (LWCHAR) ((p < limit) ? *p++ : 0);
+			ch = (LWCHAR) (unsigned char) ((p < limit) ? *p++ : 0);
 		else
-			ch = (LWCHAR) ((p > limit) ? *--p : 0);
+			ch = (LWCHAR) (unsigned char) ((p > limit) ? *--p : 0);
 	} else if (dir > 0)
 	{
 		len = utf_len(*p);
 		if (p + len > limit)
 		{
 			ch = 0;
-			p = limit;
+			p = (char *) limit;
 		} else
 		{
 			ch = get_wchar(p);
@@ -723,9 +732,9 @@ step_char(pp, dir, limit)
  */
 
 #define DECLARE_RANGE_TABLE_START(name) \
-    static struct wchar_range name##_array[] = {
+	static struct wchar_range name##_array[] = {
 #define DECLARE_RANGE_TABLE_END(name) \
-    }; struct wchar_range_table name##_table = { name##_array, sizeof(name##_array)/sizeof(*name##_array) };
+	}; struct wchar_range_table name##_table = { name##_array, sizeof(name##_array)/sizeof(*name##_array) };
 
 DECLARE_RANGE_TABLE_START(compose)
 #include "compose.uni"
@@ -738,6 +747,10 @@ DECLARE_RANGE_TABLE_END(ubin)
 DECLARE_RANGE_TABLE_START(wide)
 #include "wide.uni"
 DECLARE_RANGE_TABLE_END(wide)
+
+DECLARE_RANGE_TABLE_START(fmt)
+#include "fmt.uni"
+DECLARE_RANGE_TABLE_END(fmt)
 
 /* comb_table is special pairs, not ranges. */
 static struct wchar_range comb_table[] = {
@@ -779,7 +792,8 @@ is_in_table(ch, table)
 is_composing_char(ch)
 	LWCHAR ch;
 {
-	return is_in_table(ch, &compose_table);
+	return is_in_table(ch, &compose_table) ||
+	       (bs_mode != BS_CONTROL && is_in_table(ch, &fmt_table));
 }
 
 /*
@@ -789,7 +803,21 @@ is_composing_char(ch)
 is_ubin_char(ch)
 	LWCHAR ch;
 {
-	return is_in_table(ch, &ubin_table);
+	int ubin = is_in_table(ch, &ubin_table) ||
+	           (bs_mode == BS_CONTROL && is_in_table(ch, &fmt_table));
+#if MSDOS_COMPILER==WIN32C
+	if (!ubin && utf_mode == 2 && ch < 0x10000)
+	{
+		/*
+		 * Consider it binary if it can't be converted.
+		 */
+		BOOL used_default = TRUE;
+		WideCharToMultiByte(GetConsoleOutputCP(), WC_NO_BEST_FIT_CHARS, (LPCWSTR) &ch, 1, NULL, 0, NULL, &used_default);
+		if (used_default)
+			ubin = 1;
+	}
+#endif
+	return ubin;
 }
 
 /*

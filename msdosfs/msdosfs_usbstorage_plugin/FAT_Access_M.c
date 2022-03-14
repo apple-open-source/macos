@@ -284,8 +284,7 @@ FAT_Access_M_ContiguousClustersInChain(FileSystemRecord_s *psFSRecord, uint32_t 
 
     if (!CLUSTER_IS_VALID(uCluster, psFSRecord))
     {
-        MSDOS_LOG(LEVEL_ERROR, "FAT_Access_M_ContiguousClustersInChain got bad cluster [%u], MaxCluster [%u] .\n", uCluster, psFSRecord->sFSInfo.uMaxCluster);
-        assert(0);
+        MSDOS_LOG(LEVEL_FAULT, "FAT_Access_M_ContiguousClustersInChain got bad cluster [%u], MaxCluster [%u] .\n", uCluster, psFSRecord->sFSInfo.uMaxCluster);
         *pError = EIO;
         return 0;
     }
@@ -1047,10 +1046,8 @@ FAT_Access_M_FATChainFree( FileSystemRecord_s *psFSRecord, uint32_t uStart, bool
 
     if ( uStart < CLUST_FIRST )
     {
-        MSDOS_LOG( LEVEL_ERROR, "FAT_Access_M_FATChainFree Get bad cluster  = %u", uStart );
+        MSDOS_LOG( LEVEL_FAULT, "FAT_Access_M_FATChainFree Get bad cluster  = %u", uStart );
         iErr = EINVAL;
-        // Bug! assert for now..
-        assert( uStart >= CLUST_FIRST );
         return iErr;
     }
 

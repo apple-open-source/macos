@@ -50,9 +50,9 @@
 namespace WebCore {
 
 CustomPaintImage::CustomPaintImage(PaintWorkletGlobalScope::PaintDefinition& definition, const FloatSize& size, RenderElement& element, const Vector<String>& arguments)
-    : m_paintDefinition(makeWeakPtr(definition))
+    : m_paintDefinition(definition)
     , m_inputProperties(definition.inputProperties)
-    , m_element(makeWeakPtr(element))
+    , m_element(element)
     , m_arguments(arguments)
 {
     setContainerSize(size);
@@ -109,7 +109,7 @@ private:
 
     void clearElement() override { }
 
-    RefPtr<CSSStyleValue> get(const String& property) const final { return makeRefPtr(m_map.get(property)); }
+    RefPtr<CSSStyleValue> get(const String& property) const final { return m_map.get(property); }
 
     HashMap<String, RefPtr<CSSStyleValue>> m_map;
 };

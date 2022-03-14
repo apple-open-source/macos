@@ -795,8 +795,9 @@ dispatch_once_t globalZoneStateQueueOnce;
 }
 
 - (void)rpcStatus:(NSString*)viewName
-             fast:(bool)fast
-            reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error))reply
+        fast:(BOOL)fast
+        waitForNonTransientState:(dispatch_time_t)nonTransientStateTimeout
+        reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error))reply
 {
     NSError* clientError = nil;
     if(![self allowClientRPC:&clientError]) {
@@ -816,18 +817,9 @@ dispatch_once_t globalZoneStateQueueOnce;
     }
 
     [view rpcStatus:viewName
-               fast:fast
-              reply:reply];
-}
-
-- (void)rpcStatus:(NSString*)viewName reply:(void (^)(NSArray<NSDictionary*>* result, NSError* error))reply
-{
-    [self rpcStatus:viewName fast:false reply:reply];
-}
-
-- (void)rpcFastStatus:(NSString*)viewName reply:(void (^)(NSArray<NSDictionary*>* result, NSError* error))reply
-{
-    [self rpcStatus:viewName fast:true reply:reply];
+          fast:fast
+          waitForNonTransientState:nonTransientStateTimeout
+          reply:reply];
 }
 
 - (void)rpcFetchAndProcessChanges:(NSString* _Nullable __unused)viewName classA:(bool)classAError onlyIfNoRecentFetch:(bool)onlyIfNoRecentFetch reply:(void(^)(NSError* _Nullable result))reply

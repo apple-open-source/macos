@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -43,7 +41,7 @@ static char sccsid[] = "@(#)jot.c	8.1 (Berkeley) 6/6/93";
 #endif
 #endif
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/jot/jot.c,v 1.40 2009/12/13 03:14:06 delphij Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * jot - print sequential or random data
@@ -51,8 +49,13 @@ __FBSDID("$FreeBSD: src/usr.bin/jot/jot.c,v 1.40 2009/12/13 03:14:06 delphij Exp
  * Author:  John Kunze, Office of Comp. Affairs, UCB
  */
 
+#ifndef __APPLE__
+#include <sys/capsicum.h>
+#include <capsicum_helpers.h>
+#endif
 #include <ctype.h>
 #include <err.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -77,7 +80,7 @@ __FBSDID("$FreeBSD: src/usr.bin/jot/jot.c,v 1.40 2009/12/13 03:14:06 delphij Exp
 #define	is_default(s)	(*(s) == 0 || strcmp((s), "-") == 0)
 
 static bool	boring;
-static int	prec;
+static int	prec = -1;
 static bool	longdata;
 static bool	intdata;
 static bool	chardata;
@@ -93,6 +96,9 @@ static void	usage(void);
 int
 main(int argc, char **argv)
 {
+#ifndef __APPLE__
+	cap_rights_t rights;
+#endif
 	bool	have_format = false;
 	bool	infinity = false;
 	bool	nofinalnl = false;
@@ -108,6 +114,23 @@ main(int argc, char **argv)
 	double	x, y;
 	long	i;
 	long	reps = REPS_DEF;
+
+#ifndef __APPLE__
+	if (caph_limit_stdio() < 0)
+		err(1, "unable to limit rights for stdio");
+	cap_rights_init(&rights);
+	if (caph_rights_limit(STDIN_FILENO, &rights) < 0)
+		err(1, "unable to limit rights for stdin");
+
+	/*
+	 * Cache NLS data, for strerror, for err(3), before entering capability
+	 * mode.
+	 */
+	caph_cache_catpages();
+
+	if (caph_enter() < 0)
+		err(1, "unable to enter capability mode");
+#endif
 
 	while ((ch = getopt(argc, argv, "b:cnp:rs:w:")) != -1)
 		switch (ch) {
@@ -128,7 +151,7 @@ main(int argc, char **argv)
 			break;
 		case 'p':
 			prec = atoi(optarg);
-			if (prec <= 0)
+			if (prec < 0)
 				errx(1, "bad precision value");
 			have_format = true;
 			break;
@@ -159,7 +182,7 @@ main(int argc, char **argv)
 			if (!sscanf(argv[2], "%lf", &ender))
 				ender = argv[2][strlen(argv[2])-1];
 			mask |= HAVE_ENDER;
-			if (!prec)
+			if (prec < 0)
 				n = getprec(argv[2]);
 		}
 		/* FALLTHROUGH */
@@ -168,7 +191,7 @@ main(int argc, char **argv)
 			if (!sscanf(argv[1], "%lf", &begin))
 				begin = argv[1][strlen(argv[1])-1];
 			mask |= HAVE_BEGIN;
-			if (!prec)
+			if (prec < 0)
 				prec = getprec(argv[1]);
 			if (n > prec)		/* maximum precision */
 				prec = n;
@@ -188,6 +211,10 @@ main(int argc, char **argv)
 		    argv[4]);
 	}
 	getformat();
+
+	if (prec == -1)
+		prec = 0;
+
 	while (mask)	/* 4 bit mask has 1's where last 4 args were given */
 		switch (mask) {	/* fill in the 0's by default or computation */
 		case HAVE_STEP:
@@ -242,12 +269,15 @@ main(int argc, char **argv)
 			mask = 0;
 			break;
 		case HAVE_REPS | HAVE_BEGIN | HAVE_ENDER:
-			if (reps == 0)
-				errx(1, "infinite sequences cannot be bounded");
-			else if (reps == 1)
-				s = 0.0;
-			else
-				s = (ender - begin) / (reps - 1);
+			if (!randomize) {
+				if (reps == 0)
+					errx(1, "infinite sequences cannot "
+					    "be bounded");
+				else if (reps == 1)
+					s = 0.0;
+				else
+					s = (ender - begin) / (reps - 1);
+			}
 			mask = 0;
 			break;
 		case HAVE_REPS | HAVE_BEGIN | HAVE_ENDER | HAVE_STEP:
@@ -284,13 +314,16 @@ main(int argc, char **argv)
 		if (!have_format && prec == 0 &&
 		    begin >= 0 && begin < divisor &&
 		    ender >= 0 && ender < divisor) {
-			ender += 1;
+			if (begin <= ender)
+				ender += 1;
+			else
+				begin += 1;
 			nosign = true;
 			intdata = true;
 			(void)strlcpy(format,
 			    chardata ? "%c" : "%u", sizeof(format));
 		}
-		x = (ender - begin) * (ender > begin ? 1 : -1);
+		x = ender - begin;
 		for (i = 1; i <= reps || infinity; i++) {
 			if (use_random)
 				y = random() / divisor;

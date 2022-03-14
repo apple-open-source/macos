@@ -107,7 +107,7 @@ class IOATABusCommand : public IOATACommand {
 	virtual ataRegMask getRegMask( void );
 	
 	/*!@function getUnit
-	@abstract return the unit id (0 master, 1 slave)
+	@abstract return the unit id (0 primary, 1 secondary)
 	*/
 	virtual ataUnitID getUnit( void ); 
 	

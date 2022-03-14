@@ -1,0 +1,18 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>lam</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-07-27</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/lam?id=07372194c3016882494a28a8a1ae00472ce31e69</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-08-19</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>lam.c: use __COPYRIGHT (81852355)</string>
+			<string>lam.c: ifndef capsicum support (81852355)</string>
+			<string>lam.c: fail on invalid input or i/o errors (6555390)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

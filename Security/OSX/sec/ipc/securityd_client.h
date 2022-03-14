@@ -200,7 +200,6 @@ enum SecXPCOperation {
     kSecXPCOpProcessSyncWithAllPeers,
     kSecXPCOpRollKeys,
     sec_add_shared_web_credential_id,
-    sec_copy_shared_web_credential_id,
     sec_get_log_settings_id,
     sec_set_xpc_log_settings_id,
     sec_set_circle_log_settings_id,
@@ -349,7 +348,6 @@ struct securityd {
     bool (*sec_delete_items_with_access_groups)(CFArrayRef bundleIDs, SecurityClient *client, CFErrorRef *error);
     /* SHAREDWEBCREDENTIALS */
     bool (*sec_add_shared_web_credential)(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
-    bool (*sec_copy_shared_web_credential)(CFDictionaryRef query, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef accessGroups, CFTypeRef *result, CFErrorRef *error);
     /* SECUREOBJECTSYNC */
     CFDictionaryRef (*sec_keychain_backup_syncable)(CFDictionaryRef backup_in, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
     bool (*sec_keychain_restore_syncable)(CFDictionaryRef backup, CFDataRef keybag, CFDataRef passcode, CFErrorRef* error);
@@ -548,6 +546,13 @@ typedef void (^SecBoolNSErrorCallback) (bool, NSError*);
 // Delete all items from the keychain where agrp==identifier and clip==1. Requires App Clip deletion entitlement.
 - (void)secItemDeleteForAppClipApplicationIdentifier:(NSString*)identifier
                                           completion:(void (^)(OSStatus status))completion;
+
+// Take all items for appclip appClipAppID and move them to agrp parentAppID.
+// Checks if source items have clip==1 and sets clip=0 & new agrp in target item.
+// Requires App Clip deletion entitlement.
+- (void)secItemPromoteItemsForAppClip:(NSString*)appClipAppID
+                          toParentApp:(NSString*)parentAppID
+                           completion:(void (^)(OSStatus))completion;
 
 // Ask the keychain to durably persist its database to disk, at whatever guarantees the existing filesystem provides.
 // On Apple hardware with an APFS-formatted physical disk, this should succeed. On any sort of network home folder, no guarantee is provided.

@@ -650,8 +650,7 @@ IOFireWireSerialBusProtocolTransport::free ( void )
 			
 		}
 		
-		IOFree ( reserved, sizeof ( ExpansionData ) );
-		reserved = NULL;
+		IOFreeType ( reserved, ExpansionData );
 		
 	}
 	
@@ -2253,9 +2252,8 @@ IOFireWireSerialBusProtocolTransport::AllocateResources ( void )
 	fLUNResetORB->setManageeCommand ( fLogin );
 	
 	// Allocate expansion data.
-	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	reserved = IOMallocType ( ExpansionData );
 	require_action ( reserved, exit, status = kIOReturnNoMemory );
-	bzero ( reserved, sizeof ( ExpansionData ) );
 	
 	reserved->fLoginState = kFirstTimeLoggingInState;
 	
@@ -2280,10 +2278,9 @@ IOFireWireSerialBusProtocolTransport::AllocateResources ( void )
 		orb = fLogin->createORB ( );
 		require_action ( orb, exit, status = kIOReturnNoMemory );
 		
-		clientData = ( SBP2ClientOrbData * ) IOMalloc ( sizeof ( SBP2ClientOrbData ) );
+		clientData = IOMallocType ( SBP2ClientOrbData );
 		require_action ( clientData, exit, status = kIOReturnNoMemory );
 		
-		bzero ( clientData, sizeof ( SBP2ClientOrbData ) );
 		clientData->orb	= orb;
 		orb->setRefCon ( ( void * ) clientData );
 		
@@ -2336,8 +2333,7 @@ IOFireWireSerialBusProtocolTransport::DeallocateResources ( void )
 			if ( clientData != NULL )
 			{
 				
-				IOFree ( clientData, sizeof ( SBP2ClientOrbData ) );
-				clientData = NULL;
+				IOFreeType ( clientData, SBP2ClientOrbData );
 				
 			}
 			

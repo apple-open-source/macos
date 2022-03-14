@@ -200,11 +200,6 @@ struct cnode {
 #if CONFIG_PROTECT
 	struct cprotect *c_cpentry;	/* content protection data */
 #endif
-
-#if HFS_MALLOC_DEBUG
-	// N.B. — *must* always be last
-	uint64_t		magic;
-#endif
 };
 typedef struct cnode cnode_t;
 

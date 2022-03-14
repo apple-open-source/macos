@@ -654,6 +654,8 @@ static const struct option longopts[] = {
 	{ "apple-tzo", required_argument, NULL, OPTION_TIME_ZONE_OFFSET },
 	{ "apple-truncate", no_argument, NULL, OPTION_APPLE_TRUNCATE },
 	{ "apple-arp-plain", no_argument, NULL, OPTION_APPLE_ARP_PLAIN },
+	{ "apple-print-metadata", optional_argument, NULL, 'k' },
+	{ "apple-pcapng", no_argument, NULL, 'P' },
 #endif /* __APPLE__ */
 	{ NULL, 0, NULL, 0 }
 };
@@ -1476,16 +1478,24 @@ main(int argc, char **argv)
 					case 'V':
 						val |= PRMD_VERBOSE;
 						break;
-						
+					case 'f':
+						val |= PRMD_FLOWID;
+						break;
+					case 't':
+						val |= PRMD_TRACETAG;
+						break;
 					default:
 						/*
-						 * Was most likely parsing a filter expression
-						 * if we do not recognize the character
+						 * This is most likely parsing a filter expression
+						 * if we do not recognize of the flag so ignore
+						 * any already parsed flag
 						 */
-						if (val == 0)
-							break;
-						error("Invalid flag for option '-k'");
-						/* NOT REACHED */
+						val = 0;
+						break;
+				}
+				/* stop the parsing as we hit an unrecognized charater */
+				if (val == 0) {
+					break;
 				}
 			}
 			if (val == 0)
@@ -2096,7 +2106,7 @@ main(int argc, char **argv)
 		 */
 		if (pcap_datalink(pd) != DLT_PKTAP &&
 			(ndo->ndo_kflag || ndo->ndo_Pflag) && pcap_apple_set_exthdr(pd, on) == -1)
-			warning("%s", pcap_geterr(pd));
+				warning("%s", pcap_geterr(pd));
 #endif /* __APPLE__ */
 
 		i = pcap_snapshot(pd);
@@ -3238,9 +3248,9 @@ print_usage(void)
 "\t\t[ -w file ] [ -W filecount ] [ -y datalinktype ] [ -z postrotate-command ]\n");
 #ifdef __APPLE__
 	(void)fprintf(stderr,
-"\t\t[ -g ] [ -k ] [ -o ] [ -P ] [ -Q meta-data-expression]\n");
+"\t\t[ -g ] [ -k (flags) ] [ -o ] [ -P ] [ -Q meta-data-expression ]\n");
 	(void)fprintf(stderr,
-"\t\t[ --apple-tzo offset] [--apple-truncate]\n");
+"\t\t[ --apple-tzo offset ] [--apple-truncate ]\n");
 #endif /* __APPLE__ */
 	(void)fprintf(stderr,
 "\t\t[ -Z user ] [ expression ]\n");
@@ -3274,6 +3284,9 @@ handle_bpf_exthdr_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 
 #define	SWAPLONG(y) \
 ((((y)&0xff)<<24) | (((y)&0xff00)<<8) | (((y)&0xff0000)>>8) | (((y)>>24)&0xff))
+
+#define	SWAPSHORT(y) \
+((((y)&0xff00)>>8) | (((y)>>24)&0xff))
 
 int
 handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
@@ -3412,13 +3425,11 @@ handle_pcap_ng_dump(struct dump_info *dump_info, const struct pcap_pkthdr *h,
 
 			goto done;
 		}
-#ifdef PCAPNG_BT_DSB
 		case PCAPNG_BT_DSB: {
 			pcap_ng_dump_block(dump_info->p, block);
 
 			goto done;
 		}
-#endif /* PCAPNG_BT_DSB */
 		default:
 			goto done;
 	}
@@ -3645,6 +3656,10 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 	uint32_t pkt_svc = -1;
 	uint32_t packet_flags = 0;
 	uint32_t pmdflags = 0;
+	uint32_t flow_id = 0;
+#ifdef PCAPNG_EPB_TRACE_TAG
+	uint16_t trace_tag = 0;
+#endif /* PCAPNG_EPB_TRACE_TAG */
 	struct pcapng_option_info option_info;
 
 	block = pcap_ng_block_alloc_with_raw_block(ndo->ndo_pcap, (u_char *)sp);
@@ -3774,6 +3789,31 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 				if (pcap_is_swapped(ndo->ndo_pcap))
 					packet_flags = SWAPLONG(pmdflags);
 			}
+#ifdef PCAPNG_EPB_FLOW_ID
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_FLOW_ID, &option_info) == 1) {
+				if (option_info.length != 4) {
+					warning("%s: flow_id option length %u != 4", __func__, option_info.length);
+					goto done;
+				}
+				flow_id = *(uint32_t *)(option_info.value);
+				if (pcap_is_swapped(ndo->ndo_pcap)) {
+					flow_id = SWAPLONG(flow_id);
+				}
+			}
+#endif /* PCAPNG_EPB_FLOW_ID */
+
+#ifdef PCAPNG_EPB_TRACE_TAG
+			if (pcap_ng_block_get_option(block, PCAPNG_EPB_TRACE_TAG, &option_info) == 1) {
+				if (option_info.length != 2) {
+					warning("%s: trace_tag option length %u != 2", __func__, option_info.length);
+					goto done;
+				}
+				trace_tag = *(uint16_t *)(option_info.value);
+				if (pcap_is_swapped(ndo->ndo_pcap)) {
+					trace_tag = SWAPSHORT(trace_tag);
+				}
+			}
+#endif /* PCAPNG_EPB_TRACE_TAG */
 
 			if_id = epbp->interface_id;
 
@@ -3827,7 +3867,6 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			}
 			goto done;
 		}
-#ifdef PCAPNG_BT_DSB
 		case PCAPNG_BT_DSB: {
 			if (ndo->ndo_kflag & PRMD_VERBOSE) {
 				char secrets_type_str[64];
@@ -3861,7 +3900,6 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 			}
 			goto done;
 		}
-#endif /* PCAPNG_BT_DSB */
 		default:
 			goto done;
 	}
@@ -3908,7 +3946,8 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 		pmd.epid = (e_proc_info != NULL) ? e_proc_info->proc_pid : -1;
 		pmd.svc = (pkt_svc != -1) ? svc2str(pkt_svc) : "";
 		pmd.dir =  (packet_flags & 3) == 2 ? "out" :
-		(packet_flags & 3) == 1 ? "in" : "";
+		    (packet_flags & 3) == 1 ? "in" : "";
+		pmd.flowid = flow_id;
 
 		if (evaluate_expression(pkt_meta_data_expression, &pmd) == 0) {
 			packets_mtdt_fltr_drop++;
@@ -4004,14 +4043,35 @@ print_pcap_ng_block(u_char *user, const struct pcap_pkthdr *h, const u_char *sp)
 					  prsep));
 				prsep = ", ";
 			}
-#ifdef PCAPNG_EPB_PMDF_WAKE_PKT
 			if ((pmdflags & PCAPNG_EPB_PMDF_WAKE_PKT)) {
 				ND_PRINT((ndo, "%s" "wk",
 					  prsep));
 				prsep = ", ";
 			}
-#endif /* PCAPNG_EPB_PMDF_WAKE_PKT */
 		}
+
+#ifdef PCAPNG_EPB_FLOW_ID
+		/*
+		 * Flow-id
+		 */
+		if (ndo->ndo_kflag & PRMD_FLOWID) {
+			ND_PRINT((ndo, "%s" "flowid 0x%x",
+					  prsep,
+					  flow_id));
+			prsep = ", ";
+		}
+#endif /* PCAPNG_EPB_FLOW_ID */
+#ifdef PCAPNG_EPB_TRACE_TAG
+		/*
+		 * trace_tag
+		 */
+		if (ndo->ndo_kflag & PRMD_TRACETAG) {
+			ND_PRINT((ndo, "%s" "ttag 0x%x",
+					  prsep,
+					  trace_tag));
+			prsep = ", ";
+		}
+#endif /* PCAPNG_EPB_TRACE_TAG */
 
 		/*
 		 * Comment

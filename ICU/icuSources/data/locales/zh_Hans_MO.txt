@@ -19,6 +19,16 @@ zh_Hans_MO{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GGGGGyyMd",
+            }
             availableFormats{
                 MEd{"M-dE"}
                 MMMMdd{"M月d日"}
@@ -80,6 +90,16 @@ zh_Hans_MO{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMEEEEd",
+                "yMd",
+                "yMd",
+                "yyMd",
             }
             availableFormats{
                 MEd{"E, d/M"}
@@ -146,6 +166,16 @@ zh_Hans_MO{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyyMd",
+            }
         }
         roc{
             DateTimePatterns{
@@ -162,6 +192,16 @@ zh_Hans_MO{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyyMd",
             }
             availableFormats{
                 MEd{"M-dE"}

@@ -157,10 +157,10 @@ static LCK_ATTR_DECLARE(trigger_vnode_lck_attr, 0, 0);
 
 extern lck_mtx_t mnt_list_mtx_lock;
 
-ZONE_DECLARE(specinfo_zone, "specinfo",
+ZONE_DEFINE(specinfo_zone, "specinfo",
     sizeof(struct specinfo), ZC_ZFREE_CLEARMEM);
 
-ZONE_DECLARE(vnode_zone, "vnodes",
+ZONE_DEFINE(vnode_zone, "vnodes",
     sizeof(struct vnode), ZC_NOGC | ZC_ZFREE_CLEARMEM);
 
 enum vtype iftovt_tab[16] = {
@@ -1420,11 +1420,9 @@ verify_incoming_rootfs(vnode_t *incoming_rootvnodep, vfs_context_t ctx,
 	}
 
 	if ((flags & VFSSR_VIRTUALDEV_PROHIBITED) != 0) {
-		lck_rw_lock_shared(&mp->mnt_rwlock);
 		if (mp->mnt_flag & MNTK_VIRTUALDEV) {
 			error = ENODEV;
 		}
-		lck_rw_done(&mp->mnt_rwlock);
 		if (error) {
 			printf("Incoming rootfs is backed by a virtual device; cannot switch to it");
 			goto out_busy;
@@ -5616,6 +5614,12 @@ vnode_put_from_pager(vnode_t vp)
 	vnode_unlock(vp);
 
 	return retval;
+}
+
+int
+vnode_writecount(vnode_t vp)
+{
+	return vp->v_writecount;
 }
 
 /* is vnode_t in use by others?  */

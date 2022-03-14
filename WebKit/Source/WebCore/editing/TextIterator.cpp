@@ -30,6 +30,7 @@
 #include "ComposedTreeIterator.h"
 #include "Document.h"
 #include "Editing.h"
+#include "ElementInlines.h"
 #include "FontCascade.h"
 #include "Frame.h"
 #include "HTMLBodyElement.h"
@@ -44,6 +45,7 @@
 #include "HTMLSlotElement.h"
 #include "HTMLTextAreaElement.h"
 #include "HTMLTextFormControlElement.h"
+#include "ImageOverlay.h"
 #include "LegacyInlineTextBox.h"
 #include "NodeTraversal.h"
 #include "Range.h"
@@ -275,6 +277,11 @@ bool isRendererReplacedElement(RenderObject* renderer)
             return true;
         if (equalLettersIgnoringASCIICase(element.attributeWithoutSynchronization(roleAttr), "img"))
             return true;
+#if USE(ATSPI)
+        // Links are also replaced with object replacement character in ATSPI.
+        if (element.isLink())
+            return true;
+#endif
     }
 
     return false;
@@ -437,12 +444,9 @@ void TextIterator::advance()
         return;
     }
 
-    if (!m_textRun && m_remainingTextRun) {
-        m_textRun = m_remainingTextRun;
-        m_remainingTextRun = { };
-        m_firstLetterText = { };
-        m_offset = 0;
-    }
+    if (!m_textRun && m_remainingTextRun)
+        revertToRemainingTextRun();
+
     // handle remembered text box
     if (m_textRun) {
         handleTextRun();
@@ -580,7 +584,7 @@ bool TextIterator::handleTextNode()
         return true;
     }
 
-    m_textRun = LayoutIntegration::firstTextRunInTextOrderFor(renderer);
+    std::tie(m_textRun, m_textRunLogicalOrderCache) = InlineIterator::firstTextBoxInLogicalOrderFor(renderer);
 
     bool shouldHandleFirstLetter = !m_handledFirstLetter && is<RenderTextFragment>(renderer) && !m_offset;
     if (shouldHandleFirstLetter)
@@ -607,7 +611,7 @@ void TextIterator::handleTextRun()
         return;
     }
 
-    auto firstTextRun = LayoutIntegration::firstTextRunInTextOrderFor(renderer);
+    auto [firstTextRun, orderCache] = InlineIterator::firstTextBoxInLogicalOrderFor(renderer);
 
     String rendererText = renderer.text();
     unsigned start = m_offset;
@@ -632,8 +636,7 @@ void TextIterator::handleTextRun()
         unsigned runEnd = std::min(textRunEnd, end);
         
         // Determine what the next text run will be, but don't advance yet
-        auto nextTextRun = m_textRun;
-        nextTextRun.traverseNextTextRunInTextOrder();
+        auto nextTextRun = InlineIterator::nextTextBoxInLogicalOrder(m_textRun, m_textRunLogicalOrderCache);
 
         if (runStart < runEnd) {
             auto isNewlineOrTab = [&](UChar character) {
@@ -676,12 +679,20 @@ void TextIterator::handleTextRun()
         m_textRun = nextTextRun;
     }
     if (!m_textRun && m_remainingTextRun) {
-        m_textRun = m_remainingTextRun;
-        m_remainingTextRun = { };
-        m_firstLetterText = { };
-        m_offset = 0;
+        revertToRemainingTextRun();
         handleTextRun();
     }
+}
+
+void TextIterator::revertToRemainingTextRun()
+{
+    ASSERT(!m_textRun && m_remainingTextRun);
+
+    m_textRun = m_remainingTextRun;
+    m_textRunLogicalOrderCache = std::exchange(m_remainingTextRunLogicalOrderCache, { });
+    m_remainingTextRun = { };
+    m_firstLetterText = { };
+    m_offset = 0;
 }
 
 static inline RenderText* firstRenderTextInFirstLetter(RenderBoxModelObject* firstLetter)
@@ -701,7 +712,8 @@ void TextIterator::handleTextNodeFirstLetter(RenderTextFragment& renderer)
         if (auto* firstLetterText = firstRenderTextInFirstLetter(firstLetter)) {
             m_handledFirstLetter = true;
             m_remainingTextRun = m_textRun;
-            m_textRun = LayoutIntegration::firstTextRunInTextOrderFor(*firstLetterText);
+            m_remainingTextRunLogicalOrderCache = std::exchange(m_textRunLogicalOrderCache, { });
+            std::tie(m_textRun, m_textRunLogicalOrderCache) = InlineIterator::firstTextBoxInLogicalOrderFor(*firstLetterText);
             m_firstLetterText = firstLetterText;
         }
     }
@@ -731,8 +743,8 @@ bool TextIterator::handleReplacedElement()
         }
     }
 
-    if (m_behaviors.contains(TextIteratorBehavior::EntersImageOverlays) && is<HTMLElement>(m_node) && downcast<HTMLElement>(*m_node).hasImageOverlay()) {
-        if (auto shadowRoot = makeRefPtr(m_node->shadowRoot())) {
+    if (m_behaviors.contains(TextIteratorBehavior::EntersImageOverlays) && is<HTMLElement>(m_node) && ImageOverlay::hasOverlay(downcast<HTMLElement>(*m_node))) {
+        if (RefPtr shadowRoot = m_node->shadowRoot()) {
             m_node = shadowRoot.get();
             pushFullyClippedState(m_fullyClippedStack, *m_node);
             m_offset = 0;
@@ -743,7 +755,7 @@ bool TextIterator::handleReplacedElement()
 
     m_hasEmitted = true;
 
-    if (m_behaviors.contains(TextIteratorBehavior::EmitsObjectReplacementCharacters) && renderer.isReplaced()) {
+    if (m_behaviors.contains(TextIteratorBehavior::EmitsObjectReplacementCharacters)) {
         emitCharacter(objectReplacementCharacter, *m_node->parentNode(), m_node, 0, 1);
         // Don't process subtrees for embedded objects. If the text there is required,
         // it must be explicitly asked by specifying a range falling inside its boundaries.
@@ -1199,7 +1211,7 @@ void SimplifiedBackwardsTextIterator::advance()
             if (renderer && renderer->isText() && m_node->isTextNode()) {
                 if (renderer->style().visibility() == Visibility::Visible && m_offset > 0)
                     m_handledNode = handleTextNode();
-            } else if (renderer && (renderer->isImage() || renderer->isWidget())) {
+            } else if (isRendererReplacedElement(renderer)) {
                 if (renderer->style().visibility() == Visibility::Visible && m_offset > 0)
                     m_handledNode = handleReplacedElement();
             } else
@@ -2181,7 +2193,7 @@ inline size_t SearchBuffer::search(size_t& start)
     ASSERT(status == U_ZERO_ERROR);
 
     int matchStart = usearch_next(searcher, &status);
-    ASSERT(status == U_ZERO_ERROR);
+    ASSERT(U_SUCCESS(status));
 
 nextMatch:
     if (!(matchStart >= 0 && static_cast<size_t>(matchStart) < size)) {
@@ -2434,7 +2446,7 @@ String plainText(const SimpleRange& range, TextIteratorBehaviors defaultBehavior
     // The initial buffer size can be critical for performance: https://bugs.webkit.org/show_bug.cgi?id=81192
     constexpr unsigned initialCapacity = 1 << 15;
 
-    auto document = makeRef(range.start.document());
+    Ref document = range.start.document();
 
     unsigned bufferLength = 0;
     StringBuilder builder;

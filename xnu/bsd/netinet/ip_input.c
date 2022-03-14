@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -570,12 +570,9 @@ in_ifaddrhashtbl_init(void)
 		inaddr_nhash = INADDR_NHASH;
 	}
 
-	MALLOC(in_ifaddrhashtbl, struct in_ifaddrhashhead *,
-	    inaddr_nhash * sizeof(*in_ifaddrhashtbl),
-	    M_IFADDR, M_WAITOK | M_ZERO);
-	if (in_ifaddrhashtbl == NULL) {
-		panic("in_ifaddrhashtbl_init allocation failed");
-	}
+	in_ifaddrhashtbl = zalloc_permanent(
+		inaddr_nhash * sizeof(*in_ifaddrhashtbl),
+		ZALIGN_PTR);
 
 	/*
 	 * Generate the next largest prime greater than inaddr_nhash.
@@ -1218,6 +1215,7 @@ pass:
 	 */
 	ip_nhops = 0;           /* for source routed packets */
 	if (hlen > sizeof(struct ip) && ip_dooptions(m, 0, NULL)) {
+		src_ip = ip->ip_src;
 		ip_input_update_nstat(inifp, src_ip, 1, len);
 		KERNEL_DEBUG(DBG_LAYER_END, 0, 0, 0, 0, 0);
 		OSAddAtomic(1, &ipstat.ips_total);
@@ -3502,8 +3500,7 @@ ip_forward(struct mbuf *m, int srcrt, struct sockaddr_in *next_hop)
 	 * data in a cluster may change before we reach icmp_error().
 	 */
 	MGET(mcopy, M_DONTWAIT, m->m_type);
-	if (mcopy != NULL) {
-		M_COPY_PKTHDR(mcopy, m);
+	if (mcopy != NULL && m_dup_pkthdr(mcopy, m, M_DONTWAIT) == 0) {
 		mcopy->m_len = imin((IP_VHL_HL(ip->ip_vhl) << 2) + 8,
 		    (int)ip->ip_len);
 		m_copydata(m, 0, mcopy->m_len, mtod(mcopy, caddr_t));

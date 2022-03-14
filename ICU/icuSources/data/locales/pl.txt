@@ -271,6 +271,20 @@ pl{
             }
         }
         minimalPairs{
+            case{
+                accusative{"Widzę {0}"}
+                dative{"Ufam {0}"}
+                genitive{"Nie widzę {0}"}
+                instrumental{"Interesuję się {0}"}
+                locative{"Siedzę na {0}"}
+                nominative{"{0} jest/są tutaj"}
+                vocative{"Pani(e) {0}!"}
+            }
+            gender{
+                feminine{"ta {0}"}
+                inanimate{"ten {0}"}
+                neuter{"to {0}"}
+            }
             ordinal{
                 other{"Skręć w {0}. w prawo."}
             }
@@ -312,6 +326,16 @@ pl{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "UMMMMEEEEd",
+                "UMMMMd",
+                "UMMMd",
+                "yMMdd",
             }
             monthNames{
                 format{
@@ -434,6 +458,16 @@ pl{
                 "{1} 'o' {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GyMMdd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h:mm B"}
@@ -450,6 +484,7 @@ pl{
                 GyMMM{"LLL y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"dd.MM.y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -643,12 +678,22 @@ pl{
                 "EEEE, d MMMM y",
                 "d MMMM y",
                 "dd.MM.y",
-                "dd.MM.y",
+                "d.MM.y",
                 "{1} 'o' {0}",
                 "{1} 'o' {0}",
                 "{1} 'o' {0}",
                 "{1} 'o' {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMdd",
+                "yMMdd",
             }
             appendItems{
                 Timezone{"{0} {1}"}
@@ -672,6 +717,7 @@ pl{
                 GyMMMMEd{"E, d MMMM y G"}
                 GyMMMMd{"d MMMM y G"}
                 GyMMMd{"d.MM.y G"}
+                GyMd{"d.MM.y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -1020,7 +1066,7 @@ pl{
                 }
                 yMMMMEd{
                     M{"E, d MMMM – E, d MMMM y"}
-                    d{"E, d – E, d MMMM y"}
+                    d{"E, d MMMM – E, d MMMM y"}
                     y{"E, d MMMM y – E, d MMMM y"}
                 }
                 yMMMMd{
@@ -1415,6 +1461,16 @@ pl{
                 "{1} 'o' {0}",
                 "{1} 'o' {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GyMMdd",
             }
         }
         persian{

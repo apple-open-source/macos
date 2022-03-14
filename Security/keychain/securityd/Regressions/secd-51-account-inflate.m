@@ -71,7 +71,7 @@ static void test_v6(void) {
 }
 #endif
 
-static int kTestTestCount = 11 + kSecdTestSetupTestCount;
+static int kTestTestCount = 12 + kSecdTestSetupTestCount;
 static void tests(void)
 {
 
@@ -94,6 +94,36 @@ static void tests(void)
     CFReleaseNull(error);
     
     ok(testAccountPersistence(account), "Test Account->DER->Account Equivalence");
+    
+    [account accountStatus:^(NSData *json, NSError *error) {
+        ok(error == nil, "%@", json);
+        if (json) {
+            NSDictionary *dict = (NSDictionary *) [NSJSONSerialization   JSONObjectWithData:json options: kNilOptions error: nil];
+            printf("Account Status\n");
+            printf("%s", [[NSString stringWithFormat:@"%@\n", dict[@"AccountHeader"]] UTF8String]);
+            printf("%s", [[NSString stringWithFormat:@"%@\n", dict[@"CircleHeader"]] UTF8String]);
+            printf("Peers: \n");
+            for (NSString * peerString in (NSArray *) dict[@"CirclePeers"]) {
+                printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+            }
+            for (NSString * peerString in (NSArray *) dict[@"CircleRetiredPeers"]) {
+                printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+            }
+            for (NSString * peerString in (NSArray *) dict[@"iCloudIdentityPeers"]) {
+                printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+            }
+            printf("Applicants:\n");
+            for (NSString * peerString in (NSArray *) dict[@"CircleApplicants"]) {
+                printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+            }
+            printf("Rejected Applicants:\n");
+            for (NSString * peerString in (NSArray *) dict[@"CircleRejections"]) {
+                printf("%s", [[NSString stringWithFormat:@"PI: %@\n", peerString] UTF8String]);
+            }
+        } else {
+            printf("%s", [[NSString stringWithFormat:@"failed to get account status: %@\n", error] UTF8String]);
+        }
+    }];
 
     SOSTestCleanup();
     

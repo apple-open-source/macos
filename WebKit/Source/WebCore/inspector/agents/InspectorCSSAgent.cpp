@@ -449,6 +449,8 @@ static std::optional<Protocol::CSS::PseudoId> protocolValueForPseudoId(PseudoId 
         return Protocol::CSS::PseudoId::FirstLetter;
     case PseudoId::Marker:
         return Protocol::CSS::PseudoId::Marker;
+    case PseudoId::Backdrop:
+        return Protocol::CSS::PseudoId::Backdrop;
     case PseudoId::Before:
         return Protocol::CSS::PseudoId::Before;
     case PseudoId::After:
@@ -895,7 +897,7 @@ Protocol::ErrorStringOr<Ref<JSON::ArrayOf<String>>> InspectorCSSAgent::getSuppor
 {
     auto fontFamilyNames = JSON::ArrayOf<String>::create();
 
-    Vector<String> systemFontFamilies = FontCache::singleton().systemFontFamilies();
+    Vector<String> systemFontFamilies = FontCache::forCurrentThread().systemFontFamilies();
     for (const auto& familyName : systemFontFamilies)
         fontFamilyNames->addItem(familyName);
 

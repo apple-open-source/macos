@@ -34,6 +34,7 @@
 #include "WKAPICast.h"
 #include "WKBundleAPICast.h"
 #include "WKBundlePrivate.h"
+#include "WKData.h"
 #include "WKMutableArray.h"
 #include "WKMutableDictionary.h"
 #include "WKNumber.h"
@@ -206,9 +207,14 @@ void WKBundleRemoveAllWebNotificationPermissions(WKBundleRef bundleRef, WKBundle
     WebKit::toImpl(bundleRef)->removeAllWebNotificationPermissions(WebKit::toImpl(pageRef));
 }
 
-uint64_t WKBundleGetWebNotificationID(WKBundleRef bundleRef, JSContextRef context, JSValueRef notification)
+WKDataRef WKBundleCopyWebNotificationID(WKBundleRef bundleRef, JSContextRef context, JSValueRef notification)
 {
-    return WebKit::toImpl(bundleRef)->webNotificationID(context, notification);
+    auto identifier = WebKit::toImpl(bundleRef)->webNotificationID(context, notification);
+    if (!identifier)
+        return nullptr;
+
+    auto span = identifier->toSpan();
+    return WKDataCreate(span.data(), span.size());
 }
 
 void WKBundleSetTabKeyCyclesThroughElements(WKBundleRef bundleRef, WKBundlePageRef pageRef, bool enabled)

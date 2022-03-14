@@ -89,8 +89,9 @@
 
     XCTestExpectation* statusCompletes = [self expectationWithDescription:@"status completes"];
     [self.defaultCKKS rpcStatus:nil
-                           fast:NO
-                          reply:^(NSArray<NSDictionary*>* _Nullable status, NSError* _Nullable error) {
+                      fast:NO
+                      waitForNonTransientState:CKKSControlStatusDefaultNonTransientStateTimeout
+                      reply:^(NSArray<NSDictionary*>* _Nullable status, NSError* _Nullable error) {
         XCTAssertNotNil(status, "Should have some statuses");
         XCTAssertNil(error, "Should have no error fetching status");
         [statusCompletes fulfill];

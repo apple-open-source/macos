@@ -230,7 +230,7 @@ int l2tp_udp_init_threads(int nb_threads)
 	if (nb_threads == 0)
 		return 0;
 
-	l2tp_udp_threads = (struct l2tp_udp_thread *)_MALLOC(sizeof(struct l2tp_udp_thread) * nb_threads, M_TEMP, M_WAITOK);
+	l2tp_udp_threads = kalloc_type(struct l2tp_udp_thread, nb_threads, Z_WAITOK);
 	if (!l2tp_udp_threads) 
 		return ENOMEM;
 	
@@ -283,7 +283,7 @@ void l2tp_udp_dispose_threads()
 			l2tp_udp_threads[i].terminate = 1;
 			wakeup(&l2tp_udp_threads[i].wakeup);
 			msleep(&l2tp_udp_threads[i].terminate, l2tp_udp_threads[i].mtx, PZERO + 1, "l2tp_udp_dispose_threads", 0);
-            lck_mtx_unlock(l2tp_udp_threads[i].mtx);
+			lck_mtx_unlock(l2tp_udp_threads[i].mtx);
 			
 			thread_terminate(l2tp_udp_threads[i].thread);
 			thread_deallocate(l2tp_udp_threads[i].thread);
@@ -292,7 +292,7 @@ void l2tp_udp_dispose_threads()
 		}
 	}
 	
-	_FREE(l2tp_udp_threads, M_TEMP);
+	kfree_type(struct l2tp_udp_thread, l2tp_udp_nb_threads, l2tp_udp_threads);
 	l2tp_udp_nb_threads = 0;
 	
 	lck_rw_unlock_exclusive(l2tp_udp_mtx);

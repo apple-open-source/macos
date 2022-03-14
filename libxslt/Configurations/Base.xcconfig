@@ -16,6 +16,11 @@ PREBINDING = NO;
 // WARNING_CFLAGS = -Wextra -Wcast-qual -Wextra-tokens -Winit-self -Wmissing-noreturn -Wpacked -Wredundant-decls -Wundef;
 WARNING_CFLAGS = -Wall -pedantic -W -Wunused -Wimplicit -Wreturn-type -Wswitch -Wcomment -Wtrigraphs -Wformat -Wchar-subscripts -Wparentheses -Wpointer-arith -Wcast-align -Wwrite-strings -Waggregate-return -Wstrict-prototypes -Wmissing-prototypes -Wnested-externs -Winline $(SECURITY_WARNING_CFLAGS);
 SECURITY_WARNING_CFLAGS = -Werror=array-bounds -Werror=array-bounds-pointer-arithmetic -Werror=builtin-memcpy-chk-size -Werror=conditional-uninitialized -Werror=empty-body -Werror=format-security -Werror=implicit-int-conversion -Werror=memset-transposed-args -Werror=return-stack-address -Werror=shadow -Werror=sizeof-array-argument -Werror=sizeof-array-decay -Werror=sizeof-pointer-memaccess -Werror=uninitialized -Werror=unused-result -Werror=vla;
+
+OTHER_CFLAGS = $(inherited) $(LIBXSLT_STACK_AUTO_INIT_$(LIBXSLT_ENABLE_STACK_AUTO_INIT));
+LIBXSLT_STACK_AUTO_INIT_YES = -ftrivial-auto-var-init=zero -enable-trivial-auto-var-init-zero-knowing-it-will-be-removed-from-clang;
+LIBXSLT_ENABLE_STACK_AUTO_INIT[sdk=iphone*] = YES;
+
 STRIP_INSTALLED_PRODUCT = YES;
 HEADER_SEARCH_PATHS = /usr/include/libxml2;
 

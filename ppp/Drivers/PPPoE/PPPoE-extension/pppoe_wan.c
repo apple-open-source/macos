@@ -145,12 +145,10 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
     // Note : we allocate/find number/insert in queue in that specific order
     // because of funnels and race condition issues
 
-    MALLOC(wan, struct pppoe_wan *, sizeof(struct pppoe_wan), M_TEMP, M_WAITOK);
-    if (!wan)
-        return ENOMEM;
+    wan = kalloc_type(struct pppoe_wan, Z_WAITOK | Z_NOFAIL);
 
     if (pppoe_wan_findfreeunit(&unit)) {
-        FREE(wan, M_TEMP);
+        kfree_type(struct pppoe_wan, wan);
         return ENOMEM;
     }
 
@@ -176,7 +174,7 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
     if (ret) {
         IOLog("pppoe_wan_attach, error = %d, (ld = %p)\n", ret, wan);
         TAILQ_REMOVE(&pppoe_wan_head, wan, next);
-        FREE(wan, M_TEMP);
+        kfree_type(struct pppoe_wan, wan);
         return ret;
     }
     
@@ -198,7 +196,7 @@ void pppoe_wan_detach(struct ppp_link *link)
 
     ppp_link_detach(link);
     TAILQ_REMOVE(&pppoe_wan_head, wan, next);
-    FREE(wan, M_TEMP);
+    kfree_type(struct pppoe_wan, wan);
 }
 
 /* -----------------------------------------------------------------------------

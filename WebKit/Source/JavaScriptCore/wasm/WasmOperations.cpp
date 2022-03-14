@@ -46,9 +46,10 @@
 #include "WasmContextInlines.h"
 #include "WasmInstance.h"
 #include "WasmMemory.h"
-#include "WasmOMGForOSREntryPlan.h"
+#include "WasmModuleInformation.h"
 #include "WasmOMGPlan.h"
 #include "WasmOSREntryData.h"
+#include "WasmOSREntryPlan.h"
 #include "WasmWorklist.h"
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/DataLog.h>
@@ -70,7 +71,7 @@ static bool shouldTriggerOMGCompile(TierUpCount& tierUp, OMGCallee* replacement,
     return true;
 }
 
-static void triggerOMGReplacementCompile(TierUpCount& tierUp, OMGCallee* replacement, Instance* instance, Wasm::CodeBlock& codeBlock, uint32_t functionIndex)
+static void triggerOMGReplacementCompile(TierUpCount& tierUp, OMGCallee* replacement, Instance* instance, Wasm::CalleeGroup& calleeGroup, uint32_t functionIndex)
 {
     if (replacement) {
         tierUp.optimizeSoon(functionIndex);
@@ -96,7 +97,7 @@ static void triggerOMGReplacementCompile(TierUpCount& tierUp, OMGCallee* replace
     if (compile) {
         dataLogLnIf(Options::verboseOSR(), "triggerOMGReplacement for ", functionIndex);
         // We need to compile the code.
-        Ref<Plan> plan = adoptRef(*new OMGPlan(instance->context(), Ref<Wasm::Module>(instance->module()), functionIndex, codeBlock.mode(), Plan::dontFinalize()));
+        Ref<Plan> plan = adoptRef(*new OMGPlan(instance->context(), Ref<Wasm::Module>(instance->module()), functionIndex, calleeGroup.mode(), Plan::dontFinalize()));
         ensureWorklist().enqueue(plan.copyRef());
         if (UNLIKELY(!Options::useConcurrentJIT()))
             plan->waitForCompletion();
@@ -156,7 +157,7 @@ void loadValuesIntoBuffer(Probe::Context& context, const StackMap& values, uint6
 }
 
 SUPPRESS_ASAN
-static void doOSREntry(Instance* instance, Probe::Context& context, BBQCallee& callee, OMGForOSREntryCallee& osrEntryCallee, OSREntryData& osrEntryData)
+static void doOSREntry(Instance* instance, Probe::Context& context, BBQCallee& callee, OSREntryCallee& osrEntryCallee, OSREntryData& osrEntryData)
 {
     auto returnWithoutOSREntry = [&] {
         context.gpr(GPRInfo::argumentGPR0) = 0;
@@ -203,6 +204,13 @@ static void doOSREntry(Instance* instance, Probe::Context& context, BBQCallee& c
     // LR needs to be untagged since OSR entry function prologue will tag it with SP. This is similar to tail-call.
     context.gpr(ARM64Registers::lr) = bitwise_cast<UCPURegister>(untagCodePtrWithStackPointerForJITCall(context.gpr<void*>(ARM64Registers::lr), context.sp()));
 #endif
+#elif CPU(RISCV64)
+    // move(framePointerRegister, stackPointerRegister);
+    // popPair(framePointerRegister, linkRegister);
+    context.fp() = bitwise_cast<UCPURegister*>(*framePointer);
+    context.gpr(RISCV64Registers::ra) = bitwise_cast<UCPURegister>(*(framePointer + 1));
+    context.sp() = framePointer + 2;
+    static_assert(AssemblyHelpers::prologueStackPointerDelta() == sizeof(void*) * 2);
 #else
 #error Unsupported architecture.
 #endif
@@ -233,12 +241,12 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
         context.gpr(GPRInfo::argumentGPR0) = 0;
     };
 
-    Wasm::CodeBlock& codeBlock = *instance->codeBlock();
-    ASSERT(instance->memory()->mode() == codeBlock.mode());
+    Wasm::CalleeGroup& calleeGroup = *instance->calleeGroup();
+    ASSERT(instance->memory()->mode() == calleeGroup.mode());
 
-    uint32_t functionIndexInSpace = functionIndex + codeBlock.functionImportCount();
-    ASSERT(codeBlock.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace).compilationMode() == Wasm::CompilationMode::BBQMode);
-    BBQCallee& callee = static_cast<BBQCallee&>(codeBlock.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace));
+    uint32_t functionIndexInSpace = functionIndex + calleeGroup.functionImportCount();
+    ASSERT(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace).compilationMode() == Wasm::CompilationMode::BBQMode);
+    BBQCallee& callee = static_cast<BBQCallee&>(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace));
     TierUpCount& tierUp = *callee.tierUpCount();
 
     if (!shouldJIT(functionIndex)) {
@@ -246,11 +254,11 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
         return returnWithoutOSREntry();
     }
 
-    dataLogLnIf(Options::verboseOSR(), "Consider OMGForOSREntryPlan for [", functionIndex, "] loopIndex#", loopIndex, " with executeCounter = ", tierUp, " ", RawPointer(callee.replacement()));
+    dataLogLnIf(Options::verboseOSR(), "Consider OSREntryPlan for [", functionIndex, "] loopIndex#", loopIndex, " with executeCounter = ", tierUp, " ", RawPointer(callee.replacement()));
 
     if (!Options::useWebAssemblyOSR()) {
         if (shouldTriggerOMGCompile(tierUp, callee.replacement(), functionIndex))
-            triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, codeBlock, functionIndex);
+            triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, calleeGroup, functionIndex);
 
         // We already have an OMG replacement.
         if (callee.replacement()) {
@@ -306,7 +314,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
         return returnWithoutOSREntry();
     }
 
-    if (OMGForOSREntryCallee* osrEntryCallee = callee.osrEntryCallee()) {
+    if (OSREntryCallee* osrEntryCallee = callee.osrEntryCallee()) {
         if (osrEntryCallee->loopIndex() == loopIndex)
             return doOSREntry(instance, context, callee, *osrEntryCallee, osrEntryData);
     }
@@ -315,13 +323,13 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
         return returnWithoutOSREntry();
 
     if (!triggeredSlowPathToStartCompilation) {
-        triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, codeBlock, functionIndex);
+        triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, calleeGroup, functionIndex);
 
         if (!callee.replacement())
             return returnWithoutOSREntry();
     }
 
-    if (OMGForOSREntryCallee* osrEntryCallee = callee.osrEntryCallee()) {
+    if (OSREntryCallee* osrEntryCallee = callee.osrEntryCallee()) {
         if (osrEntryCallee->loopIndex() == loopIndex)
             return doOSREntry(instance, context, callee, *osrEntryCallee, osrEntryData);
         tierUp.dontOptimizeAnytimeSoon(functionIndex);
@@ -346,7 +354,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
             uint32_t currentLoopIndex = tierUp.outerLoops()[loopIndex];
             Locker locker { tierUp.getLock() };
 
-            // We already started OMGForOSREntryPlan.
+            // We already started OSREntryPlan.
             if (callee.didStartCompilingOSREntryCallee())
                 return false;
 
@@ -389,7 +397,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
 
     if (startOSREntryCompilation) {
         dataLogLnIf(Options::verboseOSR(), "triggerOMGOSR for ", functionIndex);
-        Ref<Plan> plan = adoptRef(*new OMGForOSREntryPlan(instance->context(), Ref<Wasm::Module>(instance->module()), Ref<Wasm::BBQCallee>(callee), functionIndex, loopIndex, codeBlock.mode(), Plan::dontFinalize()));
+        Ref<Plan> plan = adoptRef(*new OSREntryPlan(instance->context(), Ref<Wasm::Module>(instance->module()), Ref<Wasm::BBQCallee>(callee), functionIndex, loopIndex, calleeGroup.mode(), Plan::dontFinalize()));
         ensureWorklist().enqueue(plan.copyRef());
         if (UNLIKELY(!Options::useConcurrentJIT()))
             plan->waitForCompletion();
@@ -397,7 +405,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
             tierUp.setOptimizationThresholdBasedOnCompilationResult(functionIndex, CompilationDeferred);
     }
 
-    OMGForOSREntryCallee* osrEntryCallee = callee.osrEntryCallee();
+    OSREntryCallee* osrEntryCallee = callee.osrEntryCallee();
     if (!osrEntryCallee) {
         tierUp.setOptimizationThresholdBasedOnCompilationResult(functionIndex, CompilationDeferred);
         return returnWithoutOSREntry();
@@ -412,12 +420,12 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerOSREntryNow, void, (Probe::Context&
 
 JSC_DEFINE_JIT_OPERATION(operationWasmTriggerTierUpNow, void, (Instance* instance, uint32_t functionIndex))
 {
-    Wasm::CodeBlock& codeBlock = *instance->codeBlock();
-    ASSERT(instance->memory()->mode() == codeBlock.mode());
+    Wasm::CalleeGroup& calleeGroup = *instance->calleeGroup();
+    ASSERT(instance->memory()->mode() == calleeGroup.mode());
 
-    uint32_t functionIndexInSpace = functionIndex + codeBlock.functionImportCount();
-    ASSERT(codeBlock.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace).compilationMode() == Wasm::CompilationMode::BBQMode);
-    BBQCallee& callee = static_cast<BBQCallee&>(codeBlock.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace));
+    uint32_t functionIndexInSpace = functionIndex + calleeGroup.functionImportCount();
+    ASSERT(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace).compilationMode() == Wasm::CompilationMode::BBQMode);
+    BBQCallee& callee = static_cast<BBQCallee&>(calleeGroup.wasmBBQCalleeFromFunctionIndexSpace(functionIndexInSpace));
     TierUpCount& tierUp = *callee.tierUpCount();
 
     if (!shouldJIT(functionIndex)) {
@@ -428,7 +436,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmTriggerTierUpNow, void, (Instance* instanc
     dataLogLnIf(Options::verboseOSR(), "Consider OMGPlan for [", functionIndex, "] with executeCounter = ", tierUp, " ", RawPointer(callee.replacement()));
 
     if (shouldTriggerOMGCompile(tierUp, callee.replacement(), functionIndex))
-        triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, codeBlock, functionIndex);
+        triggerOMGReplacementCompile(tierUp, callee.replacement(), instance, calleeGroup, functionIndex);
 
     // We already have an OMG replacement.
     if (callee.replacement()) {
@@ -542,7 +550,8 @@ JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, I
         JSValue value = buffer.at(index);
 
         uint64_t unboxedValue = 0;
-        switch (signature->returnType(index).kind) {
+        const auto& returnType = signature->returnType(index);
+        switch (returnType.kind) {
         case TypeKind::I32:
             unboxedValue = value.toInt32(globalObject);
             break;
@@ -555,18 +564,16 @@ JSC_DEFINE_JIT_OPERATION(operationIterateResults, void, (CallFrame* callFrame, I
         case TypeKind::F64:
             unboxedValue = bitwise_cast<uint64_t>(value.toNumber(globalObject));
             break;
-        case TypeKind::Funcref:
-            if (!value.isCallable(vm)) {
-                throwTypeError(globalObject, scope, "Funcref value is not a function"_s);
-                return;
-            }
-            FALLTHROUGH;
-        case TypeKind::Externref:
-            unboxedValue = bitwise_cast<uint64_t>(value);
-            RELEASE_ASSERT(Options::useWebAssemblyReferences());
-            break;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
+        default: {
+            if (isFuncref(returnType) || isExternref(returnType)) {
+                if (isFuncref(returnType) && !value.isCallable(vm)) {
+                    throwTypeError(globalObject, scope, "Funcref value is not a function"_s);
+                    return;
+                }
+                unboxedValue = bitwise_cast<uint64_t>(value);
+            } else
+                RELEASE_ASSERT_NOT_REACHED();
+        }
         }
         RETURN_IF_EXCEPTION(scope, void());
 
@@ -617,7 +624,7 @@ JSC_DEFINE_JIT_OPERATION(operationWasmWriteBarrierSlowPath, void, (JSCell* cell,
     ASSERT(cell);
     ASSERT(vmPointer);
     VM& vm = *vmPointer;
-    vm.heap.writeBarrierSlowPath(cell);
+    vm.writeBarrierSlowPath(cell);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationPopcount32, uint32_t, (int32_t value))
@@ -820,10 +827,8 @@ template<typename ValueType>
 static int32_t wait(VM& vm, ValueType* pointer, ValueType expectedValue, int64_t timeoutInNanoseconds)
 {
     Seconds timeout = Seconds::infinity();
-    if (timeoutInNanoseconds >= 0) {
-        int64_t timeoutInMilliseconds = timeoutInNanoseconds / 1000;
-        timeout = Seconds::fromMilliseconds(timeoutInMilliseconds);
-    }
+    if (timeoutInNanoseconds >= 0)
+        timeout = Seconds::fromNanoseconds(timeoutInNanoseconds);
     bool didPassValidation = false;
     ParkingLot::ParkResult result;
     {

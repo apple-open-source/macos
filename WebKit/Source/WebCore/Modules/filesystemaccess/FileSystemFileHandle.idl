@@ -26,10 +26,10 @@
 // https://wicg.github.io/file-system-access/#api-filesystemhandle
 
 [
-    EnabledBySetting=FileSystemAccess,
+    EnabledBySetting=FileSystemAccessEnabled,
     Exposed=(Window,Worker),
     SecureContext
 ] interface FileSystemFileHandle : FileSystemHandle {
     Promise<File> getFile();
-    [EnabledBySetting=AccessHandle, Exposed=Worker] Promise<FileSystemSyncAccessHandle> createSyncAccessHandle();
+    [EnabledBySetting=AccessHandleEnabled, Exposed=Worker] Promise<FileSystemSyncAccessHandle> createSyncAccessHandle();
 };

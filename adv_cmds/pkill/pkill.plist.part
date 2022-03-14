@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>pkill</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-02-13</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/pkill?id=5ff2e55e0071dabbf18cdbe13a1230822d1270d4</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-08</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>pkill.1, pkill.c: removed -j jid, -S, -s sid (4043077)</string>
+		    <string>pkill.1, pkill.c: removed -c class (82256285)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

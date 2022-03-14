@@ -28,12 +28,13 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/getconf/getconf.c,v 1.10 2006/12/06 12:00:26 maxim Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
 #include <err.h>
 #include <errno.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sysexits.h>
@@ -41,6 +42,8 @@ __FBSDID("$FreeBSD: src/usr.bin/getconf/getconf.c,v 1.10 2006/12/06 12:00:26 max
 
 #include "getconf.h"
 
+static void	do_allsys(void);
+static void	do_allpath(const char *path);
 static void	do_confstr(const char *name, int key);
 static void	do_sysconf(const char *name, int key);
 static void	do_pathconf(const char *name, int key, const char *path);
@@ -49,7 +52,8 @@ static void
 usage(void)
 {
 	fprintf(stderr,
-"usage: getconf [-v prog_env] system_var\n"
+"usage: getconf -a [pathname]\n"
+"       getconf [-v prog_env] system_var\n"
 "       getconf [-v prog_env] path_var pathname\n");
 	exit(EX_USAGE);
 }
@@ -57,13 +61,19 @@ usage(void)
 int
 main(int argc, char **argv)
 {
+	bool aflag;
 	int c, key, valid;
 	const char *name, *vflag, *alt_path;
 	intmax_t limitval;
+	uintmax_t ulimitval;
 
+	aflag = false;
 	vflag = NULL;
-	while ((c = getopt(argc, argv, "v:")) != -1) {
+	while ((c = getopt(argc, argv, "av:")) != -1) {
 		switch (c) {
+		case 'a':
+			aflag = true;
+			break;
 		case 'v':
 			vflag = optarg;
 			break;
@@ -71,6 +81,16 @@ main(int argc, char **argv)
 		default:
 			usage();
 		}
+	}
+
+	if (aflag) {
+		if (vflag != NULL)
+			usage();
+		if (argv[optind] == NULL)
+			do_allsys();
+		else
+			do_allpath(argv[optind]);
+		return (0);
 	}
 
 	if ((name = argv[optind]) == NULL)
@@ -96,6 +116,13 @@ main(int argc, char **argv)
 	}
 
 	if (argv[optind + 1] == NULL) { /* confstr or sysconf */
+		if ((valid = find_unsigned_limit(name, &ulimitval)) != 0) {
+			if (valid > 0)
+				printf("%" PRIuMAX "\n", ulimitval);
+			else
+				printf("undefined\n");
+			return 0;
+		}
 		if ((valid = find_limit(name, &limitval)) != 0) {
 			if (valid > 0)
 				printf("%" PRIdMAX "\n", limitval);
@@ -133,6 +160,77 @@ main(int argc, char **argv)
 			     name);
 	}
 	return 0;
+}
+
+static void
+do_onestr(const char *name, int key)
+{
+	size_t len;
+
+	errno = 0;
+	len = confstr(key, 0, 0);
+	if (len == 0 && errno != 0) {
+		warn("confstr: %s", name);
+		return;
+	}
+	printf("%s: ", name);
+	if (len == 0)
+		printf("undefined\n");
+	else {
+		char buf[len + 1];
+
+		confstr(key, buf, len);
+		printf("%s\n", buf);
+	}
+}
+
+static void
+do_onesys(const char *name, int key)
+{
+	long value;
+
+	errno = 0;
+	value = sysconf(key);
+	if (value == -1 && errno != 0) {
+		warn("sysconf: %s", name);
+		return;
+	}
+	printf("%s: ", name);
+	if (value == -1)
+		printf("undefined\n");
+	else
+		printf("%ld\n", value);
+}
+
+static void
+do_allsys(void)
+{
+
+	foreach_confstr(do_onestr);
+	foreach_sysconf(do_onesys);
+}
+
+static void
+do_onepath(const char *name, int key, const char *path)
+{
+	long value;
+
+	errno = 0;
+	value = pathconf(path, key);
+	if (value == -1 && errno != EINVAL && errno != 0)
+		warn("pathconf: %s", name);
+	printf("%s: ", name);
+	if (value == -1)
+		printf("undefined\n");
+	else
+		printf("%ld\n", value);
+}
+
+static void
+do_allpath(const char *path)
+{
+
+	foreach_pathconf(do_onepath, path);
 }
 
 static void
@@ -187,3 +285,4 @@ do_pathconf(const char *name, int key, const char *path)
 	else
 		printf("%ld\n", value);
 }
+

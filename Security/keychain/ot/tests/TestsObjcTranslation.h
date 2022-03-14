@@ -38,7 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (BOOL)addNRandomKeychainItemsWithoutUpgradedPersistentRefs:(int64_t)number;
 + (BOOL)checkAllPersistentRefBeenUpgraded;
-+ (BOOL)expectXNumberOfItemsUpgraded:(int64_t)expected;
++ (BOOL)expectXNumberOfItemsUpgraded:(int)expected;
 + (NSNumber* _Nullable)lastRowID;
 + (void)setError:(int)errorCode;
 + (void)clearError;

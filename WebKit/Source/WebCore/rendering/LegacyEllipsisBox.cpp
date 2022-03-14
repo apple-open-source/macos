@@ -55,7 +55,7 @@ void LegacyEllipsisBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffs
     bool setShadow = false;
     if (lineStyle.textShadow()) {
         Color shadowColor = lineStyle.colorByApplyingColorFilter(lineStyle.textShadow()->color());
-        context.setShadow(LayoutSize(lineStyle.textShadow()->x(), lineStyle.textShadow()->y()), lineStyle.textShadow()->radius(), shadowColor);
+        context.setShadow(LayoutSize(lineStyle.textShadow()->x().value(), lineStyle.textShadow()->y().value()), lineStyle.textShadow()->radius().value(), shadowColor);
         setShadow = true;
     }
 
@@ -93,7 +93,7 @@ LegacyInlineBox* LegacyEllipsisBox::markupBox() const
 
     // If the last line-box on the last line of a block is a link, -webkit-line-clamp paints that box after the ellipsis.
     // It does not actually move the link.
-    LegacyInlineBox* anchorBox = lastLine->lastChild();
+    LegacyInlineBox* anchorBox = lastLine->lastLeafDescendant();
     if (!anchorBox || !anchorBox->renderer().style().isLink())
         return 0;
 
@@ -112,7 +112,7 @@ void LegacyEllipsisBox::paintMarkupBox(PaintInfo& paintInfo, const LayoutPoint& 
     markupBox->paint(paintInfo, adjustedPaintOffset, lineTop, lineBottom);
 }
 
-IntRect LegacyEllipsisBox::selectionRect()
+IntRect LegacyEllipsisBox::selectionRect() const
 {
     const RenderStyle& lineStyle = this->lineStyle();
     const FontCascade& font = lineStyle.fontCascade();
@@ -139,7 +139,7 @@ void LegacyEllipsisBox::paintSelection(GraphicsContext& context, const LayoutPoi
     const LegacyRootInlineBox& rootBox = root();
     GraphicsContextStateSaver stateSaver(context);
     // FIXME: Why is this always LTR? Fix by passing correct text run flags below.
-    LayoutRect selectionRect { LayoutUnit(x() + paintOffset.x()), LayoutUnit(y() + paintOffset.y() + rootBox.selectionTop()), 0_lu, rootBox.selectionHeight() };
+    LayoutRect selectionRect { LayoutUnit(x() + paintOffset.x()), rootBox.selectionTop() + paintOffset.y(), 0_lu, rootBox.selectionHeight() };
     TextRun run = RenderBlock::constructTextRun(m_str, style, AllowRightExpansion);
     font.adjustSelectionRectForText(run, selectionRect);
     context.fillRect(snapRectToDevicePixelsWithWritingDirection(selectionRect, renderer().document().deviceScaleFactor(), run.ltr()), c);
@@ -161,13 +161,30 @@ bool LegacyEllipsisBox::nodeAtPoint(const HitTestRequest& request, HitTestResult
     }
 
     auto boundsRect = LayoutRect { adjustedLocation, LayoutSize(LayoutUnit(logicalWidth()), m_height) };
-    if (visibleToHitTesting(request) && locationInContainer.intersects(boundsRect)) {
+    if (renderer().visibleToHitTesting(request) && locationInContainer.intersects(boundsRect)) {
         blockFlow().updateHitTestResult(result, locationInContainer.point() - toLayoutSize(adjustedLocation));
         if (result.addNodeToListBasedTestResult(blockFlow().nodeForHitTest(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
             return true;
     }
 
     return false;
+}
+
+RenderObject::HighlightState LegacyEllipsisBox::selectionState() const
+{
+    auto* lastSelectedBox = root().lastSelectedBox();
+    if (!is<LegacyInlineTextBox>(lastSelectedBox))
+        return RenderObject::HighlightState::None;
+
+    auto& textBox = downcast<LegacyInlineTextBox>(*lastSelectedBox);
+
+    auto truncation = textBox.truncation();
+    auto [selectionStart, selectionEnd] = textBox.selectionStartEnd();
+
+    if (truncation && selectionEnd >= *truncation && selectionStart <= *truncation)
+        return RenderObject::HighlightState::Inside;
+
+    return RenderObject::HighlightState::None;
 }
 
 } // namespace WebCore

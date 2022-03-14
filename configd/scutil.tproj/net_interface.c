@@ -467,6 +467,17 @@ select_interface(int argc, char * const argv[])
 /* -------------------- */
 
 
+static CFComparisonResult
+compare_CFString(const void *val1, const void *val2, void *context)
+{
+#pragma unused(context)
+	CFStringRef		str1	= (CFStringRef)val1;
+	CFStringRef		str2	= (CFStringRef)val2;
+
+	return CFStringCompare(str1, str2, 0);
+}
+
+
 __private_extern__
 void
 _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean showChild)
@@ -590,7 +601,10 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 			cap_sorted = CFArrayCreateMutableCopy(NULL, 0, cap_names);
 			CFRelease(cap_names);
 
-			CFArraySortValues(cap_sorted, CFRangeMake(0, n), (CFComparatorFunction)CFStringCompare, NULL);
+			CFArraySortValues(cap_sorted,
+					  CFRangeMake(0, n),
+					  compare_CFString,
+					  NULL);
 
 			SCPrint(TRUE, stdout, CFSTR("%@  capabilities         = "), prefix);
 			for (i = 0; i < n; i++) {

@@ -49,17 +49,12 @@
 #include <usp10.h>
 #endif
 
-#if USE(DIRECT2D)
-interface IDWriteFactory5;
-interface IDWriteGdiInterop;
-#endif
-
 namespace WebCore {
 
 class FontCache;
 class FontDescription;
 class GlyphPage;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 
 struct GlyphData;
 
@@ -81,11 +76,8 @@ public:
     enum class Interstitial : bool { No, Yes };
     enum class Visibility : bool { Visible, Invisible };
     enum class OrientationFallback : bool { No, Yes };
-    WEBCORE_EXPORT static Ref<Font> create(const FontPlatformData&, Origin = Origin::Local, Interstitial = Interstitial::No,
-        Visibility = Visibility::Visible, OrientationFallback = OrientationFallback::No, std::optional<RenderingResourceIdentifier> = std::nullopt);
-    static Ref<Font> create(const FontPlatformData&, Origin, FontCache* fontCacheForVerticalData, Interstitial = Interstitial::No,
-        Visibility = Visibility::Visible, OrientationFallback = OrientationFallback::No, std::optional<RenderingResourceIdentifier> = std::nullopt);
-    WEBCORE_EXPORT static Ref<Font> create(Ref<SharedBuffer>&& fontFaceData, Font::Origin, float fontSize, bool syntheticBold, bool syntheticItalic, FontCache* = nullptr);
+    WEBCORE_EXPORT static Ref<Font> create(const FontPlatformData&, Origin = Origin::Local, Interstitial = Interstitial::No, Visibility = Visibility::Visible, OrientationFallback = OrientationFallback::No, std::optional<RenderingResourceIdentifier> = std::nullopt);
+    WEBCORE_EXPORT static Ref<Font> create(Ref<SharedBuffer>&& fontFaceData, Font::Origin, float fontSize, bool syntheticBold, bool syntheticItalic);
 
     WEBCORE_EXPORT ~Font();
 
@@ -135,7 +127,6 @@ public:
     bool hasVerticalGlyphs() const { return m_hasVerticalGlyphs; }
     bool isTextOrientationFallback() const { return m_isTextOrientationFallback; }
 
-    FontMetrics& fontMetrics() { return m_fontMetrics; }
     const FontMetrics& fontMetrics() const { return m_fontMetrics; }
     float sizePerUnit() const { return platformData().size() / (fontMetrics().unitsPerEm() ? fontMetrics().unitsPerEm() : 1); }
 
@@ -146,38 +137,36 @@ public:
     void setAvgCharWidth(float avgCharWidth) { m_avgCharWidth = avgCharWidth; }
 
     FloatRect boundsForGlyph(Glyph) const;
+
+    // If you're calling this, you need to care about synthetic bold.
+    // This function returns the width before adding in the synthetic bold offset.
+    // This is because these widths are fed as an input to shaping, which needs to consume the true widths.
+    // Then, the synthetic bold offset is applied after shaping.
+    // If you're not going through WidthIterator or ComplexTextController (and thus potentially executing shaping yourself),
+    // then you need to decide whether or not you need to add syntheticBoldOffset() to the result of your widthForGlyph() call.
     float widthForGlyph(Glyph) const;
+
     const Path& pathForGlyph(Glyph) const; // Don't store the result of this! The hash map is free to rehash at any point, leaving this reference dangling.
     FloatRect platformBoundsForGlyph(Glyph) const;
     float platformWidthForGlyph(Glyph) const;
     Path platformPathForGlyph(Glyph) const;
 
+    // If you're calling this, you need to care about synthetic bold.
+    // See the comment just above widthForGlyph().
     float spaceWidth() const { return m_spaceWidth; }
-    float adjustedSpaceWidth() const { return m_adjustedSpaceWidth; }
-    void setSpaceWidths(float spaceWidth)
-    {
-        m_spaceWidth = spaceWidth;
-        m_adjustedSpaceWidth = spaceWidth;
-    }
 
-#if USE(CG) || USE(DIRECT2D) || USE(CAIRO)
     float syntheticBoldOffset() const { return m_syntheticBoldOffset; }
-#endif
 
     Glyph spaceGlyph() const { return m_spaceGlyph; }
-    void setSpaceGlyph(Glyph spaceGlyph) { m_spaceGlyph = spaceGlyph; }
     Glyph zeroWidthSpaceGlyph() const { return m_zeroWidthSpaceGlyph; }
-    void setZeroWidthSpaceGlyph(Glyph spaceGlyph) { m_zeroWidthSpaceGlyph = spaceGlyph; }
     bool isZeroWidthSpaceGlyph(Glyph glyph) const { return glyph == m_zeroWidthSpaceGlyph && glyph; }
-    Glyph zeroGlyph() const { return m_zeroGlyph; }
-    void setZeroGlyph(Glyph zeroGlyph) { m_zeroGlyph = zeroGlyph; }
 
     GlyphData glyphDataForCharacter(UChar32) const;
     Glyph glyphForCharacter(UChar32) const;
     bool supportsCodePoint(UChar32) const;
     bool platformSupportsCodePoint(UChar32, std::optional<UChar32> variation = std::nullopt) const;
 
-    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, IsForPlatformFont, FontCache&) const;
+    RefPtr<Font> systemFallbackFontForCharacter(UChar32, const FontDescription&, IsForPlatformFont) const;
 
     const GlyphPage* glyphPage(unsigned pageNumber) const;
 
@@ -206,7 +195,7 @@ public:
 #endif
 
     bool canRenderCombiningCharacterSequence(const UChar*, size_t) const;
-    void applyTransforms(GlyphBuffer&, unsigned beginningGlyphIndex, unsigned beginningStringIndex, bool enableKerning, bool requiresShaping, const AtomString& locale, StringView text, TextDirection) const;
+    GlyphBufferAdvance applyTransforms(GlyphBuffer&, unsigned beginningGlyphIndex, unsigned beginningStringIndex, bool enableKerning, bool requiresShaping, const AtomString& locale, StringView text, TextDirection) const;
 
     // Returns nullopt if none of the glyphs are OT-SVG glyphs.
     std::optional<BitVector> findOTSVGGlyphs(const GlyphBufferGlyph*, unsigned count) const;
@@ -222,7 +211,7 @@ public:
 #endif
 
 private:
-    WEBCORE_EXPORT Font(const FontPlatformData&, Origin, Interstitial, Visibility, OrientationFallback, std::optional<RenderingResourceIdentifier>, FontCache*);
+    WEBCORE_EXPORT Font(const FontPlatformData&, Origin, Interstitial, Visibility, OrientationFallback, std::optional<RenderingResourceIdentifier>);
 
     void platformInit();
     void platformGlyphInit();
@@ -329,7 +318,6 @@ private:
 #endif
 
     Glyph m_spaceGlyph { 0 };
-    Glyph m_zeroGlyph { 0 };
     Glyph m_zeroWidthSpaceGlyph { 0 };
 
     Origin m_origin; // Whether or not we are custom font loaded via @font-face
@@ -338,9 +326,7 @@ private:
     float m_spaceWidth { 0 };
     float m_adjustedSpaceWidth { 0 };
 
-#if USE(CG) || USE(DIRECT2D) || USE(CAIRO)
     float m_syntheticBoldOffset { 0 };
-#endif
 
     unsigned m_treatAsFixedPitch : 1;
     unsigned m_isInterstitial : 1; // Whether or not this custom font is the last resort placeholder for a loading font
@@ -397,21 +383,15 @@ ALWAYS_INLINE float Font::widthForGlyph(Glyph glyph) const
         return width;
 
 #if ENABLE(OPENTYPE_VERTICAL)
-    if (m_verticalData) {
-#if USE(CG) || USE(DIRECT2D) || USE(CAIRO)
-        width = m_verticalData->advanceHeight(this, glyph) + m_syntheticBoldOffset;
-#else
+    if (m_verticalData)
         width = m_verticalData->advanceHeight(this, glyph);
-#endif
-    } else
+    else
 #endif
         width = platformWidthForGlyph(glyph);
 
     m_glyphToWidthMap.setMetricsForGlyph(glyph, width);
     return width;
 }
-
-using FontRenderingResourceMap = HashMap<RenderingResourceIdentifier, Ref<Font>>;
 
 } // namespace WebCore
 

@@ -5,23 +5,21 @@
 	<key>OpenSourceProject</key>
 	<string>curl</string>
 	<key>OpenSourceVersion</key>
-	<string>7.77.0</string>
+	<string>7.79.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://curl.se/</string>
 	<key>OpenSourceURL</key>
-	<string>https://curl.se/download/curl-7.77.0.tar.gz</string>
+	<string>https://curl.se/download/curl-7.79.1.tar.xz</string>
 	<key>OpenSourceSHA256</key>
-	<string>b0a3428acb60fa59044c4d0baae4e4fc09ae9af1d8a3aa84b2e3fbcd99841f77</string>
+	<string>0606f74b1182ab732a17c11613cbbaf7084f2e6cca432642d0e3ad7c224c3689</string>
 	<key>OpenSourceImportDate</key>
-	<string>2021-06-11</string>
+	<string>2021-11-09</string>
 	<key>OpenSourceModifications</key>
 	<array>
 	  <string>include/curl/curl.h: Moved CURLE_SSL_CACERT back to being an enum value instead of a macro. (#43091584)</string>
 	  <string>lib/curl_gssapi.c: Address pointer alignment issue in gss_OID_desc structs. (#27287483)</string>
 	  <string>lib/vtls: On macOS, use openssl if present, secure-transport if not. (#43091584)</string>
 	  <string>lib/vtls/sectransp.c: Support finding identities by public key to support Yubikey auth on Big Sur. (#72186096)</string>
-	  <string>lib/http_proxy.[ch], lib/url.c: Backport upstream fix for double free crash. (#80727938)</string>
-	  <string>lib/telnet.c: Backport upstream fix for CVE-2021-22925. (#80855503)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>

@@ -33,17 +33,17 @@ namespace WebCore {
 
 JSC::JSValue JSFileSystemDirectoryHandle::entries(JSC::JSGlobalObject&, JSC::CallFrame&)
 {
-    return createIterator<JSFileSystemDirectoryHandleIterator>(*this, JSC::IterationKind::Entries);
+    return iteratorCreate<JSFileSystemDirectoryHandleIterator>(*this, JSC::IterationKind::Entries);
 }
 
 JSC::JSValue JSFileSystemDirectoryHandle::keys(JSC::JSGlobalObject&, JSC::CallFrame&)
 {
-    return createIterator<JSFileSystemDirectoryHandleIterator>(*this, JSC::IterationKind::Keys);
+    return iteratorCreate<JSFileSystemDirectoryHandleIterator>(*this, JSC::IterationKind::Keys);
 }
 
 JSC::JSValue JSFileSystemDirectoryHandle::values(JSC::JSGlobalObject&, JSC::CallFrame&)
 {
-    return createIterator<JSFileSystemDirectoryHandleIterator>(*this, JSC::IterationKind::Values);
+    return iteratorCreate<JSFileSystemDirectoryHandleIterator>(*this, JSC::IterationKind::Values);
 }
 
 } // namespace WebCore

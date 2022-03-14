@@ -70,7 +70,7 @@ OSDefineAbstractStructors( IOATADevice, IOService )
     OSMetaClassDefineReservedUnused(IOATADevice, 20);    
 //---------------------------------------------------------------------------
 
-// Determine whether this device is number 0 or 1 (ie, master/slave)
+// Determine whether this device is number 0 or 1 (ie, primary/secondary)
 ataUnitID	
 IOATADevice::getUnitID( void )
 {

@@ -32,11 +32,126 @@
 
 #if ENABLE(CSS_TYPED_OM)
 
+#include "CSSOMVariableReferenceValue.h"
+#include "CSSParserToken.h"
+#include "CSSParserTokenRange.h"
+#include "ExceptionOr.h"
+#include <variant>
 #include <wtf/IsoMallocInlines.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringView.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
 WTF_MAKE_ISO_ALLOCATED_IMPL(CSSUnparsedValue);
+
+Ref<CSSUnparsedValue> CSSUnparsedValue::create(Vector<CSSUnparsedSegment>&& segments)
+{
+    return adoptRef(*new CSSUnparsedValue(WTFMove(segments)));
+}
+
+Ref<CSSUnparsedValue> CSSUnparsedValue::create(CSSParserTokenRange tokens)
+{
+    // This function assumes that tokens have the correct syntax. Otherwise asserts would be triggered.
+    StringBuilder builder;
+    Vector<Vector<CSSUnparsedSegment>> segmentStack;
+    segmentStack.append({ });
+    
+    Vector<std::optional<StringView>> identifiers;
+    
+    while (!tokens.atEnd()) {
+        auto currentToken = tokens.consume();
+        
+        if (currentToken.type() == FunctionToken || currentToken.type() == LeftParenthesisToken) {
+            if (currentToken.functionId() == CSSValueVar) {
+                if (!builder.isEmpty()) {
+                    segmentStack.last().append(builder.toString());
+                    builder.clear();
+                }
+                tokens.consumeWhitespace();
+                auto identToken = tokens.consumeIncludingWhitespace();
+                // Token after whitespace consumption must be variable reference identifier
+                ASSERT(identToken.type() == IdentToken);
+                if (tokens.peek().type() == CommaToken) {
+                    // Fallback present
+                    identifiers.append(StringView(identToken.value()));
+                    segmentStack.append({ });
+                    tokens.consume();
+                } else if (tokens.peek().type() == RightParenthesisToken) {
+                    // No fallback
+                    auto variableReference = CSSOMVariableReferenceValue::create(identToken.value().toString());
+                    ASSERT(!variableReference.hasException());
+                    segmentStack.last().append(CSSUnparsedSegment { RefPtr<CSSOMVariableReferenceValue> { variableReference.releaseReturnValue() } });
+                    tokens.consume();
+                } else
+                    ASSERT_NOT_REACHED();
+                
+            } else {
+                currentToken.serialize(builder);
+                identifiers.append(std::nullopt);
+            }
+        } else if (currentToken.type() == RightParenthesisToken) {
+            ASSERT(segmentStack.size());
+            if (!builder.isEmpty())
+                segmentStack.last().append(builder.toString());
+            builder.clear();
+            ASSERT(!identifiers.isEmpty());
+            
+            if (auto topIdentifier = identifiers.takeLast()) {
+                auto variableReference = CSSOMVariableReferenceValue::create(topIdentifier->toString(), CSSUnparsedValue::create(segmentStack.takeLast()));
+                ASSERT(!variableReference.hasException());
+                segmentStack.last().append(variableReference.releaseReturnValue());
+            } else
+                currentToken.serialize(builder);
+        } else
+            currentToken.serialize(builder);
+    }
+    ASSERT(segmentStack.size() == 1);
+    if (!builder.isEmpty())
+        segmentStack.last().append(builder.toString());
+    
+    return CSSUnparsedValue::create(WTFMove(segmentStack.last()));
+}
+
+CSSUnparsedValue::CSSUnparsedValue(Vector<CSSUnparsedSegment>&& segments)
+    : m_segments(WTFMove(segments))
+{
+}
+
+String CSSUnparsedValue::toString() const
+{
+    StringBuilder builder;
+    serialize(builder);
+    
+    return builder.toString();
+}
+
+void CSSUnparsedValue::serialize(StringBuilder& builder) const
+{
+    for (auto& segment : m_segments) {
+        std::visit(WTF::makeVisitor([&] (const String& value) {
+            builder.append(value);
+        }, [&] (const RefPtr<CSSOMVariableReferenceValue>& value) {
+            value->serialize(builder);
+        }), segment);
+    }
+}
+
+ExceptionOr<CSSUnparsedSegment> CSSUnparsedValue::item(size_t index)
+{
+    if (index >= m_segments.size())
+        return Exception { RangeError, makeString("Index ", index, " exceeds index range for unparsed segments.") };
+    return CSSUnparsedSegment { m_segments[index] };
+}
+
+ExceptionOr<CSSUnparsedSegment> CSSUnparsedValue::setItem(size_t index, CSSUnparsedSegment&& val)
+{
+    if (index >= m_segments.size())
+        return Exception { RangeError, makeString("Index ", index, " exceeds index range for unparsed segments.") };
+    m_segments[index] = WTFMove(val);
+    return CSSUnparsedSegment { m_segments[index] };
+}
 
 } // namespace WebCore
 

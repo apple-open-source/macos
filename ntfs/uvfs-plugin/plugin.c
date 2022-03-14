@@ -1038,6 +1038,23 @@ plugin_fsops_setfsattr(__unused UVFSFileNode Node,
     return EROFS;
 }
 
+static uint8_t
+dt_to_li_fa_type(int dt_type)
+{
+	switch (dt_type) {
+	case DT_FIFO:		return LI_FA_TYPE_FIFO;
+	case DT_CHR:		return LI_FA_TYPE_CHAR;
+	case DT_DIR:		return LI_FA_TYPE_DIR;
+	case DT_BLK:		return LI_FA_TYPE_BLOCK;
+	case DT_REG:		return LI_FA_TYPE_FILE;
+	case DT_LNK:		return LI_FA_TYPE_SYMLINK;
+	case DT_SOCK:		return LI_FA_TYPE_SOCKET;
+	case DT_WHT:		/* FALLTHROUGH */
+	case DT_UNKNOWN:	/* FALLTHROUGH */
+	default:			return LI_FA_TYPE_UNKNOWN;
+	}
+}
+
 static int
 plugin_fsops_readdir(UVFSFileNode dirNode,
                      void *buf,
@@ -1167,7 +1184,7 @@ plugin_fsops_readdir(UVFSFileNode dirNode,
 		out_entry->de_nextcookie = readdir_entry->d_seekoff;
 		out_entry->de_nextrec = buf_fill_size;
 		out_entry->de_namelen = readdir_entry->d_namlen;
-		out_entry->de_filetype = readdir_entry->d_type;
+		out_entry->de_filetype = dt_to_li_fa_type(readdir_entry->d_type);
 		memcpy(out_entry->de_name,
 			readdir_entry->d_name,
 			readdir_entry->d_namlen + 1);

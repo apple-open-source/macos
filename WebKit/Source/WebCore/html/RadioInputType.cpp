@@ -32,6 +32,7 @@
 #include "MouseEvent.h"
 #include "NodeTraversal.h"
 #include "SpatialNavigation.h"
+#include "TypedElementDescendantIterator.h"
 
 namespace WebCore {
 

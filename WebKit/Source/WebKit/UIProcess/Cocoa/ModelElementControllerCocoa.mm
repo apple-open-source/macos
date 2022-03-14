@@ -26,12 +26,18 @@
 #import "config.h"
 #import "ModelElementController.h"
 
-#if HAVE(ARKIT_INLINE_PREVIEW)
+#if ENABLE(ARKIT_INLINE_PREVIEW)
 
 #import "Logging.h"
 #import "WebPageProxy.h"
+#import <WebCore/LayoutPoint.h>
+#import <WebCore/LayoutUnit.h>
+#import <WebCore/ResourceError.h>
+#import <simd/simd.h>
+#import <wtf/MainThread.h>
+#import <wtf/MonotonicTime.h>
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 #import "APIUIClient.h"
 #import "RemoteLayerTreeDrawingAreaProxy.h"
 #import "RemoteLayerTreeHost.h"
@@ -41,9 +47,8 @@
 #import <pal/spi/ios/SystemPreviewSPI.h>
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 #import <pal/spi/mac/SystemPreviewSPI.h>
-#import <wtf/MainThread.h>
 #endif
 
 SOFT_LINK_PRIVATE_FRAMEWORK(AssetViewer);
@@ -51,32 +56,38 @@ SOFT_LINK_CLASS(AssetViewer, ASVInlinePreview);
 
 namespace WebKit {
 
-#if HAVE(ARKIT_INLINE_PREVIEW_IOS)
+#if ENABLE(ARKIT_INLINE_PREVIEW_IOS)
 
-void ModelElementController::takeModelElementFullscreen(WebCore::GraphicsLayer::PlatformLayerID contentLayerId)
+WKModelView * ModelElementController::modelViewForModelIdentifier(ModelIdentifier modelIdentifier)
 {
     if (!m_webPageProxy.preferences().modelElementEnabled())
-        return;
+        return nil;
 
     if (!is<RemoteLayerTreeDrawingAreaProxy>(m_webPageProxy.drawingArea()))
-        return;
+        return nil;
 
-    auto* node = downcast<RemoteLayerTreeDrawingAreaProxy>(*m_webPageProxy.drawingArea()).remoteLayerTreeHost().nodeForID(contentLayerId);
+    auto* node = downcast<RemoteLayerTreeDrawingAreaProxy>(*m_webPageProxy.drawingArea()).remoteLayerTreeHost().nodeForID(modelIdentifier.layerIdentifier);
     if (!node)
-        return;
+        return nil;
 
-    auto *view = node->uiView();
-    if (!view)
-        return;
+    return dynamic_objc_cast<WKModelView>(node->uiView());
+}
 
-    if (![view isKindOfClass:[WKModelView class]])
-        return;
+ASVInlinePreview * ModelElementController::previewForModelIdentifier(ModelIdentifier modelIdentifier)
+{
+    return [modelViewForModelIdentifier(modelIdentifier) preview];
+}
 
+void ModelElementController::takeModelElementFullscreen(ModelIdentifier modelIdentifier)
+{
     auto *presentingViewController = m_webPageProxy.uiClient().presentingViewController();
     if (!presentingViewController)
         return;
 
-    WKModelView *modelView = (WKModelView *)view;
+    auto modelView = modelViewForModelIdentifier(modelIdentifier);
+    if (!modelView)
+        return;
+
     CGRect initialFrame = [modelView convertRect:modelView.frame toView:nil];
 
     ASVInlinePreview *preview = [modelView preview];
@@ -94,7 +105,7 @@ void ModelElementController::takeModelElementFullscreen(WebCore::GraphicsLayer::
 
             [presentingViewController presentViewController:remoteViewController animated:NO completion:^(void) {
                 [CATransaction begin];
-                [view.layer.superlayer.context addFence:fenceHandle];
+                [modelView.layer.superlayer.context addFence:fenceHandle];
                 [CATransaction commit];
                 [fenceHandle invalidate];
             }];
@@ -108,7 +119,7 @@ void ModelElementController::takeModelElementFullscreen(WebCore::GraphicsLayer::
                     }
 
                     [CATransaction begin];
-                    [view.layer.superlayer.context addFence:dismissFenceHandle];
+                    [modelView.layer.superlayer.context addFence:dismissFenceHandle];
                     [CATransaction setCompletionBlock:^{
                         [remoteViewController dismissViewControllerAnimated:NO completion:nil];
                     }];
@@ -122,14 +133,25 @@ void ModelElementController::takeModelElementFullscreen(WebCore::GraphicsLayer::
 
 #endif
 
-#if HAVE(ARKIT_INLINE_PREVIEW_MAC)
+#if ENABLE(ARKIT_INLINE_PREVIEW_MAC)
 
-void ModelElementController::modelElementDidCreatePreview(const WebCore::ElementContext& context, const URL& fileURL, const String& uuid, const WebCore::FloatSize& size)
+ASVInlinePreview * ModelElementController::previewForModelIdentifier(ModelIdentifier modelIdentifier)
 {
     if (!m_webPageProxy.preferences().modelElementEnabled())
-        return;
+        return nullptr;
 
-    auto preview = adoptNS([allocASVInlinePreviewInstance() initWithFrame:CGRectMake(0, 0, size.width(), size.height()) UUID:[[NSUUID alloc] initWithUUIDString:uuid]]);
+    return m_inlinePreviews.get(modelIdentifier.uuid).get();
+}
+
+void ModelElementController::modelElementDidCreatePreview(URL fileURL, String uuid, WebCore::FloatSize size, CompletionHandler<void(Expected<std::pair<String, uint32_t>, WebCore::ResourceError>)>&& completionHandler)
+{
+    if (!m_webPageProxy.preferences().modelElementEnabled()) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::errorDomainWebKitInternal, 0, { }, "Model element disabled"_s }));
+        return;
+    }
+
+    auto nsUUID = adoptNS([[NSUUID alloc] initWithUUIDString:uuid]);
+    auto preview = adoptNS([allocASVInlinePreviewInstance() initWithFrame:CGRectMake(0, 0, size.width(), size.height()) UUID:nsUUID.get()]);
 
     LOG(ModelElement, "Created remote preview with UUID %s.", uuid.utf8().data());
 
@@ -139,32 +161,305 @@ void ModelElementController::modelElementDidCreatePreview(const WebCore::Element
     else
         iterator->value = preview;
 
+    // FIXME: Why is this not just using normal URL -> NSURL conversion?
+    auto url = adoptNS([[NSURL alloc] initFileURLWithPath:fileURL.fileSystemPath()]);
+
     RELEASE_ASSERT(isMainRunLoop());
-    auto weakThis = makeWeakPtr(*this);
-    auto elementContextCopy = context;
-    auto uuidCopy = uuid;
-    NSURL *url = [NSURL fileURLWithPath:fileURL.fileSystemPath()];
-    [preview setupRemoteConnectionWithCompletionHandler:^(NSError * _Nullable contextError) {
+    [preview setupRemoteConnectionWithCompletionHandler:makeBlockPtr([weakThis = WeakPtr { *this }, preview, uuid = WTFMove(uuid), url = WTFMove(url), completionHandler = WTFMove(completionHandler)] (NSError *contextError) mutable {
         if (contextError) {
-            LOG(ModelElement, "Unable to create remote connection for uuid %s: %@.", uuidCopy.utf8().data(), [contextError localizedDescription]);
+            LOG(ModelElement, "Unable to create remote connection for uuid %s: %@.", uuid.utf8().data(), contextError.localizedDescription);
+
+            callOnMainRunLoop([weakThis = WTFMove(weakThis), completionHandler = WTFMove(completionHandler), error = WebCore::ResourceError { contextError }] () mutable {
+                if (!weakThis)
+                    return;
+
+                completionHandler(makeUnexpected(error));
+            });
             return;
         }
 
-        LOG(ModelElement, "Established remote connection with UUID %s.", uuidCopy.utf8().data());
+        LOG(ModelElement, "Established remote connection with UUID %s.", uuid.utf8().data());
 
-        [preview preparePreviewOfFileAtURL:url completionHandler:^(NSError * _Nullable loadError) {
+        [preview preparePreviewOfFileAtURL:url.get() completionHandler:makeBlockPtr([weakThis = WTFMove(weakThis), preview, uuid = WTFMove(uuid), url = WTFMove(url), completionHandler = WTFMove(completionHandler)] (NSError *loadError) mutable {
             if (loadError) {
-                LOG(ModelElement, "Unable to load file for uuid %s: %@.", uuidCopy.utf8().data(), [loadError localizedDescription]);
+                LOG(ModelElement, "Unable to load file for uuid %s: %@.", uuid.utf8().data(), loadError.localizedDescription);
+
+                callOnMainRunLoop([weakThis = WTFMove(weakThis), completionHandler = WTFMove(completionHandler), error = WebCore::ResourceError { loadError }] () mutable {
+                    if (!weakThis)
+                        return;
+
+                    completionHandler(makeUnexpected(error));
+                });
                 return;
             }
 
-            LOG(ModelElement, "Loaded file with UUID %s.", uuidCopy.utf8().data());
+            LOG(ModelElement, "Loaded file with UUID %s.", uuid.utf8().data());
 
-            callOnMainRunLoop([weakThis, elementContextCopy, uuidCopy, contextId = [preview contextId]]() mutable {
-                weakThis->m_webPageProxy.modelElementPreviewDidObtainContextId(elementContextCopy, uuidCopy, contextId);
+            auto contextId = [preview contextId];
+            callOnMainRunLoop([weakThis = WTFMove(weakThis), uuid = WTFMove(uuid), completionHandler = WTFMove(completionHandler), contextId] () mutable {
+                if (!weakThis)
+                    return;
+
+                completionHandler(std::make_pair(uuid, contextId));
             });
-        }];
-    }];
+        }).get()];
+    }).get()];
+}
+
+RetainPtr<ASVInlinePreview> ModelElementController::previewForUUID(const String& uuid)
+{
+    return m_inlinePreviews.get(uuid);
+}
+
+void ModelElementController::handleMouseDownForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+{
+    if (auto preview = previewForUUID(uuid))
+        [preview mouseDownAtLocation:CGPointMake(locationInPageCoordinates.x().toFloat(), locationInPageCoordinates.y().toFloat()) timestamp:timestamp.secondsSinceEpoch().value()];
+}
+
+void ModelElementController::handleMouseMoveForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+{
+    if (auto preview = previewForUUID(uuid))
+        [preview mouseDraggedAtLocation:CGPointMake(locationInPageCoordinates.x().toFloat(), locationInPageCoordinates.y().toFloat()) timestamp:timestamp.secondsSinceEpoch().value()];
+}
+
+void ModelElementController::handleMouseUpForModelElement(const String& uuid, const WebCore::LayoutPoint& locationInPageCoordinates, MonotonicTime timestamp)
+{
+    if (auto preview = previewForUUID(uuid))
+        [preview mouseUpAtLocation:CGPointMake(locationInPageCoordinates.x().toFloat(), locationInPageCoordinates.y().toFloat()) timestamp:timestamp.secondsSinceEpoch().value()];
+}
+
+#endif
+
+#if ENABLE(ARKIT_INLINE_PREVIEW)
+
+static bool previewHasCameraSupport(ASVInlinePreview *preview)
+{
+#if ENABLE(ARKIT_INLINE_PREVIEW_CAMERA_TRANSFORM)
+    return [preview respondsToSelector:@selector(getCameraTransform:)];
+#else
+    return false;
+#endif
+}
+
+void ModelElementController::getCameraForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<WebCore::HTMLModelElementCamera, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasCameraSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_CAMERA_TRANSFORM)
+    [preview getCameraTransform:makeBlockPtr([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (simd_float3 cameraTransform, NSError *error) mutable {
+        if (error) {
+            callOnMainRunLoop([weakThis = WTFMove(weakThis), completionHandler = WTFMove(completionHandler)] () mutable {
+                if (weakThis)
+                    completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+            });
+            return;
+        }
+
+        callOnMainRunLoop([cameraTransform, weakThis = WTFMove(weakThis), completionHandler = WTFMove(completionHandler)] () mutable {
+            if (weakThis)
+                completionHandler(WebCore::HTMLModelElementCamera { cameraTransform.x, cameraTransform.y, cameraTransform.z });
+        });
+    }).get()];
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::setCameraForModelElement(ModelIdentifier modelIdentifier, WebCore::HTMLModelElementCamera camera, CompletionHandler<void(bool)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasCameraSupport(preview)) {
+        completionHandler(false);
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_CAMERA_TRANSFORM)
+    [preview setCameraTransform:simd_make_float3(camera.pitch, camera.yaw, camera.scale)];
+    completionHandler(true);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+static bool previewHasAnimationSupport(ASVInlinePreview *preview)
+{
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    return [preview respondsToSelector:@selector(isPlaying)];
+#else
+    return false;
+#endif
+}
+
+void ModelElementController::isPlayingAnimationForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    completionHandler([preview isPlaying]);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::setAnimationIsPlayingForModelElement(ModelIdentifier modelIdentifier, bool isPlaying, CompletionHandler<void(bool)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(false);
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    [preview setIsPlaying:isPlaying reply:makeBlockPtr([weakThis = WeakPtr { *this }, completionHandler = WTFMove(completionHandler)] (BOOL, NSError *error) mutable {
+        callOnMainRunLoop([error, weakThis = WTFMove(weakThis), completionHandler = WTFMove(completionHandler)] () mutable {
+            if (weakThis)
+                completionHandler(!error);
+        });
+    }).get()];
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::isLoopingAnimationForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    completionHandler([preview isLooping]);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::setIsLoopingAnimationForModelElement(ModelIdentifier modelIdentifier, bool isLooping, CompletionHandler<void(bool)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(false);
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    preview.isLooping = isLooping;
+    completionHandler(true);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::animationDurationForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    completionHandler(Seconds([preview duration]));
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::animationCurrentTimeForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<Seconds, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    completionHandler(Seconds([preview currentTime]));
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::setAnimationCurrentTimeForModelElement(ModelIdentifier modelIdentifier, Seconds currentTime, CompletionHandler<void(bool)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAnimationSupport(preview)) {
+        completionHandler(false);
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_ANIMATIONS_CONTROL)
+    preview.currentTime = currentTime.seconds();
+    completionHandler(true);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+static bool previewHasAudioSupport(ASVInlinePreview *preview)
+{
+#if ENABLE(ARKIT_INLINE_PREVIEW_AUDIO_CONTROL)
+    return [preview respondsToSelector:@selector(hasAudio)];
+#else
+    return false;
+#endif
+}
+
+void ModelElementController::hasAudioForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAudioSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_AUDIO_CONTROL)
+    completionHandler([preview hasAudio]);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::isMutedForModelElement(ModelIdentifier modelIdentifier, CompletionHandler<void(Expected<bool, WebCore::ResourceError>)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAudioSupport(preview)) {
+        completionHandler(makeUnexpected(WebCore::ResourceError { WebCore::ResourceError::Type::General }));
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_AUDIO_CONTROL)
+    completionHandler([preview isMuted]);
+#else
+    ASSERT_NOT_REACHED();
+#endif
+}
+
+void ModelElementController::setIsMutedForModelElement(ModelIdentifier modelIdentifier, bool isMuted, CompletionHandler<void(bool)>&& completionHandler)
+{
+    auto* preview = previewForModelIdentifier(modelIdentifier);
+    if (!previewHasAudioSupport(preview)) {
+        completionHandler(false);
+        return;
+    }
+
+#if ENABLE(ARKIT_INLINE_PREVIEW_AUDIO_CONTROL)
+    preview.isMuted = isMuted;
+    completionHandler(true);
+#else
+    ASSERT_NOT_REACHED();
+#endif
 }
 
 #endif

@@ -51,7 +51,7 @@ ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLoca
 #endif
     , m_menuLocation(menuLocation)
     , m_menuItems(menuItems)
-    , m_webHitTestResultData(context.hitTestResult(), true)
+    , m_webHitTestResultData({ context.hitTestResult(), true })
     , m_selectedText(context.selectedText())
 #if ENABLE(SERVICE_CONTROLS)
     , m_selectionIsEditable(false)
@@ -61,15 +61,32 @@ ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLoca
     Image* image = context.controlledImage();
     if (!image)
         return;
+    
+    setImage(image);
+#endif
+}
 
+#if ENABLE(SERVICE_CONTROLS)
+ContextMenuContextData::ContextMenuContextData(const WebCore::IntPoint& menuLocation, WebCore::Image& image, bool isEditable, const WebCore::IntRect& imageRect, const String& attachmentID)
+    : m_type(Type::ServicesMenu)
+    , m_menuLocation(menuLocation)
+    , m_selectionIsEditable(isEditable)
+    , m_controlledImageBounds(imageRect)
+    , m_controlledImageAttachmentID(attachmentID)
+{
+    setImage(&image);
+}
+
+void ContextMenuContextData::setImage(WebCore::Image* image)
+{
     // FIXME: figure out the rounding strategy for ShareableBitmap.
     m_controlledImage = ShareableBitmap::createShareable(IntSize(image->size()), { });
     auto graphicsContext = m_controlledImage->createGraphicsContext();
     if (!graphicsContext)
         return;
     graphicsContext->drawImage(*image, IntPoint());
-#endif
 }
+#endif
 
 void ContextMenuContextData::encode(IPC::Encoder& encoder) const
 {
@@ -87,6 +104,8 @@ void ContextMenuContextData::encode(IPC::Encoder& encoder) const
     encoder << m_controlledSelectionData;
     encoder << m_selectedTelephoneNumbers;
     encoder << m_selectionIsEditable;
+    encoder << m_controlledImageBounds;
+    encoder << m_controlledImageAttachmentID;
 #endif
 }
 
@@ -121,6 +140,10 @@ bool ContextMenuContextData::decode(IPC::Decoder& decoder, ContextMenuContextDat
         return false;
     if (!decoder.decode(result.m_selectionIsEditable))
         return false;
+    if (!decoder.decode(result.m_controlledImageBounds))
+        return false;
+    if (!decoder.decode(result.m_controlledImageAttachmentID))
+        return false;
 #endif
 
     return true;
@@ -129,11 +152,8 @@ bool ContextMenuContextData::decode(IPC::Decoder& decoder, ContextMenuContextDat
 #if ENABLE(SERVICE_CONTROLS)
 bool ContextMenuContextData::controlledDataIsEditable() const
 {
-    if (!m_controlledSelectionData.isEmpty())
+    if (!m_controlledSelectionData.isEmpty() || m_controlledImage)
         return m_selectionIsEditable;
-
-    if (m_controlledImage)
-        return m_webHitTestResultData.isContentEditable;
 
     return false;
 }

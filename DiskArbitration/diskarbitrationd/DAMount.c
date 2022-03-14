@@ -94,8 +94,6 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 
     __DAMountCallbackContext * context = parameter;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     if ( context->assertionID != kIOPMNullAssertionID )
     {
         IOPMAssertionRelease( context->assertionID );
@@ -115,9 +113,9 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
         }
         else
         {
-            DALogDebug( "  repaired disk, id = %@, failure.", context->disk );
+            DALogInfo( "repaired disk, id = %@, failure.", context->disk );
 
-            DALogError( "unable to repair %@ (status code 0x%08X).", context->disk, status );
+            DALogInfo( "unable to repair %@ (status code 0x%08X).", context->disk, status );
 
             if ( context->force )
             {
@@ -137,7 +135,7 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 
         DADiskSetState( context->disk, kDADiskStateRequireRepair, FALSE );
 
-        DALogDebug( "  repaired disk, id = %@, success.", context->disk );
+        DALogInfo( "repaired disk, id = %@, success.", context->disk );
     }
 
     /*
@@ -161,8 +159,8 @@ static void __DAMountWithArgumentsCallbackStage1( int status, void * parameter )
 
         if ( context->mountpoint )
         {
-            DALogDebug( "  mounted disk, id = %@, ongoing.", context->disk );
-
+            DALogInfo( "mounted disk, id = %@, ongoing.", context->disk );
+            
             DAFileSystemMountWithArguments( DADiskGetFileSystem( context->disk ),
                                             DADiskGetDevice( context->disk ),
                                             DADiskGetDescription( context->disk, kDADiskDescriptionVolumeNameKey ),
@@ -190,7 +188,6 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
 
     __DAMountCallbackContext * context = parameter;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     if ( status )
     {
@@ -198,9 +195,9 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
          * We were unable to mount the volume.
          */
 
-        DALogDebug( "  mounted disk, id = %@, failure.", context->disk );
+        DALogInfo( "mounted disk, id = %@, failure.", context->disk );
 
-        DALogError( "unable to mount %@ (status code 0x%08X).", context->disk, status );
+        DALogInfo( "unable to mount %@ (status code 0x%08X).", context->disk, status );
 
         DAMountRemoveMountPoint( context->mountpoint );
 
@@ -212,7 +209,7 @@ static void __DAMountWithArgumentsCallbackStage2( int status, void * parameter )
          * We were able to mount the volume.
          */
 
-        DALogDebug( "  mounted disk, id = %@, success.", context->disk );
+        DALogInfo( "mounted disk, id = %@, success.", context->disk );
 
         /*
          * Execute the "repair quotas" command.
@@ -364,6 +361,7 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
     CFURLRef    mountpoint;
     char        name[MAXPATHLEN];
     char        path[MAXPATHLEN];
+    char        realMainMountPoint[MAXPATHLEN];
     CFStringRef string;
 
     mountpoint = NULL;
@@ -406,15 +404,19 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
          * Create the mount point path.
          */
 
+        if ( NULL == realpath( kDAMainMountPointFolder, realMainMountPoint) )
+        {
+            goto exit;
+        }
         for ( index = 0; index < 100; index++ )
         {
             if ( index == 0 )
             {
-                snprintf( path, sizeof( path ), "%s/%s", kDAMainMountPointFolder, name );
+                snprintf( path, sizeof( path ), "%s/%s", realMainMountPoint, name );
             }
             else
             {
-                snprintf( path, sizeof( path ), "%s/%s %lu", kDAMainMountPointFolder, name, index );
+                snprintf( path, sizeof( path ), "%s/%s %lu", realMainMountPoint, name, index );
             }
 
             switch ( action )
@@ -504,6 +506,7 @@ CFURLRef DAMountCreateMountPointWithAction( DADiskRef disk, DAMountPointAction a
 
     CFRelease( string );
 
+exit:
     return mountpoint;
 }
 
@@ -785,7 +788,6 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
     CFMutableStringRef         options    = NULL;
     int                        status     = 0;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
 
     /*
      * Initialize our minimal state.
@@ -1187,7 +1189,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 ///w:stop
 
     CFStringTrim( options, CFSTR( "," ) );
-
+    
     /*
      * Determine whether the volume is to be repaired.
      */
@@ -1241,7 +1243,7 @@ void DAMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DAMountCallback 
 
     if ( check == kCFBooleanTrue )
     {
-        DALogDebug( "  repaired disk, id = %@, ongoing.", disk );
+        DALogInfo( "repaired disk, id = %@, ongoing.", disk );
 
         IOPMAssertionCreateWithDescription( kIOPMAssertionTypePreventUserIdleSystemSleep,
                                             CFSTR( _kDADaemonName ),

@@ -34,7 +34,6 @@
 #define HFS_COMPRESSION 1
 #define FIFO 1
 
-// #define HFS_MALLOC_DEBUG 1
 // #define HFS_LEAK_DEBUG 1
 
 #if (TARGET_OS_IPHONE && !TARGET_OS_SIMULATOR) // iOS (real hardware)

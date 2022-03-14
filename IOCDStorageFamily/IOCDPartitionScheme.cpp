@@ -208,17 +208,13 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
 
     // Allocate a list large enough to hold information about each session.
 
-    sessions = IONew(CDSession, kCDSessionMaxIndex + 1);
+    sessions = IONewZeroData(CDSession, kCDSessionMaxIndex + 1);
     if ( sessions == 0 )  goto scanErr;
-
-    bzero(sessions, (kCDSessionMaxIndex + 1) * sizeof(CDSession));
 
     // Allocate a list large enough to hold information about each track.
 
-    tracks = IONew(CDTrack, kCDTrackMaxIndex + 1);
+    tracks = IONewZero(CDTrack, kCDTrackMaxIndex + 1);
     if ( tracks == 0 )  goto scanErr;
-
-    bzero(tracks, (kCDTrackMaxIndex + 1) * sizeof(CDTrack));
 
     // Scan the table of contents, gathering information about the sessions
     // and tracks on the CD, but without making assumptions about the order
@@ -616,7 +612,7 @@ OSSet * IOCDPartitionScheme::scan(SInt32 * score)
     media->close(this);
     buffer->release();
     IODelete(tracks, CDTrack, kCDTrackMaxIndex + 1);
-    IODelete(sessions, CDSession, kCDSessionMaxIndex + 1);
+    IODeleteData(sessions, CDSession, kCDSessionMaxIndex + 1);
 
     return partitions;
 
@@ -628,7 +624,7 @@ scanErr:
     if ( partitions )  partitions->release();
     if ( buffer )  buffer->release();
     if ( tracks )  IODelete(tracks, CDTrack, kCDTrackMaxIndex + 1);
-    if ( sessions )  IODelete(sessions, CDSession, kCDSessionMaxIndex + 1);
+    if ( sessions )  IODeleteData(sessions, CDSession, kCDSessionMaxIndex + 1);
 
     return 0;
 }

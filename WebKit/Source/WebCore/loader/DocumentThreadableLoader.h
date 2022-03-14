@@ -33,6 +33,7 @@
 
 #include "ContentSecurityPolicy.h"
 #include "CrossOriginPreflightChecker.h"
+#include "ResourceLoaderIdentifier.h"
 #include "ResourceResponse.h"
 #include "SecurityOrigin.h"
 #include "ThreadableLoader.h"
@@ -85,21 +86,21 @@ namespace WebCore {
         // CachedRawResourceClient
         void dataSent(CachedResource&, unsigned long long bytesSent, unsigned long long totalBytesToBeSent) override;
         void responseReceived(CachedResource&, const ResourceResponse&, CompletionHandler<void()>&&) override;
-        void dataReceived(CachedResource&, const uint8_t* data, int dataLength) override;
+        void dataReceived(CachedResource&, const SharedBuffer&) override;
         void redirectReceived(CachedResource&, ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&) override;
         void finishedTimingForWorkerLoad(CachedResource&, const ResourceTiming&) override;
         void finishedTimingForWorkerLoad(const ResourceTiming&);
         void notifyFinished(CachedResource&, const NetworkLoadMetrics&) override;
 
-        void didReceiveResponse(unsigned long identifier, const ResourceResponse&);
-        void didReceiveData(unsigned long identifier, const uint8_t* data, int dataLength);
-        void didFinishLoading(unsigned long identifier);
-        void didFail(unsigned long identifier, const ResourceError&);
+        void didReceiveResponse(ResourceLoaderIdentifier, const ResourceResponse&);
+        void didReceiveData(ResourceLoaderIdentifier, const SharedBuffer&);
+        void didFinishLoading(ResourceLoaderIdentifier);
+        void didFail(ResourceLoaderIdentifier, const ResourceError&);
         void makeCrossOriginAccessRequest(ResourceRequest&&);
         void makeSimpleCrossOriginAccessRequest(ResourceRequest&&);
         void makeCrossOriginAccessRequestWithPreflight(ResourceRequest&&);
         void preflightSuccess(ResourceRequest&&);
-        void preflightFailure(unsigned long identifier, const ResourceError&);
+        void preflightFailure(ResourceLoaderIdentifier, const ResourceError&);
 
         void loadRequest(ResourceRequest&&, SecurityCheckPolicy);
         bool isAllowedRedirect(const URL&);

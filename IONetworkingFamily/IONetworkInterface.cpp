@@ -786,24 +786,30 @@ void IONetworkInterface::pushInputPacket( mbuf_t packet, uint32_t length )
 {
     uint32_t    temp;
     int         delta;
+    ifnet_stat_increment_param  inputDeltas;
 
-    _inputDeltas.packets_in = 1;
-    _inputDeltas.bytes_in   = length;
+    inputDeltas.packets_in = 1;
+    inputDeltas.bytes_in   = length;
 
     // Report our packet count rather than rely on the driver stats.
     // ifnet_input_extended() requires the count to be accurate.
 
     temp = _driverStats.inputErrors;
     delta =  temp - _lastDriverStats.inputErrors;
-    _inputDeltas.errors_in = ABS(delta);
+    inputDeltas.errors_in = ABS(delta);
     _lastDriverStats.inputErrors = temp;
 
     temp = _driverStats.collisions;
     delta = temp - _lastDriverStats.collisions;
-    _inputDeltas.collisions = ABS(delta);
+    inputDeltas.collisions = ABS(delta);
     _lastDriverStats.collisions = temp;
 
-    ifnet_input_extended(_backingIfnet, packet, packet, &_inputDeltas);
+    inputDeltas.packets_out  = _inputDeltas.packets_out;
+    inputDeltas.bytes_out    = _inputDeltas.bytes_out;
+    inputDeltas.errors_out   = _inputDeltas.errors_out;
+    inputDeltas.collisions   = _inputDeltas.collisions;
+
+    ifnet_input_extended(_backingIfnet, packet, packet, &inputDeltas);
 }
 
 UInt32 IONetworkInterface::flushInputQueue( void )
@@ -967,19 +973,16 @@ UInt32 IONetworkInterface::inputPacket( mbuf_t          packet,
         IOMbufQueueTailAdd(_inputPushQueue, packet, length);
         count = 0;
     }
+    else if ((param != packet) && !IOMbufQueueIsEmpty(_inputPushQueue))
+    {
+        IOMbufQueueTailAdd(_inputPushQueue, packet, length);
+        count = _inputPushQueue->count;
+        pushInputQueue(_inputPushQueue);
+    }
     else
     {
-        if (!IOMbufQueueIsEmpty(_inputPushQueue))
-        {
-            IOMbufQueueTailAdd(_inputPushQueue, packet, length);
-            count = _inputPushQueue->count;
-            pushInputQueue(_inputPushQueue);
-        }
-        else
-        {
-            pushInputPacket(packet, length);
-            count = 1;
-        }
+        pushInputPacket(packet, length);
+        count = 1;
     }
 
     return count;

@@ -239,7 +239,7 @@ typedef void (*FWSBP2NotifyCallback)(void * refCon, FWSBP2NotifyParamsPtr params
     and deliver reconnectFailed and reconnectComplete through the message routine as well.
 */
 
-class IOFireWireSBP2Login : public OSObject
+class __exported IOFireWireSBP2Login : public OSObject
 {
     OSDeclareDefaultStructors( IOFireWireSBP2Login )
 

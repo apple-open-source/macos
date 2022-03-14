@@ -2295,6 +2295,7 @@ IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion,
 {
     IOPMAssertionID     id = kIOPMNullAssertionID;
     IOReturn            ret = kIOReturnSuccess;
+#if !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     io_registry_entry_t rootdomain = getPMRootDomainRef();
     CFBooleanRef        lidIsClosed = NULL;
     CFBooleanRef        desktopMode = NULL;
@@ -2311,6 +2312,7 @@ IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion,
         ret = kIOReturnNotReady;
         goto exit;
     }
+#endif
 
     ret = IOPMAssertionCreateWithDescription(
                                              kIOPMAssertDisplayWake,
@@ -2321,9 +2323,10 @@ IOReturn IOPMAssertionSetTimeout(IOPMAssertionID whichAssertion,
         *AssertionID = id;
 
 exit:
+#if !(TARGET_OS_OSX && TARGET_CPU_ARM64)
     if (lidIsClosed) CFRelease(lidIsClosed);
     if (desktopMode) CFRelease(desktopMode);
-
+#endif
     return ret;
 }
 

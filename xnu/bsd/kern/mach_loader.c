@@ -490,10 +490,9 @@ load_machfile(
 	if (pmap == NULL) {
 		return LOAD_RESOURCE;
 	}
-	map = vm_map_create(pmap,
-	    0,
+	map = vm_map_create_options(pmap, 0,
 	    vm_compute_max_offset(result->is_64bit_addr),
-	    TRUE);
+	    VM_MAP_CREATE_PAGEABLE);
 
 #if defined(__arm64__)
 	if (result->is_64bit_addr) {
@@ -2382,23 +2381,21 @@ load_segment(
 		 */
 		delta_size = map_size - scp->filesize;
 		if (delta_size > 0) {
-			mach_vm_offset_t        tmp;
+			void *tmp = kalloc_data(delta_size, Z_WAITOK | Z_ZERO);
+			int rc;
 
-			ret = mach_vm_allocate_kernel(kernel_map, &tmp, delta_size, VM_FLAGS_ANYWHERE, VM_KERN_MEMORY_BSD);
-			if (ret != KERN_SUCCESS) {
+			if (tmp == NULL) {
 				DEBUG4K_ERROR("LOAD_RESOURCE delta_size 0x%llx ret 0x%x\n", delta_size, ret);
 				return LOAD_RESOURCE;
 			}
 
-			if (copyout(tmp, map_addr + scp->filesize,
-			    delta_size)) {
-				(void) mach_vm_deallocate(
-					kernel_map, tmp, delta_size);
+			rc = copyout(tmp, map_addr + scp->filesize, delta_size);
+			kfree_data(tmp, delta_size);
+
+			if (rc) {
 				DEBUG4K_ERROR("LOAD_FAILURE copyout 0x%llx 0x%llx\n", map_addr + scp->filesize, delta_size);
 				return LOAD_FAILURE;
 			}
-
-			(void) mach_vm_deallocate(kernel_map, tmp, delta_size);
 		}
 #endif /* FIXME */
 	}
@@ -3527,7 +3524,7 @@ get_macho_vnode(
 
 	if (is_fat) {
 		error = fatfile_validate_fatarches((vm_offset_t)(&header->fat_header),
-		    sizeof(*header));
+		    sizeof(*header), fsize);
 		if (error != LOAD_SUCCESS) {
 			goto bad2;
 		}

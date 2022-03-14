@@ -96,6 +96,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 	NSMutableDictionary<NSString *, NSMutableArray *> *_dbDataDict; // NSDictionary indexed by volume UUID (NSString *)
     NSMutableDictionary<NSString *, NSString *> *_dbVolumeGroupMap;
 	dispatch_queue_t _queue;
+    NSArray *_systemVolumePreboots;
 }
 
 - (instancetype)init
@@ -244,6 +245,7 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
                     }
                 }
             }
+            _systemVolumePreboots = [self prebootVolumesForUuid:retval];
         }
     });
 
@@ -439,7 +441,16 @@ OSStatus preloginDb(PreloginUserDb * _Nonnull * _Nonnull _Nonnulldb);
 
         // unmount the preboot volume
         if (weMountedPreboot) {
-            [self unmountPrebootVolume:prebootVolume];
+            // check if this preboot is on the volume where system disk is
+            BOOL unmount = YES;
+            NSString *sessionVolumeGroup = [self sessionVolumeGroup];
+            if (sessionVolumeGroup && [_systemVolumePreboots containsObject:prebootVolume]) {
+                unmount = NO;
+                os_log_debug(AUTHD_LOG, "Not unmounting session preboot");
+            }
+            if (unmount) {
+                [self unmountPrebootVolume:prebootVolume];
+            }
         }
     }
 }

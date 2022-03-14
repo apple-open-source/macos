@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -514,12 +514,14 @@ rip_output(
 			return EMSGSIZE;
 		}
 		ip = mtod(m, struct ip *);
-		/* don't allow both user specified and setsockopt options,
-		 *  and don't allow packet length sizes that will crash */
-		if (((IP_VHL_HL(ip->ip_vhl) != (sizeof(*ip) >> 2))
-		    && inp->inp_options)
-		    || (ip->ip_len > m->m_pkthdr.len)
-		    || (ip->ip_len < (IP_VHL_HL(ip->ip_vhl) << 2))) {
+		/*
+		 * don't allow both user specified and setsockopt options,
+		 * and don't allow packet length sizes that will crash
+		 */
+		if (m->m_pkthdr.len < sizeof(struct ip) ||
+		    ((IP_VHL_HL(ip->ip_vhl) != (sizeof(*ip) >> 2)) && inp->inp_options) ||
+		    (ip->ip_len > m->m_pkthdr.len) ||
+		    (ip->ip_len < (IP_VHL_HL(ip->ip_vhl) << 2))) {
 			m_freem(m);
 			return EINVAL;
 		}
@@ -1159,7 +1161,7 @@ static int
 rip_pcblist SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
-	int error, i, n;
+	int error, i, n, sz;
 	struct inpcb *inp, **inp_list;
 	inp_gen_t gencnt;
 	struct xinpgen xig;
@@ -1186,7 +1188,7 @@ rip_pcblist SYSCTL_HANDLER_ARGS
 	 * OK, now we're committed to doing something.
 	 */
 	gencnt = ripcbinfo.ipi_gencnt;
-	n = ripcbinfo.ipi_count;
+	sz = n = ripcbinfo.ipi_count;
 
 	bzero(&xig, sizeof(xig));
 	xig.xig_len = sizeof xig;
@@ -1206,8 +1208,8 @@ rip_pcblist SYSCTL_HANDLER_ARGS
 		return 0;
 	}
 
-	inp_list = _MALLOC(n * sizeof *inp_list, M_TEMP, M_WAITOK);
-	if (inp_list == 0) {
+	inp_list = kalloc_type(struct inpcb *, n, Z_WAITOK);
+	if (inp_list == NULL) {
 		lck_rw_done(&ripcbinfo.ipi_lock);
 		return ENOMEM;
 	}
@@ -1251,8 +1253,9 @@ rip_pcblist SYSCTL_HANDLER_ARGS
 		xig.xig_count = ripcbinfo.ipi_count;
 		error = SYSCTL_OUT(req, &xig, sizeof xig);
 	}
-	FREE(inp_list, M_TEMP);
+
 	lck_rw_done(&ripcbinfo.ipi_lock);
+	kfree_type(struct inpcb *, sz, inp_list);
 	return error;
 }
 
@@ -1266,7 +1269,7 @@ static int
 rip_pcblist64 SYSCTL_HANDLER_ARGS
 {
 #pragma unused(oidp, arg1, arg2)
-	int error, i, n;
+	int error, i, n, sz;
 	struct inpcb *inp, **inp_list;
 	inp_gen_t gencnt;
 	struct xinpgen xig;
@@ -1293,7 +1296,7 @@ rip_pcblist64 SYSCTL_HANDLER_ARGS
 	 * OK, now we're committed to doing something.
 	 */
 	gencnt = ripcbinfo.ipi_gencnt;
-	n = ripcbinfo.ipi_count;
+	sz = n = ripcbinfo.ipi_count;
 
 	bzero(&xig, sizeof(xig));
 	xig.xig_len = sizeof xig;
@@ -1313,8 +1316,8 @@ rip_pcblist64 SYSCTL_HANDLER_ARGS
 		return 0;
 	}
 
-	inp_list = _MALLOC(n * sizeof *inp_list, M_TEMP, M_WAITOK);
-	if (inp_list == 0) {
+	inp_list = kalloc_type(struct inpcb *, n, Z_WAITOK);
+	if (inp_list == NULL) {
 		lck_rw_done(&ripcbinfo.ipi_lock);
 		return ENOMEM;
 	}
@@ -1357,8 +1360,9 @@ rip_pcblist64 SYSCTL_HANDLER_ARGS
 		xig.xig_count = ripcbinfo.ipi_count;
 		error = SYSCTL_OUT(req, &xig, sizeof xig);
 	}
-	FREE(inp_list, M_TEMP);
+
 	lck_rw_done(&ripcbinfo.ipi_lock);
+	kfree_type(struct inpcb *, sz, inp_list);
 	return error;
 }
 

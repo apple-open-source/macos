@@ -38,7 +38,7 @@ NS_ASSUME_NONNULL_BEGIN
 @property NSTimeInterval maxAge;
 @property NSUInteger numTasks;
 
-- (instancetype)initWithContext:(void *)context uris:(NSArray <NSURL *>*)uris;
+- (instancetype)initWithContext:(CFTypeRef)context uris:(NSArray <NSURL *>*)uris;
 @end
 
 @interface NSURLRequest (TrustURLRequest)

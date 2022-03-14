@@ -146,4 +146,11 @@
 #define CONFIG_TINY_USES_HYPER_SHIFT 0
 #define CONFIG_SMALL_USES_HYPER_SHIFT 0
 
+// FIXME: limit number of malloc_create_zone() wrapper zones for watchOS to remove this
+#if TARGET_OS_OSX || TARGET_OS_IOS
+#define CONFIG_PGM_WRAP_CUSTOM_ZONES 1
+#else
+#define CONFIG_PGM_WRAP_CUSTOM_ZONES 0
+#endif
+
 #endif // __PLATFORM_H

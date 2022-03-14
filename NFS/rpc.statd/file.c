@@ -64,7 +64,7 @@
 #include <search.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <sys/mman.h>		/* For mmap()				 */
+#include <sys/mman.h>           /* For mmap()				 */
 #include <oncrpc/rpc.h>
 #include <syslog.h>
 #include <stdlib.h>
@@ -75,20 +75,20 @@
 
 #include "statd.h"
 
-FileHeader *status_info;	/* Pointer to the mmap()ed status file	 */
-static int status_fd;		/* File descriptor for the open file	 */
-static off_t status_file_len;	/* Current on-disc length of file	 */
-static off_t status_info_len;	/* current length of mmap region	 */
+FileHeader *status_info;        /* Pointer to the mmap()ed status file	 */
+static int status_fd;           /* File descriptor for the open file	 */
+static off_t status_file_len;   /* Current on-disc length of file	 */
+static off_t status_info_len;   /* current length of mmap region	 */
 void *mhroot = NULL;
 
 /* map_file --------------------------------------------------------------- */
 /*
-   Purpose:	Set up or update status file memory mapping.
-		Map with a generous size to allow file to grow without
-		needing to remap often.
-   Returns:	Nothing.  Errors to syslog.
-*/
-#define MAP_INCREMENT	(32*1024*1024)
+ *  Purpose:	Set up or update status file memory mapping.
+ *               Map with a generous size to allow file to grow without
+ *               needing to remap often.
+ *  Returns:	Nothing.  Errors to syslog.
+ */
+#define MAP_INCREMENT   (32*1024*1024)
 
 void
 map_file(void)
@@ -96,15 +96,17 @@ map_file(void)
 	off_t desired_map_len = (status_file_len + MAP_INCREMENT) & ~(MAP_INCREMENT - 1);
 	int prot;
 
-	if (status_info_len >= desired_map_len)
+	if (status_info_len >= desired_map_len) {
 		return;
+	}
 	if (status_info_len) {
 		sync_file();
 		munmap(status_info, status_info_len);
 	}
 	prot = PROT_READ;
-	if (!list_only)
+	if (!list_only) {
 		prot |= PROT_WRITE;
+	}
 	status_info_len = desired_map_len;
 	status_info = mmap(NULL, status_info_len, prot, MAP_SHARED, status_fd, 0);
 	if (status_info == (FileHeader *) MAP_FAILED) {
@@ -115,9 +117,9 @@ map_file(void)
 
 /* sync_file --------------------------------------------------------------- */
 /*
-   Purpose:	Packaged call of msync() to flush changes to mmap()ed file
-   Returns:	Nothing.  Errors to syslog.
-*/
+ *  Purpose:	Packaged call of msync() to flush changes to mmap()ed file
+ *  Returns:	Nothing.  Errors to syslog.
+ */
 
 void
 sync_file(void)
@@ -130,9 +132,9 @@ sync_file(void)
 
 /* mhcmp ------------------------------------------------------------------- */
 /*
-   Purpose:	comparing nodes in the MonitoredHost tree
-   Returns:	-1, 0, 1
-*/
+ *  Purpose:	comparing nodes in the MonitoredHost tree
+ *  Returns:	-1, 0, 1
+ */
 
 int
 mhcmp(const void *key1, const void *key2)
@@ -142,19 +144,19 @@ mhcmp(const void *key1, const void *key2)
 	char *s1, *s2;
 
 	s1 = mhp1->mh_hostinfo_offset ?
-		HOSTINFO(mhp1->mh_hostinfo_offset)->hi_name : mhp1->mh_name;
+	    HOSTINFO(mhp1->mh_hostinfo_offset)->hi_name : mhp1->mh_name;
 	s2 = mhp2->mh_hostinfo_offset ?
-		HOSTINFO(mhp2->mh_hostinfo_offset)->hi_name : mhp2->mh_name;
+	    HOSTINFO(mhp2->mh_hostinfo_offset)->hi_name : mhp2->mh_name;
 	return strcmp(s1, s2);
 }
 
-#if 0				/* DEBUG */
+#if 0                           /* DEBUG */
 
 /* mhdump/mhprint ---------------------------------------------------------- */
 /*
-   Purpose:	dumping the monitored host tree - for debugging purposes
-   Returns:	Nothing
-*/
+ *  Purpose:	dumping the monitored host tree - for debugging purposes
+ *  Returns:	Nothing
+ */
 
 void
 mhprint(const void *node, VISIT v, __unused int level)
@@ -162,11 +164,12 @@ mhprint(const void *node, VISIT v, __unused int level)
 	const MonitoredHost *const * mhp = node;
 	char *name;
 
-	if ((v != postorder) && (v != leaf))
+	if ((v != postorder) && (v != leaf)) {
 		return;
+	}
 
 	name = (*mhp)->mh_hostinfo_offset ?
-		HOSTINFO((*mhp)->mh_hostinfo_offset)->hi_name : (*mhp)->mh_name;
+	    HOSTINFO((*mhp)->mh_hostinfo_offset)->hi_name : (*mhp)->mh_name;
 	log(LOG_ERR, "%s", name);
 }
 
@@ -181,11 +184,11 @@ mhdump(void)
 
 /* find_host -------------------------------------------------------------- */
 /*
-   Purpose:	Find the MonitoredHost and its entry in the status file for a given host
-   Returns:	MonitoredHost structure for this host, or NULL.
-   Notes:	Also creates structures/entries if requested.
-		Failure to create also returns NULL.
-*/
+ *  Purpose:	Find the MonitoredHost and its entry in the status file for a given host
+ *  Returns:	MonitoredHost structure for this host, or NULL.
+ *  Notes:	Also creates structures/entries if requested.
+ *               Failure to create also returns NULL.
+ */
 
 MonitoredHost *
 find_host(char *hostname, int create)
@@ -194,8 +197,8 @@ find_host(char *hostname, int create)
 	HostInfo *hip = NULL;
 	HostInfo *spare_slot = NULL;
 	off_t off, spare_off = status_file_len;
-    ssize_t rv;
-    size_t namelen;
+	ssize_t rv;
+	size_t namelen;
 	uint i;
 	uint16_t len, nlen;
 
@@ -208,23 +211,26 @@ find_host(char *hostname, int create)
 	mhpp = tfind(&mhtmp, &mhroot, mhcmp);
 
 	/* Return if entry found, or if not asked to create one.	 */
-	if (mhpp)
-		return (*mhpp);
-	else if (!create)
-		return (NULL);
+	if (mhpp) {
+		return *mhpp;
+	} else if (!create) {
+		return NULL;
+	}
 
 	/* not currently in the set of monitored hosts, allocate one	 */
 	mhp = malloc(sizeof(*mhp));
-	if (!mhp)
-		return (NULL);
+	if (!mhp) {
+		return NULL;
+	}
 	bzero(mhp, sizeof(*mhp));
 
 	/* find the host's slot in the status file			 */
 	off = sizeof(FileHeader);
 	for (i = 0; i < ntohl(status_info->fh_reccnt); i++) {
 		hip = HOSTINFO(off);
-		if ((ntohs(hip->hi_namelen) == namelen) && !strncasecmp(hostname, hip->hi_name, namelen))
+		if ((ntohs(hip->hi_namelen) == namelen) && !strncasecmp(hostname, hip->hi_name, namelen)) {
 			break;
+		}
 		if (!spare_slot && !hip->hi_monitored && !hip->hi_notify && (len <= ntohs(hip->hi_len))) {
 			spare_slot = hip;
 			spare_off = off;
@@ -243,12 +249,13 @@ find_host(char *hostname, int create)
 		if (rv < 1) {
 			free(mhp);
 			log(LOG_ERR, "Unable to extend status file");
-			return (NULL);
+			return NULL;
 		}
 		nlen = htons(len);
 		rv = pwrite(status_fd, &nlen, sizeof(nlen), off);
-		if ((rv < 2) || (rv = fsync(status_fd)))
+		if ((rv < 2) || (rv = fsync(status_fd))) {
 			log(LOG_ERR, "Unable to write extended status file record length: %d %s", rv, strerror(errno));
+		}
 		status_file_len = off + len;
 		map_file();
 		spare_slot = HOSTINFO(off);
@@ -261,7 +268,7 @@ find_host(char *hostname, int create)
 		spare_slot->hi_monitored = 0;
 		spare_slot->hi_notify = 0;
 		spare_slot->hi_namelen = htons(namelen);
-		strlcpy(spare_slot->hi_name, hostname, namelen+1);
+		strlcpy(spare_slot->hi_name, hostname, namelen + 1);
 		bzero(&spare_slot->hi_name[namelen], RNDUP_NAMELEN(namelen) - namelen);
 		hip = spare_slot;
 	}
@@ -271,35 +278,36 @@ find_host(char *hostname, int create)
 	mhpp = tsearch(mhp, &mhroot, mhcmp);
 	if (!mhpp) {
 		/* insert failed */
-		if (hip == spare_slot)
+		if (hip == spare_slot) {
 			sync_file();
+		}
 		free(mhp);
-		return (NULL);
+		return NULL;
 	}
 	if (!hip->hi_monitored) {
 		/* update monitored status */
 		hip->hi_monitored = htons(1);
 		sync_file();
 	}
-	return (mhp);
+	return mhp;
 }
 
 /* convert_version0_file  -------------------------------------------------- */
 /*
-   Purpose:	converts old-style status file to new style
-   Returns:	Whether status file needs reinitialization (conversion failed)
-*/
+ *  Purpose:	converts old-style status file to new style
+ *  Returns:	Whether status file needs reinitialization (conversion failed)
+ */
 int
 convert_version0_file(const char *filename0)
 {
 	int fd0, fd = -1, nhosts0, nhosts, i, newcreated = 0;
-    ssize_t rv;
+	ssize_t rv;
 	struct stat st;
 	FileHeader fh;
 	HostInfo0 *hi0p = NULL;
 	HostInfo *hip = NULL;
 	char *filename = NULL;
-    size_t filenamelen, len, namelen;
+	size_t filenamelen, len, namelen;
 
 	log(LOG_NOTICE, "converting old status file");
 
@@ -379,14 +387,15 @@ convert_version0_file(const char *filename0)
 		/* write each hostinfo */
 		hip->hi_monitored = htons((hi0p->monList != 0) ? 1 : 0);
 		hip->hi_notify = htons((hi0p->notifyReqd != 0) ? 1 : 0);
-		if (!hip->hi_monitored && !hip->hi_notify)
+		if (!hip->hi_monitored && !hip->hi_notify) {
 			continue;
-		namelen = strnlen(hi0p->hostname, SM_MAXSTRLEN+1);
+		}
+		namelen = strnlen(hi0p->hostname, SM_MAXSTRLEN + 1);
 		if (namelen > SM_MAXSTRLEN) {
 			log(LOG_ERR, "status file entry %d, name too long: %d", i, namelen);
 			goto fail;
 		}
-		strlcpy(hip->hi_name, hi0p->hostname, namelen+1);
+		strlcpy(hip->hi_name, hi0p->hostname, namelen + 1);
 		hip->hi_namelen = htons(namelen);
 		len = sizeof(*hip) - NAMEINCR + RNDUP_NAMELEN(namelen);
 		hip->hi_len = htons(len);
@@ -411,37 +420,44 @@ convert_version0_file(const char *filename0)
 	close(fd);
 	close(fd0);
 	rv = rename(filename, filename0);
-	if (rv < 0)
+	if (rv < 0) {
 		log(LOG_ERR, "can't rename new status file into place: %d %s", rv, strerror(errno));
+	}
 	free(filename);
-	return ((int) rv);
+	return (int) rv;
 fail:
-	if (hip)
+	if (hip) {
 		free(hip);
-	if (hi0p)
+	}
+	if (hi0p) {
 		free(hi0p);
-	if (fd >= 0)
+	}
+	if (fd >= 0) {
 		close(fd);
-	if (newcreated)
+	}
+	if (newcreated) {
 		unlink(filename);
-	if (filename)
+	}
+	if (filename) {
 		free(filename);
-	if (fd0 >= 0)
+	}
+	if (fd0 >= 0) {
 		close(fd0);
-	return (1);
+	}
+	return 1;
 }
 
 /* init_file -------------------------------------------------------------- */
 /*
-   Purpose:	Open file, create if necessary, initialise it.
-   Returns:	Whether notifications are needed - exits on error
-   Notes:	Opens the status file, verifies its integrity, and
-   		sets up the mmap() access.
-		Also performs initial cleanup of the file, clearing
-		monitor status, setting the notify flag for hosts
-		that were previously monitored, and advancing the
-		state number.
-*/
+ *  Purpose:	Open file, create if necessary, initialise it.
+ *  Returns:	Whether notifications are needed - exits on error
+ *  Notes:	Opens the status file, verifies its integrity, and
+ *               sets up the mmap() access.
+ *               Also performs initial cleanup of the file, clearing
+ *               monitor status, setting the notify flag for hosts
+ *               that were previously monitored, and advancing the
+ *               state number.
+ */
 
 int
 init_file(const char *filename)
@@ -449,7 +465,7 @@ init_file(const char *filename)
 	int new_file = FALSE;
 	struct flock lock = {0};
 	int len, err, update, need_notify = FALSE;
-    ssize_t rv;
+	ssize_t rv;
 	uint i;
 	FileHeader fh;
 	HostInfo *hip = NULL;
@@ -459,10 +475,11 @@ init_file(const char *filename)
 	 * only update if we're statd, or if we're statd.notify and statd
 	 * isn't running
 	 */
-	if (statd_server || (notify_only && !get_statd_pid()))
+	if (statd_server || (notify_only && !get_statd_pid())) {
 		update = 1;
-	else
+	} else {
 		update = 0;
+	}
 
 reopen:
 	/* try to open existing file - if not present, create one		 */
@@ -472,8 +489,9 @@ reopen:
 		new_file = TRUE;
 	}
 	if (status_fd < 0) {
-		if (notify_only)
-			return (need_notify);
+		if (notify_only) {
+			return need_notify;
+		}
 		log(LOG_ERR, "unable to open status file %s - error %d: %s", filename, errno, strerror(errno));
 		exit(1);
 	}
@@ -486,8 +504,9 @@ reopen:
 		lock.l_start = 0;
 		lock.l_len = sizeof(FileHeader);
 		err = fcntl(status_fd, F_SETLKW, &lock);
-		if (err == -1)
+		if (err == -1) {
 			log(LOG_ERR, "fcntl lock error(%d): %s", errno, strerror(errno));
+		}
 	}
 	/* read header */
 	rv = read(status_fd, &fh, sizeof(fh));
@@ -522,18 +541,21 @@ reopen:
 		/* already have it opened (waiting for the lock) */
 		fh.fh_version = htonl(STATUS_DB_VERSION_CONVERTED);
 		rv = pwrite(status_fd, &fh, sizeof(fh), 0);
-		if ((rv != sizeof(fh)) || (rv = fsync(status_fd)))
+		if ((rv != sizeof(fh)) || (rv = fsync(status_fd))) {
 			log(LOG_ERR, "failed to update old status file header version: %d, %s", rv, strerror(errno));
+		}
 		close(status_fd);
 		goto reopen;
 	}
 	/* Scan the whole status file.  Along the way, we'll verify the	 */
 	/* integrity of the file and clean up monitored/notification fields.	 */
-	if (!update && notify_only)
+	if (!update && notify_only) {
 		DEBUG(1, "notify_only: skipping database initialization");
+	}
 
-	if (!hip)
+	if (!hip) {
 		hip = malloc(sizeof(*hip) + SM_MAXSTRLEN);
+	}
 	if (!hip) {
 		log(LOG_ERR, "can't allocate memory");
 		exit(1);
@@ -595,8 +617,9 @@ reopen:
 		new_file = TRUE;
 	}
 newfile:
-	if (new_file)
+	if (new_file) {
 		need_notify = FALSE;
+	}
 	if (update) {
 		if (new_file) {
 			rv = ftruncate(status_fd, 0);
@@ -611,10 +634,11 @@ newfile:
 		} else {
 			/* advance to next even number (next odd if we're "up" again) */
 			fh.fh_state = ntohl(fh.fh_state);
-			if (statd_server)	/* advance to next odd */
+			if (statd_server) {     /* advance to next odd */
 				fh.fh_state += (fh.fh_state & 1) ? 2 : 1;
-			else if (notify_only && (fh.fh_state & 1))	/* if odd, advance to even */
+			} else if (notify_only && (fh.fh_state & 1)) {  /* if odd, advance to even */
 				fh.fh_state++;
+			}
 			fh.fh_state = htonl(fh.fh_state);
 			/* make sure the file ends where we think it should */
 			status_file_len = lseek(status_fd, 0L, SEEK_END);
@@ -642,25 +666,27 @@ newfile:
 		/* unlock header */
 		lock.l_type = F_UNLCK;
 		err = fcntl(status_fd, F_SETLKW, &lock);
-		if (err == -1)
+		if (err == -1) {
 			log(LOG_ERR, "fcntl unlock error(%d): %s", errno, strerror(errno));
+		}
 	}
-	if (hip)
+	if (hip) {
 		free(hip);
-	return (need_notify);
+	}
+	return need_notify;
 }
 
 /* notify_one_host --------------------------------------------------------- */
 /*
-   Purpose:	Perform SM_NOTIFY procedure at specified host
-   Returns:	TRUE if success, FALSE if failed.
-*/
+ *  Purpose:	Perform SM_NOTIFY procedure at specified host
+ *  Returns:	TRUE if success, FALSE if failed.
+ */
 
 static int
 notify_one_host(char *hostname, int warn)
 {
-	struct timeval timeout = {20, 0};	/* 20 secs timeout		 */
-	struct timeval try = {4, 0};		/* 4 secs per try		 */
+	struct timeval timeout = {20, 0};       /* 20 secs timeout		 */
+	struct timeval try = {4, 0};            /* 4 secs per try		 */
 	struct addrinfo *ai, *ailist;
 	CLIENT *cli = NULL;
 	char dummy, empty[] = "", *spcerr = NULL;
@@ -679,18 +705,20 @@ notify_one_host(char *hostname, int warn)
 	/* get the list of addresses for this host */
 	ailist = NULL;
 	if ((error = getaddresslist(hostname, &ailist))) {
-		if (warn)
+		if (warn) {
 			log(LOG_WARNING, "Failed to contact host %s - error %d resolving", hostname, error);
-		return (result);
+		}
+		return result;
 	}
 	if (!ailist) {
-		if (warn)
+		if (warn) {
 			log(LOG_WARNING, "Failed to contact host %s - no addresses", hostname);
-		return (result);
+		}
+		return result;
 	}
 
 	/* try each address until we get success */
-	for (ai=ailist; ai && (result == FALSE); ai = ai->ai_next) {
+	for (ai = ailist; ai && (result == FALSE); ai = ai->ai_next) {
 		if (config.send_using_tcp) {
 			sock = RPC_ANYSOCK;
 			cli = clnttcp_create_sa(ai->ai_addr, SM_PROG, SM_VERS, &sock, 0, 0);
@@ -700,39 +728,42 @@ notify_one_host(char *hostname, int warn)
 			cli = clntudp_create_sa(ai->ai_addr, SM_PROG, SM_VERS, try, &sock);
 		}
 		if (!cli) {
-			if (warn)
+			if (warn) {
 				spcerr = clnt_spcreateerror(empty);
+			}
 			continue;
 		}
-		if (clnt_call(cli, SM_NOTIFY, (xdrproc_t)xdr_stat_chge, &arg, (xdrproc_t)xdr_void, &dummy, timeout) == RPC_SUCCESS)
+		if (clnt_call(cli, SM_NOTIFY, (xdrproc_t)xdr_stat_chge, &arg, (xdrproc_t)xdr_void, &dummy, timeout) == RPC_SUCCESS) {
 			result = TRUE;
+		}
 		clnt_destroy(cli);
 	}
 
 	if ((result == FALSE) && warn) {
-		if (spcerr)
+		if (spcerr) {
 			log(LOG_WARNING, "Failed to contact host %s%s", hostname, spcerr);
+		}
 		log(LOG_WARNING, "Failed to contact rpc.statd at host %s", hostname);
 	}
 
 	freeaddrinfo(ailist);
-	return (result);
+	return result;
 }
 
 /* notify_hosts ------------------------------------------------------------ */
 /*
-   Purpose:	Send SM_NOTIFY to all hosts marked as requiring it
-   Returns:	Nothing.
-   Notes:	Does nothing if there are no monitored hosts.
-		Called after all the initialisation has been done -
-		logs to syslog.
-*/
+ *  Purpose:	Send SM_NOTIFY to all hosts marked as requiring it
+ *  Returns:	Nothing.
+ *  Notes:	Does nothing if there are no monitored hosts.
+ *               Called after all the initialisation has been done -
+ *               logs to syslog.
+ */
 
 int
 notify_hosts(void)
 {
-    off_t i;
-    int reccnt;
+	off_t i;
+	int reccnt;
 	int attempts, warn;
 	int work_to_do = FALSE;
 	HostInfo *hip;
@@ -745,12 +776,13 @@ notify_hosts(void)
 		log(LOG_ERR, "can't open statd.notify pidfile: %s (%d)", strerror(errno), errno);
 		if (errno == EEXIST) {
 			log(LOG_ERR, "statd.notify already running, pid: %d", pid);
-			return (0);
+			return 0;
 		}
-		return (2);
+		return 2;
 	}
-	if (pidfile_write(pfh) == -1)
+	if (pidfile_write(pfh) == -1) {
 		log(LOG_WARNING, "can't write to statd.notify pidfile: %s (%d)", strerror(errno), errno);
+	}
 
 	work_to_do = init_file(_PATH_STATD_DATABASE);
 
@@ -758,7 +790,7 @@ notify_hosts(void)
 		/* No work found */
 		log(LOG_NOTICE, "statd.notify - no notifications needed");
 		pidfile_remove(pfh);
-		return (0);
+		return 0;
 	}
 	log(LOG_INFO, "statd.notify starting");
 
@@ -779,7 +811,7 @@ notify_hosts(void)
 	/* 24 hours.								 */
 
 	for (attempts = 0; attempts < 44; attempts++) {
-		work_to_do = FALSE;	/* Unless anything fails		 */
+		work_to_do = FALSE;     /* Unless anything fails		 */
 		warn = !(attempts % 10) || (attempts >= 20); /* limit warning frequency */
 
 		/* update status_file_len and mmap */
@@ -797,31 +829,35 @@ notify_hosts(void)
 				if (notify_one_host(hip->hi_name, warn)) {
 					hip->hi_notify = 0;
 					sync_file();
-					if (attempts)	/* log success if we've logged errors */
+					if (attempts) { /* log success if we've logged errors */
 						log(LOG_WARNING, "Contacted rpc.statd at host %s", hip->hi_name);
-				} else
+					}
+				} else {
 					work_to_do = TRUE;
+				}
 			}
 			off += ntohs(hip->hi_len);
 		}
-		if (!work_to_do)
+		if (!work_to_do) {
 			break;
-		if (attempts < 10)
+		}
+		if (attempts < 10) {
 			sleep(5);
-		else if (attempts < 20)
+		} else if (attempts < 20) {
 			sleep(60);
-		else
+		} else {
 			sleep(60 * 60);
+		}
 	}
 	pidfile_remove(pfh);
-	return (0);
+	return 0;
 }
 
 /* do_unnotify_host ------------------------------------------------------ */
 /*
-   Purpose:	Clear the notify flag for the given host.
-   Returns:	Nothing.
-*/
+ *  Purpose:	Clear the notify flag for the given host.
+ *  Returns:	Nothing.
+ */
 
 int
 do_unnotify_host(const char *hostname)
@@ -837,34 +873,37 @@ do_unnotify_host(const char *hostname)
 	off = sizeof(FileHeader);
 	for (i = 0; i < status_info->fh_reccnt && off < status_file_len; i++, off += ntohs(hip->hi_len)) {
 		hip = HOSTINFO(off);
-		if (strncmp(hip->hi_name, hostname, SM_MAXSTRLEN))
+		if (strncmp(hip->hi_name, hostname, SM_MAXSTRLEN)) {
 			continue;
+		}
 		found = 1;
-		if (!hip->hi_notify)
+		if (!hip->hi_notify) {
 			continue;
+		}
 		hip->hi_notify = 0;
 		dosync = 1;
 	}
-	if (dosync)
+	if (dosync) {
 		sync_file();
-	return (!found);
+	}
+	return !found;
 }
 
 /* list_hosts ------------------------------------------------------------ */
 /*
-   Purpose:	Lists all hosts and their status.
-   Returns:	Nothing.
-*/
+ *  Purpose:	Lists all hosts and their status.
+ *  Returns:	Nothing.
+ */
 
 struct hoststate {
 	TAILQ_ENTRY(hoststate) hs_list;
-	uint16_t hs_monitor;	/* host being monitored */
-	uint16_t hs_notify;	/* host needs notification */
-	char hs_flag;		/* temporary flag */
-#define HS_CHANGED	1
-#define HS_OLD		2
-#define HS_NEW		3
-	char hs_name[1];	/* host's name */
+	uint16_t hs_monitor;    /* host being monitored */
+	uint16_t hs_notify;     /* host needs notification */
+	char hs_flag;           /* temporary flag */
+#define HS_CHANGED      1
+#define HS_OLD          2
+#define HS_NEW          3
+	char hs_name[1];        /* host's name */
 };
 static
 TAILQ_HEAD(, hoststate) hosts;
@@ -903,30 +942,36 @@ loop:
 	map_file();
 
 	if (watchmode && (prev_state != 0xffffffff)) {
-		if (status_file_len != prev_status_file_len)
+		if (status_file_len != prev_status_file_len) {
 			printf("Status DB Length: %lld -> %lld\n", prev_status_file_len, status_file_len);
-		if (state != prev_state)
+		}
+		if (state != prev_state) {
 			printf("State: %d -> %d\n", prev_state, state);
-		if (reccnt != prev_reccnt)
+		}
+		if (reccnt != prev_reccnt) {
 			printf("#Hosts: %d -> %d\n", prev_reccnt, reccnt);
+		}
 	}
 	/* iterate through all entries */
 	off = sizeof(FileHeader);
 	for (i = 0; i < reccnt && off < status_file_len; i++, off += ntohs(hip->hi_len)) {
 		hip = HOSTINFO(off);
 		if (!hip->hi_namelen || !hip->hi_name[0] ||
-		    (!hip->hi_monitored && !hip->hi_notify && (!config.verbose || watchmode)))
+		    (!hip->hi_monitored && !hip->hi_notify && (!config.verbose || watchmode))) {
 			continue;
+		}
 		if (!watchmode) {
 			printf("  %c  %c   %s\n", (hip->hi_monitored ? 'M' : ' '), (hip->hi_notify ? 'N' : ' '), hip->hi_name);
 			continue;
 		}
 		TAILQ_FOREACH(hsp, &hosts, hs_list)
-			if (!strcmp(hsp->hs_name, hip->hi_name))
+		if (!strcmp(hsp->hs_name, hip->hi_name)) {
 			break;
+		}
 		if (!hsp) {
-			if (!(hsp = calloc(1, sizeof(*hsp) + ntohs(hip->hi_namelen))))
+			if (!(hsp = calloc(1, sizeof(*hsp) + ntohs(hip->hi_namelen)))) {
 				continue;
+			}
 			strncpy(hsp->hs_name, hip->hi_name, ntohs(hip->hi_namelen));
 			TAILQ_INSERT_TAIL(&hosts, hsp, hs_list);
 			hsp->hs_flag = HS_NEW;
@@ -937,20 +982,21 @@ loop:
 		hsp->hs_notify = hip->hi_notify;
 	}
 
-	if (!watchmode)
-		return (0);
+	if (!watchmode) {
+		return 0;
+	}
 
 	TAILQ_FOREACH_SAFE(hsp, &hosts, hs_list, nhsp) {
-        if (hsp->hs_flag) {
-            printf("%c %c  %c   %s\n", ((hsp->hs_flag == HS_OLD) ? '-' : ((hsp->hs_flag == HS_NEW) ? '+' : ' ')),
-                   (hsp->hs_monitor ? 'M' : ' '), (hsp->hs_notify ? 'N' : ' '), hsp->hs_name);
-            if (hsp->hs_flag == HS_OLD) {
-                TAILQ_REMOVE(&hosts, hsp, hs_list);
-                free(hsp);
-                continue;
-            }
-        }
-        hsp->hs_flag = HS_OLD;
+		if (hsp->hs_flag) {
+			printf("%c %c  %c   %s\n", ((hsp->hs_flag == HS_OLD) ? '-' : ((hsp->hs_flag == HS_NEW) ? '+' : ' ')),
+			    (hsp->hs_monitor ? 'M' : ' '), (hsp->hs_notify ? 'N' : ' '), hsp->hs_name);
+			if (hsp->hs_flag == HS_OLD) {
+				TAILQ_REMOVE(&hosts, hsp, hs_list);
+				free(hsp);
+				continue;
+			}
+		}
+		hsp->hs_flag = HS_OLD;
 	}
 	prev_state = state;
 	prev_reccnt = reccnt;

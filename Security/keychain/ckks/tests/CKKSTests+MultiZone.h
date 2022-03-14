@@ -6,6 +6,7 @@
 
 #import "keychain/ckks/tests/CloudKitMockXCTest.h"
 #import "keychain/ckks/tests/CloudKitKeychainSyncingMockXCTest.h"
+#import "keychain/ckks/CKKSPeer.h"
 
 @interface CloudKitKeychainSyncingMultiZoneTestsBase : CloudKitKeychainSyncingMockXCTest
 
@@ -65,6 +66,10 @@
 - (void)deleteTLKMaterialsFromKeychain;
 - (void)waitForKeyHierarchyReadinesses;
 - (void)expectCKKSTLKSelfShareUploads;
+
+- (void)putAllFakeDeviceStatusesInCloudKit;
+- (void)putAllSelfTLKSharesInCloudKit:(id<CKKSSelfPeer>)sharingPeer;
+- (void)putAllTLKSharesInCloudKitFrom:(id<CKKSSelfPeer>)sharingPeer to:(id<CKKSPeer>)receivingPeer;
 
 @end
 

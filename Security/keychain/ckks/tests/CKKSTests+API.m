@@ -1896,7 +1896,10 @@
 
     // Before CKKS figures out we're in an account, fire off the status RPC.
     XCTestExpectation* callbackOccurs = [self expectationWithDescription:@"callback-occurs"];
-    [self.ckksControl rpcStatus:@"keychain" reply:^(NSArray<NSDictionary*>* result, NSError* error) {
+    // rdar://80603312: This test fails intermittently on slower devices if the
+    // state machine doesn't reach "ready" in the default timeout (1 second), so
+    // we give it some extra time.
+    [self.ckksControl rpcStatus:@"keychain" fast:NO waitForNonTransientState:3*NSEC_PER_SEC reply:^(NSArray<NSDictionary*>* result, NSError* error) {
         XCTAssertNil(error, "should be no error fetching status for keychain");
 
         // Ugly "global" hack

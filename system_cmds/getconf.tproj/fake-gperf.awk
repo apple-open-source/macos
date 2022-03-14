@@ -1,5 +1,5 @@
 #!/usr/bin/awk -f
-# $FreeBSD: src/usr.bin/getconf/fake-gperf.awk,v 1.3 2003/08/22 17:32:07 markm Exp $
+# $FreeBSD$
 BEGIN {
   state = 0;
   struct_seen = "";
@@ -36,7 +36,8 @@ state == 1 { print; next; }
   state = 3;
   print "\t{ NULL, 0, 0 }";
   print "};";
-  print "#define\tNWORDS\t(sizeof(wordlist)/sizeof(wordlist[0]) - 1)";
+  print "#include <sys/param.h>";
+  print "#define\tNWORDS\t(nitems(wordlist) - 1)";
   print "static const struct map *";
   print "in_word_set(const char *word)";
   print "{";

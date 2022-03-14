@@ -1,4 +1,4 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 es{
@@ -205,10 +205,15 @@ es{
             }
         }
         minimalPairs{
+            gender{
+                feminine{"La {0} es..."}
+                masculine{"El {0} es…"}
+            }
             ordinal{
                 other{"Toma la {0}.ª a la derecha."}
             }
             plural{
+                many{"{0} de días"}
                 one{"{0} día"}
                 other{"{0} días"}
             }
@@ -236,22 +241,32 @@ es{
                 "H:mm:ss z",
                 "H:mm:ss",
                 "H:mm",
-                "EEEE, d-M-y",
-                "d-M-y",
-                "d-M-y",
-                "d-M-y",
+                "EEEE, d-M-r",
+                "d-M-r",
+                "d-M-r",
+                "d-M-r",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "Hmmsszzzz",
+                "Hmmssz",
+                "Hmmss",
+                "Hmm",
+                "rMEEEEd",
+                "rMd",
+                "rMd",
+                "rMd",
+            }
             availableFormats{
                 Ed{"E d"}
-                Gy{"y"}
-                GyMMM{"M-y"}
-                GyMMMEd{"E, d-M-y"}
-                GyMMMd{"d-M-y"}
+                Gy{"r"}
+                GyMMM{"M-r"}
+                GyMMMEd{"E, d-M-r"}
+                GyMMMd{"d-M-r"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -266,17 +281,17 @@ es{
                 hm{"hh:mm a"}
                 hms{"hh:mm:ss a"}
                 ms{"mm:ss"}
-                y{"y"}
-                yyyy{"y"}
-                yyyyM{"M-y"}
-                yyyyMEd{"E, d-M-y"}
-                yyyyMMM{"M-y"}
-                yyyyMMMEd{"E, d-M-y"}
-                yyyyMMMM{"M-y"}
-                yyyyMMMd{"d-M-y"}
-                yyyyMd{"d-M-y"}
-                yyyyQQQ{"QQQ y"}
-                yyyyQQQQ{"QQQQ y"}
+                y{"r"}
+                yyyy{"r"}
+                yyyyM{"M-r"}
+                yyyyMEd{"E, d-M-r"}
+                yyyyMMM{"M-r"}
+                yyyyMMMEd{"E, d-M-r"}
+                yyyyMMMM{"M-r"}
+                yyyyMMMd{"d-M-r"}
+                yyyyMd{"d-M-r"}
+                yyyyQQQ{"QQQ r"}
+                yyyyQQQQ{"QQQQ r"}
             }
         }
         coptic{
@@ -511,13 +526,23 @@ es{
                 "H:mm",
                 "EEEE, d 'de' MMMM 'de' y G",
                 "d 'de' MMMM 'de' y G",
-                "d/M/y G",
-                "d/M/yy G",
-                "{1} {0}",
+                "d 'de' MMM 'de' y G",
+                "d/M/y GGGGG",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "Hmmsszzzz",
+                "Hmmssz",
+                "Hmmss",
+                "Hmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GGGGGyMd",
+                "GGGGGyyMd",
             }
             availableFormats{
                 Bh{"h B"}
@@ -538,6 +563,7 @@ es{
                 GyMMMMEd{"E, d 'de' MMMM 'de' y G"}
                 GyMMMMd{"d 'de' MMMM 'de' y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -748,11 +774,21 @@ es{
                 "d 'de' MMMM 'de' y",
                 "d MMM y",
                 "d/M/yy",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "Hmmsszzzz",
+                "Hmmssz",
+                "Hmmss",
+                "Hmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMd",
             }
             appendItems{
                 Day{"{0} ({2}: {1})"}
@@ -786,6 +822,7 @@ es{
                 GyMMMMEd{"E, d 'de' MMMM 'de' y G"}
                 GyMMMMd{"d 'de' MMMM 'de' y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
                 H{"H"}
                 Hm{"H:mm"}
                 Hms{"H:mm:ss"}
@@ -1606,11 +1643,21 @@ es{
                 "d 'de' MMMM 'de' G y",
                 "d/M/G y",
                 "d/M/yy G",
-                "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
-                "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "Hmmsszzzz",
+                "Hmmssz",
+                "Hmmss",
+                "Hmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GGGGGyMMdd",
+                "GGGGGyyMMdd",
             }
             availableFormats{
                 Ed{"E d"}
@@ -1921,12 +1968,12 @@ es{
             }
             relativeTime{
                 future{
-                    one{"dentro de {0} día"}
-                    other{"dentro de {0} días"}
+                    one{"dentro de {0} d"}
+                    other{"dentro de {0} d"}
                 }
                 past{
-                    one{"hace {0} día"}
-                    other{"hace {0} días"}
+                    one{"hace {0} d"}
+                    other{"hace {0} d"}
                 }
             }
         }
@@ -1941,12 +1988,12 @@ es{
             }
             relativeTime{
                 future{
-                    one{"dentro de {0} día"}
-                    other{"dentro de {0} días"}
+                    one{"dentro de {0} d"}
+                    other{"dentro de {0} d"}
                 }
                 past{
-                    one{"hace {0} día"}
-                    other{"hace {0} días"}
+                    one{"hace {0} d"}
+                    other{"hace {0} d"}
                 }
             }
         }

@@ -201,13 +201,12 @@ __XNU_PRIVATE_EXTERN char corefilename[MAXPATHLEN + 1] = {"/private/var/cores/%N
 
 static LCK_MTX_DECLARE_ATTR(proc_klist_mlock, &proc_mlock_grp, &proc_lck_attr);
 
-ZONE_DECLARE(pgrp_zone, "pgrp",
+ZONE_DEFINE(pgrp_zone, "pgrp",
     sizeof(struct pgrp), ZC_ZFREE_CLEARMEM);
-ZONE_DECLARE(session_zone, "session",
+ZONE_DEFINE(session_zone, "session",
     sizeof(struct session), ZC_ZFREE_CLEARMEM);
-static SECURITY_READ_ONLY_LATE(zone_t) proc_ro_zone;
-ZONE_INIT(&proc_ro_zone, "proc_ro", sizeof(struct proc_ro),
-    ZC_READONLY | ZC_ZFREE_CLEARMEM, ZONE_ID_PROC_RO, NULL);
+ZONE_DEFINE_ID(ZONE_ID_PROC_RO, "proc_ro", struct proc_ro,
+    ZC_READONLY | ZC_ZFREE_CLEARMEM);
 
 typedef uint64_t unaligned_u64 __attribute__((aligned(1)));
 
@@ -437,7 +436,18 @@ uthread_reset_proc_refcount(uthread_t uth)
 		return;
 	}
 
+	struct uthread_proc_ref_info *upri = uth->uu_proc_ref_info;
+	uint32_t n = uth->uu_proc_ref_info->upri_pindex;
+
 	uth->uu_proc_ref_info->upri_pindex = 0;
+
+	if (n) {
+		for (unsigned i = 0; i < n; i++) {
+			btref_put(upri->upri_proc_stacks[i]);
+		}
+		bzero(upri->upri_proc_stacks, sizeof(btref_t) * n);
+		bzero(upri->upri_proc_ps, sizeof(proc_t) * n);
+	}
 #endif
 }
 
@@ -458,6 +468,13 @@ uthread_destroy_proc_refcount(uthread_t uth)
 {
 	if (proc_ref_tracking_disabled) {
 		return;
+	}
+
+	struct uthread_proc_ref_info *upri = uth->uu_proc_ref_info;
+	uint32_t n = uth->uu_proc_ref_info->upri_pindex;
+
+	for (unsigned i = 0; i < n; i++) {
+		btref_put(upri->upri_proc_stacks[i]);
 	}
 
 	kfree_type(struct uthread_proc_ref_info, uth->uu_proc_ref_info);
@@ -492,6 +509,9 @@ uthread_get_syscall_rejection_mask(void *uthread)
 }
 #endif /* CONFIG_DEBUG_SYSCALL_REJECTION */
 
+#if PROC_REF_DEBUG
+__attribute__((noinline))
+#endif /* PROC_REF_DEBUG */
 static void
 record_procref(proc_t p __unused, int count)
 {
@@ -507,13 +527,12 @@ record_procref(proc_t p __unused, int count)
 	struct uthread_proc_ref_info *upri = uth->uu_proc_ref_info;
 
 	if (upri->upri_pindex < NUM_PROC_REFS_TO_TRACK) {
-		backtrace((uintptr_t *)&upri->upri_proc_pcs[upri->upri_pindex],
-		    PROC_REF_STACK_DEPTH, NULL, NULL);
-
+		upri->upri_proc_stacks[upri->upri_pindex] =
+		    btref_get(__builtin_frame_address(0), BTREF_GET_NOWAIT);
 		upri->upri_proc_ps[upri->upri_pindex] = p;
 		upri->upri_pindex++;
 	}
-#endif
+#endif /* PROC_REF_DEBUG */
 }
 
 /*!
@@ -720,7 +739,7 @@ proc_free(void *_p)
 		/* release the reference taken in phash_remove_locked() */
 		proc_wait_release(pn);
 	}
-	zfree(proc_zone, p);
+	zfree_id(ZONE_ID_PROC, p);
 }
 
 void
@@ -3112,42 +3131,36 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 		void *start;
 		size_t length;
 		struct cs_blob* blob;
-		bool shouldFreeXML = false;
 
 		proc_lock(pt);
-
 		if ((proc_getcsflags(pt) & (CS_VALID | CS_DEBUGGED)) == 0) {
+			proc_unlock(pt);
 			error = EINVAL;
-			goto blob_out;
+			goto out;
 		}
 		blob = csproc_get_blob(pt);
+		proc_unlock(pt);
+
 		if (!blob) {
 			error = EBADEXEC;
-			goto blob_out;
+			goto out;
 		}
 
-		if (amfi && csblob_os_entitlements_get(blob)) {
-			void* osent = csblob_os_entitlements_get(blob);
-			CS_GenericBlob* xmlblob = NULL;
-			if (amfi->OSEntitlements_get_xml(osent, &xmlblob)) {
-				start = (void*)xmlblob;
-				length = (size_t)ntohl(xmlblob->length);
-				shouldFreeXML = true;
-			} else {
-				goto blob_out;
-			}
+		void* osent = csblob_os_entitlements_get(blob);
+		if (!osent) {
+			goto out;
+		}
+		CS_GenericBlob* xmlblob = NULL;
+		if (amfi->OSEntitlements_get_xml(osent, &xmlblob)) {
+			start = (void*)xmlblob;
+			length = (size_t)ntohl(xmlblob->length);
 		} else {
-			error = cs_entitlements_blob_get(pt, &start, &length);
-			if (error) {
-				goto blob_out;
-			}
+			goto out;
 		}
 
 		error = csops_copy_token(start, length, usize, uaddr);
-		if (shouldFreeXML) {
-			kfree(start, length);
-		}
-		goto blob_out;
+		kfree_data(start, length);
+		goto out;
 	}
 	case CS_OPS_DER_ENTITLEMENTS_BLOB: {
 		const void *start;
@@ -3155,15 +3168,17 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 		struct cs_blob* blob;
 
 		proc_lock(pt);
-
 		if ((proc_getcsflags(pt) & (CS_VALID | CS_DEBUGGED)) == 0) {
+			proc_unlock(pt);
 			error = EINVAL;
-			goto blob_out;
+			goto out;
 		}
 		blob = csproc_get_blob(pt);
+		proc_unlock(pt);
+
 		if (!blob) {
 			error = EBADEXEC;
-			goto blob_out;
+			goto out;
 		}
 
 		error = csblob_get_der_entitlements(blob, (const CS_GenericBlob **)&start, &length);
@@ -3176,15 +3191,15 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 					start = transmuted;
 					length = (size_t)ntohl(transmuted->length);
 				} else {
-					goto blob_out;
+					goto out;
 				}
 			} else {
-				goto blob_out;
+				goto out;
 			}
 		}
 
 		error = csops_copy_token(start, length, usize, uaddr);
-		goto blob_out;
+		goto out;
 	}
 	case CS_OPS_MARKRESTRICT:
 		proc_lock(pt);
@@ -3276,14 +3291,15 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 			error = EINVAL;
 			break;
 		}
-
+		proc_unlock(pt);
+		// Don't need to lock here as not accessing CSFLAGS
 		error = cs_blob_get(pt, &start, &length);
 		if (error) {
-			goto blob_out;
+			goto out;
 		}
 
 		error = csops_copy_token(start, length, usize, uaddr);
-		goto blob_out;
+		goto out;
 	}
 	case CS_OPS_IDENTITY:
 	case CS_OPS_TEAMID: {
@@ -3309,11 +3325,12 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 			error = EINVAL;
 			break;
 		}
-
 		identity = ops == CS_OPS_TEAMID ? csproc_get_teamid(pt) : cs_identity_get(pt);
+		proc_unlock(pt);
+
 		if (identity == NULL) {
 			error = ENOENT;
-			goto blob_out;
+			goto out;
 		}
 
 		length = strlen(identity) + 1;         /* include NUL */
@@ -3322,7 +3339,7 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 
 		error = copyout(fakeheader, uaddr, sizeof(fakeheader));
 		if (error) {
-			goto blob_out;
+			goto out;
 		}
 
 		if (usize < sizeof(fakeheader) + length) {
@@ -3330,7 +3347,7 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 		} else if (usize > sizeof(fakeheader)) {
 			error = copyout(identity, uaddr + sizeof(fakeheader), length);
 		}
-		goto blob_out;
+		goto out;
 	}
 
 	case CS_OPS_CLEARINSTALLER:
@@ -3368,10 +3385,6 @@ csops_internal(pid_t pid, int ops, user_addr_t uaddr, user_size_t usersize, user
 		break;
 	}
 out:
-	proc_rele(pt);
-	return error;
-blob_out:
-	proc_unlock(pt);
 	proc_rele(pt);
 	return error;
 }

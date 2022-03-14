@@ -205,4 +205,18 @@ udtitvfmt_getContext(const UDateIntervalFormat* formatter,
     return reinterpret_cast<const DateIntervalFormat*>(formatter)->getContext( type, *status );
 }
 
+U_CAPI void U_EXPORT2
+udtitvfmt_getPatternString(const UDateIntervalFormat* formatter,
+                           const UChar* skeleton,
+                           UCalendarDateFields field,
+                           UChar* result,
+                           int32_t resultCapacity,
+                           UErrorCode* status) {
+    const DateIntervalFormat* dif = reinterpret_cast<const DateIntervalFormat*>(formatter);
+    UnicodeString pattern;
+    
+    dif->getDateIntervalInfo()->getIntervalPattern(UnicodeString(skeleton), field, pattern, *status);
+    pattern.extract(result, resultCapacity, *status);
+}
+
 #endif /* #if !UCONFIG_NO_FORMATTING */

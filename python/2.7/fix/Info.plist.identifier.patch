@@ -1,0 +1,20 @@
+--- Info.plist.orig	2021-12-20 12:12:33.000000000 -0800
++++ Info.plist	2021-12-21 11:37:09.000000000 -0800
+@@ -18,7 +18,7 @@
+ 		</dict>
+ 	</array>
+ 	<key>CFBundleExecutable</key>
+-	<string>Python</string>
++	<string>PythonLegacy</string>
+ 	<key>CFBundleGetInfoString</key>
+ 	<string>2.7.18, (c) 2001-2016 Python Software Foundation.</string>
+ 	<key>CFBundleHelpBookFolder</key>
+@@ -33,7 +33,7 @@
+ 	<key>CFBundleIconFile</key>
+ 	<string>PythonInterpreter.icns</string>
+ 	<key>CFBundleIdentifier</key>
+-	<string>org.python.pythonlegacy</string>
++	<string>org.python.python</string>
+ 	<key>CFBundleInfoDictionaryVersion</key>
+ 	<string>6.0</string>
+ 	<key>CFBundleLongVersionString</key>

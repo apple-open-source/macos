@@ -25,8 +25,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FEBlendNEON_h
-#define FEBlendNEON_h
+#pragma once
 
 #if HAVE(ARM_NEON_INTRINSICS)
 
@@ -107,29 +106,29 @@ public:
     }
 };
 
-void FEBlend::platformApplySoftware()
+bool FEBlend::platformApplySoftware(const Filter&)
 {
     FilterEffect* in = inputEffect(0);
     FilterEffect* in2 = inputEffect(1);
 
-    auto& destinationPixelBuffer = createPremultipliedImageResult();
+    auto& destinationPixelBuffer = pixelBufferResult(AlphaPremultiplication::Premultiplied);
     if (!destinationPixelBuffer)
-        return;
+        return false;
 
     auto& destinationPixelArray = destinationPixelBuffer->data();
 
     IntRect effectADrawingRect = requestedRegionOfInputPixelBuffer(in->absolutePaintRect());
-    auto sourcePixelArrayA = in->premultipliedResult(effectADrawingRect);
+    auto sourcePixelArrayA = in->getPixelBufferResult(AlphaPremultiplication::Premultiplied, effectADrawingRect);
 
     IntRect effectBDrawingRect = requestedRegionOfInputPixelBuffer(in2->absolutePaintRect());
-    auto sourcePixelArrayB = in2->premultipliedResult(effectBDrawingRect);
+    auto sourcePixelArrayB = in2->getPixelBufferResult(AlphaPremultiplication::Premultiplied, effectBDrawingRect);
 
     unsigned sourcePixelArrayLength = sourcePixelArrayA->length();
     ASSERT(pixelArrayLength == sourcePixelArrayB->length());
 
     if (sourcePixelArrayLength >= 8) {
         platformApplyNEON(sourcePixelArrayA->data(), sourcePixelArrayB->data(), destinationPixelArray.data(), sourcePixelArrayLength);
-        return;
+        return true;
     }
     // If there is just one pixel we expand it to two.
     ASSERT(sourcePixelArrayLength > 0);
@@ -140,6 +139,7 @@ void FEBlend::platformApplySoftware()
     sourceBAndDest[0] = reinterpret_cast<uint32_t*>(sourcePixelArrayB->data())[0];
     platformApplyNEON(reinterpret_cast<uint8_t*>(sourceA), reinterpret_cast<uint8_t*>(sourceBAndDest), reinterpret_cast<uint8_t*>(sourceBAndDest), 8);
     reinterpret_cast<uint32_t*>(destinationPixelArray.data())[0] = sourceBAndDest[0];
+    return true;
 }
 
 void FEBlend::platformApplyNEON(unsigned char* srcPixelArrayA, unsigned char* srcPixelArrayB, unsigned char* dstPixelArray,
@@ -205,5 +205,3 @@ void FEBlend::platformApplyNEON(unsigned char* srcPixelArrayA, unsigned char* sr
 } // namespace WebCore
 
 #endif // HAVE(ARM_NEON_INTRINSICS)
-
-#endif // FEBlendNEON_h

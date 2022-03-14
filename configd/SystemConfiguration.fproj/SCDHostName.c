@@ -43,6 +43,41 @@
 
 
 
+#ifndef	__OPEN_SOURCE
+#pragma mark Support
+
+
+static Boolean
+keepPrivate(void)
+{
+	static Boolean		keepPrivate	= FALSE;
+	static dispatch_once_t	once;
+
+	dispatch_once(&once, ^{
+		SecTaskRef	current_task;
+
+		current_task = SecTaskCreateFromSelf(NULL);
+		if (current_task != NULL) {
+			CFBooleanRef	entitlement;
+
+			entitlement = SecTaskCopyValueForEntitlement(current_task,
+								     CFSTR("com.apple.security.on-demand-install-capable"),
+								     NULL);
+			if (entitlement != NULL) {
+				if (isA_CFBoolean(entitlement)) {
+					keepPrivate = CFBooleanGetValue(entitlement);
+				}
+				CFRelease(entitlement);
+			}
+			CFRelease(current_task);
+		}
+	});
+
+	return keepPrivate;
+}
+#endif	// __OPEN_SOURCE
+
+
 #pragma mark ComputerName
 
 
@@ -129,6 +164,11 @@ SCDynamicStoreCopyComputerName(SCDynamicStoreRef	store,
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
 
+#ifndef	__OPEN_SOURCE
+	if (keepPrivate()) {
+		return NULL;
+	}
+#endif	// __OPEN_SOURCE
 
 	if (nameEncoding != NULL) {
 		// set a default encoding
@@ -268,6 +308,11 @@ SCPreferencesGetHostName(SCPreferencesRef	prefs)
 	CFStringRef	name;
 	CFStringRef	path;
 
+#ifndef	__OPEN_SOURCE
+	if (keepPrivate()) {
+		return NULL;
+	}
+#endif	// __OPEN_SOURCE
 
 	path = CFStringCreateWithFormat(NULL,
 					NULL,
@@ -416,6 +461,11 @@ SCDynamicStoreCopyLocalHostName(SCDynamicStoreRef store)
 	CFStringRef		key;
 	CFStringRef		name		= NULL;
 
+#ifndef	__OPEN_SOURCE
+	if (keepPrivate()) {
+		return NULL;
+	}
+#endif	// __OPEN_SOURCE
 
 	key  = SCDynamicStoreKeyCreateHostNames(NULL);
 	dict = SCDynamicStoreCopyValue(store, key);

@@ -864,7 +864,7 @@ typedef enum ULocAvailableType {
    * @internal
    */
   ULOC_AVAILABLE_COUNT
-#endif
+#endif  /* U_HIDE_INTERNAL_API */
 } ULocAvailableType;
 
 /**

@@ -32,7 +32,7 @@
 #define DEFAULT_HOST   	  	"www.amazon.com"
 #define DEFAULT_PORT     	443
 
-static const int _maxFileStringSize = 100;
+#define _maxFileStringSize 100
 
 static void usageNorm(char **argv)
 {

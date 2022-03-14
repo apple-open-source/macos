@@ -11,6 +11,7 @@
 #include <sys/stat.h>
 #include <removefile.h>
 
+#include "bsize_test.h"
 #include "clone_test.h"
 #include "ctype_test.h"
 #include "identical_test.h"
@@ -65,6 +66,7 @@ int main(__unused int argc, __unused const char * argv[]) {
 	failed |= do_preserve_dst_tracked_test(TEST_DIR, stb.f_bsize);
 	failed |= do_src_dst_identical_test(TEST_DIR, stb.f_bsize);
 	failed |= do_xattr_test(TEST_DIR, stb.f_bsize);
+	failed |= do_bsize_test(TEST_DIR, stb.f_bsize);
 	failed |= do_compressed_type_test(TEST_DIR, stb.f_bsize);
 
 	// Cleanup the disk image we ran our tests on.

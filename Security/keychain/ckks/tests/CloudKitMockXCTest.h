@@ -227,6 +227,10 @@ NS_ASSUME_NONNULL_BEGIN
 // This way, you can modify the CK zone to cause later collisions.
 - (void)expectCKFetchAndRunBeforeFinished:(void (^_Nullable)(void))blockAfterFetch;
 
+// Look for a fetch that includes all the zoneIDs given, and no others
+- (void)expectCKFetchForZones:(NSSet<CKRecordZoneID*>*)zoneIDs
+            runBeforeFinished:(void (^)(void))blockAfterFetch;
+
 // Introspect the fetch object before allowing it to proceed
 - (void)expectCKFetchWithFilter:(BOOL (^)(FakeCKFetchRecordZoneChangesOperation*))operationMatch
               runBeforeFinished:(void (^)(void))blockAfterFetch;

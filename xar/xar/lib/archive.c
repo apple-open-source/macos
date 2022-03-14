@@ -285,12 +285,15 @@ xar_t xar_open_digest_verify(const char *file, int32_t flags, void *expected_toc
 			}
 
 		}
+		
 		XAR(ret)->heap_fd = -1;
 		inflateInit(&XAR(ret)->zs);
+		
 		if( XAR(ret)->fd < 0 ) {
 			xar_close(ret);
 			return NULL;
 		}
+	
 
 		if( xar_parse_header(ret) != 0 ) {
 			xar_close(ret);
@@ -970,7 +973,7 @@ static xar_file_t xar_add_node(xar_t x, xar_file_t f, const char *name, const ch
 			return NULL;
 		}
 
-		ret = xar_file_new(NULL);
+		ret = xar_file_new(name);
 		if( !ret )
 			return NULL;
 		memset(idstr, 0, sizeof(idstr));
@@ -1006,7 +1009,7 @@ static xar_file_t xar_add_node(xar_t x, xar_file_t f, const char *name, const ch
 			return NULL;
 		}
 
-		ret = xar_file_new(f);
+		ret = xar_file_new_from_parent(f, name);
 		if( !ret )
 			return NULL;
 		memset(idstr, 0, sizeof(idstr));
@@ -1014,8 +1017,6 @@ static xar_file_t xar_add_node(xar_t x, xar_file_t f, const char *name, const ch
 		xar_attr_set(ret, NULL, "id", idstr);
 		XAR_FILE(ret)->fspath = tmp;
 	}
-
-	xar_prop_set(ret, "name", name);
 
 	if( xar_arcmod_archive(x, ret, XAR_FILE(ret)->fspath, NULL, 0) < 0 ) {
 		xar_file_t i = NULL;
@@ -1061,7 +1062,7 @@ static xar_file_t xar_add_pseudodir(xar_t x, xar_file_t f, const char *name, con
 			return NULL;
 		}
 
-		ret = xar_file_new(NULL);
+		ret = xar_file_new(name);
 		if( !ret )
 			return NULL;
 		memset(idstr, 0, sizeof(idstr));
@@ -1097,7 +1098,7 @@ static xar_file_t xar_add_pseudodir(xar_t x, xar_file_t f, const char *name, con
 			return NULL;
 		}
 
-		ret = xar_file_new(f);
+		ret = xar_file_new_from_parent(f, name);
 		if( !ret )
 			return NULL;
 		memset(idstr, 0, sizeof(idstr));
@@ -1105,7 +1106,6 @@ static xar_file_t xar_add_pseudodir(xar_t x, xar_file_t f, const char *name, con
 		xar_attr_set(ret, NULL, "id", idstr);
 		XAR_FILE(ret)->fspath = tmp;
 	}
-	xar_prop_set(ret, "name", name);
 	xar_prop_set(ret, "type", "directory");
 
 	return ret;
@@ -1250,7 +1250,7 @@ xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char
 	char idstr[32];
 	
 	if( !parent ) {
-		ret = xar_file_new(NULL);
+		ret = xar_file_new(name);
 		if( !ret )
 			return NULL;
 		memset(idstr, 0, sizeof(idstr));
@@ -1264,7 +1264,7 @@ xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char
 			XAR(x)->files = ret;
 		}
 	} else {
-		ret = xar_file_new(parent);
+		ret = xar_file_new_from_parent(parent, name);
 		if( !ret )
 			return NULL;
 		memset(idstr, 0, sizeof(idstr));
@@ -1272,8 +1272,6 @@ xar_file_t xar_add_frombuffer(xar_t x, xar_file_t parent, const char *name, char
 		xar_attr_set(ret, NULL, "id", idstr);
 		XAR_FILE(ret)->fspath = NULL;
 	}
-	
-	xar_prop_set(ret, "name", name);
 		
 	//int32_t xar_arcmod_archive(xar_t x, xar_file_t f, const char *file, const char *buffer, size_t len)
 	if( xar_arcmod_archive(x, ret, NULL , buffer , length) < 0 ) {
@@ -1300,7 +1298,7 @@ xar_file_t xar_add_folder(xar_t x, xar_file_t f, const char *name, struct stat *
 	if( info )
 		memcpy(&XAR(x)->sbcache,info,sizeof(struct stat));
 	
-	ret = xar_file_new(f);
+	ret = xar_file_new_from_parent(f, name);
 	if( !ret )
 		return NULL;
 	
@@ -1319,8 +1317,6 @@ xar_file_t xar_add_folder(xar_t x, xar_file_t f, const char *name, struct stat *
 			XAR(x)->files = ret;
 		}
 	}
-	
-	xar_prop_set(ret, "name", name);
 
 	if( xar_arcmod_archive(x, ret, XAR_FILE(ret)->fspath, NULL, 0) < 0 ) {
 		xar_file_t i;

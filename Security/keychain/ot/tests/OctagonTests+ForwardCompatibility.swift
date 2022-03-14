@@ -49,6 +49,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                policySecrets: nil,
                                syncUserControllableViews: .UNKNOWN,
                                secureElementIdentity: nil,
+                               setting: nil,
                                signingPrivKeyPersistentRef: nil,
                                encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                                 XCTAssertNil(error, "Should be no error preparing the second peer")
@@ -214,6 +215,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
                                policySecrets: nil,
                                syncUserControllableViews: .UNKNOWN,
                                secureElementIdentity: nil,
+                               setting: nil,
                                signingPrivKeyPersistentRef: nil,
                                encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, _, error in
                                 XCTAssertNil(error, "Should be no error preparing the second peer")
@@ -335,7 +337,7 @@ class OctagonForwardCompatibilityTests: OctagonTestsBase {
 
         self.zones![futureViewZoneID] = FakeCKZone(zone: futureViewZoneID)
 
-        XCTAssertTrue(currentPolicyDocument.keyViewMapping.filter { $0.view == futureViewName }.isEmpty, "Current policy should not include future view")
+        XCTAssertFalse(currentPolicyDocument.keyViewMapping.contains { $0.view == futureViewName }, "Current policy should not include future view")
 
         let newPolicyDocument = currentPolicyDocument.clone(withVersionNumber: currentPolicyDocument.version.versionNumber + 1,
                                                             prependingCategoriesByView: [futureViewName: Set(["watch", "full", "tv", "audio"])],

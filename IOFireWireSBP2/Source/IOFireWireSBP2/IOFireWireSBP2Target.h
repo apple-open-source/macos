@@ -46,7 +46,7 @@ enum
     required to discover it's LUNs through the registry.
 */
 
-class IOFireWireSBP2Target : public IOService
+class __exported IOFireWireSBP2Target : public IOService
 {
     OSDeclareDefaultStructors(IOFireWireSBP2Target);
 

@@ -73,7 +73,6 @@ bool _SecServerDeleteMUSERViews(SecurityClient *client, uid_t uid, CFErrorRef *e
 
 #if SHAREDWEBCREDENTIALS
 bool _SecAddSharedWebCredential(CFDictionaryRef attributes, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
-bool _SecCopySharedWebCredential(CFDictionaryRef query, SecurityClient *client, const audit_token_t *clientAuditToken, CFStringRef appID, CFArrayRef domains, CFTypeRef *result, CFErrorRef *error);
 #endif /* SHAREDWEBCREDENTIALS */
 
 // Hack to log objects from inside SOS code

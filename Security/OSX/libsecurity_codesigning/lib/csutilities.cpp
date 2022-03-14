@@ -62,15 +62,16 @@ CFAbsoluteTime SecAbsoluteTimeFromDateContent(DERTag tag, const uint8_t *bytes,
 namespace Security {
 namespace CodeSigning {
 
-
 //
 // Test for the canonical Apple CA certificate
 //
 bool isAppleCA(SecCertificateRef cert)
 {
 	SecAppleTrustAnchorFlags flags = 0;
-	if (SecIsInternalRelease())
+	if (SecIsInternalRelease() || SecAreQARootCertificatesEnabled()) {
 		flags |= kSecAppleTrustAnchorFlagsIncludeTestAnchors;
+		flags |= kSecAppleTrustAnchorFlagsAllowNonProduction;
+	}
 	return SecIsAppleTrustAnchor(cert, flags);
 }
 
@@ -315,7 +316,7 @@ bool LimitedAsync::perform(Dispatch::Group &groupRef, void (^block)()) {
 
 		groupRef.enqueue(defaultQueue, ^{
 			// Hold the semaphore count until the worker is done validating.
-			Dispatch::SemaphoreWait innerWait(wait);
+			Dispatch::SemaphoreWait innerWait(std::move(wait));
 			block();
 		});
 		return true;

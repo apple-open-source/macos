@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008, 2009, 2011, 2012, 2015, 2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2009, 2011, 2012, 2015, 2018, 2020-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -33,12 +33,11 @@
 
 
 __BEGIN_DECLS
-
+typedef void (*dns_change_callback)(void);
 void	dns_configuration_init		(CFBundleRef		bundle);
 
 
-void	dns_configuration_monitor	(SCDynamicStoreRef	store,
-					 SCDynamicStoreCallBack	callout);
+void	dns_configuration_monitor	(dns_change_callback	callback);
 
 Boolean	dns_configuration_set		(CFDictionaryRef	defaultResolver,
 					 CFDictionaryRef	services,

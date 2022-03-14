@@ -251,8 +251,10 @@ print_ipsecstats(void)
 	p(in_badspi, "\t" LLU " inbound packet%s failed getting SPI\n");
 	p(in_ahreplay, "\t" LLU " inbound packet%s failed on AH replay check\n");
 	p(in_espreplay, "\t" LLU " inbound packet%s failed on ESP replay check\n");
-	p(in_ahauthsucc, "\t" LLU " inbound packet%s considered authentic\n");
-	p(in_ahauthfail, "\t" LLU " inbound packet%s failed on authentication\n");
+	p(in_ahauthsucc, "\t" LLU " inbound packet%s considered authentic by AH\n");
+	p(in_ahauthfail, "\t" LLU " inbound packet%s failed on AH authentication\n");
+	p(in_espauthsucc, "\t" LLU " inbound packet%s considered authentic by ESP\n");
+	p(in_espauthfail, "\t" LLU " inbound packet%s failed on ESP authentication\n");
 	hist(in_ahhist, ipsec_ahnames, "AH input");
 	hist(in_esphist, ipsec_espnames, "ESP input");
 	hist(in_comphist, ipsec_compnames, "IPComp input");

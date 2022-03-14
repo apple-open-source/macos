@@ -1,7 +1,7 @@
 " These commands create the option window.
 "
 " Maintainer:	Bram Moolenaar <Bram@vim.org>
-" Last Change:	2020 Oct 27
+" Last Change:	2021 Dec 21
 
 " If there already is an option window, jump to that one.
 let buf = bufnr('option-window')
@@ -260,12 +260,16 @@ call <SID>OptionG("sect", &sect)
 call <SID>AddOption("path", gettext("list of directory names used for file searching"))
 call append("$", "\t" .. s:global_or_local)
 call <SID>OptionG("pa", &pa)
+call <SID>AddOption("cdhome", gettext(":cd without argument goes to the home directory"))
+call <SID>BinOptionG("cdh", &cdh)
 call <SID>AddOption("cdpath", gettext("list of directory names used for :cd"))
 call <SID>OptionG("cd", &cd)
 if exists("+autochdir")
   call <SID>AddOption("autochdir", gettext("change to directory of file in buffer"))
   call <SID>BinOptionG("acd", &acd)
 endif
+call <SID>AddOption("autoshelldir", gettext("change to pwd of shell in terminal buffer"))
+call <SID>BinOptionG("asd", &asd)
 call <SID>AddOption("wrapscan", gettext("search commands wrap around the end of the buffer"))
 call <SID>BinOptionG("ws", &ws)
 call <SID>AddOption("incsearch", gettext("show match for partly typed search command"))
@@ -558,14 +562,22 @@ endif
 call <SID>Header(gettext("terminal"))
 call <SID>AddOption("term", gettext("name of the used terminal"))
 call <SID>OptionG("term", &term)
+
 call <SID>AddOption("ttytype", gettext("alias for 'term'"))
 call <SID>OptionG("tty", &tty)
+
 call <SID>AddOption("ttybuiltin", gettext("check built-in termcaps first"))
 call <SID>BinOptionG("tbi", &tbi)
+
 call <SID>AddOption("ttyfast", gettext("terminal connection is fast"))
 call <SID>BinOptionG("tf", &tf)
+
+call <SID>AddOption("xtermcodes", gettext("request terminal key codes when an xterm is detected"))
+call <SID>BinOptionG("xtermcodes", &xtermcodes)
+
 call <SID>AddOption("weirdinvert", gettext("terminal that requires extra redrawing"))
 call <SID>BinOptionG("wiv", &wiv)
+
 call <SID>AddOption("esckeys", gettext("recognize keys that start with <Esc> in Insert mode"))
 call <SID>BinOptionG("ek", &ek)
 call <SID>AddOption("scrolljump", gettext("minimal number of lines to scroll at a time"))
@@ -650,6 +662,8 @@ if has("gui")
     endif
     call <SID>AddOption("guiheadroom", gettext("room (in pixels) left above/below the window"))
     call append("$", " \tset ghr=" . &ghr)
+    call <SID>AddOption("guiligatures", gettext("list of ASCII characters that can be combined into complex shapes"))
+    call <SID>OptionG("gli", &gli)
   endif
   if has("directx")
     call <SID>AddOption("renderoptions", gettext("options for text rendering"))
@@ -838,6 +852,9 @@ if has("insert_expand")
   call <SID>AddOption("thesaurus", gettext("list of thesaurus files for keyword completion"))
   call append("$", "\t" .. s:global_or_local)
   call <SID>OptionG("tsr", &tsr)
+  call <SID>AddOption("thesaurusfunc", gettext("function used for thesaurus completion"))
+  call append("$", "\t" .. s:global_or_local)
+  call <SID>OptionG("tsrfu", &tsrfu)
 endif
 call <SID>AddOption("infercase", gettext("adjust case of a keyword completion match"))
 call append("$", "\t" .. s:local_to_buffer)

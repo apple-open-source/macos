@@ -12,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -33,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)comm.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/comm/comm.1,v 1.14 2005/01/25 22:28:34 tjr Exp $
+.\" $FreeBSD$
 .\"
-.Dd January 26, 2005
+.Dd July 27, 2020
 .Dt COMM 1
 .Os
 .Sh NAME
@@ -65,11 +61,13 @@ The filename ``-'' means the standard input.
 The following options are available:
 .Bl -tag -width indent
 .It Fl 1
-Suppress printing of column 1.
+Suppress printing of column 1, lines only in
+.Ar file1 .
 .It Fl 2
-Suppress printing of column 2.
+Suppress printing of column 2, lines only in
+.Ar file2 .
 .It Fl 3
-Suppress printing of column 3.
+Suppress printing of column 3, lines common to both.
 .It Fl i
 Case insensitive comparison of lines.
 .El
@@ -97,6 +95,35 @@ as described in
 .Xr environ 7 .
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Assuming a file named
+.Pa example.txt
+with the following contents:
+.Bd -literal -offset indent
+a
+b
+c
+d
+.Ed
+.Pp
+Show lines only in
+.Pa example.txt ,
+lines only in stdin and common lines:
+.Bd -literal -offset indent
+$ echo -e "B\enc" | comm example.txt -
+        B
+a
+b
+                c
+d
+.Ed
+.Pp
+Show only common lines doing case insensitive comparisons:
+.Bd -literal -offset indent
+$ echo -e "B\enc" | comm -1 -2 -i example.txt -
+b
+c
+.Ed
 .Sh SEE ALSO
 .Xr cmp 1 ,
 .Xr diff 1 ,
@@ -110,15 +137,9 @@ utility conforms to
 .Pp
 The
 .Fl i
-option is an extension to the
-.Tn POSIX
-standard.
+option is an extension to the POSIX standard.
 .Sh HISTORY
 A
 .Nm
 command appeared in
 .At v4 .
-.Sh BUGS
-Input lines are limited to
-.Dv LINE_MAX
-(2048) characters in length.

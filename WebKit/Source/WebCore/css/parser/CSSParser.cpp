@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
  * Copyright (C) 2005 Allan Sandfeld Jensen (kde@carewolf.com)
- * Copyright (C) 2004-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2004-2021 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Nicholas Shanks <webkit@nickshanks.com>
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
@@ -65,7 +65,7 @@ CSSParser::CSSParser(const CSSParserContext& context)
 
 CSSParser::~CSSParser() = default;
 
-void CSSParser::parseSheet(StyleSheetContents* sheet, const String& string, RuleParsing ruleParsing)
+void CSSParser::parseSheet(StyleSheetContents& sheet, const String& string, RuleParsing ruleParsing)
 {
     return CSSParserImpl::parseStyleSheet(string, m_context, sheet, ruleParsing);
 }
@@ -111,7 +111,7 @@ Color CSSParser::parseColor(const String& string, bool strict)
 Color CSSParser::parseSystemColor(StringView string)
 {
     auto keyword = cssValueKeywordID(string);
-    if (!StyleColor::isSystemColor(keyword))
+    if (!StyleColor::isSystemColorKeyword(keyword))
         return { };
     return RenderTheme::singleton().systemColor(keyword, { });
 }
@@ -195,7 +195,7 @@ RefPtr<CSSValue> CSSParser::parseValueWithVariableReferences(CSSPropertyID propI
             return nullptr;
 
         ParsedPropertyVector parsedProperties;
-        if (!CSSPropertyParser::parseValue(shorthandID, false, resolvedData->tokens(), m_context, parsedProperties, StyleRuleType::Style))
+        if (!CSSPropertyParser::parseValue(shorthandID, false, resolvedData->tokens(), substitution.shorthandValue().context(), parsedProperties, StyleRuleType::Style))
             return nullptr;
 
         for (auto& property : parsedProperties) {
@@ -214,28 +214,27 @@ RefPtr<CSSValue> CSSParser::parseValueWithVariableReferences(CSSPropertyID propI
         auto resolvedData = valueWithReferences.resolveVariableReferences(builderState);
         if (!resolvedData)
             return nullptr;
-        return CSSPropertyParser::parseSingleValue(propID, resolvedData->tokens(), m_context);
+        return CSSPropertyParser::parseSingleValue(propID, resolvedData->tokens(), valueWithReferences.context());
     }
 
     const auto& customPropValue = downcast<CSSCustomPropertyValue>(value);
-    const auto& valueWithReferences = WTF::get<Ref<CSSVariableReferenceValue>>(customPropValue.value()).get();
+    const auto& valueWithReferences = std::get<Ref<CSSVariableReferenceValue>>(customPropValue.value()).get();
 
     auto& name = downcast<CSSCustomPropertyValue>(value).name();
     auto* registered = builderState.document().getCSSRegisteredCustomPropertySet().get(name);
-    auto& syntax = registered ? registered->syntax : "*";
+    auto& syntax = registered ? registered->syntax : "*"_s;
     auto resolvedData = valueWithReferences.resolveVariableReferences(builderState);
-
     if (!resolvedData)
         return nullptr;
 
     // FIXME handle REM cycles.
     HashSet<CSSPropertyID> dependencies;
-    CSSPropertyParser::collectParsedCustomPropertyValueDependencies(syntax, false, dependencies, resolvedData->tokens(), m_context);
+    CSSPropertyParser::collectParsedCustomPropertyValueDependencies(syntax, false, dependencies, resolvedData->tokens(), valueWithReferences.context());
 
     for (auto id : dependencies)
         builderState.builder().applyProperty(id);
 
-    return CSSPropertyParser::parseTypedCustomPropertyValue(name, syntax, resolvedData->tokens(), builderState, m_context);
+    return CSSPropertyParser::parseTypedCustomPropertyValue(name, syntax, resolvedData->tokens(), builderState, valueWithReferences.context());
 }
 
 Vector<double> CSSParser::parseKeyframeKeyList(const String& selector)

@@ -25,6 +25,7 @@
 #include "RenderSVGInlineText.h"
 #include "RenderSVGResource.h"
 #include "RenderSVGText.h"
+#include "SVGGraphicsElement.h"
 #include "SVGInlineFlowBox.h"
 #include "SVGResourcesCache.h"
 #include <wtf/IsoMallocInlines.h>
@@ -36,7 +37,6 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(RenderSVGInline);
 RenderSVGInline::RenderSVGInline(SVGGraphicsElement& element, RenderStyle&& style)
     : RenderInline(element, WTFMove(style))
 {
-    setAlwaysCreateLineBoxes();
 }
 
 std::unique_ptr<LegacyInlineFlowBox> RenderSVGInline::createInlineFlowBox()
@@ -80,7 +80,7 @@ std::optional<FloatRect> RenderSVGInline::computeFloatVisibleRectInContainer(con
     return SVGRenderSupport::computeFloatVisibleRectInContainer(*this, rect, container, context);
 }
 
-void RenderSVGInline::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, MapCoordinatesFlags, bool* wasFixed) const
+void RenderSVGInline::mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState& transformState, OptionSet<MapCoordinatesMode>, bool* wasFixed) const
 {
     SVGRenderSupport::mapLocalToContainer(*this, ancestorContainer, transformState, wasFixed);
 }

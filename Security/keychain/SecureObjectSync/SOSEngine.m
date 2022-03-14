@@ -2362,10 +2362,6 @@ void SOSEngineMessageCallCallback(SOSEnginePeerMessageCallBackInfo *sent, bool o
     [sent callCallback:ok];
 }
 
-void SOSEngineFreeMessageCallback(SOSEnginePeerMessageCallBackInfo* psmc) {
-    psmc = nil;
-}
-
 static void SOSEngineLogItemError(SOSEngineRef engine, CFStringRef peerID, CFDataRef key, CFDataRef optionalDigest, const char *where, CFErrorRef error) {
     if (!optionalDigest) {
         const uint8_t *d = CFDataGetBytePtr(key);

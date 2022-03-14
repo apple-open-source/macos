@@ -100,10 +100,11 @@ net_filter_event_init(void)
 }
 
 static void
-net_filter_event_enqueue_callback(void *arg __unused)
+net_filter_event_enqueue_callback(struct nwk_wq_entry *nwk_kwqe)
 {
 	EVENTHANDLER_INVOKE(&net_filter_evhdlr_ctxt, net_filter_event,
 	    net_filter_event_state);
+	kfree_type(struct nwk_wq_entry, nwk_kwqe);
 }
 
 static void
@@ -111,13 +112,7 @@ net_filter_event_enqueue(void)
 {
 	struct nwk_wq_entry *nwk_wqe;
 
-	MALLOC(nwk_wqe, struct nwk_wq_entry *,
-	    sizeof(struct nwk_wq_entry),
-	    M_NWKWQ, M_WAITOK | M_ZERO);
-	if (nwk_wqe == NULL) {
-		os_log_error(OS_LOG_DEFAULT, "unable to allocate event");
-		return;
-	}
+	nwk_wqe = kalloc_type(struct nwk_wq_entry, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 	nwk_wqe->func = net_filter_event_enqueue_callback;
 	nwk_wq_enqueue(nwk_wqe);
 }

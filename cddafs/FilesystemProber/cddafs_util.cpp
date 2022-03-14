@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -855,9 +855,17 @@ Mount ( const char * 	deviceNamePtr,
 	DebugLog ( ( "sizeof(args) = %ld\n", sizeof ( args ) ) );
 	
 	// Obtain the real path.
-	realMountPointPtr = realpath ( mountPointPtr, realMountPoint );
-	require ( ( realMountPointPtr != NULL ), ReleaseXMLData );
-	
+	if ( mountFlags & MNT_NOFOLLOW )
+	{
+		size_t actualSize = strlcpy ( realMountPoint, mountPointPtr, PATH_MAX );
+		require ( ( actualSize < PATH_MAX ), ReleaseXMLData );
+	}
+	else
+	{
+		realMountPointPtr = realpath ( mountPointPtr, realMountPoint );
+		require ( ( realMountPointPtr != NULL ), ReleaseXMLData );
+	}
+
 	// Issue the system mount command
 	result = mount ( vfc.vfc_name, realMountPoint, mountFlags, &args );
 	require ( ( result == 0 ), ReleaseXMLData );

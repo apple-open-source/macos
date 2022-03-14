@@ -64,11 +64,11 @@
 #import <WebCore/Quirks.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/VelocityData.h>
-#import <WebCore/VersionChecks.h>
 #import <objc/message.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #import <wtf/text/TextStream.h>
 #import "AppKitSoftLink.h"
 
@@ -152,8 +152,6 @@
     Vector<RetainPtr<NSURL>> _temporaryURLsToDeleteWhenDeallocated;
 }
 
-#if USE(UIKIT_KEYBOARD_ADDITIONS)
-
 // Evernote expects to swizzle -keyCommands on WKContentView or they crash. Remove this hack
 // as soon as reasonably possible. See <rdar://problem/51759247>.
 static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
@@ -162,8 +160,6 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
     using SuperKeyCommandsFunction = NSArray *(*)(struct objc_super*, SEL);
     return reinterpret_cast<SuperKeyCommandsFunction>(&objc_msgSendSuper)(&super, @selector(keyCommands));
 }
-
-#endif
 
 - (instancetype)_commonInitializationWithProcessPool:(WebKit::WebProcessPool&)processPool configuration:(Ref<API::PageConfiguration>&&)configuration
 {
@@ -202,7 +198,7 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
     [self addSubview:_fixedClippingView.get()];
     [_fixedClippingView addSubview:_rootContentView.get()];
 
-    if (!linkedOnOrAfter(WebCore::SDKVersion::FirstWithLazyGestureRecognizerInstallation))
+    if (!linkedOnOrAfter(SDKVersion::FirstWithLazyGestureRecognizerInstallation))
         [self setUpInteraction];
     [self setUserInteractionEnabled:YES];
 
@@ -226,10 +222,8 @@ static NSArray *keyCommandsPlaceholderHackForEvernote(id self, SEL _cmd)
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillEnterForeground:) name:UIApplicationWillEnterForegroundNotification object:[UIApplication sharedApplication]];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_screenCapturedDidChange:) name:UIScreenCapturedDidChangeNotification object:[UIScreen mainScreen]];
 
-#if USE(UIKIT_KEYBOARD_ADDITIONS)
-    if (WebCore::IOSApplication::isEvernote() && !linkedOnOrAfter(WebCore::SDKVersion::FirstWhereWKContentViewDoesNotOverrideKeyCommands))
+    if (WebCore::IOSApplication::isEvernote() && !linkedOnOrAfter(SDKVersion::FirstWhereWKContentViewDoesNotOverrideKeyCommands))
         class_addMethod(self.class, @selector(keyCommands), reinterpret_cast<IMP>(&keyCommandsPlaceholderHackForEvernote), method_getTypeEncoding(class_getInstanceMethod(self.class, @selector(keyCommands))));
-#endif
 
     return self;
 }
@@ -418,8 +412,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         _inspectorHighlightView = adoptNS([[WKInspectorHighlightView alloc] initWithFrame:CGRectZero]);
         [self insertSubview:_inspectorHighlightView.get() aboveSubview:_rootContentView.get()];
     }
-
-    [_inspectorHighlightView update:highlight scale:[self _contentZoomScale]];
+    [_inspectorHighlightView update:highlight scale:[self _contentZoomScale] frame:_page->unobscuredContentRect()];
 }
 
 - (void)_hideInspectorHighlight
@@ -568,7 +561,7 @@ static WebCore::FloatBoxExtent floatBoxExtent(UIEdgeInsets insets)
     [self _didEndScrollingOrZooming];
 }
 
-- (NSUndoManager *)undoManager
+- (NSUndoManager *)undoManagerForWebView
 {
     if (self.focusedElementInformation.shouldSynthesizeKeyEventsForEditing && self.hasHiddenContentEditable) {
         if (!_quirkyUndoManager)
@@ -904,12 +897,12 @@ static void storeAccessibilityRemoteConnectionInformation(id element, pid_t pid,
     printInfo.availablePaperHeight = CGRectGetHeight(printingRect);
 
     auto retainedSelf = retainPtr(self);
-    auto pair = _page->computePagesForPrintingAndDrawToPDF(frameID, printInfo, [retainedSelf](const IPC::DataReference& pdfData) {
+    auto pair = _page->computePagesForPrintingAndDrawToPDF(frameID, printInfo, [retainedSelf](const IPC::SharedBufferCopy& pdfData) {
         retainedSelf->_pdfPrintCallbackID = 0;
         if (pdfData.isEmpty())
             return;
 
-        auto data = adoptCF(CFDataCreate(kCFAllocatorDefault, pdfData.data(), pdfData.size()));
+        auto data = pdfData.buffer()->createCFData();
         auto dataProvider = adoptCF(CGDataProviderCreateWithCFData(data.get()));
         retainedSelf->_printedDocument = adoptCF(CGPDFDocumentCreateWithProvider(dataProvider.get()));
     });

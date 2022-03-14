@@ -202,9 +202,16 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+			};
 			buildConfigurationList = 1DEB91DD08733DB10010E9CD /* Build configuration list for PBXProject "AppleSCSIHBAEmulator" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = en;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+				Base,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* AppleSCSIHBAEmulator */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -272,11 +279,7 @@
 		1DEB91DA08733DB10010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					x86_64,
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1.0.0d1;
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -291,7 +294,7 @@
 				MODULE_NAME = com.apple.driver.AppleSCSIHBAEmulator;
 				MODULE_VERSION = 1.0.0d1;
 				PRODUCT_NAME = AppleSCSIHBAEmulator;
-				VALID_ARCHS = "x86_64 i386 ppc";
+				SDKROOT = macosx.internal;
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -300,11 +303,7 @@
 		1DEB91DB08733DB10010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					x86_64,
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD)";
 				CURRENT_PROJECT_VERSION = 1.0.0;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
@@ -316,7 +315,7 @@
 				MODULE_NAME = com.apple.driver.AppleSCSIHBAEmulator;
 				MODULE_VERSION = 1.0.0;
 				PRODUCT_NAME = AppleSCSIHBAEmulator;
-				VALID_ARCHS = "x86_64 i386 ppc";
+				SDKROOT = macosx.internal;
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
@@ -324,53 +323,35 @@
 		1DEB91DE08733DB10010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					ppc,
-					i386,
-					x86_64,
-				);
-				GCC_VERSION_i386 = 4.0;
+				ARCHS = "$(ARCHS_STANDARD)";
 				GCC_VERSION_ppc = 3.3;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3;
-				MACOS_X_DEPLOYMENT_TARGET_i386 = 10.4;
 				PREBINDING = NO;
-				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
-				VALID_ARCHS = "x86_64 i386 ppc";
+				VALID_ARCHS = "x86_64 ppc";
 			};
 			name = Debug;
 		};
 		1DEB91DF08733DB10010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
-				GCC_VERSION_i386 = 4.0;
+				ARCHS = "$(ARCHS_STANDARD)";
 				GCC_VERSION_ppc = 3.3;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3;
-				MACOS_X_DEPLOYMENT_TARGET_i386 = 10.4;
 				PREBINDING = NO;
-				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
-				VALID_ARCHS = "x86_64 i386 ppc";
+				VALID_ARCHS = "x86_64 ppc";
 			};
 			name = Release;
 		};
 		E6AA94C80B72BEF200A6CCED /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					x86_64,
-					ppc,
-					i386,
-				);
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -380,9 +361,7 @@
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = emulator;
-				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
-				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
@@ -390,11 +369,7 @@
 		E6AA94C90B72BEF200A6CCED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					x86_64,
-					i386,
-					ppc,
-				);
+				ARCHS = "$(ARCHS_STANDARD)";
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -402,12 +377,9 @@
 				GCC_VERSION_ppc = 4.0;
 				INSTALL_PATH = /usr/local/bin;
 				MACOSX_DEPLOYMENT_TARGET_ppc = 10.5;
-				MACOS_X_DEPLOYMENT_TARGET_i386 = 10.5;
 				PREBINDING = NO;
 				PRODUCT_NAME = emulator;
-				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
-				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Release;

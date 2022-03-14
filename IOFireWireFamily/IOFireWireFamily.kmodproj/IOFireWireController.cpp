@@ -255,7 +255,7 @@ void IOFireWireDuplicateGUIDList::free()
 		
 		GUIDRec = GUIDRec->fNextGUID;
 		
-		IOFree( GUIDtoFree, sizeof( IOFWDuplicateGUIDRec ) );
+		IOFreeType( GUIDtoFree, IOFWDuplicateGUIDRec );
 	}
 	
 	OSObject::free();
@@ -268,7 +268,7 @@ void IOFireWireDuplicateGUIDList::addDuplicateGUID( CSRNodeUniqueID guid, UInt32
 	if( !guid || findDuplicateGUID( guid, gen ) )
 		return;	// Already found this one.
 	
-	newGUID = (IOFWDuplicateGUIDRec *) IOMalloc( sizeof(IOFWDuplicateGUIDRec));
+	newGUID = IOMallocType( IOFWDuplicateGUIDRec );
 	
 	FWKLOG(("addDuplicateGUID adding GUID %08x %08x.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff)));
 	
@@ -299,7 +299,7 @@ void IOFireWireDuplicateGUIDList::removeDuplicateGUID( CSRNodeUniqueID guid )
 			
 			FWKLOG(("removeDuplicateGUID removing GUID %08x %08x.\n",(unsigned int )(guid >> 32),(unsigned int )(guid & 0xffffffff)));
 			
-			IOFree( GUIDRec, sizeof( IOFWDuplicateGUIDRec ) );
+			IOFreeType( GUIDRec, IOFWDuplicateGUIDRec );
 			
 			break;
 		}
@@ -2066,8 +2066,7 @@ void IOFireWireController::suspendBus( void )
 		{
 			fScans[i]->fCmd->release();
 			fScans[i]->fLockCmd->release();
-			IOFree(fScans[i], sizeof(*fScans[i]));
-			fScans[i] = NULL;
+			IOFreeType(fScans[i], IOFWNodeScan );
 		}
 		
 		if(fNodes[i])
@@ -2550,7 +2549,7 @@ void IOFireWireController::startBusScan()
 		// Read ROM header if link is active (MacOS8 turns link on, why?)
 		if(true) { //id & kFWSelfID0L) {
 			IOFWNodeScan *scan;
-			scan = (IOFWNodeScan *)IOMalloc(sizeof(*scan));
+			scan = IOMallocType( IOFWNodeScan );
 			
 			scan->fControl = this;
 			scan->fAddr.nodeID = nodeID;
@@ -2670,7 +2669,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 		{
 			scan->fCmd->release();
 			scan->fLockCmd->release();
-			IOFree(scan, sizeof(*scan));
+			IOFreeType(scan, IOFWNodeScan);
 			//FWKLOG(( "IOFireWireController::readDeviceROM exited\n" ));
 			return;
 		}
@@ -2797,8 +2796,7 @@ void IOFireWireController::readDeviceROM(IOFWNodeScan *scan, IOReturn status)
 			
 			scan->fCmd->release();
 			scan->fLockCmd->release();
-			IOFree(scan, sizeof(*scan));
-			scan = NULL;
+			IOFreeType(scan, IOFWNodeScan);
 			//FWKLOG(( "IOFireWireController::readDeviceROM exited\n" ));
 			return;
 		}
@@ -3247,8 +3245,7 @@ void IOFireWireController::finishedBusScan()
 				
 				fScans[i]->fCmd->release();
 				fScans[i]->fLockCmd->release();
-				IOFree(fScans[i], sizeof(*fScans[i]));
-				fScans[i] = NULL;
+				IOFreeType(fScans[i], IOFWNodeScan);
 				
 			}
 			else
@@ -4728,13 +4725,13 @@ IOReturn IOFireWireController::asyncRead(	UInt32 				generation,
 		
 		if(rcode == kFWResponseComplete)
 		{
-			void * bytes = IOMalloc( size );
+			void * bytes = IOMallocData( size );
 			
 			buf->readBytes( offset, bytes, size );
 			
 			cmd->gotPacket( rcode, bytes, size );
 			
-			IOFree( bytes, size );
+			IOFreeData( bytes, size );
 		}
 		else
 		{
@@ -4846,7 +4843,7 @@ IOReturn IOFireWireController::asyncWrite(	UInt32 					generation,
 		UInt32 rcode;
 		IOFWSpeed temp = (IOFWSpeed)speed;
 		
-		void * bytes = IOMalloc( size );
+		void * bytes = IOMallocData( size );
 		
 		buf->readBytes( offset, bytes, size );
 		
@@ -4857,7 +4854,7 @@ IOReturn IOFireWireController::asyncWrite(	UInt32 					generation,
 							 bytes,
 							 (IOFWRequestRefCon)(uintptr_t)label );
 		
-		IOFree( bytes, size );
+		IOFreeData( bytes, size );
 		
 		cmd->gotPacket(rcode, NULL, 0);
 		
@@ -4984,7 +4981,7 @@ IOReturn IOFireWireController::asyncLock(	UInt32 					generation,
 		IOFWSpeed temp = (IOFWSpeed)speed;
 		IOFWRequestRefCon refcon = (IOFWRequestRefCon)((uintptr_t)label | kRequestIsLock | (type << kRequestExtTCodeShift));
 		
-		void * bytes = IOMalloc( size );
+		void * bytes = IOMallocData( size );
 		
 		buf->readBytes( offset, bytes, size );
 		
@@ -4998,7 +4995,7 @@ IOReturn IOFireWireController::asyncLock(	UInt32 					generation,
 							type,
 							refcon );
 		
-		IOFree( bytes, size );
+		IOFreeData( bytes, size );
 		
 		cmd->gotPacket( rcode, retVals, retSize );
 		
@@ -6086,7 +6083,7 @@ IOReturn IOFireWireController::asyncLockResponse( 	UInt32 					generation,
 	}
 	else
 	{
-		void * bytes = IOMalloc( size );
+		void * bytes = IOMallocData( size );
 		
 		buf->readBytes( offset, bytes, size );
 		
@@ -6098,7 +6095,7 @@ IOReturn IOFireWireController::asyncLockResponse( 	UInt32 					generation,
 										  bytes,
 										  size );
 		
-		IOFree( bytes, size );
+		IOFreeData( bytes, size );
 		
 	}
 	

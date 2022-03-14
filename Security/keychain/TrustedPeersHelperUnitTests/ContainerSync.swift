@@ -55,6 +55,7 @@ extension Container {
                      policySecrets: [String: Data]? = nil,
                      syncUserControllableViews: TPPBPeerStableInfoUserControllableViewStatus = .UNKNOWN,
                      secureElementIdentity: TPPBSecureElementIdentity? = nil,
+                     setting: OTAccountSettingsX? = nil,
                      signingPrivateKeyPersistentRef: Data? = nil,
                      encryptionPrivateKeyPersistentRef: Data? = nil
     ) -> (String?, Data?, Data?, Data?, Data?, TPSyncingPolicy?, Error?) {
@@ -73,6 +74,7 @@ extension Container {
                      policySecrets: policySecrets,
                      syncUserControllableViews: syncUserControllableViews,
                      secureElementIdentity: secureElementIdentity,
+                     setting: setting,
                      signingPrivateKeyPersistentRef: signingPrivateKeyPersistentRef,
                      encryptionPrivateKeyPersistentRef: encryptionPrivateKeyPersistentRef
         ) { a, b, c, d, e, f, err in
@@ -88,7 +90,6 @@ extension Container {
         test.wait(for: [expectation], timeout: 10.0)
         return (reta, retb, retc, retd, rete, retpolicy, reterr)
     }
-
     func establishSync(test: XCTestCase,
                        ckksKeys: [CKKSKeychainBackedKeySet],
                        tlkShares: [CKKSTLKShare],

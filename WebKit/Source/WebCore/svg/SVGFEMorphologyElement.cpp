@@ -60,7 +60,7 @@ void SVGFEMorphologyElement::parseAttribute(const QualifiedName& name, const Ato
 {
     if (name == SVGNames::operatorAttr) {
         MorphologyOperatorType propertyValue = SVGPropertyTraits<MorphologyOperatorType>::fromString(value);
-        if (propertyValue > 0)
+        if (propertyValue != MorphologyOperatorType::Unknown)
             m_svgOperator->setBaseValInternal<MorphologyOperatorType>(propertyValue);
         return;
     }
@@ -114,20 +114,19 @@ void SVGFEMorphologyElement::svgAttributeChanged(const QualifiedName& attrName)
     SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
 }
 
-RefPtr<FilterEffect> SVGFEMorphologyElement::build(SVGFilterBuilder* filterBuilder, Filter& filter) const
+RefPtr<FilterEffect> SVGFEMorphologyElement::build(SVGFilterBuilder& filterBuilder) const
 {
-    auto input1 = filterBuilder->getEffectById(in1());
-    float xRadius = radiusX();
-    float yRadius = radiusY();
-
+    auto input1 = filterBuilder.getEffectById(in1());
     if (!input1)
         return nullptr;
 
+    float xRadius = radiusX();
+    float yRadius = radiusY();
     if (xRadius < 0 || yRadius < 0)
         return nullptr;
 
-    auto effect = FEMorphology::create(filter, svgOperator(), xRadius, yRadius);
-    effect->inputEffects() = { input1 };
+    auto effect = FEMorphology::create(svgOperator(), xRadius, yRadius);
+    effect->inputEffects() = { input1.releaseNonNull() };
     return effect;
 }
 

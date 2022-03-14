@@ -33,8 +33,11 @@
 #import "WebCoreArgumentCoders.h"
 #import <WebCore/ColorSpaceCG.h>
 #import <WebCore/IOSurface.h>
+#import <WebCore/PixelBufferConformerCV.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
 #import <wtf/MachSendRight.h>
+
+#import <WebCore/CoreVideoSoftLink.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -46,16 +49,34 @@ PlatformLayerContainer MediaPlayerPrivateRemote::createVideoFullscreenLayer()
 }
 #endif
 
+void MediaPlayerPrivateRemote::pushVideoFrameMetadata(WebCore::VideoFrameMetadata&& videoFrameMetadata, RetainPtr<CVPixelBufferRef>&& buffer)
+{
+    if (!m_isGatheringVideoFrameMetadata)
+        return;
+    m_videoFrameMetadata = WTFMove(videoFrameMetadata);
+    m_pixelBufferGatheredWithVideoFrameMetadata = WTFMove(buffer);
+}
+
 RefPtr<NativeImage> MediaPlayerPrivateRemote::nativeImageForCurrentTime()
 {
+    if (m_pixelBufferGatheredWithVideoFrameMetadata) {
+        if (!m_pixelBufferConformer)
+            m_pixelBufferConformer = makeUnique<PixelBufferConformerCV>((__bridge CFDictionaryRef)@{ (__bridge NSString *)kCVPixelBufferPixelFormatTypeKey: @(kCVPixelFormatType_32BGRA) });
+        ASSERT(m_pixelBufferConformer);
+        if (!m_pixelBufferConformer)
+            return nullptr;
+        return NativeImage::create(m_pixelBufferConformer->createImageFromPixelBuffer(m_pixelBufferGatheredWithVideoFrameMetadata.get()));
+    }
+
     std::optional<MachSendRight> sendRight;
-    if (!connection().sendSync(Messages::RemoteMediaPlayerProxy::NativeImageForCurrentTime(), Messages::RemoteMediaPlayerProxy::NativeImageForCurrentTime::Reply(sendRight), m_id))
+    auto colorSpace = DestinationColorSpace::SRGB();
+    if (!connection().sendSync(Messages::RemoteMediaPlayerProxy::NativeImageForCurrentTime(), Messages::RemoteMediaPlayerProxy::NativeImageForCurrentTime::Reply(sendRight, colorSpace), m_id))
         return nullptr;
 
     if (!sendRight)
         return nullptr;
 
-    auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(*sendRight), WebCore::DestinationColorSpace::SRGB());
+    auto surface = WebCore::IOSurface::createFromSendRight(WTFMove(*sendRight), colorSpace);
     if (!surface)
         return nullptr;
 
@@ -66,17 +87,12 @@ RefPtr<NativeImage> MediaPlayerPrivateRemote::nativeImageForCurrentTime()
     return NativeImage::create(WTFMove(platformImage));
 }
 
-#if USE(AVFOUNDATION)
-RetainPtr<CVPixelBufferRef> MediaPlayerPrivateRemote::pixelBufferForCurrentTime()
+WebCore::DestinationColorSpace MediaPlayerPrivateRemote::colorSpace()
 {
-    std::optional<RetainPtr<CVPixelBufferRef>> result;
-    if (!connection().sendSync(Messages::RemoteMediaPlayerProxy::PixelBufferForCurrentTimeIfChanged(), Messages::RemoteMediaPlayerProxy::PixelBufferForCurrentTimeIfChanged::Reply(result), m_id))
-        return nullptr;
-    if (result)
-        m_pixelBufferForCurrentTime = WTFMove(*result);
-    return m_pixelBufferForCurrentTime;
+    auto colorSpace = DestinationColorSpace::SRGB();
+    connection().sendSync(Messages::RemoteMediaPlayerProxy::ColorSpace(), Messages::RemoteMediaPlayerProxy::ColorSpace::Reply(colorSpace), m_id);
+    return colorSpace;
 }
-#endif
 
 } // namespace WebKit
 

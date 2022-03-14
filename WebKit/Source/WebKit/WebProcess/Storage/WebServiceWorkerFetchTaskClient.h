@@ -33,6 +33,7 @@
 #include <WebCore/FetchLoaderClient.h>
 #include <WebCore/ServiceWorkerFetch.h>
 #include <WebCore/ServiceWorkerTypes.h>
+#include <WebCore/SharedBuffer.h>
 #include <wtf/UniqueRef.h>
 
 namespace WebKit {
@@ -49,17 +50,18 @@ private:
 
     void didReceiveResponse(const WebCore::ResourceResponse&) final;
     void didReceiveRedirection(const WebCore::ResourceResponse&) final;
-    void didReceiveData(Ref<WebCore::SharedBuffer>&&) final;
+    void didReceiveData(const WebCore::SharedBuffer&) final;
     void didReceiveFormDataAndFinish(Ref<WebCore::FormData>&&) final;
     void didFail(const WebCore::ResourceError&) final;
     void didFinish() final;
     void didNotHandle() final;
     void cancel() final;
     void continueDidReceiveResponse() final;
+    void convertFetchToDownload() final;
 
     void cleanup();
-    
-    void didReceiveBlobChunk(const uint8_t* data, size_t);
+
+    void didReceiveBlobChunk(const WebCore::SharedBuffer&);
     void didFinishBlobLoading();
 
     struct BlobLoader final : WebCore::FetchLoaderClient {
@@ -67,7 +69,7 @@ private:
 
         // FetchLoaderClient API
         void didReceiveResponse(const WebCore::ResourceResponse&) final { }
-        void didReceiveData(const uint8_t* data, size_t size) final { client->didReceiveBlobChunk(data, size); }
+        void didReceiveData(const WebCore::SharedBuffer& data) final { client->didReceiveBlobChunk(data); }
         void didFail(const WebCore::ResourceError& error) final { client->didFail(error); }
         void didSucceed() final { client->didFinishBlobLoading(); }
 
@@ -82,8 +84,9 @@ private:
     std::optional<BlobLoader> m_blobLoader;
     bool m_needsContinueDidReceiveResponseMessage { false };
     bool m_waitingForContinueDidReceiveResponseMessage { false };
-    Variant<std::nullptr_t, Ref<WebCore::SharedBuffer>, Ref<WebCore::FormData>, UniqueRef<WebCore::ResourceError>> m_responseData;
+    std::variant<std::nullptr_t, WebCore::SharedBufferBuilder, Ref<WebCore::FormData>, UniqueRef<WebCore::ResourceError>> m_responseData;
     bool m_didFinish { false };
+    bool m_isDownload { false };
 };
 
 } // namespace WebKit

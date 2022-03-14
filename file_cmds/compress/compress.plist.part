@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>compress</string>
+		<key>OpenSourceVersion</key>
+		<string>2021-07-27</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/compress?id=fc1e79740e4a83013aa0050fc95a991ec9c78e27</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-13</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>compress.c: use __COPYRIGHT (81181568)</string>
+			<string>compress.c: add defines for struct stat timespec (81181568)</string>
+			<string>compress.c: call setlocale before rpmatch (54483861)</string>
+			<string>compress.c: STD:VSC: uncompress(1) conformance issues (3849482)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

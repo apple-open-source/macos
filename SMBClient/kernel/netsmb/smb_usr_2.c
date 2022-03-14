@@ -93,20 +93,26 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
 
     /* local_path_len includes the null byte, ioc_kern_path is a c-style string */
 	if (check_dir_ioc->ioc_kern_path && local_path_len) {
-		local_pathp = smb_memdupin(check_dir_ioc->ioc_kern_path,
-                                   local_path_len);
-	}
+        
+        /* Validate we get an acceptable name-length from userland */
+        if (local_path_len >= PATH_MAX) {
+            error = EINVAL;
+            goto bad;
+        }
 
-    if (local_pathp == NULL) {
-        SMBERROR("smb_memdupin failed\n");
-        error = ENOMEM;
-        goto bad;
-    }
+        local_pathp = smb_str_memdupin(check_dir_ioc->ioc_kern_path,
+                                       local_path_len,
+                                       &error);
+
+        if (error) {
+            goto bad;
+        }
+	}
 
     /*
      * Need to convert from local path to a network path 
      */
-	SMB_MALLOC(network_pathp, char *, network_path_len, M_TEMP, M_WAITOK | M_ZERO);
+	SMB_MALLOC(network_pathp, char *, network_path_len, M_SMBTEMP, M_WAITOK | M_ZERO);
 	if (network_pathp == NULL) {
 		error = ENOMEM;
 		goto bad;		
@@ -156,11 +162,11 @@ smb_usr_check_dir(struct smb_share *share, struct smb_session *sessionp,
 
 bad:    
     if (local_pathp) {
-        SMB_FREE(local_pathp, M_SMBSTR);
+        SMB_FREE(local_pathp, M_SMBDATA);
     }
     
     if (network_pathp) {
-        SMB_FREE(network_pathp, M_SMBSTR);
+        SMB_FREE(network_pathp, M_SMBTEMP);
     }
 
     if (fap) {
@@ -252,22 +258,28 @@ smb_usr_create(struct smb_share *share, struct smb2ioc_create *create_ioc,
     if (!vfs_context_is64bit (context)) {
         create_ioc->ioc_kern_name = CAST_USER_ADDR_T(create_ioc->ioc_name);
     }
-    
+
+    local_path_len = create_ioc->ioc_name_len;
     /* ioc_name_len includes the null byte, ioc_kern_name is a c-style string */
-    if (create_ioc->ioc_kern_name && create_ioc->ioc_name_len) {
-        local_path_len = create_ioc->ioc_name_len;
-        local_pathp = smb_memdupin(create_ioc->ioc_kern_name,
-                                   create_ioc->ioc_name_len);
-        if (local_pathp == NULL) {
-            SMBERROR("smb_memdupin failed\n");
-            error = ENOMEM;
+    if (create_ioc->ioc_kern_name && local_path_len) {
+
+        if (local_path_len >= PATH_MAX) {
+            error = EINVAL;
             goto bad;
         }
         
+        local_pathp = smb_str_memdupin(create_ioc->ioc_kern_name,
+                                       create_ioc->ioc_name_len,
+                                       &error);
+
+        if (error) {
+            goto bad;
+        }
+
         /*
          * Need to convert from local path to a network path
          */
-        SMB_MALLOC(network_pathp, char *, network_path_len, M_TEMP, M_WAITOK | M_ZERO);
+        SMB_MALLOC(network_pathp, char *, network_path_len, M_SMBTEMP, M_WAITOK | M_ZERO);
         if (network_pathp == NULL) {
             error = ENOMEM;
             goto bad;
@@ -335,11 +347,11 @@ bad:
     }
     
     if (network_pathp) {
-        SMB_FREE(network_pathp, M_TEMP);
+        SMB_FREE(network_pathp, M_SMBTEMP);
     }
     
     if (local_pathp) {
-        SMB_FREE(local_pathp, M_SMBSTR);
+        SMB_FREE(local_pathp, M_SMBDATA);
     }
     
     return error;
@@ -385,22 +397,29 @@ again:
         goto bad;
     }
 
-	/* ioc_file_name_len includes the null byte, ioc_kern_file_name is a c-style string */
-	if (get_dfs_refer_ioc->ioc_kern_file_name && get_dfs_refer_ioc->ioc_file_name_len) {
-		local_pathp = smb_memdupin(get_dfs_refer_ioc->ioc_kern_file_name,
-                                   local_path_len);
-	}
+	/* ioc_file_name_len includes the null byte, ioc_kern_file_name
+     * is a c-style string
+     */
+	if (get_dfs_refer_ioc->ioc_kern_file_name && local_path_len) {
 
-    if (local_pathp == NULL) {
-        SMBERROR("smb_memdupin failed\n");
-        error = ENOMEM;
-        goto bad;
-    }
+        if (local_path_len >= PATH_MAX) {
+            error = EINVAL;
+            goto bad;
+        }
+
+		local_pathp = smb_str_memdupin(get_dfs_refer_ioc->ioc_kern_file_name,
+                                       local_path_len,
+                                       &error);
+
+        if (error) {
+            goto bad;
+        }
+	}
 
     /*
      * Need to convert from local path to a network path 
      */
-	SMB_MALLOC(network_pathp, char *, network_path_len, M_TEMP, M_WAITOK | M_ZERO);
+	SMB_MALLOC(network_pathp, char *, network_path_len, M_SMBTEMP, M_WAITOK | M_ZERO);
 	if (network_pathp == NULL) {
 		error = ENOMEM;
 		goto bad;		
@@ -520,11 +539,11 @@ bad:
     }
     
     if (local_pathp) {
-        SMB_FREE(local_pathp, M_SMBSTR);
+        SMB_FREE(local_pathp, M_SMBDATA);
     }
     
     if (network_pathp) {
-        SMB_FREE(network_pathp, M_SMBSTR);
+        SMB_FREE(network_pathp, M_SMBTEMP);
     }
     return error;
 }
@@ -769,19 +788,25 @@ smb_usr_query_dir(struct smb_share *share,
 	if (!vfs_context_is64bit (context)) {
 		query_dir_ioc->ioc_kern_name = CAST_USER_ADDR_T(query_dir_ioc->ioc_name);
 	}
-	
+
+    queryp->name_len = query_dir_ioc->ioc_name_len;
 	/* ioc_name_len includes the null byte, ioc_kern_name is a c-style string */
-	if (query_dir_ioc->ioc_kern_name && query_dir_ioc->ioc_name_len) {
-        queryp->name_len = query_dir_ioc->ioc_name_len;
-		queryp->namep = smb_memdupin(query_dir_ioc->ioc_kern_name,
-                                      query_dir_ioc->ioc_name_len);
-		if (queryp->namep == NULL) {
-            SMBERROR("smb_memdupin failed\n");
-			error = ENOMEM;
+	if (query_dir_ioc->ioc_kern_name && queryp->name_len) {
+
+        if (queryp->name_len >= PATH_MAX) {
+            error = EINVAL;
+            goto bad;
+        }
+
+		queryp->namep = smb_str_memdupin(query_dir_ioc->ioc_kern_name,
+                                         queryp->name_len,
+                                         &error);
+
+		if (error) {
 			goto bad;
 		}
 	}
-    
+
 	queryp->file_info_class = query_dir_ioc->ioc_file_info_class;
 	queryp->flags = query_dir_ioc->ioc_flags;
 	queryp->file_index = query_dir_ioc->ioc_file_index;
@@ -831,7 +856,7 @@ bad:
             smb_rq_done(queryp->ret_rqp);
         }
         if (queryp->namep)
-            SMB_FREE(queryp->namep, M_SMBSTR);
+            SMB_FREE(queryp->namep, M_SMBDATA);
         if (queryp->rcv_output_uio != NULL) {
             uio_free(queryp->rcv_output_uio);
         }

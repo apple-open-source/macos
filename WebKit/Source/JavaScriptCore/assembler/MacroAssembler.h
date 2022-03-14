@@ -50,15 +50,15 @@ namespace JSC { typedef MacroAssemblerARMv7 MacroAssemblerBase; };
 #define TARGET_MACROASSEMBLER MacroAssemblerMIPS
 #include "MacroAssemblerMIPS.h"
 
-#elif CPU(X86)
-#define TARGET_ASSEMBLER X86Assembler
-#define TARGET_MACROASSEMBLER MacroAssemblerX86
-#include "MacroAssemblerX86.h"
-
 #elif CPU(X86_64)
 #define TARGET_ASSEMBLER X86Assembler
 #define TARGET_MACROASSEMBLER MacroAssemblerX86_64
 #include "MacroAssemblerX86_64.h"
+
+#elif CPU(RISCV64)
+#define TARGET_ASSEMBLER RISCV64Assembler
+#define TARGET_MACROASSEMBLER MacroAssemblerRISCV64
+#include "MacroAssemblerRISCV64.h"
 
 #else
 #error "The MacroAssembler is not supported on this platform."
@@ -137,7 +137,7 @@ public:
     using MacroAssemblerBase::and32;
     using MacroAssemblerBase::branchAdd32;
     using MacroAssemblerBase::branchMul32;
-#if CPU(ARM64) || CPU(ARM_THUMB2) || CPU(X86_64) || CPU(MIPS)
+#if CPU(ARM64) || CPU(ARM_THUMB2) || CPU(X86_64) || CPU(MIPS) || CPU(RISCV64)
     using MacroAssemblerBase::branchPtr;
 #endif
 #if CPU(X86_64)
@@ -152,7 +152,7 @@ public:
     using MacroAssemblerBase::urshift32;
     using MacroAssemblerBase::xor32;
 
-#if CPU(ARM64) || CPU(X86_64)
+#if CPU(ARM64) || CPU(X86_64) || CPU(RISCV64)
     using MacroAssemblerBase::and64;
     using MacroAssemblerBase::convertInt32ToDouble;
     using MacroAssemblerBase::store64;
@@ -332,18 +332,18 @@ public:
     void pushToSave(FPRegisterID src)
     {
         subPtr(TrustedImm32(sizeof(double)), stackPointerRegister);
-        storeDouble(src, stackPointerRegister);
+        storeDouble(src, Address(stackPointerRegister));
     }
     void popToRestore(FPRegisterID dest)
     {
-        loadDouble(stackPointerRegister, dest);
+        loadDouble(Address(stackPointerRegister), dest);
         addPtr(TrustedImm32(sizeof(double)), stackPointerRegister);
     }
     
     static constexpr ptrdiff_t pushToSaveByteOffset() { return sizeof(void*); }
 #endif // !CPU(ARM64)
 
-#if CPU(X86_64) || CPU(ARM64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
     void peek64(RegisterID dest, int index = 0)
     {
         load64(Address(stackPointerRegister, (index * sizeof(void*))), dest);
@@ -705,7 +705,7 @@ public:
         xor32(src, dest);
     }
 
-    void loadPtr(ImplicitAddress address, RegisterID dest)
+    void loadPtr(Address address, RegisterID dest)
     {
         load32(address, dest);
     }
@@ -735,16 +735,6 @@ public:
     }
 #endif
 
-    DataLabel32 loadPtrWithAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        return load32WithAddressOffsetPatch(address, dest);
-    }
-    
-    DataLabelCompact loadPtrWithCompactAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        return load32WithCompactAddressOffsetPatch(address, dest);
-    }
-    
     void comparePtr(RelationalCondition cond, RegisterID left, TrustedImm32 right, RegisterID dest)
     {
         compare32(cond, left, right, dest);
@@ -755,7 +745,7 @@ public:
         compare32(cond, left, right, dest);
     }
     
-    void storePtr(RegisterID src, ImplicitAddress address)
+    void storePtr(RegisterID src, Address address)
     {
         store32(src, address);
     }
@@ -770,7 +760,7 @@ public:
         store32(src, address);
     }
 
-    void storePtr(TrustedImmPtr imm, ImplicitAddress address)
+    void storePtr(TrustedImmPtr imm, Address address)
     {
         store32(TrustedImm32(imm), address);
     }
@@ -785,7 +775,7 @@ public:
         store32(TrustedImm32(imm), address);
     }
 
-    void storePtr(TrustedImm32 imm, ImplicitAddress address)
+    void storePtr(TrustedImm32 imm, Address address)
     {
         store32(imm, address);
     }
@@ -793,11 +783,6 @@ public:
     void storePtr(TrustedImmPtr imm, BaseIndex address)
     {
         store32(TrustedImm32(imm), address);
-    }
-
-    DataLabel32 storePtrWithAddressOffsetPatch(RegisterID src, Address address)
-    {
-        return store32WithAddressOffsetPatch(src, address);
     }
 
     Jump branchPtr(RelationalCondition cond, RegisterID left, RegisterID right)
@@ -878,6 +863,12 @@ public:
     Jump branchTest8(ResultCondition cond, ExtendedAddress address, TrustedImm32 mask = TrustedImm32(-1))
     {
         return MacroAssemblerBase::branchTest8(cond, Address(address.base, address.offset), mask);
+    }
+
+    using MacroAssemblerBase::branchTest16;
+    Jump branchTest16(ResultCondition cond, ExtendedAddress address, TrustedImm32 mask = TrustedImm32(-1))
+    {
+        return MacroAssemblerBase::branchTest16(cond, Address(address.base, address.offset), mask);
     }
 
 #else // !CPU(ADDRESS64)
@@ -1053,7 +1044,7 @@ public:
         xor64(TrustedImm64(imm), srcDest);
     }
 
-    void loadPtr(ImplicitAddress address, RegisterID dest)
+    void loadPtr(Address address, RegisterID dest)
     {
         load64(address, dest);
     }
@@ -1082,17 +1073,7 @@ public:
     }
 #endif
 
-    DataLabel32 loadPtrWithAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        return load64WithAddressOffsetPatch(address, dest);
-    }
-    
-    DataLabelCompact loadPtrWithCompactAddressOffsetPatch(Address address, RegisterID dest)
-    {
-        return load64WithCompactAddressOffsetPatch(address, dest);
-    }
-
-    void storePtr(RegisterID src, ImplicitAddress address)
+    void storePtr(RegisterID src, Address address)
     {
         store64(src, address);
     }
@@ -1107,12 +1088,12 @@ public:
         store64(src, address);
     }
 
-    void storePtr(TrustedImmPtr imm, ImplicitAddress address)
+    void storePtr(TrustedImmPtr imm, Address address)
     {
         store64(TrustedImm64(imm), address);
     }
 
-    void storePtr(TrustedImm32 imm, ImplicitAddress address)
+    void storePtr(TrustedImm32 imm, Address address)
     {
         store64(imm, address);
     }
@@ -1120,11 +1101,6 @@ public:
     void storePtr(TrustedImmPtr imm, BaseIndex address)
     {
         store64(TrustedImm64(imm), address);
-    }
-
-    DataLabel32 storePtrWithAddressOffsetPatch(RegisterID src, Address address)
-    {
-        return store64WithAddressOffsetPatch(src, address);
     }
 
     void comparePtr(RelationalCondition cond, RegisterID left, TrustedImm32 right, RegisterID dest)
@@ -1483,7 +1459,7 @@ public:
         add32(TrustedImm32(address.offset), address.base, dest);
     }
 
-#if CPU(X86_64) || CPU(ARM64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
     void lea64(Address address, RegisterID dest)
     {
         add64(TrustedImm32(address.offset), address.base, dest);
@@ -1715,7 +1691,7 @@ public:
         storePtr(value, addressForPoke(index));
     }
     
-#if CPU(X86_64) || CPU(ARM64)
+#if CPU(X86_64) || CPU(ARM64) || CPU(RISCV64)
     void poke(Imm64 value, int index = 0)
     {
         store64(value, addressForPoke(index));
@@ -1765,6 +1741,16 @@ public:
             sub32(key.value2, dest);
         } else
             sub32(imm.asTrustedImm32(), dest);
+    }
+
+    void sub32(RegisterID src, Imm32 imm, RegisterID dest)
+    {
+        if (shouldBlind(imm)) {
+            BlindedImm32 key = additionBlindedConstant(imm);
+            sub32(src, key.value1, dest);
+            sub32(key.value2, dest);
+        } else
+            sub32(src, imm.asTrustedImm32(), dest);
     }
     
     void subPtr(Imm32 imm, RegisterID dest)

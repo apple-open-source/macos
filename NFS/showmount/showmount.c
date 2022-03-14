@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -87,9 +87,9 @@ TAILQ_HEAD(exportslisthead, exportslist) exports;
 int mounttype = MOUNTSHOWHOSTS;
 int rpcs = 0, mntvers = 1, ipvers = 0;
 
-void	usage(void);
-int	xdr_mntdump(XDR *, struct mountlist **);
-int	xdr_exports(XDR *, struct exportslisthead *);
+void    usage(void);
+int     xdr_mntdump(XDR *, struct mountlist **);
+int     xdr_exports(XDR *, struct exportslisthead *);
 
 /*
  * This command queries the NFS mount daemon for it's mount list and/or
@@ -103,20 +103,22 @@ main(int argc, char *argv[])
 {
 	int ch, rv, do_browse = 0;
 
-	while ((ch = getopt(argc, argv, "Aade36")) != EOF)
-		switch((char)ch) {
+	while ((ch = getopt(argc, argv, "Aade36")) != EOF) {
+		switch ((char)ch) {
 		case 'A':
 			do_browse = 1;
 			break;
 		case 'a':
-			if (mounttype)
+			if (mounttype) {
 				usage();
+			}
 			mounttype = MOUNTSHOWALL;
 			rpcs |= DODUMP;
 			break;
 		case 'd':
-			if (mounttype)
+			if (mounttype) {
 				usage();
+			}
 			mounttype = MOUNTSHOWDIRS;
 			rpcs |= DODUMP;
 			break;
@@ -133,16 +135,19 @@ main(int argc, char *argv[])
 		default:
 			usage();
 		}
+	}
 	argc -= optind;
 	argv += optind;
 
-	if (rpcs == 0)
+	if (rpcs == 0) {
 		rpcs = DODUMP;
+	}
 
-	if (do_browse)
+	if (do_browse) {
 		rv = browse();
-	else
+	} else {
 		rv = do_print((argc > 0) ? argv[0] : "localhost");
+	}
 
 	exit(rv);
 }
@@ -153,10 +158,12 @@ main(int argc, char *argv[])
 static int
 addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
 {
-	if (a1->ai_family != a2->ai_family)
-		return (a1->ai_family - a2->ai_family);
-	if (a1->ai_addrlen != a2->ai_addrlen)
-		return (a1->ai_addrlen - a2->ai_addrlen);
+	if (a1->ai_family != a2->ai_family) {
+		return a1->ai_family - a2->ai_family;
+	}
+	if (a1->ai_addrlen != a2->ai_addrlen) {
+		return a1->ai_addrlen - a2->ai_addrlen;
+	}
 	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
 }
 
@@ -171,10 +178,10 @@ getaddresslist(const char *name, struct addrinfo **ailistp)
 	const char *hostname;
 
 	hostname = name;
-	if ((hostname[0] == '[') && (hostname[strlen(hostname)-1] == ']')) {
+	if ((hostname[0] == '[') && (hostname[strlen(hostname) - 1] == ']')) {
 		/* Looks like an IPv6 literal in brackets */
-		strlcpy(namebuf, hostname+1, sizeof(namebuf));
-		namebuf[strlen(namebuf)-1] = '\0';
+		strlcpy(namebuf, hostname + 1, sizeof(namebuf));
+		namebuf[strlen(namebuf) - 1] = '\0';
 		hostname = namebuf;
 	}
 
@@ -182,8 +189,8 @@ getaddresslist(const char *name, struct addrinfo **ailistp)
 	aihints.ai_flags = AI_ADDRCONFIG;
 	if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
 		warnx("can't resolve host: %s", hostname);
-		return (ENOENT);
-        }
+		return ENOENT;
+	}
 
 	/* strip out addresses that don't match the options given */
 	aidiscard = NULL;
@@ -194,39 +201,45 @@ getaddresslist(const char *name, struct addrinfo **ailistp)
 
 		/* If ipvers is set, eliminate addresses that aren't of that IP version. */
 		if (ipvers) {
-			if ((ipvers == 6) && (ai->ai_family != AF_INET6))
+			if ((ipvers == 6) && (ai->ai_family != AF_INET6)) {
 				goto discard;
-			if ((ipvers == 4) && (ai->ai_family != AF_INET))
+			}
+			if ((ipvers == 4) && (ai->ai_family != AF_INET)) {
 				goto discard;
+			}
 		}
 
 		/* eliminate unknown protocol families */
-		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) {
 			goto discard;
+		}
 
 		/* Eliminate duplicate addresses with different socktypes. */
 		if (aiprev && (ai->ai_socktype != aiprev->ai_socktype) &&
-		    !addrinfo_cmp(aiprev, ai))
+		    !addrinfo_cmp(aiprev, ai)) {
 			goto discard;
+		}
 
 		aiprev = ai;
 		continue;
 discard:
 		/* Add ai to the discard list */
-		if (aiprev)
+		if (aiprev) {
 			aiprev->ai_next = ai->ai_next;
-		else
+		} else {
 			ailist = ai->ai_next;
+		}
 		ai->ai_next = aidiscard;
 		aidiscard = ai;
 	}
 
 	/* free up any discarded addresses */
-	if (aidiscard)
+	if (aidiscard) {
 		freeaddrinfo(aidiscard);
+	}
 
 	*ailistp = ailist;
-	return (0);
+	return 0;
 }
 
 /*
@@ -241,20 +254,23 @@ xdr_mntdump(XDR *xdrsp, struct mountlist **mlp)
 
 	*mlp = (struct mountlist *)0;
 
-	if (!xdr_bool(xdrsp, &bool))
-		return (0);
+	if (!xdr_bool(xdrsp, &bool)) {
+		return 0;
+	}
 	while (bool) {
 		mp = (struct mountlist *)malloc(sizeof(struct mountlist));
-		if (mp == NULL)
-			return (0);
+		if (mp == NULL) {
+			return 0;
+		}
 		mp->ml_left = mp->ml_right = (struct mountlist *)0;
 		strp = mp->ml_host;
-		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN))
-			return (0);
+		if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
+			return 0;
+		}
 		strp = mp->ml_dirp;
 		if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN)) {
 			free(mp);
-			return (0);
+			return 0;
 		}
 
 		/*
@@ -303,10 +319,11 @@ xdr_mntdump(XDR *xdrsp, struct mountlist **mlp)
 			*otp = mp;
 		}
 next:
-		if (!xdr_bool(xdrsp, &bool))
-			return (0);
+		if (!xdr_bool(xdrsp, &bool)) {
+			return 0;
+		}
 	}
-	return (1);
+	return 1;
 }
 
 /*
@@ -321,37 +338,44 @@ xdr_exports(XDR *xdrsp, struct exportslisthead *exphead)
 	char *strp;
 
 	TAILQ_INIT(exphead);
-	if (!xdr_bool(xdrsp, &bool))
-		return (0);
+	if (!xdr_bool(xdrsp, &bool)) {
+		return 0;
+	}
 	while (bool) {
 		ep = (struct exportslist *)malloc(sizeof(struct exportslist));
-		if (ep == NULL)
-			return (0);
+		if (ep == NULL) {
+			return 0;
+		}
 		TAILQ_INIT(&ep->ex_groups);
 		strp = ep->ex_dirp;
-		if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN))
-			return (0);
-		if (!xdr_bool(xdrsp, &grpbool))
-			return (0);
+		if (!xdr_string(xdrsp, &strp, RPCMNT_PATHLEN)) {
+			return 0;
+		}
+		if (!xdr_bool(xdrsp, &grpbool)) {
+			return 0;
+		}
 		while (grpbool) {
 			gp = (struct grouplist *)malloc(sizeof(struct grouplist));
-			if (gp == NULL)
-				return (0);
+			if (gp == NULL) {
+				return 0;
+			}
 			strp = gp->gr_name;
 			if (!xdr_string(xdrsp, &strp, RPCMNT_NAMELEN)) {
 				free(gp);
 				free(ep);
-				return (0);
+				return 0;
 			}
 			TAILQ_INSERT_TAIL(&ep->ex_groups, gp, gr_link);
-			if (!xdr_bool(xdrsp, &grpbool))
-				return (0);
+			if (!xdr_bool(xdrsp, &grpbool)) {
+				return 0;
+			}
 		}
 		TAILQ_INSERT_TAIL(exphead, ep, ex_link);
-		if (!xdr_bool(xdrsp, &bool))
-			return (0);
+		if (!xdr_bool(xdrsp, &bool)) {
+			return 0;
+		}
 	}
-	return (1);
+	return 1;
 }
 
 void
@@ -367,10 +391,12 @@ usage(void)
 void
 print_dump(struct mountlist *mp)
 {
-	if (mp == NULL)
+	if (mp == NULL) {
 		return;
-	if (mp->ml_left)
+	}
+	if (mp->ml_left) {
 		print_dump(mp->ml_left);
+	}
 	switch (mounttype) {
 	case MOUNTSHOWALL:
 		printf("%s:%s\n", mp->ml_host, mp->ml_dirp);
@@ -382,8 +408,9 @@ print_dump(struct mountlist *mp)
 		printf("%s\n", mp->ml_host);
 		break;
 	}
-	if (mp->ml_right)
+	if (mp->ml_right) {
 		print_dump(mp->ml_right);
+	}
 }
 
 /*
@@ -392,8 +419,9 @@ print_dump(struct mountlist *mp)
 void
 free_dump(struct mountlist *mp)
 {
-	if (!mp)
+	if (!mp) {
 		return;
+	}
 	free_dump(mp->ml_left);
 	free_dump(mp->ml_right);
 	free(mp);
@@ -414,27 +442,29 @@ do_print(const char *host)
 	size_t slen;
 
 	/* get the list of addresses for the host */
-	if (getaddresslist(host, &ailist))
-		return (1);
+	if (getaddresslist(host, &ailist)) {
+		return 1;
+	}
 	if (!ailist) {
 		warnx("no usable addresses for host: %s", host);
-		return (1);
+		return 1;
 	}
 
 	/* try each address until we find one that works */
-	for (success=0, ai=ailist; !success && ai; ai=ai->ai_next) {
-
+	for (success = 0, ai = ailist; !success && ai; ai = ai->ai_next) {
 		try.tv_sec = 10;
 		try.tv_usec = 0;
 		so = RPC_ANYSOCK;
 
 		/* Try to connect to TCP, otherwise fall back to UDP */
 		clp = clnttcp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, &so, 0, 0);
-		if (clp == NULL)
-			clp = clntudp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, try, &so);
 		if (clp == NULL) {
-			if (spcerr)
+			clp = clntudp_create_sa(ai->ai_addr, RPCPROG_MNT, mntvers, try, &so);
+		}
+		if (clp == NULL) {
+			if (spcerr) {
 				free(spcerr);
+			}
 			spcerr = strdup(clnt_spcreateerror(host));
 			continue;
 		}
@@ -442,10 +472,11 @@ do_print(const char *host)
 
 		if (rpcs & DODUMP) {
 			estat = clnt_call(clp, RPCMNT_DUMP, (xdrproc_t)xdr_void, NULL,
-						(xdrproc_t)xdr_mntdump, &mntdump, try);
+			    (xdrproc_t)xdr_mntdump, &mntdump, try);
 			if (estat != 0) {
-				if (sperr)
+				if (sperr) {
 					free(sperr);
+				}
 				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
 				sperr = strdup(clnt_sperror(clp, serr));
 			} else {
@@ -454,10 +485,11 @@ do_print(const char *host)
 		}
 		if (rpcs & DOEXPORTS) {
 			estat = clnt_call(clp, RPCMNT_EXPORT, (xdrproc_t)xdr_void, NULL,
-						(xdrproc_t)xdr_exports, &exports, try);
+			    (xdrproc_t)xdr_exports, &exports, try);
 			if (estat != 0) {
-				if (sperr)
+				if (sperr) {
 					free(sperr);
+				}
 				snprintf(serr, sizeof(serr), "%s: RPC failed:", host);
 				sperr = strdup(clnt_sperror(clp, serr));
 			} else {
@@ -472,15 +504,18 @@ do_print(const char *host)
 		s = sperr ? sperr : spcerr;
 		if (s) {
 			slen = strlen(s);
-			if ((slen > 0) && (s[slen-1] == '\n'))
-				s[slen-1] = '\0';
+			if ((slen > 0) && (s[slen - 1] == '\n')) {
+				s[slen - 1] = '\0';
+			}
 		}
 		warnx("Cannot retrieve info from host: %s", s ? s : host);
-		if (spcerr)
+		if (spcerr) {
 			free(spcerr);
-		if (sperr)
+		}
+		if (sperr) {
 			free(sperr);
-		return (1);
+		}
+		return 1;
 	}
 
 	/* Now just print out the results */
@@ -516,9 +551,11 @@ do_print(const char *host)
 		}
 	}
 
-	if (spcerr)
+	if (spcerr) {
 		free(spcerr);
-	if (sperr)
+	}
+	if (sperr) {
 		free(sperr);
-	return (0);
+	}
+	return 0;
 }

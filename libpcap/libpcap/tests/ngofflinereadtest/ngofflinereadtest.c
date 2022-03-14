@@ -297,6 +297,12 @@ block_option_iterator(pcapng_block_t block, struct pcapng_option_info *option_in
 						case PCAPNG_EPB_PMD_FLAGS:
 							printf("      epb_pmd_flags\n");
 							break;
+						case PCAPNG_EPB_FLOW_ID:
+							printf("      epb_flowid\n");
+							break;
+						case PCAPNG_EPB_TRACE_TAG:
+							printf("      epb_trace_tag\n");
+							break;
 						default:
 							printf("      <unkown epb option>\n");
 							break;

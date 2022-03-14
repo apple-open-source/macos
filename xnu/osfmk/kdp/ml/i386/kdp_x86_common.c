@@ -426,7 +426,6 @@ kdp_map_debug_pagetable_window(void)
 	kr = vm_map_find_space(kernel_map,
 	    &debugger_window_kva,
 	    PAGE_SIZE, 0,
-	    0,
 	    VM_MAP_KERNEL_FLAGS_NONE,
 	    VM_KERN_MEMORY_OSFMK,
 	    &e);

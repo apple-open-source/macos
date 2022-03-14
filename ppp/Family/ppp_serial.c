@@ -386,20 +386,16 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
     // Note : we allocate/find number/insert in queue in that specific order
     // because of funnels and race condition issues
 
-    MALLOC(ld, struct pppserial *, sizeof(struct pppserial), M_TEMP, M_WAITOK);
-    if (!ld)
-        return ENOMEM;
+    ld = kalloc_type(struct pppserial, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 		
 	lck_mtx_lock(ppp_domain_mutex);
     
     if (pppserial_findfreeunit(&unit)) {
-        FREE(ld, M_TEMP);
+        kfree_type(struct pppserial, ld);
         lck_mtx_unlock(ppp_domain_mutex);
         return ENOMEM;
     }
         
-    bzero(ld, sizeof(struct pppserial));
-    
     TAILQ_INSERT_TAIL(&pppserial_head, ld, next);
     lk = (struct ppp_link *) ld;
 
@@ -430,7 +426,7 @@ int pppserial_attach(struct tty *ttyp, struct ppp_link **link)
 		lck_mtx_unlock(ppp_domain_mutex);
 
 		IOLog("pppserial_attach, error = %d, (ld = 0x%x)\n", ret, &ld->link);
-        FREE(ld, M_TEMP);
+        kfree_type(struct pppserial, ld);
         return ret;
     }
 	lck_mtx_unlock(ppp_domain_mutex);
@@ -489,7 +485,7 @@ int pppserial_detach(struct ppp_link *link)
 
 	lck_mtx_unlock(ppp_domain_mutex);
 
-    FREE(ld, M_TEMP);
+    kfree_type(struct pppserial, ld);
 
     return 0;
 }

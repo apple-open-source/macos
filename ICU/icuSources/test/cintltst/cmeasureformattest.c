@@ -109,6 +109,8 @@ static const SingleUnitFormat en_singFmt[] = {
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37.20 Calories",            "37 Calories",            "37.203 Cal",       "37.2 Cal",       "37Cal",       "37Cal",     0,2,    0,2   },
     { UAMEASUNIT_ENERGY_JOULE,             37.203, "37.20 joules",              "37 joules",              "37.203 J",         "37.2 J",         "37J",         "37J",       0,2,    0,2   },
     { UAMEASUNIT_DIGITAL_MEGABYTE,         37.203, "37.20 megabytes",           "37 megabytes",           "37.203 MB",        "37.2 MB",        "37MB",        "37MB",      0,2,    0,2   },
+    { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER,           120.0, "120.00 milligrams per deciliter", "120 milligrams per deciliter", "120 mg/dL", "120.0 mg/dL", "120mg/dL", "120mg/dL", 0,3, 0,3   },
+    { UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER, 120.0, "120.00 milligrams per deciliter", "120 milligrams per deciliter", "120 mg/dL", "120.0 mg/dL", "120mg/dL", "120mg/dL", 0,3, 0,3   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -142,10 +144,10 @@ static const SingleUnitFormat fr_singFmt[] = {
     { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25\\u00A0mn",    "5,2\\u00A0mn",   "5mn",         "5mn",       0,1,    0,1   },
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20\\u00A0centim\\u00E8tres", "37\\u00A0centim\\u00E8tres", "37,203\\u202Fcm",  "37,2\\u202Fcm",  "37 cm",       "37 cm",     0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20\\u00A0degr\\u00E9s Celsius","37\\u00A0degr\\u00E9s Celsius", "37,203\\u202F\\u00B0C", "37,2\\u202F\\u00B0C",  "37\\u00B0C",  "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20\\u00A0degr\\u00E9s Fahrenheit", "37\\u00A0degr\\u00E9s Fahrenheit", "37,203\\u202F\\u00B0F",  "37,2\\u202F\\u00B0F",  "37\\u202F\\u00B0F",  "37\\u00B0", 0,2,    0,2   },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20\\u00A0degr\\u00E9s Fahrenheit", "37\\u00A0degr\\u00E9s Fahrenheit", "37,203\\u202F\\u00B0F",  "37,2\\u202F\\u00B0F",  "37\\u00B0F",  "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37,20\\u00A0degr\\u00E9s",      "37\\u00A0degr\\u00E9s",      "37,203\\u00B0",    "37,2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
     { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20\\u00A0litres",            "37\\u00A0litres",            "37,203\\u202Fl",   "37,2\\u202Fl",   "37 l",        "37 l",      0,2,    0,2   },
-    { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37,20\\u00A0kilocalories",      "37\\u00A0kilocalories",      "37,203\\u202Fkcal","37,2\\u202Fkcal","37\\u202Fkcal","37\\u202Fkcal", 0,2, 0,2   },
+    { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37,20\\u00A0kilocalories",      "37\\u00A0kilocalories",      "37,203\\u202Fkcal","37,2\\u202Fkcal","37kcal","37kcal", 0,2, 0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
@@ -156,9 +158,9 @@ static const SingleUnitFormat fr_CA_singFmt[] = {
     { UAMEASUNIT_DURATION_MINUTE,           5.25,  "5,25 minutes",                  "5 minutes",                  "5,25 min",         "5,2 min",        "5m",          "5m",        0,1,    0,1   },
     { UAMEASUNIT_LENGTH_CENTIMETER,        37.203, "37,20 centim\\u00E8tres",       "37 centim\\u00E8tres",       "37,203 cm",        "37,2 cm",        "37 cm",       "37 cm",     0,2,    0,2   },
     { UAMEASUNIT_TEMPERATURE_CELSIUS,      37.203, "37,20 degr\\u00E9s Celsius",    "37 degr\\u00E9s Celsius",    "37,203\\u00A0\\u00B0C", "37,2\\u00A0\\u00B0C", "37\\u00A0\\u00B0C", "37\\u00B0", 0,2, 0,2 },
-    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 degr\\u00E9s Fahrenheit", "37 degr\\u00E9s Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00A0\\u00B0F", "37\\u00B0", 0,2, 0,2 },
+    { UAMEASUNIT_TEMPERATURE_FAHRENHEIT,   37.203, "37,20 degr\\u00E9s Fahrenheit", "37 degr\\u00E9s Fahrenheit", "37,203\\u00A0\\u00B0F", "37,2\\u00A0\\u00B0F", "37\\u00B0F", "37\\u00B0", 0,2, 0,2 },
     { UAMEASUNIT_TEMPERATURE_GENERIC,      37.203, "37,20\\u00B0",                  "37\\u00B0",                  "37,203\\u00B0",    "37,2\\u00B0",    "37\\u00B0",   "37\\u00B0", 0,2,    0,2   },
-    { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20 litres",                  "37 litres",                  "37,203 L",         "37,2 L",         "37L",         "37L",       0,2,    0,2   },
+    { UAMEASUNIT_VOLUME_LITER,             37.203, "37,20 litres",                  "37 litres",                  "37,203\\u202FL",         "37,2\\u202FL",         "37L",         "37L",       0,2,    0,2   },
     { UAMEASUNIT_ENERGY_FOODCALORIE,       37.203, "37,20 calories",                "37 calories",                "37,203 cal",       "37,2 cal",       "37 cal",      "37 cal",    0,2,    0,2   },
     { (UAMeasureUnit)0, 0, NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -356,10 +358,10 @@ static const MultipleUnitFormat he_multFmt[] = {
 
 static const MultipleUnitFormat hi_multFmt[] = {
 //    measures     count                       wide_2                                                                                       wide_0 
-    { meas_moDys,  UPRV_LENGTHOF(meas_moDys),  "1 \\u092E\\u093E\\u0939 \\u0914\\u0930 2.00 \\u0926\\u093F\\u0928", "1 \\u092E\\u093E\\u0939 \\u0914\\u0930 2 \\u0926\\u093F\\u0928",
+    { meas_moDys,  UPRV_LENGTHOF(meas_moDys),  "1 \\u092E\\u0939\\u0940\\u0928\\u093E \\u0914\\u0930 2.00 \\u0926\\u093F\\u0928", "1 \\u092E\\u0939\\u0940\\u0928\\u093E \\u0914\\u0930 2 \\u0926\\u093F\\u0928",
         /* shrt_X, shrt_1*/                    "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",
         /* shrtr_1, narr_0, numr_0, numr_2*/   "1 \\u092E\\u093E\\u0939, 2.0 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2 \\u0926\\u093F\\u0928",  "1 \\u092E\\u093E\\u0939, 2.00 \\u0926\\u093F\\u0928",
-        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,9,17},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,9,13}},
+        /* ranges_wide_2: */                {{UAMEASUNIT_DURATION_MONTH,0,7},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,11,19},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,11,15}},
         /* ranges_shrtr_1: */               {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,14},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,10}},
         /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,12},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,8}},
         /* ranges_numr_0: */                {{UAMEASUNIT_DURATION_MONTH,0,5},{UAMEASUNIT_DURATION_MONTH|UAMEASFMT_NUMERIC_FIELD_FLAG,0,1},{UAMEASUNIT_DURATION_DAY,7,15},{UAMEASUNIT_DURATION_DAY|UAMEASFMT_NUMERIC_FIELD_FLAG,7,11}} },
@@ -1022,7 +1024,7 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "en_US@ms=metric",   "length", "large",           1, { UAMEASUNIT_LENGTH_KILOMETER } },
     { "fr_FR@ms=ussystem", "length", "large",           1, { UAMEASUNIT_LENGTH_MILE } },
     { "en_GB",             "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIMOLE_PER_LITER } },
-    { "en_GB@ms=metric",   "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIGRAM_PER_DECILITER } },
+    { "en_GB@ms=metric",   "concentr", "blood-glucose", 1, { UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER } },
     { "en_US@ms=uksystem", "mass",   "person",          2, { UAMEASUNIT_MASS_STONE, UAMEASUNIT_MASS_POUND } },
     { "fr_FR",             "mass",   "person",          1, { UAMEASUNIT_MASS_KILOGRAM } },
     { "fr_FR@rg=USZZZZ",   "mass",   "person",          1, { UAMEASUNIT_MASS_POUND } },
@@ -1033,9 +1035,6 @@ static const UnitsForUsageItem unitsForUsageItems[] = {
     { "en_CA",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
     { "fr_FR",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_LITER_PER_100_KILOMETERs } },
     { "pt_BR",             "consumption", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_LITER_PER_KILOMETER } },
-    { "en_US",             "consumption-inverse", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON } },
-    { "en_GB",             "consumption-inverse", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
-    { "en_CA",             "consumption-inverse", "vehicle-fuel", 1, { UAMEASUNIT_CONSUMPTION_MILE_PER_GALLON_IMPERIAL } },
     // rdar://77037602 energy/default and energy/NULL
     { "en_US",           "energy",  "default",          1, { UAMEASUNIT_ENERGY_KILOWATT_HOUR } },
     { "en_US",           "energy",  NULL,               1, { UAMEASUNIT_ENERGY_KILOWATT_HOUR } },

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,8 +41,6 @@
 
 namespace JSC {
 
-#if ENABLE(EXTRA_CTI_THUNKS)
-
 MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionGenerator(VM& vm)
 {
     CCallHelpers jit;
@@ -61,6 +59,8 @@ MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionGenerator(VM& vm)
     return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "handleException");
 }
 
+#if ENABLE(EXTRA_CTI_THUNKS)
+
 MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionWithCallFrameRollbackGenerator(VM& vm)
 {
     CCallHelpers jit;
@@ -77,14 +77,20 @@ MacroAssemblerCodeRef<JITThunkPtrTag> handleExceptionWithCallFrameRollbackGenera
     return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "handleExceptionWithCallFrameRollback");
 }
 
+#endif
+
 MacroAssemblerCodeRef<JITThunkPtrTag> popThunkStackPreservesAndHandleExceptionGenerator(VM& vm)
 {
     CCallHelpers jit;
 
 #if CPU(X86_64)
     jit.addPtr(CCallHelpers::TrustedImm32(2 * sizeof(CPURegister)), X86Registers::esp);
-#elif CPU(ARM64)
+#elif CPU(ARM64) || CPU(ARM_THUMB2) || CPU(RISCV64)
     jit.popPair(CCallHelpers::framePointerRegister, CCallHelpers::linkRegister);
+#elif CPU(MIPS)
+    jit.popPair(CCallHelpers::framePointerRegister, CCallHelpers::returnAddressRegister);
+#else
+#   error "Not implemented on platform"
 #endif
 
     CCallHelpers::Jump continuation = jit.jump();
@@ -94,6 +100,8 @@ MacroAssemblerCodeRef<JITThunkPtrTag> popThunkStackPreservesAndHandleExceptionGe
     patchBuffer.link(continuation, CodeLocationLabel(handler.retaggedCode<NoPtrTag>()));
     return FINALIZE_CODE(patchBuffer, JITThunkPtrTag, "popThunkStackPreservesAndHandleException");
 }
+
+#if ENABLE(EXTRA_CTI_THUNKS)
 
 MacroAssemblerCodeRef<JITThunkPtrTag> checkExceptionGenerator(VM& vm)
 {
@@ -140,6 +148,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> checkExceptionGenerator(VM& vm)
 template<typename TagType>
 inline void emitPointerValidation(CCallHelpers& jit, GPRReg pointerGPR, TagType tag)
 {
+#if CPU(ARM64E)
     if (!ASSERT_ENABLED)
         return;
     if (!Options::useJITCage()) {
@@ -151,6 +160,11 @@ inline void emitPointerValidation(CCallHelpers& jit, GPRReg pointerGPR, TagType 
         jit.validateUntaggedPtr(pointerGPR);
         jit.popToRestore(pointerGPR);
     }
+#else
+    UNUSED_PARAM(jit);
+    UNUSED_PARAM(pointerGPR);
+    UNUSED_PARAM(tag);
+#endif
 }
 
 // We will jump here if the JIT code tries to make a call, but the
@@ -178,7 +192,6 @@ MacroAssemblerCodeRef<JITThunkPtrTag> throwExceptionFromCallSlowPathGenerator(VM
 
 static void slowPathFor(CCallHelpers& jit, VM& vm, Sprt_JITOperation_EGCli slowPathFunction)
 {
-    jit.sanitizeStackInline(vm, GPRInfo::nonArgGPR0);
     jit.emitFunctionPrologue();
     jit.storePtr(GPRInfo::callFrameRegister, &vm.topCallFrame);
 #if OS(WINDOWS) && CPU(X86_64)
@@ -344,24 +357,9 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForRegularCall(VM& vm)
     return virtualThunkFor(vm, CallMode::Regular, CodeForCall);
 }
 
-static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForRegularConstruct(VM& vm)
-{
-    return virtualThunkFor(vm, CallMode::Regular, CodeForConstruct);
-}
-
 static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForTailCall(VM& vm)
 {
     return virtualThunkFor(vm, CallMode::Tail, CodeForCall);
-}
-
-static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForTailConstruct(VM& vm)
-{
-    return virtualThunkFor(vm, CallMode::Tail, CodeForConstruct);
-}
-
-static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForConstructCall(VM& vm)
-{
-    return virtualThunkFor(vm, CallMode::Construct, CodeForCall);
 }
 
 static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForConstructConstruct(VM& vm)
@@ -369,23 +367,15 @@ static MacroAssemblerCodeRef<JITThunkPtrTag> virtualThunkForConstructConstruct(V
     return virtualThunkFor(vm, CallMode::Construct, CodeForConstruct);
 }
 
-MacroAssemblerCodeRef<JITStubRoutinePtrTag> virtualThunkFor(VM& vm, CallLinkInfo& callLinkInfo)
+MacroAssemblerCodeRef<JITStubRoutinePtrTag> virtualThunkFor(VM& vm, CallMode callMode)
 {
-    auto mode = callLinkInfo.callMode();
-    auto kind = callLinkInfo.specializationKind();
     auto generator = [&] () -> ThunkGenerator {
-        switch (mode) {
+        switch (callMode) {
         case CallMode::Regular:
-            if (kind == CodeForCall)
-                return virtualThunkForRegularCall;
-            return virtualThunkForRegularConstruct;
+            return virtualThunkForRegularCall;
         case CallMode::Tail:
-            if (kind == CodeForCall)
-                return virtualThunkForTailCall;
-            return virtualThunkForTailConstruct;
+            return virtualThunkForTailCall;
         case CallMode::Construct:
-            if (kind == CodeForCall)
-                return virtualThunkForConstructCall;
             return virtualThunkForConstructConstruct;
         }
         RELEASE_ASSERT_NOT_REACHED();
@@ -600,7 +590,7 @@ MacroAssemblerCodeRef<JITThunkPtrTag> arityFixupGenerator(VM& vm)
 
     // Move current frame down argumentGPR0 number of slots
     JSInterfaceJIT::Label copyLoop(jit.label());
-    jit.load64(JSInterfaceJIT::regT3, extraTemp);
+    jit.load64(CCallHelpers::Address(JSInterfaceJIT::regT3), extraTemp);
     jit.store64(extraTemp, MacroAssembler::BaseIndex(JSInterfaceJIT::regT3, JSInterfaceJIT::argumentGPR0, JSInterfaceJIT::TimesEight));
     jit.addPtr(JSInterfaceJIT::TrustedImm32(8), JSInterfaceJIT::regT3);
     jit.branchSub32(MacroAssembler::NonZero, JSInterfaceJIT::TrustedImm32(1), JSInterfaceJIT::argumentGPR2).linkTo(copyLoop, &jit);

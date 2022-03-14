@@ -165,6 +165,27 @@ uint32_t MediaSampleAVFObjC::videoPixelFormat() const
     return CVPixelBufferGetPixelFormatType(pixelBuffer);
 }
 
+std::optional<MediaSampleVideoFrame> MediaSampleAVFObjC::videoFrame() const
+{
+    auto pixelBuffer = static_cast<CVPixelBufferRef>(PAL::CMSampleBufferGetImageBuffer(m_sample.get()));
+    if (!pixelBuffer)
+        return std::nullopt;
+    ImageOrientation orientation = [&] {
+        // Sample transform first flips x-coordinates, then rotates.
+        switch (m_rotation) {
+        case MediaSample::VideoRotation::None:
+            return m_mirrored ? ImageOrientation::OriginTopRight : ImageOrientation::OriginTopLeft;
+        case MediaSample::VideoRotation::Right:
+            return m_mirrored ? ImageOrientation::OriginRightBottom : ImageOrientation::OriginRightTop;
+        case MediaSample::VideoRotation::UpsideDown:
+            return m_mirrored ? ImageOrientation::OriginBottomLeft : ImageOrientation::OriginBottomRight;
+        case MediaSample::VideoRotation::Left:
+            return m_mirrored ? ImageOrientation::OriginLeftTop : ImageOrientation::OriginLeftBottom;
+        }
+    }();
+    return MediaSampleVideoFrame { RetainPtr { pixelBuffer }, orientation };
+}
+
 static bool isCMSampleBufferAttachmentRandomAccess(CFDictionaryRef attachmentDict)
 {
     return !CFDictionaryContainsKey(attachmentDict, PAL::kCMSampleAttachmentKey_NotSync);
@@ -426,11 +447,11 @@ Vector<Ref<MediaSampleAVFObjC>> MediaSampleAVFObjC::divideIntoHomogeneousSamples
 
     CFArrayRef attachmentsArray = PAL::CMSampleBufferGetSampleAttachmentsArray(m_sample.get(), true);
     if (!attachmentsArray)
-        return SampleVector::from(makeRef(*this));
+        return SampleVector::from(Ref { *this });
 
     auto count = CFArrayGetCount(attachmentsArray);
     if (count <= 1)
-        return SampleVector::from(makeRef(*this));
+        return SampleVector::from(Ref { *this });
 
     CFDictionaryRef firstAttachment = checked_cf_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(attachmentsArray, 0));
     bool isSync = isCMSampleBufferAttachmentRandomAccess(firstAttachment);
@@ -451,7 +472,7 @@ Vector<Ref<MediaSampleAVFObjC>> MediaSampleAVFObjC::divideIntoHomogeneousSamples
     ranges.append(CFRangeMake(currentRangeStart, currentRangeLength));
 
     if (ranges.size() == 1)
-        return SampleVector::from(makeRef(*this));
+        return SampleVector::from(Ref { *this });
 
     SampleVector samples;
     samples.reserveInitialCapacity(ranges.size());

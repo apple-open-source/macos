@@ -58,6 +58,7 @@
 
 #import <XCTest/XCTest.h>
 #include <sys/mount.h>
+#include <sysexits.h>
 
 #include "nfsclntTests_utils.h"
 
@@ -77,7 +78,7 @@ char template[] = TEMPLATE;
 
 @end
 
-#define DST_MOUNT_PATH   "17.78.80.127:/System/Volumes/Data/Users/auto-test/nfs-server"
+#define DST_MOUNT_PATH   "17.78.122.87:/volume1/data"
 
 char *dst = NULL;
 char **argv = NULL;
@@ -85,203 +86,252 @@ int argc = 0;
 
 @implementation nfsclntTests_mount
 
-- (void)setUp {
-    dst = mkdtemp(template);
+- (void)setUp
+{
+	dst = mkdtemp(template);
 
-    if (!dst) {
-        XCTFail("Unable to create tmpdir: %d", errno);
-    }
+	if (!dst) {
+		XCTFail("Unable to create tmpdir: %d", errno);
+	}
 }
 
-- (void)tearDown {
-    argc = 0;
+- (void)tearDown
+{
+	argc = 0;
 
-    if (argv) {
-        free(argv);
-        argv = NULL;
-    }
+	if (argv) {
+		free(argv);
+		argv = NULL;
+	}
 
-    if (dst) {
-        unmount(dst, 0);
-        if (rmdir(dst) < 0) {
-            XCTFail("Unable to remove dir %s: %d", dst, errno);
-        }
-        dst = NULL;
-    }
-}
-
-static void
-_testArgs(verifyArgsFunc verifier, char **nfsArgsIn, char **nfsArgsOut) {
-    struct statfs mntBuff;
-
-    nfstests_init_input_args(DST_MOUNT_PATH, nfsArgsIn);
-    nfstests_run_command(mount_nfs_imp, argc, argv);
-    nfstests_get_mount(dst, &mntBuff);
-    nfstests_verify_arg(verifier, [NSString stringWithUTF8String:mntBuff.f_mntonname], [NSString stringWithUTF8String:mntBuff.f_mntfromname], nfsArgsOut);
+	if (dst) {
+		unmount(dst, 0);
+		if (rmdir(dst) < 0) {
+			XCTFail("Unable to remove dir %s: %d", dst, errno);
+		}
+		dst = NULL;
+	}
 }
 
 static void
-_testNFSArgs(char **nfsArgs) {
-    _testArgs(nfsParameterVerifier, nfsArgs, nfsArgs);
+_testArgs(verifyArgsFunc verifier, char **nfsArgsIn, char **nfsArgsOut)
+{
+	struct statfs mntBuff;
+
+	nfstests_init_input_args(DST_MOUNT_PATH, nfsArgsIn);
+	nfstests_run_command(mount_nfs_imp, argc, argv, RESULT_SUCCESS);
+	nfstests_get_mount(dst, &mntBuff);
+	nfstests_verify_arg(verifier, [NSString stringWithUTF8String:mntBuff.f_mntonname], [NSString stringWithUTF8String:mntBuff.f_mntfromname], nfsArgsOut);
 }
 
 static void
-_testNFSArg(char *nfsArg) {
-    char *nfsArgs[] = { nfsArg, NULL };
-    _testNFSArgs(nfsArgs);
+_testNFSArgs(char **nfsArgs)
+{
+	_testArgs(nfsParameterVerifier, nfsArgs, nfsArgs);
 }
 
 static void
-_testMountArg(char *mountArg) {
-    char *mountArgs[] = { mountArg, NULL };
-    _testArgs(mountParameterVerifier, mountArgs, mountArgs);
+_testNFSArg(char *nfsArg)
+{
+	char *nfsArgs[] = { nfsArg, NULL };
+	_testNFSArgs(nfsArgs);
+}
+
+static void
+_testMountArg(char *mountArg)
+{
+	char *mountArgs[] = { mountArg, NULL };
+	_testArgs(mountParameterVerifier, mountArgs, mountArgs);
 }
 
 /* NFS args */
 
-- (void)testMountNoArgs {
-    _testNFSArg(NULL);
+- (void)testMountNoArgs
+{
+	_testNFSArg(NULL);
 }
 
-- (void)testMountV2 {
-    _testNFSArg("vers=2");
+- (void)testMountV2
+{
+	_testNFSArg("vers=2");
 }
 
-- (void)testMountV3 {
-    _testNFSArg("vers=3");
+- (void)testMountV3
+{
+	_testNFSArg("vers=3");
 }
 
-- (void)testMountHard {
-    _testNFSArg("hard");
+- (void)testMountHard
+{
+	_testNFSArg("hard");
 }
 
-- (void)testMountSoft {
-    _testNFSArg("soft");
+- (void)testMountSoft
+{
+	_testNFSArg("soft");
 }
 
-- (void)testMountNoIntr {
-    _testNFSArg("nointr");
+- (void)testMountNoIntr
+{
+	_testNFSArg("nointr");
 }
 
-- (void)testMountIntr {
-    _testNFSArg("intr");
+- (void)testMountIntr
+{
+	_testNFSArg("intr");
 }
 
-- (void)testMountLocalLocks {
-    _testNFSArg("locallocks");
+- (void)testMountLocalLocks
+{
+	_testNFSArg("locallocks");
 }
 
-- (void)testMountNoLocks {
-    _testNFSArg("nolocks");
+- (void)testMountNoLocks
+{
+	_testNFSArg("nolocks");
 }
 
-- (void)testMountLocks {
-    _testNFSArg("locks");
+- (void)testMountLocks
+{
+	_testNFSArg("locks");
 }
 
-- (void)testMountNoQuota {
-    _testNFSArg("noquota");
+- (void)testMountNoQuota
+{
+	_testNFSArg("noquota");
 }
 
-- (void)testMountQuota {
-    _testNFSArg("quota");
+- (void)testMountQuota
+{
+	_testNFSArg("quota");
 }
 
-- (void)testMountRSize4K {
-    _testNFSArg("rsize=4096");
+- (void)testMountRSize4K
+{
+	_testNFSArg("rsize=4096");
 }
 
-- (void)testMountWSize4K {
-    _testNFSArg("wsize=4096");
+- (void)testMountWSize4K
+{
+	_testNFSArg("wsize=4096");
 }
 
-- (void)testMountRWSize4K {
-    char *inArgs[] = { "rwsize=4096", NULL };
-    char *outArgs[] = { "rsize=4096", "wsize=4096", NULL };
-    _testArgs(nfsParameterVerifier, inArgs, outArgs);
+- (void)testMountRWSize4K
+{
+	char *inArgs[] = { "rwsize=4096", NULL };
+	char *outArgs[] = { "rsize=4096", "wsize=4096", NULL };
+	_testArgs(nfsParameterVerifier, inArgs, outArgs);
 }
 
-- (void)testMountReadAHead0 {
-    _testNFSArg("readahead=0");
+- (void)testMountReadAHead0
+{
+	_testNFSArg("readahead=0");
 }
 
-- (void)testMountReadAHead32 {
-    _testNFSArg("readahead=32");
+- (void)testMountReadAHead32
+{
+	_testNFSArg("readahead=32");
 }
 
-- (void)testMountDSize4K {
-    _testNFSArg("dsize=4096");
+- (void)testMountDSize4K
+{
+	_testNFSArg("dsize=4096");
 }
 
-- (void)testMountReadDirPlus {
-    _testNFSArg("rdirplus");
+- (void)testMountReadDirPlus
+{
+	_testNFSArg("rdirplus");
 }
 
-- (void)testMountNoReadDirPlus {
-    _testNFSArg("nordirplus");
+- (void)testMountNoReadDirPlus
+{
+	_testNFSArg("nordirplus");
 }
 
-- (void)testMountMaxGroups8 {
-    _testNFSArg("maxgroups=8");
+- (void)testMountMaxGroups8
+{
+	_testNFSArg("maxgroups=8");
 }
 
-- (void)testMountTimeo5 {
-    char *nfsArgs[] = { "retrans=5", "soft", NULL };
-    _testNFSArgs(nfsArgs);
+- (void)testMountTimeo5
+{
+	char *nfsArgs[] = { "retrans=5", "soft", NULL };
+	_testNFSArgs(nfsArgs);
 }
 
-- (void)testMountACTimeo5 {
-    char *inArgs[] = { "actimeo=5", NULL };
-    char *outArgs[] = { "acregmin=5", "acregmax=5", "acdirmin=5", "acdirmax=5", NULL };
-    _testArgs(nfsParameterVerifier, inArgs, outArgs);
+- (void)testMountACTimeo5
+{
+	char *inArgs[] = { "actimeo=5", NULL };
+	char *outArgs[] = { "acregmin=5", "acregmax=5", "acdirmin=5", "acdirmax=5", NULL };
+	_testArgs(nfsParameterVerifier, inArgs, outArgs);
 }
 
-- (void)testMountNoAC {
-    char *inArgs[] = { "noac", NULL };
-    char *outArgs[] = { "acregmin=0", "acregmax=0", "acdirmin=0", "acdirmax=0", NULL };
-    _testArgs(nfsParameterVerifier, inArgs, outArgs);
+- (void)testMountNoAC
+{
+	char *inArgs[] = { "noac", NULL };
+	char *outArgs[] = { "acregmin=0", "acregmax=0", "acdirmin=0", "acdirmax=0", NULL };
+	_testArgs(nfsParameterVerifier, inArgs, outArgs);
 }
 
-- (void)testMountDeadTimeout {
-    _testNFSArg("deadtimeout=30");
+- (void)testMountDeadTimeout
+{
+	_testNFSArg("deadtimeout=30");
 }
 
-- (void)testMountMuteJukebox {
-    _testNFSArg("mutejukebox");
+- (void)testMountMuteJukebox
+{
+	_testNFSArg("mutejukebox");
 }
 
-- (void)testMountNoMuteJukebox {
-    _testNFSArg("nomutejukebox");
+- (void)testMountNoMuteJukebox
+{
+	_testNFSArg("nomutejukebox");
 }
 
-- (void)testMountNFC {
-    _testNFSArg("nfc");
+- (void)testMountNFC
+{
+	_testNFSArg("nfc");
 }
 
-- (void)testMountNoNFC {
-    _testNFSArg("nonfc");
+- (void)testMountNoNFC
+{
+	_testNFSArg("nonfc");
+}
+
+/* FPnfs is deprecated: mount_nfs is expcted to fail with EX_UNAVAILABLE */
+- (void)testFPnfs
+{
+	char *nfsArgs[] = { "fpnfs", NULL };
+
+	nfstests_init_input_args(DST_MOUNT_PATH, nfsArgs);
+	nfstests_run_command(mount_nfs_imp, argc, argv, EX_UNAVAILABLE);
 }
 
 /* Mount args */
 
-- (void)testMountSync {
-    _testMountArg("sync");
+- (void)testMountSync
+{
+	_testMountArg("sync");
 }
 
-- (void)testMountASync {
-    _testMountArg("async");
+- (void)testMountASync
+{
+	_testMountArg("async");
 }
 
-- (void)testMountAutomounted {
-    _testMountArg("automounted");
+- (void)testMountAutomounted
+{
+	_testMountArg("automounted");
 }
 
-- (void)testMountNoBrowse {
-    _testMountArg("nobrowse");
+- (void)testMountNoBrowse
+{
+	_testMountArg("nobrowse");
 }
 
-- (void)testMountReadOnly {
-    _testMountArg("ro");
+- (void)testMountReadOnly
+{
+	_testMountArg("ro");
 }
 
 @end
@@ -299,157 +349,172 @@ struct nfs_options_client expected_options;
 
 @implementation nfsclntTests_parse_options
 
-- (void)setUp {
-    setUpOptions();
+- (void)setUp
+{
+	setUpOptions();
 }
 
-- (void)tearDown {
+- (void)tearDown
+{
 }
 
-- (void)testParseOptions {
-    struct timespec regmin = { .tv_sec = 11, .tv_nsec = 0 };
-    struct timespec regmax = { .tv_sec = 22, .tv_nsec = 0 };
-    struct timespec dirmin = { .tv_sec = 33, .tv_nsec = 0 };
-    struct timespec dirmax = { .tv_sec = 44, .tv_nsec = 0 };
-    struct timespec reqtimeo = { .tv_sec = 2, .tv_nsec = 100000000 }; /* 2.1 sec */
-    struct timespec deadtime = { .tv_sec = 31, .tv_nsec = 0 };
-    const char *fhstr = "fd168a14440000002b02184e02000000ffffffff000000002b02184e02000000";
-    struct nfs_sec sec = { .count = 3, .flavors = { RPCAUTH_SYS, RPCAUTH_KRB5P, RPCAUTH_KRB5I }};
-    struct nfs_etype etype = { .count = 3, .selected = 3, .etypes = { NFS_AES128_CTS_HMAC_SHA1_96, NFS_AES256_CTS_HMAC_SHA1_96, NFS_DES3_CBC_SHA1_KD } };
-    fhandle_t fh;
+- (void)testParseOptions
+{
+	struct timespec regmin = { .tv_sec = 11, .tv_nsec = 0 };
+	struct timespec regmax = { .tv_sec = 22, .tv_nsec = 0 };
+	struct timespec dirmin = { .tv_sec = 33, .tv_nsec = 0 };
+	struct timespec dirmax = { .tv_sec = 44, .tv_nsec = 0 };
+	struct timespec reqtimeo = { .tv_sec = 2, .tv_nsec = 100000000 }; /* 2.1 sec */
+	struct timespec deadtime = { .tv_sec = 31, .tv_nsec = 0 };
+	const char *fhstr = "fd168a14440000002b02184e02000000ffffffff000000002b02184e02000000";
+	struct nfs_sec sec = { .count = 3, .flavors = { RPCAUTH_SYS, RPCAUTH_KRB5P, RPCAUTH_KRB5I }};
+	struct nfs_etype etype = { .count = 3, .selected = 3, .etypes = { NFS_AES128_CTS_HMAC_SHA1_96, NFS_AES256_CTS_HMAC_SHA1_96, NFS_DES3_CBC_SHA1_KD } };
+	fhandle_t fh;
 
-    XCTAssertFalse(hexstr2fh(fhstr, &fh));
+	XCTAssertFalse(hexstr2fh(fhstr, &fh));
 
-    writeArgToOptions(NFSTESTS_OPTIONS_MNT_FLAGS, "ro", (void *) MNT_RDONLY);
-    writeArgToOptions(NFSTESTS_OPTIONS_MNT_FLAGS, "sync", (void *) MNT_SYNCHRONOUS);
-    writeArgToOptions(NFSTESTS_OPTIONS_NFSVERS, "4.0", (void *) 4);
-    writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, "65536", (void *) 65536);
-    writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, "4096", (void *) 4096);
-    writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, "32k", (void *) 32768);
-    writeArgToOptions(NFSTESTS_OPTIONS_READAHEAD, "100", (void *) 100);
-    writeArgToOptions(NFSTESTS_OPTIONS_AC_REG_MIN, "11", (void *) &regmin);
-    writeArgToOptions(NFSTESTS_OPTIONS_AC_REG_MAX, "22", (void *) &regmax);
-    writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MIN, "33", (void *) &dirmin);
-    writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MAX, "44", (void *) &dirmax);
-    writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_LOCAL, "locallocks", (void *) NFS_LOCK_MODE_LOCAL);
-    writeArgToOptions(NFSTESTS_OPTIONS_SECURITY, "sys:krb5p:krb5i", (void *) &sec);
-    writeArgToOptions(NFSTESTS_OPTIONS_ETYPE, "aes128-cts-hmac-sha1:aes256-cts-hmac-sha1-96:des3-cbc-sha1", (void *) &etype);
-    writeArgToOptions(NFSTESTS_OPTIONS_MAX_GROUP_LIST, "5", (void *) 5);
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_TYPE, "tcp", (void *) SOCK_STREAM);
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, "inet", (void *) AF_INET);
-    writeArgToOptions(NFSTESTS_OPTIONS_NFS_PORT, "22222", (void *) 22222);
-    writeArgToOptions(NFSTESTS_OPTIONS_MOUNT_PORT, "11111", (void *) 11111);
-    writeArgToOptions(NFSTESTS_OPTIONS_REQUEST_TIMEOUT, "21", (void *) &reqtimeo);
-    writeArgToOptions(NFSTESTS_OPTIONS_RETRY_COUNT, "33", (void *) 33);
-    writeArgToOptions(NFSTESTS_OPTIONS_DEAD_TIMEOUT, "31", (void *) &deadtime);
-    writeArgToOptions(NFSTESTS_OPTIONS_FILE_HANDLE, fhstr, (void *)&fh);
-    writeArgToOptions(NFSTESTS_OPTIONS_REALM, "myrealm.test.com", (void *)"@myrealm.test.com");
-    writeArgToOptions(NFSTESTS_OPTIONS_PRINCIPAL, "myprincipal", (void *)"myprincipal");
-    writeArgToOptions(NFSTESTS_OPTIONS_SVCPRINCIPAL, "mysvcprincipal", (void *)"mysvcprincipal");
+	writeArgToOptions(NFSTESTS_OPTIONS_MNT_FLAGS, "ro", (void *) MNT_RDONLY);
+	writeArgToOptions(NFSTESTS_OPTIONS_MNT_FLAGS, "sync", (void *) MNT_SYNCHRONOUS);
+	writeArgToOptions(NFSTESTS_OPTIONS_NFSVERS, "4.0", (void *) 4);
+	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, "65536", (void *) 65536);
+	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, "4096", (void *) 4096);
+	writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, "32k", (void *) 32768);
+	writeArgToOptions(NFSTESTS_OPTIONS_READAHEAD, "100", (void *) 100);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_REG_MIN, "11", (void *) &regmin);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_REG_MAX, "22", (void *) &regmax);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MIN, "33", (void *) &dirmin);
+	writeArgToOptions(NFSTESTS_OPTIONS_AC_DIR_MAX, "44", (void *) &dirmax);
+	writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_LOCAL, "locallocks", (void *) NFS_LOCK_MODE_LOCAL);
+	writeArgToOptions(NFSTESTS_OPTIONS_SECURITY, "sys:krb5p:krb5i", (void *) &sec);
+	writeArgToOptions(NFSTESTS_OPTIONS_ETYPE, "aes128-cts-hmac-sha1:aes256-cts-hmac-sha1-96:des3-cbc-sha1", (void *) &etype);
+	writeArgToOptions(NFSTESTS_OPTIONS_MAX_GROUP_LIST, "5", (void *) 5);
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_TYPE, "tcp", (void *) SOCK_STREAM);
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, "inet", (void *) AF_INET);
+	writeArgToOptions(NFSTESTS_OPTIONS_NFS_PORT, "22222", (void *) 22222);
+	writeArgToOptions(NFSTESTS_OPTIONS_MOUNT_PORT, "11111", (void *) 11111);
+	writeArgToOptions(NFSTESTS_OPTIONS_REQUEST_TIMEOUT, "21", (void *) &reqtimeo);
+	writeArgToOptions(NFSTESTS_OPTIONS_RETRY_COUNT, "33", (void *) 33);
+	writeArgToOptions(NFSTESTS_OPTIONS_DEAD_TIMEOUT, "31", (void *) &deadtime);
+	writeArgToOptions(NFSTESTS_OPTIONS_FILE_HANDLE, fhstr, (void *)&fh);
+	writeArgToOptions(NFSTESTS_OPTIONS_REALM, "myrealm.test.com", (void *)"@myrealm.test.com");
+	writeArgToOptions(NFSTESTS_OPTIONS_PRINCIPAL, "myprincipal", (void *)"myprincipal");
+	writeArgToOptions(NFSTESTS_OPTIONS_SVCPRINCIPAL, "mysvcprincipal", (void *)"mysvcprincipal");
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testMountflags0 {
-    for (int i = 0; i < NFSTESTS_OPTIONS_FLAGS_NUM; i++) {
-        if (i != NFSTESTS_OPTIONS_FLAGS_HARD) { /* "Soft" is already enabled */
-            writeFlagToOptions(i, 0);
-        }
-    }
+- (void)testMountflags0
+{
+	for (int i = 0; i < NFSTESTS_OPTIONS_FLAGS_NUM; i++) {
+		if (i != NFSTESTS_OPTIONS_FLAGS_HARD) { /* "Soft" is already enabled */
+			writeFlagToOptions(i, 0);
+		}
+	}
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testMountflags1 {
-    for (int i = 0; i < NFSTESTS_OPTIONS_FLAGS_NUM; i++) {
-        if (i != NFSTESTS_OPTIONS_FLAGS_HARD) { /* "Soft" is already enabled */
-            writeFlagToOptions(i, 1);
-        }
-    }
+- (void)testMountflags1
+{
+	for (int i = 0; i < NFSTESTS_OPTIONS_FLAGS_NUM; i++) {
+		if (i != NFSTESTS_OPTIONS_FLAGS_HARD) { /* "Soft" is already enabled */
+			writeFlagToOptions(i, 1);
+		}
+	}
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testHard {
-    writeFlagToOptions(NFSTESTS_OPTIONS_FLAGS_HARD, 1);
+- (void)testHard
+{
+	writeFlagToOptions(NFSTESTS_OPTIONS_FLAGS_HARD, 1);
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testNoHard {
-    writeFlagToOptions(NFSTESTS_OPTIONS_FLAGS_HARD, 0);
+- (void)testNoHard
+{
+	writeFlagToOptions(NFSTESTS_OPTIONS_FLAGS_HARD, 0);
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testNoAC {
-    handleTimeout(0, "noac");
+- (void)testNoAC
+{
+	handleTimeout(0, "noac");
 }
 
-- (void)testACTimeo {
-    handleTimeout(3, "actimeo=3");
+- (void)testACTimeo
+{
+	handleTimeout(3, "actimeo=3");
 }
 
-- (void)testRWSize {
-    writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 2097152);
-    writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 2097152);
-    writeToBuf("rwsize", "2097152");
+- (void)testRWSize
+{
+	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 2097152);
+	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 2097152);
+	writeToBuf("rwsize", "2097152");
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testTCPIPV6 {
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_TYPE, NULL, (void *) SOCK_STREAM);
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_INET6);
-    writeToBuf("proto", "tcp6");
+- (void)testTCPIPV6
+{
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_TYPE, NULL, (void *) SOCK_STREAM);
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_INET6);
+	writeToBuf("proto", "tcp6");
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testUDPIPV4 {
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_TYPE, NULL, (void *) SOCK_DGRAM);
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_INET);
-    writeToBuf("proto", "udp4");
+- (void)testUDPIPV4
+{
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_TYPE, NULL, (void *) SOCK_DGRAM);
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_INET);
+	writeToBuf("proto", "udp4");
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testParseOptionsLocks {
-    writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_DISABLED, "nolocks", (void *) NFS_LOCK_MODE_DISABLED);
-    handle_mntopts(test_options);
-    optionsVerify();
+- (void)testParseOptionsLocks
+{
+	writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_DISABLED, "nolocks", (void *) NFS_LOCK_MODE_DISABLED);
+	handle_mntopts(test_options);
+	optionsVerify();
 
-    writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_ENABLED, "locks", (void *) NFS_LOCK_MODE_ENABLED);
-    handle_mntopts(test_options);
-    optionsVerify();
+	writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_ENABLED, "locks", (void *) NFS_LOCK_MODE_ENABLED);
+	handle_mntopts(test_options);
+	optionsVerify();
 
-    writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_LOCAL, "locallocks", (void *) NFS_LOCK_MODE_LOCAL);
-    handle_mntopts(test_options);
-    optionsVerify();
+	writeArgToOptions(NFSTESTS_OPTIONS_LOCKS_LOCAL, "locallocks", (void *) NFS_LOCK_MODE_LOCAL);
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testLocalNFSPort {
-    writeArgToOptions(NFSTESTS_OPTIONS_LOCAL_NFS_PORT, "/11111", (void *) "/11111");
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_LOCAL);
+- (void)testLocalNFSPort
+{
+	writeArgToOptions(NFSTESTS_OPTIONS_LOCAL_NFS_PORT, "/11111", (void *) "/11111");
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_LOCAL);
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
-- (void)testLocalMountPort {
-    writeArgToOptions(NFSTESTS_OPTIONS_LOCAL_MOUNT_PORT, "/22222", (void *) "/22222");
-    writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_LOCAL);
+- (void)testLocalMountPort
+{
+	writeArgToOptions(NFSTESTS_OPTIONS_LOCAL_MOUNT_PORT, "/22222", (void *) "/22222");
+	writeArgToOptions(NFSTESTS_OPTIONS_SOCKET_FAMILY, NULL, (void *) AF_LOCAL);
 
-    handle_mntopts(test_options);
-    optionsVerify();
+	handle_mntopts(test_options);
+	optionsVerify();
 }
 
 @end
@@ -467,93 +532,98 @@ struct nfs_conf_client expected_config;
 
 @implementation nfsclntTests_config_read
 
-- (void)setUp {
-    fd = mkstemp(template);
+- (void)setUp
+{
+	fd = mkstemp(template);
 
-    if (fd < 0) {
-        XCTFail("Unable to create tmp file: %d", errno);
-    }
+	if (fd < 0) {
+		XCTFail("Unable to create tmp file: %d", errno);
+	}
 
-    if (fcntl(fd, F_GETPATH, file_path) < 0) {
-        XCTFail("Unable to get file path: %d", errno);
-    }
+	if (fcntl(fd, F_GETPATH, file_path) < 0) {
+		XCTFail("Unable to get file path: %d", errno);
+	}
 
-    /* Init with defaults */
-    memcpy(&expected_config, &config, sizeof(struct nfs_conf_client));
+	/* Init with defaults */
+	memcpy(&expected_config, &config, sizeof(struct nfs_conf_client));
 }
 
-- (void)tearDown {
-    if (close(fd) < 0) {
-        XCTFail("Unable to close fd: %d", errno);
-    }
-    fd = -1;
+- (void)tearDown
+{
+	if (close(fd) < 0) {
+		XCTFail("Unable to close fd: %d", errno);
+	}
+	fd = -1;
 
-    if (remove(file_path) < 0) {
-        XCTFail("Unable to remove file %s: %d", file_path, errno);
-    }
+	if (remove(file_path) < 0) {
+		XCTFail("Unable to remove file %s: %d", file_path, errno);
+	}
 }
 
-- (void)testConfigRead {
-    /* Edit conf file */
-    writeArgToConf(NFSTESTS_CONF_ACCESS_CACHE_TIMEOUT, "44");
-    writeArgToConf(NFSTESTS_CONF_ACCESS_FOR_GETATTR, "1");
-    writeArgToConf(NFSTESTS_CONF_ALLOW_ASYNC, "1");
-    writeArgToConf(NFSTESTS_CONF_CALLBACK_PORT, "9999");
-    writeArgToConf(NFSTESTS_CONF_INITIAL_DOWN_DELAY, "111");
-    writeArgToConf(NFSTESTS_CONF_IOSIZE, "128");
-    writeArgToConf(NFSTESTS_CONF_NEXT_DOWN_DELAY, "100");
-    writeArgToConf(NFSTESTS_CONF_NFSIOD_THREAD_MAX, "8");
-    writeArgToConf(NFSTESTS_CONF_STATFS_RATE_LIMIT, "3333");
-    writeArgToConf(NFSTESTS_CONF_IS_MOBILE, "3");
-    writeArgToConf(NFSTESTS_CONF_SQUISHY_FLAGS, "31");
-    writeArgToConf(NFSTESTS_CONF_ROOT_STEALS_GSS_CONTEXT, "11");
-    writeArgToConf(NFSTESTS_CONF_MOUNT_TIMEOUT, "13");
-    writeArgToConf(NFSTESTS_CONF_MOUNT_QUICK_TIMEOUT, "3");
-    writeArgToConf(NFSTESTS_CONF_DEFUALT_NFS4DOMAIN, "testdomain");
+- (void)testConfigRead
+{
+	/* Edit conf file */
+	writeArgToConf(NFSTESTS_CONF_ACCESS_CACHE_TIMEOUT, "44");
+	writeArgToConf(NFSTESTS_CONF_ACCESS_FOR_GETATTR, "1");
+	writeArgToConf(NFSTESTS_CONF_ALLOW_ASYNC, "1");
+	writeArgToConf(NFSTESTS_CONF_CALLBACK_PORT, "9999");
+	writeArgToConf(NFSTESTS_CONF_INITIAL_DOWN_DELAY, "111");
+	writeArgToConf(NFSTESTS_CONF_IOSIZE, "128");
+	writeArgToConf(NFSTESTS_CONF_NEXT_DOWN_DELAY, "100");
+	writeArgToConf(NFSTESTS_CONF_NFSIOD_THREAD_MAX, "8");
+	writeArgToConf(NFSTESTS_CONF_STATFS_RATE_LIMIT, "3333");
+	writeArgToConf(NFSTESTS_CONF_IS_MOBILE, "3");
+	writeArgToConf(NFSTESTS_CONF_SQUISHY_FLAGS, "31");
+	writeArgToConf(NFSTESTS_CONF_ROOT_STEALS_GSS_CONTEXT, "11");
+	writeArgToConf(NFSTESTS_CONF_MOUNT_TIMEOUT, "13");
+	writeArgToConf(NFSTESTS_CONF_MOUNT_QUICK_TIMEOUT, "3");
+	writeArgToConf(NFSTESTS_CONF_DEFUALT_NFS4DOMAIN, "testdomain");
 
-    /* Run mount_nfs.c config_read() */
-    XCTAssertFalse(config_read(file_path, &config));
+	/* Run mount_nfs.c config_read() */
+	XCTAssertFalse(config_read(file_path, &config));
 
-    /* Verify config struct initialization */
-    configVerify();
+	/* Verify config struct initialization */
+	configVerify();
 }
 
-- (void)testConfigOptions {
-    /* Init options */
-    setUpOptions();
+- (void)testConfigOptions
+{
+	/* Init options */
+	setUpOptions();
 
-    /* write to conf file */
-    writeToConf("nfs.client.mount.options", "rwsize=65536,dsize=65536");
+	/* write to conf file */
+	writeToConf("nfs.client.mount.options", "rwsize=65536,dsize=65536");
 
-    /* Run mount_nfs.c config_read() */
-    XCTAssertFalse(config_read(file_path, &config));
+	/* Run mount_nfs.c config_read() */
+	XCTAssertFalse(config_read(file_path, &config));
 
-    /* Initialize expected value */
-    writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 65536);
-    writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 65536);
-    writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, NULL, (void *) 65536);
+	/* Initialize expected value */
+	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 65536);
+	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 65536);
+	writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, NULL, (void *) 65536);
 
-    optionsVerify();
+	optionsVerify();
 }
 
-- (void)testConfigOptionsMultipleLines {
-    /* Init options */
-    setUpOptions();
+- (void)testConfigOptionsMultipleLines
+{
+	/* Init options */
+	setUpOptions();
 
-    /* write to conf file */
-    writeToConf("nfs.client.mount.options", "wsize=65536");
-    writeToConf("nfs.client.mount.options", "dsize=65536");
-    writeToConf("nfs.client.mount.options", "rsize=65536");
+	/* write to conf file */
+	writeToConf("nfs.client.mount.options", "wsize=65536");
+	writeToConf("nfs.client.mount.options", "dsize=65536");
+	writeToConf("nfs.client.mount.options", "rsize=65536");
 
-    /* Run mount_nfs.c config_read() */
-    XCTAssertFalse(config_read(file_path, &config));
+	/* Run mount_nfs.c config_read() */
+	XCTAssertFalse(config_read(file_path, &config));
 
-    /* Initialize expected value */
-    writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 65536);
-    writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 65536);
-    writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, NULL, (void *) 65536);
+	/* Initialize expected value */
+	writeArgToOptions(NFSTESTS_OPTIONS_RSIZE, NULL, (void *) 65536);
+	writeArgToOptions(NFSTESTS_OPTIONS_WSIZE, NULL, (void *) 65536);
+	writeArgToOptions(NFSTESTS_OPTIONS_DSIZE, NULL, (void *) 65536);
 
-    optionsVerify();
+	optionsVerify();
 }
 
 @end
@@ -574,76 +644,82 @@ struct nfs_fs_location *expected_nfsl;
 
 @implementation nfsclntTests_parse_fs_locations
 
-- (void)setUp {
-    memset(locations, 0, sizeof(locations));
-    locations_len = 0;
-    expected_servcount = servcnt = 0;
-    expected_nfsl = nfsl = NULL;
+- (void)setUp
+{
+	memset(locations, 0, sizeof(locations));
+	locations_len = 0;
+	expected_servcount = servcnt = 0;
+	expected_nfsl = nfsl = NULL;
 }
 
-- (void)tearDown {
-    free(expected_nfsl);
+- (void)tearDown
+{
+	free(expected_nfsl);
 }
 
-- (void)testFSLocations {
-    writeLocation("11.0.0.1,11.0.0.2,localhost", "/tmp/path1");
-    writeLocation("<mylocal1>", "/tmp/path2");
-    writeLocation("fe80::a00:27ff:fe09:901c%en0,33.0.0.1", "/tmp/path3");
-    writeLocation("[fe80::a00:27ff:fe09:901c%en1],fe80::1e7:cc03:4516:5396%utun2", "/tmp/path4");
+- (void)testFSLocations
+{
+	writeLocation("11.0.0.1,11.0.0.2,localhost", "/tmp/path1");
+	writeLocation("<mylocal1>", "/tmp/path2");
+	writeLocation("fe80::a00:27ff:fe09:901c%en0,33.0.0.1", "/tmp/path3");
+	writeLocation("[fe80::a00:27ff:fe09:901c%en1],fe80::1e7:cc03:4516:5396%utun2", "/tmp/path4");
 
-    XCTAssertFalse(parse_fs_locations(locations, &nfsl));
-    XCTAssertTrue(nfsl);
-    XCTAssertTrue(expected_nfsl);
+	XCTAssertFalse(parse_fs_locations(locations, &nfsl));
+	XCTAssertTrue(nfsl);
+	XCTAssertTrue(expected_nfsl);
 
-    getaddresslists(nfsl, &servcnt);
-    XCTAssertEqual(expected_servcount, servcnt);
+	getaddresslists(nfsl, &servcnt);
+	XCTAssertEqual(expected_servcount, servcnt);
 
-    LocationsVerify(nfsl, expected_nfsl);
+	LocationsVerify(nfsl, expected_nfsl);
 }
 
-- (void)testIPv4Locations {
-    writeLocation("11.0.0.1,11.0.0.2", "/tmp/path1");
-    writeLocation("22.0.0.1", "/tmp/path2");
-    writeLocation("localhost", "/tmp/path3");
-    writeLocation("33.0.0.1,33.0.0.2", "/tmp/path4");
+- (void)testIPv4Locations
+{
+	writeLocation("11.0.0.1,11.0.0.2", "/tmp/path1");
+	writeLocation("22.0.0.1", "/tmp/path2");
+	writeLocation("localhost", "/tmp/path3");
+	writeLocation("33.0.0.1,33.0.0.2", "/tmp/path4");
 
-    XCTAssertFalse(parse_fs_locations(locations, &nfsl));
-    XCTAssertTrue(nfsl);
-    XCTAssertTrue(expected_nfsl);
+	XCTAssertFalse(parse_fs_locations(locations, &nfsl));
+	XCTAssertTrue(nfsl);
+	XCTAssertTrue(expected_nfsl);
 
-    getaddresslists(nfsl, &servcnt);
-    XCTAssertEqual(expected_servcount, servcnt);
+	getaddresslists(nfsl, &servcnt);
+	XCTAssertEqual(expected_servcount, servcnt);
 
-    LocationsVerify(nfsl, expected_nfsl);
+	LocationsVerify(nfsl, expected_nfsl);
 }
 
-- (void)testIPv6Locations {
-    writeLocation("[fe80::ba0e:b31f:698b:c885%utun7],[fe80::53e6:d024:73bf:f94e%utun0]", "/tmp/path1");
-    writeLocation("fe80::3600:8cb4:8ec9:d4b5%utun1,fe80::1e7:cc03:4516:5396%utun2", "/tmp/path2");
-    writeLocation("fe80::a00:27ff:fe09:901c%en0", "/tmp/path3");
-    writeLocation("[fe80::a00:27ff:fe09:901c%en1]", "/tmp/path4");
+- (void)testIPv6Locations
+{
+	writeLocation("[fe80::ba0e:b31f:698b:c885%utun7],[fe80::53e6:d024:73bf:f94e%utun0]", "/tmp/path1");
+	writeLocation("fe80::3600:8cb4:8ec9:d4b5%utun1,fe80::1e7:cc03:4516:5396%utun2", "/tmp/path2");
+	writeLocation("fe80::a00:27ff:fe09:901c%en0", "/tmp/path3");
+	writeLocation("[fe80::a00:27ff:fe09:901c%en1]", "/tmp/path4");
 
-    XCTAssertFalse(parse_fs_locations(locations, &nfsl));
-    XCTAssertTrue(nfsl);
-    XCTAssertTrue(expected_nfsl);
+	XCTAssertFalse(parse_fs_locations(locations, &nfsl));
+	XCTAssertTrue(nfsl);
+	XCTAssertTrue(expected_nfsl);
 
-    getaddresslists(nfsl, &servcnt);
-    XCTAssertEqual(expected_servcount, servcnt);
+	getaddresslists(nfsl, &servcnt);
+	XCTAssertEqual(expected_servcount, servcnt);
 
-    LocationsVerify(nfsl, expected_nfsl);
+	LocationsVerify(nfsl, expected_nfsl);
 }
 
-- (void)testLocalLocation {
-    writeLocation("<mylocal1>", "/tmp/path1");
+- (void)testLocalLocation
+{
+	writeLocation("<mylocal1>", "/tmp/path1");
 
-    XCTAssertFalse(parse_fs_locations(locations, &nfsl));
-    XCTAssertTrue(nfsl);
-    XCTAssertTrue(expected_nfsl);
+	XCTAssertFalse(parse_fs_locations(locations, &nfsl));
+	XCTAssertTrue(nfsl);
+	XCTAssertTrue(expected_nfsl);
 
-    getaddresslists(nfsl, &servcnt);
-    XCTAssertEqual(expected_servcount, servcnt);
+	getaddresslists(nfsl, &servcnt);
+	XCTAssertEqual(expected_servcount, servcnt);
 
-    LocationsVerify(nfsl, expected_nfsl);
+	LocationsVerify(nfsl, expected_nfsl);
 }
 
 @end

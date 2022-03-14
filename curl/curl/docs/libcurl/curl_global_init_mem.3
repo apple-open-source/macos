@@ -19,7 +19,7 @@
 .\" * KIND, either express or implied.
 .\" *
 .\" **************************************************************************
-.TH curl_global_init_mem 3 "November 05, 2020" "libcurl 7.77.0" "libcurl Manual"
+.TH curl_global_init_mem 3 "November 05, 2020" "libcurl 7.79.1" "libcurl Manual"
 
 .SH NAME
 curl_global_init_mem - Global libcurl initialisation with memory callbacks
@@ -54,7 +54,7 @@ To replace realloc()
 To replace strdup()
 .IP "void *calloc_callback(size_t nmemb, size_t size);"
 To replace calloc()
-.RE
+.PP
 This function is otherwise the same as \fIcurl_global_init(3)\fP, please refer
 to that man page for documentation.
 .SH "CAUTION"

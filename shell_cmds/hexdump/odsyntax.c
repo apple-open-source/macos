@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1990, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -37,7 +35,7 @@ static char sccsid[] = "@(#)odsyntax.c	8.2 (Berkeley) 5/4/95";
 #endif
 #endif /* not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/hexdump/odsyntax.c,v 1.16 2002/09/04 23:29:01 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -66,7 +64,11 @@ static void odusage(void);
 void
 oldsyntax(int argc, char ***argvp)
 {
+#ifdef __APPLE__
 	static char _n[] = "%_n", padding[] = PADDING;
+#else
+	static char empty[] = "", padding[] = PADDING;
+#endif
 	int ch;
 	char **argv, *end;
 
@@ -87,7 +89,11 @@ oldsyntax(int argc, char ***argvp)
 				    *optarg;
 				break;
 			case 'n':
+#ifdef __APPLE__
 				fshead->nextfu->fmt = _n; /* mimic regular output */
+#else
+				fshead->nextfu->fmt = empty;
+#endif
 				fshead->nextfs->nextfu->fmt = padding;
 				break;
 			default:
@@ -147,8 +153,6 @@ oldsyntax(int argc, char ***argvp)
 				skip *= 1048576L;
 			else if (*end == 'g')
 				skip *= 1073741824;
-			else if (*end != '\0')
-				skip = -1;
 			if (errno != 0 || skip < 0 || strlen(end) > 1)
 				errx(1, "%s: invalid skip amount", optarg);
 			break;
@@ -242,13 +246,12 @@ odoffset(int argc, char ***argvp)
 	/* check for no number */
 	if (num == p)
 		return;
-	q = p;
+
 	/* if terminates with a '.', base is decimal */
-	if (*q == '.') {
+	if (*p == '.') {
 		if (base)
 			return;
 		base = 10;
-		q++;
 	}
 
 	skip = strtoll((const char *)num, (char **)&end, base ? base : 8);
@@ -259,17 +262,22 @@ odoffset(int argc, char ***argvp)
 		return;
 	}
 
-	if (*q) {
-		if (*q == 'B') {
+	if (*p) {
+		if (*p == 'B') {
 			skip *= 1024;
 			++p;
-		} else if (*q == 'b') {
+		} else if (*p == 'b') {
 			skip *= 512;
-			++q;
+			++p;
+#ifdef __APPLE__
+		} else if (*p == '.') {
+		/* Check for decimal case */
+		p++;
+#endif
 		}
 	}
 
-	if (*q) {
+	if (*p) {
 		skip = 0;
 		return;
 	}

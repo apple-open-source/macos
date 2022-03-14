@@ -84,4 +84,13 @@ message AccountMetadataClassC {
 
     // True if we've warned the user about having too many peers
     optional bool warnedTooManyPeers = 20;
+    
+    // If adding/updating any fields to AccountSettings, make sure to also update the OTAccountSettings.proto entry as well
+    message AccountSettings {
+        optional bool w = 1;
+        optional bool webAccess = 2;
+    }
+    
+    optional AccountSettings settings = 21;
+    
 }

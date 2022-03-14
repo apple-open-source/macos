@@ -127,6 +127,29 @@ static inline void hfs_free(void *ptr, __unused size_t size)
     return free(ptr);
 }
 
+#define _hfs_new(type, count)                                  \
+({                                                             \
+        void *_ptr = NULL;                                     \
+        typeof(count) _count = count;                          \
+        size_t _size = sizeof(type) * _count;                  \
+        _ptr = calloc(1,_size);                                \
+        _ptr;                                                  \
+})
+
+#define _hfs_delete(ptr, type, count)                          \
+({                                                             \
+        typeof(ptr) _ptr = ptr;                                \
+        __unused typeof(count) _count = count;                 \
+        if (_ptr) {                                            \
+                free(_ptr);                                    \
+        }                                                      \
+})
+
+#define hfs_new(type, count) _hfs_new(type, count)
+#define hfs_new_data(type, count) _hfs_new(type, count)
+#define hfs_delete(ptr, type, count) _hfs_delete(ptr, type, count)
+#define hfs_delete_data(ptr, type, count) _hfs_delete(ptr, type, count)
+
 static inline __attribute__((const))
 uint64_t hfs_blk_to_bytes(uint32_t blk, uint32_t blk_size)
 {

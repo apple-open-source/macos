@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2017-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,7 @@
 
 namespace JSC {
 
-IsoSubspace::IsoSubspace(CString name, Heap& heap, HeapCellType* heapCellType, size_t size, uint8_t numberOfLowerTierCells)
+IsoSubspace::IsoSubspace(CString name, Heap& heap, const HeapCellType& heapCellType, size_t size, uint8_t numberOfLowerTierCells)
     : Subspace(name, heap)
     , m_directory(WTF::roundUpToMultipleOf<MarkedBlock::atomSize>(size))
     , m_localAllocator(&m_directory)
@@ -54,16 +54,6 @@ IsoSubspace::IsoSubspace(CString name, Heap& heap, HeapCellType* heapCellType, s
 
 IsoSubspace::~IsoSubspace()
 {
-}
-
-Allocator IsoSubspace::allocatorFor(size_t size, AllocatorForMode mode)
-{
-    return allocatorForNonVirtual(size, mode);
-}
-
-void* IsoSubspace::allocate(VM& vm, size_t size, GCDeferralContext* deferralContext, AllocationFailureMode failureMode)
-{
-    return allocateNonVirtual(vm, size, deferralContext, failureMode);
 }
 
 void IsoSubspace::didResizeBits(unsigned blockIndex)

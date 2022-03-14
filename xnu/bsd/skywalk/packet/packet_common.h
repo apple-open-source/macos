@@ -1705,5 +1705,39 @@ __packet_trace_event(const uint64_t ph, uint32_t event)
 	kdebug_trace(event, PKT_ADDR(ph)->pkt_trace_id, 0, 0, 0);
 #endif /* !KERNEL */
 }
+
+#ifdef KERNEL
+__attribute__((always_inline))
+static inline void
+__packet_perform_tx_completion_callbacks(const kern_packet_t ph, ifnet_t ifp)
+{
+	/*
+	 * NOTE: this function can be called with ifp as NULL.
+	 */
+	uint64_t ts;
+	kern_return_t tx_status;
+	uintptr_t cb_arg, cb_data;
+	struct __kern_packet *kpkt = SK_PTR_ADDR_KPKT(ph);
+
+	ASSERT((kpkt->pkt_pflags & PKT_F_TX_COMPL_TS_REQ) != 0);
+	(void) __packet_get_tx_completion_status(ph, &tx_status);
+	__packet_get_tx_completion_data(ph, &cb_arg, &cb_data);
+	__packet_get_timestamp(ph, &ts, NULL);
+	while (kpkt->pkt_tx_compl_callbacks != 0) {
+		mbuf_tx_compl_func cb;
+		uint32_t i;
+
+		i = ffs(kpkt->pkt_tx_compl_callbacks) - 1;
+		kpkt->pkt_tx_compl_callbacks &= ~(1 << i);
+		cb = m_get_tx_compl_callback(i);
+		if (__probable(cb != NULL)) {
+			cb(kpkt->pkt_tx_compl_context, ifp, ts, cb_arg, cb_data,
+			    tx_status);
+		}
+	}
+	kpkt->pkt_pflags &= ~PKT_F_TX_COMPL_TS_REQ;
+}
+#endif /* KERNEL */
+
 #endif /* PRIVATE || BSD_KERNEL_PRIVATE */
 #endif /* !_SKYWALK_PACKET_COMMON_H_ */

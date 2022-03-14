@@ -72,10 +72,17 @@ static bool shouldTrimFromURL(UChar character)
     return character <= ' ';
 }
 
-URL URL::isolatedCopy() const
+URL URL::isolatedCopy() const &
 {
     URL result = *this;
     result.m_string = result.m_string.isolatedCopy();
+    return result;
+}
+
+URL URL::isolatedCopy() &&
+{
+    URL result = *this;
+    result.m_string = WTFMove(result.m_string).isolatedCopy();
     return result;
 }
 
@@ -730,13 +737,13 @@ bool protocolHostAndPortAreEqual(const URL& a, const URL& b)
 
     // Check the scheme
     for (unsigned i = 0; i < a.m_schemeEnd; ++i) {
-        if (a.string()[i] != b.string()[i])
+        if (toASCIILower(a.string()[i]) != toASCIILower(b.string()[i]))
             return false;
     }
 
     // And the host
     for (unsigned i = 0; i < hostLengthA; ++i) {
-        if (a.string()[hostStartA + i] != b.string()[hostStartB + i])
+        if (toASCIILower(a.string()[hostStartA + i]) != toASCIILower(b.string()[hostStartB + i]))
             return false;
     }
 
@@ -1182,6 +1189,11 @@ bool URL::hostIsIPAddress(StringView host)
 }
 
 #endif
+
+Vector<KeyValuePair<String, String>> queryParameters(const URL& url)
+{
+    return URLParser::parseURLEncodedForm(url.query());
+}
 
 Vector<KeyValuePair<String, String>> differingQueryParameters(const URL& firstURL, const URL& secondURL)
 {

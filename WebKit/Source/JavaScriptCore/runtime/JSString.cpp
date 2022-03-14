@@ -41,7 +41,7 @@ Structure* JSString::createStructure(VM& vm, JSGlobalObject* globalObject, JSVal
 
 JSString* JSString::createEmptyString(VM& vm)
 {
-    JSString* newString = new (NotNull, allocateCell<JSString>(vm.heap)) JSString(vm, *StringImpl::empty());
+    JSString* newString = new (NotNull, allocateCell<JSString>(vm)) JSString(vm, *StringImpl::empty());
     newString->finishCreation(vm);
     return newString;
 }
@@ -246,7 +246,7 @@ RefPtr<AtomStringImpl> JSRopeString::resolveRopeToExistingAtomString(JSGlobalObj
         resolveRopeWithFunction(globalObject, [&] (Ref<StringImpl>&& newImpl) -> Ref<StringImpl> {
             existingAtomString = AtomStringImpl::lookUp(newImpl.ptr());
             if (existingAtomString)
-                return makeRef(*existingAtomString);
+                return Ref { *existingAtomString };
             return WTFMove(newImpl);
         });
         RETURN_IF_EXCEPTION(scope, nullptr);
@@ -400,7 +400,7 @@ double JSString::toNumber(JSGlobalObject* globalObject) const
 
 inline StringObject* StringObject::create(VM& vm, JSGlobalObject* globalObject, JSString* string)
 {
-    StringObject* object = new (NotNull, allocateCell<StringObject>(vm.heap)) StringObject(vm, globalObject->stringObjectStructure());
+    StringObject* object = new (NotNull, allocateCell<StringObject>(vm)) StringObject(vm, globalObject->stringObjectStructure());
     object->finishCreation(vm, string);
     return object;
 }

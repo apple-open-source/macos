@@ -43,12 +43,13 @@
 #include "ImageObserver.h"
 #include "IntRect.h"
 #include "JSDOMWindowBase.h"
+#include "LegacyRenderSVGRoot.h"
 #include "LibWebRTCProvider.h"
 #include "Page.h"
 #include "PageConfiguration.h"
-#include "RenderSVGRoot.h"
 #include "RenderStyle.h"
 #include "RenderView.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGFEImageElement.h"
 #include "SVGForeignObjectElement.h"
 #include "SVGImageClients.h"
@@ -63,15 +64,6 @@
 
 #if PLATFORM(MAC)
 #include "LocalDefaultSystemAppearance.h"
-#endif
-
-#if USE(DIRECT2D)
-#include "COMPtr.h"
-#include "Direct2DUtilities.h"
-#include "GraphicsContext.h"
-#include "ImageDecoderDirect2D.h"
-#include "PlatformContextDirect2D.h"
-#include <d2d1.h>
 #endif
 
 namespace WebCore {
@@ -135,11 +127,11 @@ void SVGImage::setContainerSize(const FloatSize& size)
     auto rootElement = this->rootElement();
     if (!rootElement)
         return;
-    auto* renderer = downcast<RenderSVGRoot>(rootElement->renderer());
+    auto* renderer = downcast<LegacyRenderSVGRoot>(rootElement->renderer());
     if (!renderer)
         return;
 
-    auto view = makeRefPtr(frameView());
+    RefPtr view = frameView();
     view->resize(this->containerSize());
 
     renderer->setContainerSize(IntSize(size));
@@ -151,7 +143,7 @@ IntSize SVGImage::containerSize() const
     if (!rootElement)
         return IntSize();
 
-    auto* renderer = downcast<RenderSVGRoot>(rootElement->renderer());
+    auto* renderer = downcast<LegacyRenderSVGRoot>(rootElement->renderer());
     if (!renderer)
         return IntSize();
 
@@ -216,12 +208,12 @@ ImageDrawResult SVGImage::drawForContainerInternal(GraphicsContext& context, con
     return result;
 }
 
-RefPtr<NativeImage> SVGImage::nativeImageForCurrentFrame(const GraphicsContext* targetContext)
+RefPtr<NativeImage> SVGImage::nativeImageForCurrentFrame()
 {
-    return nativeImage(targetContext);
+    return nativeImage();
 }
 
-RefPtr<NativeImage> SVGImage::nativeImage(const GraphicsContext*)
+RefPtr<NativeImage> SVGImage::nativeImage()
 {
     return nativeImage(size(), FloatRect(FloatPoint(), size()), DestinationColorSpace::SRGB());
 }
@@ -305,7 +297,7 @@ ImageDrawResult SVGImage::drawInternal(GraphicsContext& context, const FloatRect
         return drawAsNativeImage(context, dstRect, srcRect, options, intermediateColorSpace);
     }
 
-    auto view = makeRefPtr(frameView());
+    RefPtr view = frameView();
     ASSERT(view);
 
     GraphicsContextStateSaver stateSaver(context);
@@ -319,6 +311,7 @@ ImageDrawResult SVGImage::drawInternal(GraphicsContext& context, const FloatRect
         context.setCompositeOperation(CompositeOperator::SourceOver, BlendMode::Normal);
     }
 
+    // FIXME: We should honor options.orientation(), since ImageBitmap's flipY handling relies on it. https://bugs.webkit.org/show_bug.cgi?id=231001
     FloatSize scale(dstRect.size() / srcRect.size());
     
     // We can only draw the entire frame, clipped to the rect we want. So compute where the top left
@@ -493,7 +486,7 @@ bool SVGImage::isAnimating() const
 
 void SVGImage::reportApproximateMemoryCost() const
 {
-    auto document = makeRefPtr(m_page->mainFrame().document());
+    RefPtr document = m_page->mainFrame().document();
     size_t decodedImageMemoryCost = 0;
 
     for (RefPtr<Node> node = document; node; node = NodeTraversal::next(*node))
@@ -544,8 +537,8 @@ EncodedDataStatus SVGImage::dataChanged(bool allDataReceived)
         ASSERT(loader.activeDocumentLoader()); // DocumentLoader should have been created by frame->init().
         loader.activeDocumentLoader()->writer().setMIMEType("image/svg+xml");
         loader.activeDocumentLoader()->writer().begin(URL()); // create the empty document
-        data()->forEachSegment([&](auto& segment) {
-            loader.activeDocumentLoader()->writer().addData(segment.data(), segment.size());
+        data()->forEachSegmentAsSharedBuffer([&](auto&& buffer) {
+            loader.activeDocumentLoader()->writer().addData(buffer);
         });
         loader.activeDocumentLoader()->writer().end();
 

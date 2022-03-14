@@ -1251,7 +1251,7 @@ CalendarAstronomer::AngleFunc::~AngleFunc() {}
 class SunTimeAngleFunc : public CalendarAstronomer::AngleFunc {
 public:
     virtual ~SunTimeAngleFunc();
-    virtual double eval(CalendarAstronomer& a) { return a.getSunLongitude(); }
+    virtual double eval(CalendarAstronomer& a) override { return a.getSunLongitude(); }
 };
 
 SunTimeAngleFunc::~SunTimeAngleFunc() {}
@@ -1289,7 +1289,7 @@ CalendarAstronomer::CoordFunc::~CoordFunc() {}
 class RiseSetCoordFunc : public CalendarAstronomer::CoordFunc {
 public:
     virtual ~RiseSetCoordFunc();
-    virtual void eval(CalendarAstronomer::Equatorial& result, CalendarAstronomer&a) {  a.getSunPosition(result); }
+    virtual void eval(CalendarAstronomer::Equatorial& result, CalendarAstronomer& a) override { a.getSunPosition(result); }
 };
 
 RiseSetCoordFunc::~RiseSetCoordFunc() {}
@@ -6816,7 +6816,7 @@ const CalendarAstronomer::MoonAge CalendarAstronomer::FULL_MOON() {
 class MoonTimeAngleFunc : public CalendarAstronomer::AngleFunc {
 public:
     virtual ~MoonTimeAngleFunc();
-    virtual double eval(CalendarAstronomer&a) { return a.getMoonAge(); }
+    virtual double eval(CalendarAstronomer& a) override { return a.getMoonAge(); }
 };
 
 MoonTimeAngleFunc::~MoonTimeAngleFunc() {}
@@ -6862,8 +6862,8 @@ UDate CalendarAstronomer::getNewMoonTimeInRange(UDate theTime, UBool next)
  * longitude will have the desired value.
  * <p>
  * @param desired   The desired longitude.
- * @param next      <tt>true</tt> if the next occurrance of the phase
- *                  is desired, <tt>false</tt> for the previous occurrance.
+ * @param next      <tt>true</tt> if the next occurrence of the phase
+ *                  is desired, <tt>false</tt> for the previous occurrence.
  * @internal
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
@@ -6892,8 +6892,8 @@ UDate CalendarAstronomer::getMoonTime(double desired, UBool next)
  * desired phase.
  * <p>
  * @param desired   The desired phase of the moon.
- * @param next      <tt>true</tt> if the next occurrance of the phase
- *                  is desired, <tt>false</tt> for the previous occurrance.
+ * @param next      <tt>true</tt> if the next occurrence of the phase
+ *                  is desired, <tt>false</tt> for the previous occurrence.
  * @internal
  * @deprecated ICU 2.4. This class may be removed or modified.
  */
@@ -6906,7 +6906,7 @@ UDate CalendarAstronomer::getMoonTime(const CalendarAstronomer::MoonAge& desired
 class MoonRiseSetCoordFunc : public CalendarAstronomer::CoordFunc {
 public:
     virtual ~MoonRiseSetCoordFunc();
-    virtual void eval(CalendarAstronomer::Equatorial& result, CalendarAstronomer&a) { result = a.getMoonPosition(); }
+    virtual void eval(CalendarAstronomer::Equatorial& result, CalendarAstronomer& a) override { result = a.getMoonPosition(); }
 };
 
 MoonRiseSetCoordFunc::~MoonRiseSetCoordFunc() {}

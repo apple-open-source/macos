@@ -84,8 +84,8 @@ inline Derived safe_cast(Base *base)
 // it, fixed-once-created. A proper object, I suppose.
 //
 #define NOCOPY(Type)	\
-	private: Type(const Type &) DEPRECATED_IN_MAC_OS_X_VERSION_10_0_AND_LATER; \
-	void operator = (const Type &) DEPRECATED_IN_MAC_OS_X_VERSION_10_0_AND_LATER;
+	Type(const Type&) = delete; \
+    Type& operator=(const Type&) = delete;
 
 
 //

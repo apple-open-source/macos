@@ -123,9 +123,9 @@ struct workq_usec_var {
 static LCK_GRP_DECLARE(workq_lck_grp, "workq");
 os_refgrp_decl(static, workq_refgrp, "workq", NULL);
 
-static ZONE_DECLARE(workq_zone_workqueue, "workq.wq",
+static ZONE_DEFINE(workq_zone_workqueue, "workq.wq",
     sizeof(struct workqueue), ZC_NONE);
-static ZONE_DECLARE(workq_zone_threadreq, "workq.threadreq",
+static ZONE_DEFINE(workq_zone_threadreq, "workq.threadreq",
     sizeof(struct workq_threadreq_s), ZC_CACHING);
 
 static struct mpsc_daemon_queue workq_deallocate_queue;
@@ -322,7 +322,7 @@ _wq_thactive(struct workqueue *wq)
 	return os_atomic_load_wide(&wq->wq_thactive, relaxed);
 }
 
-static inline int
+static inline uint8_t
 _wq_bucket(thread_qos_t qos)
 {
 	// Map both BG and MT to the same bucket by over-shifting down and
@@ -377,7 +377,9 @@ _wq_thactive_refresh_best_constrained_req_qos(struct workqueue *wq)
 static inline wq_thactive_t
 _wq_thactive_offset_for_qos(thread_qos_t qos)
 {
-	return (wq_thactive_t)1 << (_wq_bucket(qos) * WQ_THACTIVE_BUCKET_WIDTH);
+	uint8_t bucket = _wq_bucket(qos);
+	__builtin_assume(bucket < WORKQ_NUM_BUCKETS);
+	return (wq_thactive_t)1 << (bucket * WQ_THACTIVE_BUCKET_WIDTH);
 }
 
 static inline wq_thactive_t
@@ -422,7 +424,7 @@ _wq_thactive_aggregate_downto_qos(struct workqueue *wq, wq_thactive_t v,
 		*max_busycount = THREAD_QOS_LAST - qos;
 	}
 
-	int i = _wq_bucket(qos);
+	uint8_t i = _wq_bucket(qos);
 	v >>= i * WQ_THACTIVE_BUCKET_WIDTH;
 	for (; i < WORKQ_NUM_QOS_BUCKETS; i++, v >>= WQ_THACTIVE_BUCKET_WIDTH) {
 		active = v & WQ_THACTIVE_BUCKET_MASK;
@@ -1352,7 +1354,7 @@ workq_num_cooperative_threads_scheduled_to_qos(struct workqueue *wq, thread_qos_
 	uint64_t num_cooperative_threads = 0;
 
 	for (thread_qos_t cur_qos = WORKQ_THREAD_QOS_MAX; cur_qos >= qos; cur_qos--) {
-		int bucket = _wq_bucket(cur_qos);
+		uint8_t bucket = _wq_bucket(cur_qos);
 		num_cooperative_threads += wq->wq_cooperative_queue_scheduled_count[bucket];
 	}
 
@@ -1370,7 +1372,7 @@ static bool
 workq_has_cooperative_thread_requests(struct workqueue *wq)
 {
 	for (thread_qos_t qos = WORKQ_THREAD_QOS_MAX; qos >= WORKQ_THREAD_QOS_MIN; qos--) {
-		int bucket = _wq_bucket(qos);
+		uint8_t bucket = _wq_bucket(qos);
 		if (!STAILQ_EMPTY(&wq->wq_cooperative_queue[bucket])) {
 			return true;
 		}
@@ -1428,7 +1430,7 @@ _wq_cooperative_queue_refresh_best_req_qos(struct workqueue *wq)
 	int scheduled_count_till_qos = 0;
 
 	for (thread_qos_t qos = WORKQ_THREAD_QOS_MAX; qos >= WORKQ_THREAD_QOS_MIN; qos--) {
-		int bucket = _wq_bucket(qos);
+		uint8_t bucket = _wq_bucket(qos);
 		uint8_t scheduled_count_for_bucket = wq->wq_cooperative_queue_scheduled_count[bucket];
 		scheduled_count_till_qos += scheduled_count_for_bucket;
 
@@ -1501,7 +1503,7 @@ workq_cooperative_allowance(struct workqueue *wq, thread_qos_t qos, struct uthre
 
 	bool exclude_thread_as_scheduled = false;
 	bool passed_admissions = false;
-	int bucket = _wq_bucket(qos);
+	uint8_t bucket = _wq_bucket(qos);
 
 	if (uth && workq_thread_is_cooperative(uth)) {
 		exclude_thread_as_scheduled = true;
@@ -1642,7 +1644,10 @@ workq_threadreq_dequeue(struct workqueue *wq, workq_threadreq_t req,
 		if (workq_threadreq_is_cooperative(req)) {
 			assert(req->tr_qos != WORKQ_THREAD_QOS_MANAGER);
 			assert(req->tr_qos != WORKQ_THREAD_QOS_ABOVEUI);
-			assert(req->tr_qos == wq->wq_cooperative_queue_best_req_qos);
+			/* Account for the fact that BG and MT are coalesced when
+			 * calculating best request for cooperative pool
+			 */
+			assert(_wq_bucket(req->tr_qos) == _wq_bucket(wq->wq_cooperative_queue_best_req_qos));
 
 			struct workq_threadreq_tailq *bucket = &wq->wq_cooperative_queue[_wq_bucket(req->tr_qos)];
 			__assert_only workq_threadreq_t head = STAILQ_FIRST(bucket);
@@ -3728,7 +3733,7 @@ workq_cooperative_queue_best_req(struct workqueue *wq, struct uthread *uth)
 	assert(qos != WORKQ_THREAD_QOS_ABOVEUI);
 	assert(qos != WORKQ_THREAD_QOS_MANAGER);
 
-	int bucket = _wq_bucket(qos);
+	uint8_t bucket = _wq_bucket(qos);
 	assert(!STAILQ_EMPTY(&wq->wq_cooperative_queue[bucket]));
 
 	return STAILQ_FIRST(&wq->wq_cooperative_queue[bucket]);
@@ -4422,7 +4427,7 @@ workq_creator_should_yield(struct workqueue *wq, struct uthread *uth)
 		return true;
 	}
 
-	for (int i = _wq_bucket(qos); i < WORKQ_NUM_QOS_BUCKETS; i++) {
+	for (uint8_t i = _wq_bucket(qos); i < WORKQ_NUM_QOS_BUCKETS; i++) {
 		cnt += wq->wq_thscheduled_count[i];
 	}
 	if (conc <= cnt) {

@@ -4,10 +4,14 @@
 
 #import "keychain/ot/proto/generated_source/OTAccountMetadataClassC.h"
 #import "keychain/ot/categories/OTAccountMetadataClassC+KeychainSupport.h"
+#import "keychain/ot/proto/generated_source/OTAccountMetadataClassCAccountSettings.h"
+
+@class OTAccountSettings;
 
 extern NSString* _Nonnull OTCuttlefishContextErrorDomain;
 typedef NS_ENUM(uint32_t, OTCuttlefishContextErrors) {
     OTCCNoExistingPeerID = 0,
+    OTCCNoAccountSettings = 1,
 };
 
 NS_ASSUME_NONNULL_BEGIN
@@ -44,6 +48,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (BOOL)persistLastHealthCheck:(NSDate*)lastCheck error:(NSError**)error;
 
 - (BOOL)persistOctagonJoinAttempt:(OTAccountMetadataClassC_AttemptedAJoinState)attempt error:(NSError**)error;
+
+
 
 @end
 

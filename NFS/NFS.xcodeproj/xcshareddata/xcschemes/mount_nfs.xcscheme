@@ -29,7 +29,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:nfsclntTests.xctestplan"
+            reference = "container:nfsclntTests/nfsclntTests.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>

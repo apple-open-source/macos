@@ -38,7 +38,7 @@
 namespace WebCore {
     
 AccessibilityScrollView::AccessibilityScrollView(ScrollView* view)
-    : m_scrollView(makeWeakPtr(view))
+    : m_scrollView(view)
     , m_childrenDirty(false)
 {
 }
@@ -146,7 +146,7 @@ void AccessibilityScrollView::updateScrollbars()
 void AccessibilityScrollView::removeChildScrollbar(AccessibilityObject* scrollbar)
 {
     size_t pos = m_children.find(scrollbar);
-    if (pos != WTF::notFound) {
+    if (pos != notFound) {
         m_children[pos]->detachFromParent();
         m_children.remove(pos);
     }
@@ -163,7 +163,7 @@ AccessibilityScrollbar* AccessibilityScrollView::addChildScrollbar(Scrollbar* sc
 
     auto& scrollBarObject = downcast<AccessibilityScrollbar>(*cache->getOrCreate(scrollbar));
     scrollBarObject.setParent(this);
-    m_children.append(&scrollBarObject);
+    addChild(&scrollBarObject);
     return &scrollBarObject;
 }
         
@@ -185,8 +185,8 @@ bool AccessibilityScrollView::computeAccessibilityIsIgnored() const
 
 void AccessibilityScrollView::addChildren()
 {
-    ASSERT(!m_haveChildren);
-    m_haveChildren = true;
+    ASSERT(!m_childrenInitialized);
+    m_childrenInitialized = true;
     
     addChild(webAreaObject());
     updateScrollbars();    
@@ -194,7 +194,7 @@ void AccessibilityScrollView::addChildren()
 
 AccessibilityObject* AccessibilityScrollView::webAreaObject() const
 {
-    if (!is<FrameView>(m_scrollView.get()))
+    if (!is<FrameView>(m_scrollView))
         return nullptr;
 
     Document* document = downcast<FrameView>(*m_scrollView).frame().document();
@@ -236,7 +236,7 @@ LayoutRect AccessibilityScrollView::elementRect() const
 
 FrameView* AccessibilityScrollView::documentFrameView() const
 {
-    if (!is<FrameView>(m_scrollView.get()))
+    if (!is<FrameView>(m_scrollView))
         return nullptr;
 
     return downcast<FrameView>(m_scrollView.get());
@@ -244,7 +244,7 @@ FrameView* AccessibilityScrollView::documentFrameView() const
 
 AccessibilityObject* AccessibilityScrollView::parentObject() const
 {
-    if (!is<FrameView>(m_scrollView.get()))
+    if (!is<FrameView>(m_scrollView))
         return nullptr;
 
     AXObjectCache* cache = axObjectCache();
@@ -260,7 +260,7 @@ AccessibilityObject* AccessibilityScrollView::parentObject() const
     
 AccessibilityObject* AccessibilityScrollView::parentObjectIfExists() const
 {
-    if (!is<FrameView>(m_scrollView.get()))
+    if (!is<FrameView>(m_scrollView))
         return nullptr;
 
     AXObjectCache* cache = axObjectCache();

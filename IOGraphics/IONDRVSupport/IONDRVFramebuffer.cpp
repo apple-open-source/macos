@@ -1418,7 +1418,7 @@ IOReturn IONDRVFramebuffer::checkDriver( void )
             if (err || (scan.csGammaTableID == (GammaTableID) kGammaTableIDNoMoreTables))
                 break;
 
-            table = (GammaTbl *) IOMalloc(scan.csGammaTableSize);
+            table = (GammaTbl *) IOMallocData(scan.csGammaTableSize);
             if (0 == table)
                 continue;
             get.csGammaTableID  = scan.csGammaTableID;
@@ -1436,7 +1436,7 @@ IOReturn IONDRVFramebuffer::checkDriver( void )
                 }
             }
 
-            IOFree( table, scan.csGammaTableSize);
+            IOFreeData( table, scan.csGammaTableSize);
         }
 
         setProperty(kIOFBGammaWidthKey, __private->desiredGammaWidth, 32);

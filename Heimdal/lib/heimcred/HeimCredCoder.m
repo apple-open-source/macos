@@ -198,6 +198,7 @@ convertDict(const void *key, const void *value, void *context)
 	
 	NSData *encText = HeimCredGlobalCTX.encryptData(data);
 	if (encText == NULL) {
+	    os_log_error(GSSOSLog(), "Failed to wrap credentials");
 	    [[NSFileManager defaultManager] removeItemAtPath:archiveFile error:NULL];
 	    return;
 	}

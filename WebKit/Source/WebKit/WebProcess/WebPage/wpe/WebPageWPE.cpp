@@ -36,7 +36,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebPage::platformInitialize()
+void WebPage::platformInitialize(const WebPageCreationParameters&)
 {
 #if ENABLE(ACCESSIBILITY)
     // Create the accessible object (the plug) that will serve as the
@@ -45,7 +45,7 @@ void WebPage::platformInitialize()
     // object there specifically placed for that purpose (the socket).
     m_accessibilityObject = adoptGRef(webkitWebPageAccessibilityObjectNew(this));
     GUniquePtr<gchar> plugID(atk_plug_get_id(ATK_PLUG(m_accessibilityObject.get())));
-    send(Messages::WebPageProxy::BindAccessibilityTree(String::fromUTF8(plugID.get())));
+    send(Messages::WebPageProxy::BindAccessibilityTree(String(plugID.get())));
 #endif
 }
 

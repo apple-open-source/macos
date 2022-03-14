@@ -1,0 +1,19 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>rm</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/rm?id=2dfa4b66b3d0caaaae6ce2df476b5615f8415a19</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-06</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>rm.1: clarify behavior of -P flag (2571465)</string>
+			<string>rm.c: maintain -P support (78430016)</string>
+			<string>rm.c: initialize uid early enough (6217186)</string>
+			<string>rm.c: fail when presented no arguments (3962633, 4384135)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

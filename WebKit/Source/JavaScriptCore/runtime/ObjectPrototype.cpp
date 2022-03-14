@@ -72,7 +72,7 @@ void ObjectPrototype::finishCreation(VM& vm, JSGlobalObject* globalObject)
 
 ObjectPrototype* ObjectPrototype::create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
 {
-    ObjectPrototype* prototype = new (NotNull, allocateCell<ObjectPrototype>(vm.heap)) ObjectPrototype(vm, structure);
+    ObjectPrototype* prototype = new (NotNull, allocateCell<ObjectPrototype>(vm)) ObjectPrototype(vm, structure);
     prototype->finishCreation(vm, globalObject);
     return prototype;
 }
@@ -89,16 +89,10 @@ JSC_DEFINE_HOST_FUNCTION(objectProtoFuncValueOf, (JSGlobalObject* globalObject, 
     return JSValue::encode(valueObj);
 }
 
-bool objectPrototypeHasOwnProperty(JSGlobalObject* globalObject, JSValue base, const Identifier& propertyName)
+bool objectPrototypeHasOwnProperty(JSGlobalObject* globalObject, JSObject* thisObject, const Identifier& propertyName)
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
-    JSValue thisValue = base.toThis(globalObject, ECMAMode::strict());
-    JSObject* thisObject = thisValue.toObject(globalObject);
-    EXCEPTION_ASSERT(!!scope.exception() == !thisObject);
-    if (UNLIKELY(!thisObject))
-        return false;
-
     Structure* structure = thisObject->structure(vm);
     HasOwnPropertyCache* hasOwnPropertyCache = vm.ensureHasOwnPropertyCache();
     if (std::optional<bool> result = hasOwnPropertyCache->get(structure, propertyName)) {
@@ -123,8 +117,9 @@ JSC_DEFINE_HOST_FUNCTION(objectProtoFuncHasOwnProperty, (JSGlobalObject* globalO
     JSValue base = callFrame->thisValue();
     auto propertyName = callFrame->argument(0).toPropertyKey(globalObject);
     RETURN_IF_EXCEPTION(scope, encodedJSValue());
-    scope.release();
-    return JSValue::encode(jsBoolean(objectPrototypeHasOwnProperty(globalObject, base, propertyName)));
+    JSObject* thisObject = base.toThis(globalObject, ECMAMode::strict()).toObject(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+    RELEASE_AND_RETURN(scope, JSValue::encode(jsBoolean(objectPrototypeHasOwnProperty(globalObject, thisObject, propertyName))));
 }
 
 JSC_DEFINE_HOST_FUNCTION(objectProtoFuncIsPrototypeOf, (JSGlobalObject* globalObject, CallFrame* callFrame))
@@ -322,7 +317,7 @@ inline static bool isPokerBros()
     auto bundleID = CFBundleGetIdentifier(CFBundleGetMainBundle());
     return bundleID
         && CFEqual(bundleID, CFSTR("com.kpgame.PokerBros"))
-        && applicationSDKVersion() < DYLD_IOS_VERSION_14_0;
+        && !linkedOnOrAfter(SDKVersion::FirstWithoutPokerBrosBuiltInTagQuirk);
 }
 #endif
 

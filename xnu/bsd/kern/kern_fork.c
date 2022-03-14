@@ -96,6 +96,7 @@
 #include <sys/codesign.h>
 #include <sys/sysent.h>
 #include <sys/sysproto.h>
+#include <sys/ulock.h>
 #if CONFIG_PERSONAS
 #include <sys/persona.h>
 #endif
@@ -171,16 +172,13 @@ __private_extern__ const size_t uthread_size = sizeof(struct uthread);
 static LCK_GRP_DECLARE(rethrottle_lock_grp, "rethrottle");
 
 os_refgrp_decl(, p_refgrp, "proc", NULL);
-SECURITY_READ_ONLY_LATE(zone_t) proc_zone;
-ZONE_INIT(&proc_zone, "proc", sizeof(struct proc),
-    ZC_ZFREE_CLEARMEM | ZC_SEQUESTER, /* sequester is needed for proc_rele() */
-    ZONE_ID_PROC, NULL);
+ZONE_DEFINE_ID(ZONE_ID_PROC, "proc", struct proc,
+    ZC_ZFREE_CLEARMEM | ZC_SEQUESTER); /* sequester is needed for proc_rele() */
+
+ZONE_DEFINE_ID(ZONE_ID_PROC_SIGACTS_RO, "sigacts_ro", struct sigacts_ro,
+    ZC_READONLY | ZC_ZFREE_CLEARMEM);
 
 KALLOC_TYPE_DEFINE(proc_stats_zone, struct pstats, KT_DEFAULT);
-
-static SECURITY_READ_ONLY_LATE(zone_t) proc_sigacts_ro_zone;
-ZONE_INIT(&proc_sigacts_ro_zone, "sigacts_ro", sizeof(struct sigacts_ro),
-    ZC_READONLY | ZC_ZFREE_CLEARMEM, ZONE_ID_PROC_SIGACTS_RO, NULL);
 
 /*
  * fork1
@@ -503,10 +501,9 @@ fork_create_child(task_t parent_task,
 	 *
 	 * The new thread is waiting on the event triggered by 'task_clear_return_wait'
 	 */
-	result = thread_create_waiting(child_task,
+	result = main_thread_create_waiting(child_task,
 	    (thread_continue_t)task_wait_to_return,
 	    task_get_return_wait_event(child_task),
-	    TH_CREATE_WAITING_OPTION_NONE,
 	    &child_thread);
 
 	if (result != KERN_SUCCESS) {
@@ -973,7 +970,7 @@ forkproc(proc_t parent_proc)
 	pid_t pid;
 	struct proc_ro_data proc_ro_data = {};
 
-	child_proc = zalloc_flags(proc_zone, Z_WAITOK | Z_ZERO);
+	child_proc = zalloc_id(ZONE_ID_PROC, Z_WAITOK | Z_ZERO);
 	child_proc->p_stats = zalloc_flags(proc_stats_zone, Z_WAITOK | Z_ZERO);
 	proc_sigacts_copy(child_proc, parent_proc);
 	os_ref_init_mask(&child_proc->p_refcount, P_REF_BITS, &p_refgrp, P_REF_NEW);
@@ -1374,7 +1371,33 @@ uthread_init(task_t task, uthread_t uth, thread_ro_t tro_tpl, int workq_thread)
 		tro_tpl->tro_proc_ro = task_get_ro(task);
 	}
 
+	uth->uu_pending_sigreturn = 0;
 	uthread_init_proc_refcount(uth);
+}
+
+mach_port_name_t
+uthread_joiner_port(struct uthread *uth)
+{
+	return uth->uu_save.uus_bsdthread_terminate.kport;
+}
+
+user_addr_t
+uthread_joiner_address(uthread_t uth)
+{
+	return uth->uu_save.uus_bsdthread_terminate.ulock_addr;
+}
+
+void
+uthread_joiner_wake(task_t task, uthread_t uth)
+{
+	struct _bsdthread_terminate bts = uth->uu_save.uus_bsdthread_terminate;
+
+	assert(bts.ulock_addr);
+	bzero(&uth->uu_save.uus_bsdthread_terminate, sizeof(bts));
+
+	int flags = UL_UNFAIR_LOCK | ULF_WAKE_ALL | ULF_WAKE_ALLOW_NON_OWNER;
+	(void)ulock_wake(task, flags, bts.ulock_addr, 0);
+	mach_port_deallocate(get_task_ipcspace(task), bts.kport);
 }
 
 /*
@@ -1446,13 +1469,9 @@ uthread_cleanup(uthread_t uth, thread_ro_t tro)
 		uth->uu_cdir = NULLVP;
 	}
 
-	if (uth->uu_wqset) {
-		if (waitq_set_is_valid(uth->uu_wqset)) {
-			waitq_set_deinit(uth->uu_wqset);
-		}
-		kheap_free(KHEAP_DEFAULT, uth->uu_wqset, uth->uu_wqstate_sz);
-		uth->uu_wqset = NULL;
-		uth->uu_wqstate_sz = 0;
+	if (uth->uu_selset) {
+		select_set_free(uth->uu_selset);
+		uth->uu_selset = NULL;
 	}
 
 	os_reason_free(uth->uu_exit_reason);
@@ -1524,4 +1543,11 @@ uthread_destroy(uthread_t uth)
 	lck_spin_destroy(&uth->uu_rethrottle_lock, &rethrottle_lock_grp);
 
 	uthread_cleanup_name(uth);
+}
+
+user_addr_t
+thread_get_sigreturn_token(thread_t thread)
+{
+	uthread_t ut = (struct uthread *) get_bsdthread_info(thread);
+	return ut->uu_sigreturn_token;
 }

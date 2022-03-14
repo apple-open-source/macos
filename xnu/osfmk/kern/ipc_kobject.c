@@ -144,7 +144,6 @@
 #include <ipc/ipc_voucher.h>
 #include <kern/sync_sema.h>
 #include <kern/work_interval.h>
-#include <kern/suid_cred.h>
 #include <kern/task_ident.h>
 
 #if HYPERVISOR
@@ -186,8 +185,8 @@ static SECURITY_READ_ONLY_LATE(mig_hash_t) mig_buckets[MAX_MIG_ENTRIES];
 static SECURITY_READ_ONLY_LATE(int) mig_table_max_displ;
 SECURITY_READ_ONLY_LATE(int) mach_kobj_count; /* count of total number of kobjects */
 
-ZONE_DECLARE(ipc_kobject_label_zone, "ipc kobject labels",
-    sizeof(struct ipc_kobject_label), ZC_ZFREE_CLEARMEM);
+ZONE_DEFINE_TYPE(ipc_kobject_label_zone, "ipc kobject labels",
+    struct ipc_kobject_label, ZC_ZFREE_CLEARMEM);
 
 __startup_data
 static const struct mig_subsystem *mig_e[] = {
@@ -820,7 +819,7 @@ ipc_kobject_init_port(
 		ipc_port_make_send_locked(port);
 	}
 	if (options & IPC_KOBJECT_ALLOC_NSREQUEST) {
-		port->ip_kobject_nsrequest = true;
+		port->ip_nsrequest = IP_KOBJECT_NSREQUEST_ARMED;
 		ip_reference(port);
 	}
 	if (options & IPC_KOBJECT_ALLOC_NO_GRANT) {
@@ -1102,7 +1101,7 @@ ipc_kobject_nsrequest_locked(
 	ipc_port_t                  port,
 	mach_port_mscount_t         sync)
 {
-	if (port->ip_kobject_nsrequest) {
+	if (port->ip_nsrequest == IP_KOBJECT_NSREQUEST_ARMED) {
 		return KERN_ALREADY_WAITING;
 	}
 
@@ -1110,7 +1109,7 @@ ipc_kobject_nsrequest_locked(
 		return KERN_FAILURE;
 	}
 
-	port->ip_kobject_nsrequest = true;
+	port->ip_nsrequest = IP_KOBJECT_NSREQUEST_ARMED;
 	ip_reference(port);
 	return KERN_SUCCESS;
 }
@@ -1138,7 +1137,6 @@ ipc_kobject_nsrequest(
 
 	if (IP_VALID(port)) {
 		ip_mq_lock(port);
-		assert(port->ip_nsrequest == IP_NULL);
 
 		if (mscount) {
 			*mscount = port->ip_mscount;
@@ -1229,6 +1227,34 @@ ipc_kobject_disable_internal(
  *		The port is active and locked.
  *		On return the port is inactive and unlocked.
  */
+__abortlike
+static void
+__ipc_kobject_dealloc_bad_type_panic(ipc_port_t port, ipc_kobject_type_t type)
+{
+	panic("port %p of type %d, expecting %d", port, ip_kotype(port), type);
+}
+
+__abortlike
+static void
+__ipc_kobject_dealloc_bad_mscount_panic(
+	ipc_port_t                  port,
+	mach_port_mscount_t         mscount,
+	ipc_kobject_type_t          type)
+{
+	panic("unexpected make-send count: %p[%d], %d, %d",
+	    port, type, port->ip_mscount, mscount);
+}
+
+__abortlike
+static void
+__ipc_kobject_dealloc_bad_srights_panic(
+	ipc_port_t                  port,
+	ipc_kobject_type_t          type)
+{
+	panic("unexpected send right count: %p[%d], %d",
+	    port, type, port->ip_srights);
+}
+
 ipc_kobject_t
 ipc_kobject_dealloc_port_and_unlock(
 	ipc_port_t                  port,
@@ -1241,17 +1267,14 @@ ipc_kobject_dealloc_port_and_unlock(
 	require_ip_active(port);
 
 	if (ip_kotype(port) != type) {
-		panic("port %p of type %d, expecting %d",
-		    port, ip_kotype(port), type);
+		__ipc_kobject_dealloc_bad_type_panic(port, type);
 	}
 
 	if (mscount && port->ip_mscount != mscount) {
-		panic("%s: unexpected make-send count: %p[%d], %d, %d",
-		    __func__, port, type, port->ip_mscount, mscount);
+		__ipc_kobject_dealloc_bad_mscount_panic(port, mscount, type);
 	}
 	if ((mscount || ops->iko_op_stable) && port->ip_srights != 0) {
-		panic("%s: unexpected send right count: %p[%d], %d",
-		    __func__, port, type, port->ip_srights);
+		__ipc_kobject_dealloc_bad_srights_panic(port, type);
 	}
 
 	if (!ops->iko_op_destroy) {
@@ -1388,8 +1411,8 @@ ipc_kobject_may_upgrade(ipc_port_t port)
 		return false;
 	}
 
-	if (port->ip_pdrequest) {
-		/* outstanding port-destroyed is also disallowed */
+	if (port->ip_has_watchport || ipc_port_has_prdrequest(port)) {
+		/* outstanding watchport or port-destroyed is also disallowed */
 		return false;
 	}
 

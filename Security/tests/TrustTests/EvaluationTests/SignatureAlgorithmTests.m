@@ -176,14 +176,6 @@ errOut:
     SecPolicyRef eapPolicy = SecPolicyCreateEAP(true, (__bridge CFArrayRef)@[@"*.badssl.com", @"badssl.com"]);
     XCTAssertTrue([self runTrust:sha1_certs anchors:anchor policy:eapPolicy verifyDate:verifyDate], "anchor trusted SHA1 certs failed for EAP");
     CFReleaseNull(eapPolicy);
-
-    SecPolicyRef legacyPolicy = SecPolicyCreateLegacySSL(true, CFSTR("www.badssl.com"));
-    XCTAssertTrue([self runTrust:sha1_certs anchors:anchor policy:legacyPolicy verifyDate:verifyDate], "anchor trusted SHA1 certs failed for legacy SSL server");
-    CFReleaseNull(legacyPolicy);
-
-    SecPolicyRef legacyClientPolicy = SecPolicyCreateLegacySSL(false, NULL);
-    XCTAssertTrue([self runTrust:sha1_certs anchors:anchor policy:legacyClientPolicy verifyDate:verifyDate], "anchor trusted SHA1 certs failed for legacy SSL client");
-    CFReleaseNull(legacyClientPolicy);
 }
 
 - (void)testSHA1_appTrustedSelfSigned {

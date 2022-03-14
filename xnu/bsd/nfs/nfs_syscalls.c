@@ -432,7 +432,7 @@ worktodo:
 	/* queue ourselves back up - if there aren't too many threads running */
 	if (nfsiod_thread_count <= NFSIOD_MAX) {
 		TAILQ_INSERT_HEAD(&nfsiodfree, niod, niod_link);
-		(void)msleep0(niod, &nfsiod_mutex, PWAIT | PDROP, "nfsiod", NFS_ASYNCTHREADMAXIDLE * hz, nfsiod_continue);
+		msleep0(niod, &nfsiod_mutex, PWAIT | PDROP, "nfsiod", NFS_ASYNCTHREADMAXIDLE * hz, nfsiod_continue);
 		/* shouldn't return... so we have an error */
 		/* remove an old nfsiod struct and terminate */
 		lck_mtx_lock(&nfsiod_mutex);
@@ -1057,6 +1057,7 @@ nfssvc_addsock(socket_t so, mbuf_t mynam)
 			} else {
 				struct nfsrv_sock *old_slp;
 				struct timeval now;
+				microuptime(&now);
 				time_t time_to_wait = nfsrv_sock_idle_timeout;
 				/*
 				 * Get the oldest tcp socket and calculate the
@@ -1065,7 +1066,6 @@ nfssvc_addsock(socket_t so, mbuf_t mynam)
 				 */
 				TAILQ_FOREACH(old_slp, &nfsrv_socklist, ns_chain) {
 					if (old_slp->ns_sotype == SOCK_STREAM) {
-						microuptime(&now);
 						time_to_wait -= now.tv_sec - old_slp->ns_timestamp;
 						if (time_to_wait < 1) {
 							time_to_wait = 1;

@@ -2323,10 +2323,19 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     }
 
     __block NSError* localError = nil;
-
+    
     //delete all records
     id<OctagonEscrowRecovererPrococol> sb = data.sbd ?: [[getSecureBackupClass() alloc] init];
 
+    if (!data.authenticationAppleID) {
+        secerror("clique-reset-protected-data: authenticationAppleID not set on configuration context");
+        return nil;
+    }
+    if (!data.passwordEquivalentToken) {
+        secerror("clique-reset-protected-data: passwordEquivalentToken not set on configuration context");
+        return nil;
+    }
+    
     NSDictionary* deletionInformation = @{ getkSecureBackupAuthenticationAppleID() : data.authenticationAppleID,
                                            getkSecureBackupAuthenticationPassword() : data.passwordEquivalentToken,
                                            getkSecureBackupiCloudDataProtectionDeleteAllRecordsKey() : @YES,
@@ -2375,7 +2384,7 @@ NSString* OTCDPStatusToString(OTCDPStatus status) {
     } else {
         secnotice("clique-reset-protected-data", "Octagon account reset succeeded");
     }
-
+    
     return clique;
 #else // !OCTAGON
     if(error) {

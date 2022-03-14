@@ -41,16 +41,15 @@ struct pas_bitfit_allocator;
 struct pas_bitfit_page;
 struct pas_bitfit_page_config;
 struct pas_heap_runtime_config;
-struct pas_local_allocator;
 typedef struct pas_bitfit_allocator pas_bitfit_allocator;
 typedef struct pas_bitfit_page pas_bitfit_page;
 typedef struct pas_bitfit_page_config pas_bitfit_page_config;
 typedef struct pas_heap_runtime_config pas_heap_runtime_config;
-typedef struct pas_local_allocator pas_local_allocator;
 
+typedef void* (*pas_bitfit_page_config_page_allocator)(
+    pas_segregated_heap*, pas_physical_memory_transaction* transaction);
 typedef pas_fast_path_allocation_result (*pas_bitfit_page_config_specialized_allocator_try_allocate)(
     pas_bitfit_allocator* allocator,
-    pas_local_allocator* local,
     size_t size,
     size_t alignment);
 typedef void (*pas_bitfit_page_config_specialized_page_deallocate_with_page)(
@@ -69,6 +68,15 @@ struct pas_bitfit_page_config {
 
     pas_bitfit_page_config_variant variant;
     pas_bitfit_page_config_kind kind;
+
+    /* What's the first byte at which the object payload could start relative to the boundary? */
+    uintptr_t page_object_payload_offset;
+
+    /* How many bytes are provisioned for objects past that offset? */
+    size_t page_object_payload_size;
+
+    /* This is the allocator used to create pages. */
+    pas_bitfit_page_config_page_allocator page_allocator;
 
     pas_bitfit_page_config_specialized_allocator_try_allocate specialized_allocator_try_allocate;
     pas_bitfit_page_config_specialized_page_deallocate_with_page specialized_page_deallocate_with_page;
@@ -114,7 +122,6 @@ PAS_API extern bool pas_marge_bitfit_page_config_variant_is_enabled_override;
     PAS_API pas_fast_path_allocation_result \
     lower_case_page_config_name ## _specialized_allocator_try_allocate( \
         pas_bitfit_allocator* allocator, \
-        pas_local_allocator* local, \
         size_t size, \
         size_t alignment); \
     PAS_API void lower_case_page_config_name ## _specialized_page_deallocate_with_page( \
@@ -138,6 +145,12 @@ static inline bool pas_bitfit_page_config_is_enabled(pas_bitfit_page_config conf
     }
     PAS_ASSERT(!"Should not be reached");
     return false;
+}
+
+static PAS_ALWAYS_INLINE uintptr_t
+pas_bitfit_page_config_object_payload_end_offset_from_boundary(pas_bitfit_page_config config)
+{
+    return config.page_object_payload_offset + config.page_object_payload_size;
 }
 
 static PAS_ALWAYS_INLINE size_t pas_bitfit_page_config_num_alloc_bits(pas_bitfit_page_config config)

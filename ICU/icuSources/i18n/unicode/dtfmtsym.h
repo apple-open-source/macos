@@ -174,7 +174,7 @@ public:
      * @return         true if other is semantically equal to this.
      * @stable ICU 2.0
      */
-    UBool operator==(const DateFormatSymbols& other) const;
+    bool operator==(const DateFormatSymbols& other) const;
 
     /**
      * Return true if another object is semantically unequal to this one.
@@ -183,7 +183,7 @@ public:
      * @return         true if other is semantically unequal to this.
      * @stable ICU 2.0
      */
-    UBool operator!=(const DateFormatSymbols& other) const { return !operator==(other); }
+    bool operator!=(const DateFormatSymbols& other) const { return !operator==(other); }
 
     /**
      * Gets abbreviated era strings. For example: "AD" and "BC".
@@ -552,7 +552,7 @@ public:
     /**
      * Sets timezone strings. These strings are stored in a 2-dimensional array.
      * <p><b>Note:</b> SimpleDateFormat no longer use the zone strings stored in
-     * a DateFormatSymbols. Therefore, the time zone strings set by this mthod
+     * a DateFormatSymbols. Therefore, the time zone strings set by this method
      * have no effects in an instance of SimpleDateFormat for formatting time
      * zones.
      * @param strings       The timezone strings as a 2-d array to be copied. (not adopted; caller retains ownership)
@@ -628,7 +628,7 @@ public:
      *
      * @stable ICU 2.2
      */
-    virtual UClassID getDynamicClassID() const;
+    virtual UClassID getDynamicClassID() const override;
 
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
@@ -779,7 +779,7 @@ private:
      */
     UnicodeString  *fNarrowQuarters;
     int32_t         fNarrowQuartersCount;
-
+    
     /**
      * Standalone quarter strings. For example: "1st quarter", "2nd quarter", etc.
      */
@@ -798,7 +798,7 @@ private:
      */
     UnicodeString  *fStandaloneNarrowQuarters;
     int32_t         fStandaloneNarrowQuartersCount;
-
+    
     /**
      * All leap month patterns, for example "{0}bis".
      */
@@ -938,7 +938,7 @@ private:
      * Copy or alias an array in another object, as appropriate.
      *
      * @param dstArray    the copy destination array.
-     * @param dstCount    fill in with the lenth of 'dstArray'.
+     * @param dstCount    fill in with the length of 'dstArray'.
      * @param srcArray    the source array to be copied.
      * @param srcCount    the length of items to be copied from the 'srcArray'.
      */

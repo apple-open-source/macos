@@ -27,6 +27,7 @@
 #include "PutByStatus.h"
 
 #include "BytecodeStructs.h"
+#include "CacheableIdentifierInlines.h"
 #include "CodeBlock.h"
 #include "ComplexGetStatus.h"
 #include "GetterSetterAccessCase.h"
@@ -179,15 +180,15 @@ PutByStatus PutByStatus::computeForStubInfo(const ConcurrentJSLocker& locker, Co
         CacheableIdentifier identifier = stubInfo->identifier();
         UniquedStringImpl* uid = identifier.uid();
         RELEASE_ASSERT(uid);
-        PropertyOffset offset =
-            stubInfo->m_inlineAccessBaseStructure->getConcurrently(uid);
+        Structure* structure = stubInfo->inlineAccessBaseStructure(profiledBlock->vm());
+        PropertyOffset offset = structure->getConcurrently(uid);
         if (isValidOffset(offset))
-            return PutByVariant::replace(WTFMove(identifier), stubInfo->m_inlineAccessBaseStructure.get(), offset);
+            return PutByVariant::replace(WTFMove(identifier), structure, offset);
         return PutByStatus(JSC::slowVersion(summary), *stubInfo);
     }
         
     case CacheType::Stub: {
-        PolymorphicAccess* list = stubInfo->u.stub;
+        PolymorphicAccess* list = stubInfo->m_stub.get();
         
         PutByStatus result;
         result.m_state = Simple;
@@ -424,6 +425,8 @@ bool PutByStatus::makesCalls() const
         }
         return false;
     }
+    default:
+        RELEASE_ASSERT_NOT_REACHED();
     }
 }
 

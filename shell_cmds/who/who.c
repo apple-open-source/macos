@@ -1,4 +1,4 @@
-/*	$NetBSD: who.c,v 1.23 2008/07/24 15:35:41 christos Exp $	*/
+/*	$NetBSD: who.c,v 1.25 2015/11/21 15:01:43 christos Exp $	*/
 
 /*
  * Copyright (c) 1989, 1993
@@ -42,7 +42,7 @@ __COPYRIGHT("@(#) Copyright (c) 1989, 1993\
 #if 0
 static char sccsid[] = "@(#)who.c	8.1 (Berkeley) 6/6/93";
 #endif
-__RCSID("$NetBSD: who.c,v 1.23 2008/07/24 15:35:41 christos Exp $");
+__RCSID("$NetBSD: who.c,v 1.25 2015/11/21 15:01:43 christos Exp $");
 #endif /* not lint */
 
 #include <sys/types.h>
@@ -313,6 +313,7 @@ print(const char *name, const char *line, time_t t, const char *host,
 	time_t idle;
 	const char *types = NULL;
 	size_t i;
+	char *tstr;
 
 	state = '?';
 	idle = 0;
@@ -343,28 +344,29 @@ print(const char *name, const char *line, time_t t, const char *host,
 #ifdef __APPLE__
 	switch (type) {
 	case LOGIN_PROCESS:
-		(void)printf("%-*.*s ", maxname, maxname, "LOGIN");
+		(void)printf("%-*.*s ", (int)maxname, (int)maxname, "LOGIN");
 		break;
 	case BOOT_TIME:
-		(void)printf("%-*.*s ", maxname, maxname, "reboot");
+		(void)printf("%-*.*s ", (int)maxname, (int)maxname, "reboot");
 		break;
 	default:
-		(void)printf("%-*.*s ", maxname, maxname, name);
+		(void)printf("%-*.*s ", (int)maxname, (int)maxname, name);
 		break;
 	}
 #else /* !__APPLE__ */
-	(void)printf("%-*.*s ", maxname, maxname, name);
+	(void)printf("%-*.*s ", (int)maxname, (int)maxname, name);
 #endif /* __APPLE__ */
 
 	if (show_term)
 		(void)printf("%c ", state);
 
 #ifdef __APPLE__
-	(void)printf("%-*.*s ", maxline, maxline, type == BOOT_TIME ? "~" : line);
+	(void)printf("%-*.*s ", (int)maxline, (int)maxline, type == BOOT_TIME ? "~" : line);
 #else /* !__APPLE__ */
-	(void)printf("%-*.*s ", maxline, maxline, line);
+	(void)printf("%-*.*s ", (int)maxline, (int)maxline, line);
 #endif /* __APPLE__ */
-	(void)printf("%.12s ", ctime(&t) + 4);
+	tstr = ctime(&t);
+	(void)printf("%.12s ", tstr ? tstr + 4 : "?");
 
 	if (show_idle) {
 		if (idle < 60) 
@@ -397,19 +399,19 @@ print(const char *name, const char *line, time_t t, const char *host,
 #endif /* __APPLE__ */
 
 	if (*host)
-		(void)printf("\t(%.*s)", maxhost, host);
+		(void)printf("\t(%.*s)", (int)maxhost, host);
 	(void)putchar('\n');
 }
 
 static void
 output_labels(void)
 {
-	(void)printf("%-*.*s ", maxname, maxname, "USER");
+	(void)printf("%-*.*s ", (int)maxname, (int)maxname, "USER");
 
 	if (show_term)
 		(void)printf("S ");
 	
-	(void)printf("%-*.*s ", maxline, maxline, "LINE");
+	(void)printf("%-*.*s ", (int)maxline, (int)maxline, "LINE");
 	(void)printf("WHEN         ");
 
 	if (show_idle) {
@@ -430,7 +432,7 @@ quick(const char *fname)
 
 	(void)getutentries(fname, &ehead);
 	for (ep = ehead; ep != NULL; ep = ep->next) {
-		(void)printf("%-*s ", maxname, ep->name);
+		(void)printf("%-*s ", (int)maxname, ep->name);
 		if ((++num % 8) == 0)
 			(void)putchar('\n');
 	}

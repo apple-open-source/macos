@@ -212,11 +212,14 @@ typedef enum UAMeasureUnit {
     UAMEASUNIT_CONCENTRATION_PERMILLE   = (18 << 8) + 5,    // (CLDR 34, ICU-631nn)
     UAMEASUNIT_CONCENTRATION_PERMYRIAD  = (18 << 8) + 6,    // (CLDR 35, ICU-641)
     UAMEASUNIT_CONCENTRATION_MOLE       = (18 << 8) + 7,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_CONCENTRATION_ITEM       = (18 << 8) + 8,    // (CLDR 40)
+    UAMEASUNIT_CONCENTRATION_MILLIGRAM_OFGLUCOSE_PER_DECILITER = (18 << 8) + 9, // (CLDR 40)
     //
     // new categories/values in CLDR 35, ICU-641+
     //
     UAMEASUNIT_FORCE_NEWTON             = (19 << 8) + 0,    // (CLDR 35, ICU-641)
     UAMEASUNIT_FORCE_POUND_FORCE        = (19 << 8) + 1,    // (CLDR 35, ICU-641)
+    UAMEASUNIT_FORCE_KILOWATT_HOUR_PER_100_KILOMETER = (19 << 8) + 2, // (CLDR 40)
     //
     UAMEASUNIT_TORQUE_NEWTON_METER      = (20 << 8) + 0,    // (CLDR 35, ICU-641)
     UAMEASUNIT_TORQUE_POUND_FOOT        = (20 << 8) + 1,    // (CLDR 35, ICU-641)

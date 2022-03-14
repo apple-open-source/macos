@@ -28,6 +28,7 @@
 
 #if ENABLE(GPU_PROCESS)
 
+#include "AudioMediaStreamTrackRendererInternalUnitManager.h"
 #include "DataReference.h"
 #include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcessConnectionInitializationParameters.h"
@@ -128,7 +129,7 @@ GPUProcessConnection::~GPUProcessConnection()
 
 void GPUProcessConnection::didClose(IPC::Connection&)
 {
-    auto protector = makeRef(*this);
+    auto protector = Ref { *this };
     WebProcess::singleton().gpuProcessConnectionClosed(*this);
 
 #if ENABLE(ROUTING_ARBITRATION)
@@ -151,6 +152,11 @@ SampleBufferDisplayLayerManager& GPUProcessConnection::sampleBufferDisplayLayerM
     if (!m_sampleBufferDisplayLayerManager)
         m_sampleBufferDisplayLayerManager = makeUnique<SampleBufferDisplayLayerManager>();
     return *m_sampleBufferDisplayLayerManager;
+}
+
+void GPUProcessConnection::resetAudioMediaStreamTrackRendererInternalUnit(AudioMediaStreamTrackRendererInternalUnitIdentifier identifier)
+{
+    WebProcess::singleton().audioMediaStreamTrackRendererInternalUnitManager().reset(identifier);
 }
 #endif
 

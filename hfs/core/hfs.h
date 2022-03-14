@@ -62,6 +62,8 @@
 #include <vm/vm_kern.h>
 #include <sys/sysctl.h>
 #include <uuid/uuid.h>
+#include <IOKit/IOLib.h>
+#include <libkern/OSAtomic.h>
 
 #include "../hfs_encodings/hfs_encodings.h"
 
@@ -1016,10 +1018,6 @@ void hfs_close_jvp(hfsmount_t *hfsmp);
 // Return a heap address suitable for logging or tracing
 uintptr_t obfuscate_addr(void *addr);
 
-void *hfs_malloc(size_t size);
-void hfs_free(void *ptr, size_t size);
-void *hfs_mallocz(size_t size);
-
 typedef enum {
 	HFS_CNODE_ZONE,
 	HFS_FILEFORK_ZONE,
@@ -1045,13 +1043,165 @@ void hfs_zfree(void *ptr, hfs_zone_kind_t type);
 void hfs_sysctl_register(void);
 void hfs_sysctl_unregister(void);
 
-#if HFS_MALLOC_DEBUG
+/*****************************************************************************
+	Typed allocator wrappers
+******************************************************************************/
 
-void hfs_alloc_trace_disable(void);
-void hfs_alloc_trace_enable(void);
-bool hfs_dump_allocations(void);
+#if KERNEL
 
-#endif // HFS_MALLOC_DEBUG
+extern uint64_t hfs_allocated;
+
+#define _io_ptr_load_and_erase(elem)                            \
+({                                                              \
+    _Static_assert(sizeof(elem) == sizeof(void *),              \
+        "elem isn't pointer sized");                            \
+    __auto_type __eptr = &(elem);                               \
+    __auto_type __elem = *__eptr;                               \
+    *__eptr = (__typeof__(__elem))NULL;                         \
+    __elem;                                                     \
+})
+
+#define _io_malloc_type(type)                                   \
+({                                                              \
+        void *__ptr = NULL;                                     \
+        __ptr = IOMallocType(type);                             \
+        if (__ptr) {                                            \
+                size_t __size = sizeof(type);                   \
+                OSAddAtomic64(__size, &hfs_allocated);          \
+        }                                                       \
+        (type *)__ptr;                                          \
+})
+
+#define _io_free_type(ptr, type)                                \
+({                                                              \
+        __auto_type __ptr = _io_ptr_load_and_erase(ptr);        \
+        if (__ptr) {                                            \
+                size_t __size = sizeof(type);                   \
+                IOFreeType(__ptr, type);                        \
+                OSAddAtomic64(-(int64_t)__size, &hfs_allocated);\
+        }                                                       \
+})
+
+#define _io_malloc(helper, size)                                \
+({                                                              \
+        void *__ptr = NULL;                                     \
+        __auto_type __size = size;                              \
+        __ptr = helper(__size);                                 \
+        if (__ptr) {                                            \
+                OSAddAtomic64(__size, &hfs_allocated);          \
+        }                                                       \
+        __ptr;                                                  \
+})
+
+#define _io_free(helper, ptr, size)                             \
+({                                                              \
+        __auto_type __ptr = _io_ptr_load_and_erase(ptr);        \
+        __auto_type __size = size;                              \
+        if (__ptr) {                                            \
+                helper(__ptr, __size);                          \
+                OSAddAtomic64(-(int64_t)__size, &hfs_allocated);\
+        }                                                       \
+})
+
+#define _io_new(helper, type, count)                            \
+({                                                              \
+        void *__ptr = NULL;                                     \
+        __auto_type __count = count;                            \
+        __ptr = helper(type, __count);                          \
+        if (__ptr) {                                            \
+                size_t __size = sizeof(type) * __count;         \
+                OSAddAtomic64(__size, &hfs_allocated);          \
+        }                                                       \
+        __ptr;                                                  \
+})
+
+#define _io_delete(helper, ptr, type, count)                    \
+({                                                              \
+        __auto_type __ptr = _io_ptr_load_and_erase(ptr);        \
+        __auto_type __hfs_count = count;                        \
+        if (__ptr) {                                            \
+                size_t __total_size = sizeof(type) * __hfs_count;\
+                helper(__ptr, type, __hfs_count);               \
+                OSAddAtomic64(-(int64_t)__total_size, &hfs_allocated);\
+        }                                                       \
+})
+
+#define _io_new_with_hdr(helper, hdr_type, type, count)                            \
+({                                                              \
+		void *__ptr = NULL;                                     \
+		__auto_type __count = count;                            \
+		__ptr = helper(hdr_type, type, __count);                          \
+		if (__ptr) {                                            \
+				size_t __size = sizeof(hdr_type) + (sizeof(type) * __count);         \
+				OSAddAtomic64(__size, &hfs_allocated);          \
+		}                                                       \
+		__ptr;                                                  \
+})
+
+#define _io_delete_with_hdr(helper, ptr, hdr_type, type, count)                    \
+({                                                              \
+        __auto_type __ptr = _io_ptr_load_and_erase(ptr);        \
+		__auto_type __hfs_count = count;                        \
+		if (__ptr) {                                            \
+				size_t __total_size = sizeof(hdr_type) + (sizeof(type) * __hfs_count);\
+				helper(__ptr, hdr_type, type, __hfs_count);               \
+				OSAddAtomic64(-(int64_t)__total_size, &hfs_allocated);\
+		}                                                       \
+})
+
+// Wrappers to allocate uninitialized and zero initialized memory.
+// The '_zero' wrappers additionally zeros out the allocated memory.
+
+// Wrapper to allocate a single object of a given type, it should be used for
+// fixed size allocation.  Please NOTE: IOMallocType() returns allocated fixed
+// length allocation that is automatically zeroed.
+#define hfs_malloc_type(type) _io_malloc_type(type)
+
+// Wrapper to allocate a memory region which contains pointers or kernel
+// addresses.
+#define hfs_malloc(size)  _io_malloc(IOMalloc, size)
+#define hfs_malloc_zero(size) _io_malloc(IOMallocZero, size)
+
+// Wrapper to allocate data only memory region which doesn't contain any
+// pointers or kernel addresses.
+#define hfs_malloc_data(size) _io_malloc(IOMallocData, size)
+#define hfs_malloc_zero_data(size) _io_malloc(IOMallocZeroData, size)
+
+// Wrapper to allocate an array which contains pointers or kernel addresses.
+#define hfs_new(type, count) _io_new(IONew, type, count)
+#define hfs_new_zero(type, count) _io_new(IONewZero, type, count)
+#define hfs_new_with_hdr(hdr_type, type, count) _io_new_with_hdr(IONew, hdr_type, type, count)
+#define hfs_new_zero_with_hdr(hdr_type, type, count) _io_new_with_hdr(IONewZero, hdr_type, type, count)
+
+// Wrapper to allocate an array of a certain number of data-only types that
+// does not contain any pointers or kernel addresses.
+#define hfs_new_data(type, count) _io_new(IONewData, type, count)
+#define hfs_new_zero_data(type, count) _io_new(IONewZeroData, type, count)
+
+
+// Wrappers to release allocated memory.
+
+// Wrapper to release a single object of a given type which was allocated by
+// hfs_malloc_type().
+#define hfs_free_type(ptr, type) _io_free_type(ptr, type)
+
+// Wrapper to release a memory region which contains pointers or kernel
+// addresses.
+#define hfs_free(ptr, size) _io_free(IOFree, ptr, size)
+
+// Wrapper to release a memory region which doesn't contain any pointers or
+// kernel addresses.
+#define hfs_free_data(ptr, size) _io_free(IOFreeData, ptr, size)
+
+// Wrapper to release an array which contains pointers or kernel addresses.
+#define hfs_delete(ptr, type, count) _io_delete(IODelete, ptr, type, count)
+#define hfs_delete_with_hdr(ptr, hdr_type, type, count) _io_delete_with_hdr(IODelete, ptr, hdr_type, type, count)
+
+// Wrapper to release an array of a certain number of data-only types that does
+// not contain any pointers or kernel addresses.
+#define hfs_delete_data(ptr, type, count) _io_delete(IODeleteData, ptr, type, count)
+
+#endif /* KERNEL */
 
 /*****************************************************************************
 	Functions from hfs_vnops.c
@@ -1195,9 +1345,6 @@ SYSCTL_DECL(_vfs_generic_hfs);
 	}
 
 __END_DECLS
-
-#undef assert
-#define assert         Do_not_use_assert__Use_hfs_assert_instead
 
 #endif /* __APPLE_API_PRIVATE */
 #endif /* KERNEL */

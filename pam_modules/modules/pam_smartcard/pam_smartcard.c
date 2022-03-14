@@ -49,6 +49,7 @@
 #include <sys/param.h>
 #include "Common.h"
 #include "scmatch_evaluation.h"
+#include "ds_ops.h"
 
 #define CFReleaseSafe(CF) { CFTypeRef _cf = (CF); if (_cf) CFRelease(_cf); }
 #define PAM_OPT_PKINIT	"pkinit"
@@ -194,10 +195,27 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 
 	if (openpam_get_option(pamh, PAM_OPT_PKINIT)) {
 		pam_get_data(pamh, "kerberos", (void *)&kerberos_principal);
-		if (kerberos_principal) {
-			openpam_log(PAM_LOG_DEBUG, "%s - Will ask for kerberos ticket", PM_DISPLAY_NAME);
-		}
-	}
+        if (kerberos_principal) {
+            CFRetain(kerberos_principal);
+            openpam_log(PAM_LOG_DEBUG, "%s - Kerberos Principal passed in variable", PM_DISPLAY_NAME);
+        }
+    } else {
+        openpam_log(PAM_LOG_DEBUG, "%s - Trying to get kerbPrincipal from OD", PM_DISPLAY_NAME);
+        CFArrayRef records = find_user_record_by_attr_value(kDSNAttrRecordName, user);
+        if (records) {
+            for (CFIndex i = 0; i < CFArrayGetCount(records); ++i) {
+                CFTypeRef userRecord = CFArrayGetValueAtIndex(records, i);
+                kerberos_principal = GetPrincipalFromUser(userRecord);
+                if (kerberos_principal) {
+                    break;
+                }
+            }
+        }
+    }
+    if (kerberos_principal) {
+        openpam_log(PAM_LOG_DEBUG, "%s - Will ask for kerberos ticket", PM_DISPLAY_NAME);
+    }
+
 
 	uid_t *tmpUid;
 	if (PAM_SUCCESS == pam_get_data(pamh, "agent_uid", (void *)&tmpUid))
@@ -235,7 +253,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 		if (hints && cf_user) {
 			CFDictionaryAddValue(hints, CFSTR(kTKXpcKeyUserName), cf_user);
 			CFDictionaryRef all_tokens_data = TKCopyAvailableTokensInfo(agent_uid, hints);
-			if (all_tokens_data && (number_of_tokens = CFDictionaryGetCount(all_tokens_data)) > 0) {
+			if (all_tokens_data && ((number_of_tokens = CFDictionaryGetCount(all_tokens_data)) > 0)) {
 				// smartCardData is dictionary tokenId -> AHP data
 				CFDataRef contextData = CFDictionaryGetValue(all_tokens_data, CFSTR(kTkHintContextData));
 				if (contextData) {
@@ -285,7 +303,9 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 					CFDataRef hash = CFArrayGetValueAtIndex(hashes, i);
 					if (CFEqual(hash, pub_key_hash)) {
 						certificateName = CFArrayGetValueAtIndex(friendlyNames, i);
-						CFRetain(token_id);
+                        if (token_id) {
+                            CFRetain(token_id);
+                        }
 						break;
 					}
 				}
@@ -445,6 +465,8 @@ cleanup:
 	CFReleaseSafe(certificate);
 	CFReleaseSafe(pub_key);
 	CFReleaseSafe(private_key);
+    CFReleaseSafe(kerberos_principal);
+
 // legacy support block end
 	return retval;
 }

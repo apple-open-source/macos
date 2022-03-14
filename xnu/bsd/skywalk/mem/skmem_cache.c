@@ -382,7 +382,7 @@ skmem_cache_pre_init(void)
 #endif /* KASAN */
 		skm_size = P2ROUNDUP(skm_size, CHANNEL_CACHE_ALIGN_MAX);
 		skm_zone = zone_create(SKMEM_ZONE_PREFIX ".skm", skm_size,
-		    ZC_ZFREE_CLEARMEM | ZC_DESTRUCTIBLE);
+		    ZC_PGZ_USE_GUARDS | ZC_ZFREE_CLEARMEM | ZC_DESTRUCTIBLE);
 	}
 
 	TAILQ_INIT(&skmem_cache_head);

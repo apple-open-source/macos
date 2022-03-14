@@ -286,7 +286,7 @@ hfs_vnop_search(ap)
 	if ( ap->a_returnattrs->commonattr & ATTR_CMN_NAME )	/* XXX should be more robust! */
 		eachReturnBufferSize += kHFSPlusMaxFileNameBytes + 1;
 
-	attributesBuffer = hfs_mallocz(eachReturnBufferSize);
+	attributesBuffer = hfs_malloc_data(eachReturnBufferSize);
 	variableBuffer = (void*)((char*) attributesBuffer + fixedBlockSize);
 
 	// XXXdbg - have to lock the user's buffer so we don't fault
@@ -424,7 +424,7 @@ hfs_vnop_search(ap)
 
 ExitThisRoutine:
 	if (attributesBuffer)
-		hfs_free(attributesBuffer, eachReturnBufferSize);
+		hfs_free_data(attributesBuffer, eachReturnBufferSize);
 
 	if (user_start) {
 		vsunlock(user_start, user_len, TRUE);

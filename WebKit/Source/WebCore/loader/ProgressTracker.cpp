@@ -75,8 +75,6 @@ public:
     long long estimatedLength;
 };
 
-unsigned long ProgressTracker::s_uniqueIdentifier = 0;
-
 ProgressTracker::ProgressTracker(UniqueRef<ProgressTrackerClient>&& client)
     : m_client(WTFMove(client))
     , m_progressHeartbeatTimer(*this, &ProgressTracker::progressHeartbeatTimerFired)
@@ -183,7 +181,7 @@ void ProgressTracker::finalProgressComplete()
     InspectorInstrumentation::frameStoppedLoading(*frame);
 }
 
-void ProgressTracker::incrementProgress(unsigned long identifier, const ResourceResponse& response)
+void ProgressTracker::incrementProgress(ResourceLoaderIdentifier identifier, const ResourceResponse& response)
 {
     LOG(Progress, "Progress incremented (%p) - value %f, tracked frames %d, originating frame %p", this, m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
 
@@ -206,7 +204,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const Resource
     item->estimatedLength = estimatedLength;
 }
 
-void ProgressTracker::incrementProgress(unsigned long identifier, unsigned bytesReceived)
+void ProgressTracker::incrementProgress(ResourceLoaderIdentifier identifier, unsigned bytesReceived)
 {
     ProgressItem* item = m_progressItems.get(identifier);
 
@@ -266,7 +264,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, unsigned bytes
     m_client->didChangeEstimatedProgress();
 }
 
-void ProgressTracker::completeProgress(unsigned long identifier)
+void ProgressTracker::completeProgress(ResourceLoaderIdentifier identifier)
 {
     auto it = m_progressItems.find(identifier);
 
@@ -281,11 +279,6 @@ void ProgressTracker::completeProgress(unsigned long identifier)
     m_totalPageAndResourceBytesToLoad += delta;
 
     m_progressItems.remove(it);
-}
-
-unsigned long ProgressTracker::createUniqueIdentifier()
-{
-    return ++s_uniqueIdentifier;
 }
 
 bool ProgressTracker::isMainLoadProgressing() const

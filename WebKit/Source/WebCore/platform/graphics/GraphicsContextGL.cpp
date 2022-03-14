@@ -347,158 +347,16 @@ static bool packPixels(const uint8_t* sourceData, GraphicsContextGL::DataFormat 
     return true;
 }
 
-RefPtr<GraphicsContextGL> GraphicsContextGL::create(const GraphicsContextGLAttributes& attributes, HostWindow* hostWindow)
-{
-    RefPtr<GraphicsContextGL> result;
-    if (hostWindow)
-        result = hostWindow->createGraphicsContextGL(attributes);
-    if (!result)
-        result = GraphicsContextGLOpenGL::create(attributes, hostWindow);
-    return result;
-}
+GraphicsContextGL::Client::Client() = default;
+
+GraphicsContextGL::Client::~Client() = default;
 
 GraphicsContextGL::GraphicsContextGL(GraphicsContextGLAttributes attrs)
     : m_attrs(attrs)
 {
 }
 
-
-unsigned GraphicsContextGL::getClearBitsByAttachmentType(GCGLenum attachment)
-{
-    switch (attachment) {
-    case GraphicsContextGL::COLOR_ATTACHMENT0:
-    case ExtensionsGL::COLOR_ATTACHMENT1_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT2_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT3_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT4_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT5_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT6_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT7_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT8_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT9_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT10_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT11_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT12_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT13_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT14_EXT:
-    case ExtensionsGL::COLOR_ATTACHMENT15_EXT:
-        return GraphicsContextGL::COLOR_BUFFER_BIT;
-    case GraphicsContextGL::DEPTH_ATTACHMENT:
-        return GraphicsContextGL::DEPTH_BUFFER_BIT;
-    case GraphicsContextGL::STENCIL_ATTACHMENT:
-        return GraphicsContextGL::STENCIL_BUFFER_BIT;
-    case GraphicsContextGL::DEPTH_STENCIL_ATTACHMENT:
-        return GraphicsContextGL::DEPTH_BUFFER_BIT | GraphicsContextGL::STENCIL_BUFFER_BIT;
-    default:
-        return 0;
-    }
-}
-
-unsigned GraphicsContextGL::getClearBitsByFormat(GCGLenum format)
-{
-    switch (format) {
-    case GraphicsContextGL::RGB:
-    case GraphicsContextGL::RGBA:
-    case GraphicsContextGL::LUMINANCE_ALPHA:
-    case GraphicsContextGL::LUMINANCE:
-    case GraphicsContextGL::ALPHA:
-    case GraphicsContextGL::R8:
-    case GraphicsContextGL::R8_SNORM:
-    case GraphicsContextGL::R16F:
-    case GraphicsContextGL::R32F:
-    case GraphicsContextGL::R8UI:
-    case GraphicsContextGL::R8I:
-    case GraphicsContextGL::R16UI:
-    case GraphicsContextGL::R16I:
-    case GraphicsContextGL::R32UI:
-    case GraphicsContextGL::R32I:
-    case GraphicsContextGL::RG8:
-    case GraphicsContextGL::RG8_SNORM:
-    case GraphicsContextGL::RG16F:
-    case GraphicsContextGL::RG32F:
-    case GraphicsContextGL::RG8UI:
-    case GraphicsContextGL::RG8I:
-    case GraphicsContextGL::RG16UI:
-    case GraphicsContextGL::RG16I:
-    case GraphicsContextGL::RG32UI:
-    case GraphicsContextGL::RG32I:
-    case GraphicsContextGL::RGB8:
-    case GraphicsContextGL::SRGB8:
-    case GraphicsContextGL::RGB565:
-    case GraphicsContextGL::RGB8_SNORM:
-    case GraphicsContextGL::R11F_G11F_B10F:
-    case GraphicsContextGL::RGB9_E5:
-    case GraphicsContextGL::RGB16F:
-    case GraphicsContextGL::RGB32F:
-    case GraphicsContextGL::RGB8UI:
-    case GraphicsContextGL::RGB8I:
-    case GraphicsContextGL::RGB16UI:
-    case GraphicsContextGL::RGB16I:
-    case GraphicsContextGL::RGB32UI:
-    case GraphicsContextGL::RGB32I:
-    case GraphicsContextGL::RGBA8:
-    case GraphicsContextGL::SRGB8_ALPHA8:
-    case GraphicsContextGL::RGBA8_SNORM:
-    case GraphicsContextGL::RGB5_A1:
-    case GraphicsContextGL::RGBA4:
-    case GraphicsContextGL::RGB10_A2:
-    case GraphicsContextGL::RGBA16F:
-    case GraphicsContextGL::RGBA32F:
-    case GraphicsContextGL::RGBA8UI:
-    case GraphicsContextGL::RGBA8I:
-    case GraphicsContextGL::RGB10_A2UI:
-    case GraphicsContextGL::RGBA16UI:
-    case GraphicsContextGL::RGBA16I:
-    case GraphicsContextGL::RGBA32I:
-    case GraphicsContextGL::RGBA32UI:
-    case ExtensionsGL::SRGB_EXT:
-    case ExtensionsGL::SRGB_ALPHA_EXT:
-        return GraphicsContextGL::COLOR_BUFFER_BIT;
-    case GraphicsContextGL::DEPTH_COMPONENT16:
-    case GraphicsContextGL::DEPTH_COMPONENT24:
-    case GraphicsContextGL::DEPTH_COMPONENT32F:
-    case GraphicsContextGL::DEPTH_COMPONENT:
-        return GraphicsContextGL::DEPTH_BUFFER_BIT;
-    case GraphicsContextGL::STENCIL_INDEX8:
-        return GraphicsContextGL::STENCIL_BUFFER_BIT;
-    case GraphicsContextGL::DEPTH_STENCIL:
-    case GraphicsContextGL::DEPTH24_STENCIL8:
-    case GraphicsContextGL::DEPTH32F_STENCIL8:
-        return GraphicsContextGL::DEPTH_BUFFER_BIT | GraphicsContextGL::STENCIL_BUFFER_BIT;
-    default:
-        return 0;
-    }
-}
-
-uint8_t GraphicsContextGL::getChannelBitsByFormat(GCGLenum format)
-{
-    switch (format) {
-    case GraphicsContextGL::ALPHA:
-        return static_cast<uint8_t>(ChannelBits::Alpha);
-    case GraphicsContextGL::LUMINANCE:
-        return static_cast<uint8_t>(ChannelBits::RGB);
-    case GraphicsContextGL::LUMINANCE_ALPHA:
-        return static_cast<uint8_t>(ChannelBits::RGBA);
-    case GraphicsContextGL::RGB:
-    case GraphicsContextGL::RGB565:
-    case ExtensionsGL::SRGB_EXT:
-        return static_cast<uint8_t>(ChannelBits::RGB);
-    case GraphicsContextGL::RGBA:
-    case GraphicsContextGL::RGBA4:
-    case GraphicsContextGL::RGB5_A1:
-    case ExtensionsGL::SRGB_ALPHA_EXT:
-        return static_cast<uint8_t>(ChannelBits::RGBA);
-    case GraphicsContextGL::DEPTH_COMPONENT16:
-    case GraphicsContextGL::DEPTH_COMPONENT:
-        return static_cast<uint8_t>(ChannelBits::Depth);
-    case GraphicsContextGL::STENCIL_INDEX8:
-        return static_cast<uint8_t>(ChannelBits::Stencil);
-    case GraphicsContextGL::DEPTH_STENCIL:
-        return static_cast<uint8_t>(ChannelBits::DepthStencil);
-    default:
-        return 0;
-    }
-}
+GraphicsContextGL::~GraphicsContextGL() = default;
 
 bool GraphicsContextGL::computeFormatAndTypeParameters(GCGLenum format, GCGLenum type, unsigned* componentsPerPixel, unsigned* bytesPerComponent)
 {
@@ -742,6 +600,42 @@ bool GraphicsContextGL::extractTextureData(unsigned width, unsigned height, GCGL
         return false;
 
     return true;
+}
+
+void GraphicsContextGL::markContextChanged()
+{
+    m_layerComposited = false;
+}
+
+bool GraphicsContextGL::layerComposited() const
+{
+    return m_layerComposited;
+}
+
+void GraphicsContextGL::setBuffersToAutoClear(GCGLbitfield buffers)
+{
+    if (!contextAttributes().preserveDrawingBuffer)
+        m_buffersToAutoClear = buffers;
+}
+
+GCGLbitfield GraphicsContextGL::getBuffersToAutoClear() const
+{
+    return m_buffersToAutoClear;
+}
+
+void GraphicsContextGL::markLayerComposited()
+{
+    m_layerComposited = true;
+    auto attrs = contextAttributes();
+    if (!attrs.preserveDrawingBuffer) {
+        m_buffersToAutoClear = GraphicsContextGL::COLOR_BUFFER_BIT;
+        if (attrs.depth)
+            m_buffersToAutoClear |= GraphicsContextGL::DEPTH_BUFFER_BIT;
+        if (attrs.stencil)
+            m_buffersToAutoClear |= GraphicsContextGL::STENCIL_BUFFER_BIT;
+    }
+    for (auto* client : copyToVector(m_clients))
+        client->didComposite();
 }
 
 } // namespace WebCore

@@ -27,13 +27,95 @@
 
 #include "ArgumentCoders.h"
 #include "DataReference.h"
+#include "Logging.h"
+#include "MessageArgumentDescriptions.h"
+#include "MessageNames.h"
 #include "StreamServerConnection.h"
+#include <WebCore/RuntimeApplicationChecks.h>
 #include <wtf/CompletionHandler.h>
+#include <wtf/ProcessID.h>
 #include <wtf/StdLibExtras.h>
 
 namespace IPC {
 
 class Connection;
+
+// IPC message logging. Only enabled in DEBUG builds.
+//
+// Message argument values appear as "..." if no operator<<(TextStream&) is
+// implemented for them.
+
+constexpr unsigned loggingContainerSizeLimit = 200;
+
+#if !LOG_DISABLED
+enum class ForReply : bool { No, Yes };
+
+inline TextStream textStreamForLogging(const Connection& connection, MessageName messageName, ForReply forReply)
+{
+    TextStream stream(TextStream::LineMode::SingleLine, { }, loggingContainerSizeLimit);
+    stream << '[';
+#if OS(DARWIN)
+    // The remote process ID is not available when the connection was not made
+    // for an XPC service, e.g. for the Web -> GPU process connection.
+    if (connection.remoteProcessID())
+        stream << connection.remoteProcessID() << ' ';
+#else
+    UNUSED_PARAM(connection);
+#endif
+    auto arrow = forReply == ForReply::Yes ? "<- " : "-> ";
+    stream << arrow << WebCore::processTypeDescription(WebCore::processType()) << ' ' << getCurrentProcessID() << "] " << description(messageName);
+    if (forReply == ForReply::Yes)
+        stream << " Reply";
+    return stream;
+}
+#endif
+
+template<typename ArgsTuple, size_t... ArgsIndex>
+void logMessageImpl(const Connection& connection, MessageName messageName, const ArgsTuple& args, std::index_sequence<ArgsIndex...>)
+{
+#if !LOG_DISABLED
+    if (LOG_CHANNEL(IPCMessages).state != WTFLogChannelState::On)
+        return;
+
+    auto stream = textStreamForLogging(connection, messageName, ForReply::No);
+
+    if (auto argumentDescriptions = messageArgumentDescriptions(messageName))
+        (stream.dumpProperty((*argumentDescriptions)[ArgsIndex].name, ValueOrEllipsis(std::get<ArgsIndex>(args))), ...);
+
+    LOG(IPCMessages, "%s", stream.release().utf8().data());
+#else
+    UNUSED_PARAM(connection);
+    UNUSED_PARAM(messageName);
+    UNUSED_PARAM(args);
+#endif
+}
+
+template<typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
+void logMessage(const Connection& connection, MessageName messageName, const ArgsTuple& args)
+{
+    logMessageImpl(connection, messageName, args, ArgsIndices());
+}
+
+template<typename... T>
+void logReply(const Connection& connection, MessageName messageName, const T&... args)
+{
+#if !LOG_DISABLED
+    if (!sizeof...(T))
+        return;
+
+    auto stream = textStreamForLogging(connection, messageName, ForReply::Yes);
+
+    unsigned argIndex = 0;
+    if (auto argumentDescriptions = messageReplyArgumentDescriptions(messageName))
+        (stream.dumpProperty((*argumentDescriptions)[argIndex++].name, ValueOrEllipsis(args)), ...);
+
+    LOG(IPCMessages, "%s", stream.release().utf8().data());
+#else
+    UNUSED_PARAM(connection);
+    UNUSED_PARAM(messageName);
+    (UNUSED_PARAM(args), ...);
+#endif
+}
 
 // Dispatch functions with no reply arguments.
 
@@ -43,10 +125,10 @@ void callMemberFunctionImpl(C* object, MF function, ArgsTuple&& args, std::index
     (object->*function)(std::get<ArgsIndex>(std::forward<ArgsTuple>(args))...);
 }
 
-template<typename C, typename MF, typename ArgsTuple, typename ArgsIndicies = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
+template<typename C, typename MF, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
 void callMemberFunction(ArgsTuple&& args, C* object, MF function)
 {
-    callMemberFunctionImpl(object, function, std::forward<ArgsTuple>(args), ArgsIndicies());
+    callMemberFunctionImpl(object, function, std::forward<ArgsTuple>(args), ArgsIndices());
 }
 
 // Dispatch functions with synchronous reply arguments.
@@ -57,10 +139,10 @@ void callMemberFunctionImpl(C* object, MF function, CompletionHandler<CH>&& comp
     (object->*function)(std::get<ArgsIndex>(std::forward<ArgsTuple>(args))..., WTFMove(completionHandler));
 }
 
-template<typename C, typename MF, typename CH, typename ArgsTuple, typename ArgsIndicies = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
+template<typename C, typename MF, typename CH, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
 void callMemberFunction(ArgsTuple&& args, CompletionHandler<CH>&& completionHandler, C* object, MF function)
 {
-    callMemberFunctionImpl(object, function, WTFMove(completionHandler), std::forward<ArgsTuple>(args), ArgsIndicies());
+    callMemberFunctionImpl(object, function, WTFMove(completionHandler), std::forward<ArgsTuple>(args), ArgsIndices());
 }
 
 // Dispatch functions with connection parameter with synchronous reply arguments.
@@ -71,10 +153,10 @@ void callMemberFunctionImpl(Connection& connection, C* object, MF function, Comp
     (object->*function)(connection, std::get<ArgsIndex>(std::forward<ArgsTuple>(args))..., WTFMove(completionHandler));
 }
 
-template<typename C, typename MF, typename CH, typename ArgsTuple, typename ArgsIndicies = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
+template<typename C, typename MF, typename CH, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
 void callMemberFunction(Connection& connection, ArgsTuple&& args, CompletionHandler<CH>&& completionHandler, C* object, MF function)
 {
-    callMemberFunctionImpl(connection, object, function, WTFMove(completionHandler), std::forward<ArgsTuple>(args), ArgsIndicies());
+    callMemberFunctionImpl(connection, object, function, WTFMove(completionHandler), std::forward<ArgsTuple>(args), ArgsIndices());
 }
 
 // Dispatch functions with connection parameter with no reply arguments.
@@ -85,10 +167,10 @@ void callMemberFunctionImpl(C* object, MF function, Connection& connection, Args
     (object->*function)(connection, std::get<ArgsIndex>(std::forward<ArgsTuple>(args))...);
 }
 
-template<typename C, typename MF, typename ArgsTuple, typename ArgsIndicies = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
+template<typename C, typename MF, typename ArgsTuple, typename ArgsIndices = std::make_index_sequence<std::tuple_size<ArgsTuple>::value>>
 void callMemberFunction(Connection& connection, ArgsTuple&& args, C* object, MF function)
 {
-    callMemberFunctionImpl(object, function, connection, std::forward<ArgsTuple>(args), ArgsIndicies());
+    callMemberFunctionImpl(object, function, connection, std::forward<ArgsTuple>(args), ArgsIndices());
 }
 
 // Main dispatch functions
@@ -98,26 +180,10 @@ struct CodingType {
     typedef std::remove_const_t<std::remove_reference_t<T>> Type;
 };
 
-class SharedBufferDataReference;
-template<> struct CodingType<const SharedBufferDataReference&> {
-    using Type = DataReference;
-};
-
 template<typename... Ts>
 struct CodingType<std::tuple<Ts...>> {
     typedef std::tuple<typename CodingType<Ts>::Type...> Type;
 };
-
-template<typename T, typename C, typename MF>
-void handleMessage(Decoder& decoder, C* object, MF function)
-{
-    std::optional<typename CodingType<typename T::Arguments>::Type> arguments;
-    decoder >> arguments;
-    if (UNLIKELY(!arguments))
-        return;
-
-    callMemberFunction(WTFMove(*arguments), object, function);
-}
 
 template<typename T, typename C, typename MF>
 void handleMessage(Connection& connection, Decoder& decoder, C* object, MF function)
@@ -126,6 +192,20 @@ void handleMessage(Connection& connection, Decoder& decoder, C* object, MF funct
     decoder >> arguments;
     if (UNLIKELY(!arguments))
         return;
+
+    logMessage(connection, T::name(), *arguments);
+    callMemberFunction(WTFMove(*arguments), object, function);
+}
+
+template<typename T, typename C, typename MF>
+void handleMessageWantsConnection(Connection& connection, Decoder& decoder, C* object, MF function)
+{
+    std::optional<typename CodingType<typename T::Arguments>::Type> arguments;
+    decoder >> arguments;
+    if (UNLIKELY(!arguments))
+        return;
+
+    logMessage(connection, T::name(), *arguments);
     callMemberFunction(connection, WTFMove(*arguments), object, function);
 }
 
@@ -137,9 +217,11 @@ bool handleMessageSynchronous(Connection& connection, Decoder& decoder, UniqueRe
     if (UNLIKELY(!arguments))
         return false;
 
-    typename T::DelayedReply completionHandler = [replyEncoder = WTFMove(replyEncoder), connection = makeRef(connection)] (auto&&... args) mutable {
+    typename T::DelayedReply completionHandler = [replyEncoder = WTFMove(replyEncoder), connection = Ref { connection }] (auto&&... args) mutable {
+        logReply(connection, T::name(), args...);
         T::send(WTFMove(replyEncoder), WTFMove(connection), args...);
     };
+    logMessage(connection, T::name(), *arguments);
     callMemberFunction(WTFMove(*arguments), WTFMove(completionHandler), object, function);
     return true;
 }
@@ -152,9 +234,11 @@ bool handleMessageSynchronousWantsConnection(Connection& connection, Decoder& de
     if (UNLIKELY(!arguments))
         return false;
     
-    typename T::DelayedReply completionHandler = [replyEncoder = WTFMove(replyEncoder), connection = makeRef(connection)] (auto&&... args) mutable {
+    typename T::DelayedReply completionHandler = [replyEncoder = WTFMove(replyEncoder), connection = Ref { connection }] (auto&&... args) mutable {
+        logReply(connection, T::name(), args...);
         T::send(WTFMove(replyEncoder), WTFMove(connection), args...);
     };
+    logMessage(connection, T::name(), *arguments);
     callMemberFunction(connection, WTFMove(*arguments), WTFMove(completionHandler), object, function);
     return true;
 }
@@ -171,9 +255,11 @@ void handleMessageSynchronous(StreamServerConnectionBase& connection, Decoder& d
     if (UNLIKELY(!arguments))
         return;
 
-    typename T::DelayedReply completionHandler = [syncRequestID, connection = makeRef(connection)] (auto&&... args) mutable {
+    typename T::DelayedReply completionHandler = [syncRequestID, connection = Ref { connection }] (auto&&... args) mutable {
+        logReply(connection->connection(), T::name(), args...);
         connection->sendSyncReply<T>(syncRequestID, args...);
     };
+    logMessage(connection.connection(), T::name(), *arguments);
     callMemberFunction(WTFMove(*arguments), WTFMove(completionHandler), object, function);
 }
 
@@ -190,10 +276,12 @@ void handleMessageAsync(Connection& connection, Decoder& decoder, C* object, MF 
     if (UNLIKELY(!arguments))
         return;
 
-    typename T::AsyncReply completionHandler = { [listenerID = *listenerID, connection = makeRef(connection)] (auto&&... args) mutable {
+    typename T::AsyncReply completionHandler = { [listenerID = *listenerID, connection = Ref { connection }] (auto&&... args) mutable {
         auto encoder = makeUniqueRef<Encoder>(T::asyncMessageReplyName(), listenerID);
+        logReply(connection, T::name(), args...);
         T::send(WTFMove(encoder), WTFMove(connection), args...);
     }, T::callbackThread };
+    logMessage(connection, T::name(), *arguments);
     callMemberFunction(WTFMove(*arguments), WTFMove(completionHandler), object, function);
 }
 
@@ -210,10 +298,12 @@ void handleMessageAsyncWantsConnection(Connection& connection, Decoder& decoder,
     if (UNLIKELY(!arguments))
         return;
 
-    typename T::AsyncReply completionHandler = { [listenerID = *listenerID, connection = makeRef(connection)] (auto&&... args) mutable {
+    typename T::AsyncReply completionHandler = { [listenerID = *listenerID, connection = Ref { connection }] (auto&&... args) mutable {
         auto encoder = makeUniqueRef<Encoder>(T::asyncMessageReplyName(), listenerID);
+        logReply(connection, T::name(), args...);
         T::send(WTFMove(encoder), WTFMove(connection), args...);
     }, T::callbackThread };
+    logMessage(connection, T::name(), *arguments);
     callMemberFunction(connection, WTFMove(*arguments), WTFMove(completionHandler), object, function);
 }
 

@@ -112,7 +112,7 @@ typedef struct suggest_S
 #define SCORE_THRES3	100	// word count threshold for COMMON3
 
 // When trying changed soundfold words it becomes slow when trying more than
-// two changes.  With less then two changes it's slightly faster but we miss a
+// two changes.  With less than two changes it's slightly faster but we miss a
 // few good suggestions.  In rare cases we need to try three of four changes.
 #define SCORE_SFMAX1	200	// maximum score for first try
 #define SCORE_SFMAX2	300	// maximum score for second try
@@ -481,7 +481,7 @@ spell_suggest(int count)
 
     if (*curwin->w_s->b_p_spl == NUL)
     {
-	emsg(_(e_no_spell));
+	emsg(_(e_spell_checking_is_not_possible));
 	return;
     }
 
@@ -774,8 +774,8 @@ spell_find_suggest(
 
     // Set the info in "*su".
     CLEAR_POINTER(su);
-    ga_init2(&su->su_ga, (int)sizeof(suggest_T), 10);
-    ga_init2(&su->su_sga, (int)sizeof(suggest_T), 10);
+    ga_init2(&su->su_ga, sizeof(suggest_T), 10);
+    ga_init2(&su->su_sga, sizeof(suggest_T), 10);
     if (*badptr == NUL)
 	return;
     hash_init(&su->su_banned);
@@ -791,7 +791,7 @@ spell_find_suggest(
     if (su->su_badlen >= MAXWLEN)
 	su->su_badlen = MAXWLEN - 1;	// just in case
     vim_strncpy(su->su_badword, su->su_badptr, su->su_badlen);
-    (void)spell_casefold(su->su_badptr, su->su_badlen,
+    (void)spell_casefold(curwin, su->su_badptr, su->su_badlen,
 						    su->su_fbadword, MAXWLEN);
     // TODO: make this work if the case-folded text is longer than the original
     // text. Currently an illegal byte causes wrong pointer computations.
@@ -935,7 +935,7 @@ spell_suggest_file(suginfo_T *su, char_u *fname)
     fd = mch_fopen((char *)fname, "r");
     if (fd == NULL)
     {
-	semsg(_(e_notopen), fname);
+	semsg(_(e_cant_open_file_str), fname);
 	return;
     }
 
@@ -1176,7 +1176,12 @@ suggest_try_change(suginfo_T *su)
     STRCPY(fword, su->su_fbadword);
     n = (int)STRLEN(fword);
     p = su->su_badptr + su->su_badlen;
-    (void)spell_casefold(p, (int)STRLEN(p), fword + n, MAXWLEN - n);
+    (void)spell_casefold(curwin, p, (int)STRLEN(p), fword + n, MAXWLEN - n);
+
+    // Make sure the resulting text is not longer than the original text.
+    n = (int)STRLEN(su->su_badptr);
+    if (n < MAXWLEN)
+	fword[n] = NUL;
 
     for (lpi = 0; lpi < curwin->w_s->b_langp.ga_len; ++lpi)
     {
@@ -1614,7 +1619,7 @@ suggest_trie_walk(
 		    // char, e.g., "thes," -> "these".
 		    p = fword + sp->ts_fidx;
 		    MB_PTR_BACK(fword, p);
-		    if (!spell_iswordp(p, curwin))
+		    if (!spell_iswordp(p, curwin) && *preword != NUL)
 		    {
 			p = preword + STRLEN(preword);
 			MB_PTR_BACK(preword, p);
@@ -2938,7 +2943,7 @@ score_combine(suginfo_T *su)
     check_suggestions(su, &su->su_sga);
     (void)cleanup_suggestions(&su->su_sga, su->su_maxscore, su->su_maxcount);
 
-    ga_init2(&ga, (int)sizeof(suginfo_T), 1);
+    ga_init2(&ga, sizeof(suginfo_T), 1);
     if (ga_grow(&ga, su->su_ga.ga_len + su->su_sga.ga_len) == FAIL)
 	return;
 
@@ -3005,7 +3010,8 @@ stp_sal_score(
     else
     {
 	// soundfold the bad word with more characters following
-	(void)spell_casefold(su->su_badptr, stp->st_orglen, fword, MAXWLEN);
+	(void)spell_casefold(curwin,
+				su->su_badptr, stp->st_orglen, fword, MAXWLEN);
 
 	// When joining two words the sound often changes a lot.  E.g., "t he"
 	// sounds like "t h" while "the" sounds like "@".  Avoid that by

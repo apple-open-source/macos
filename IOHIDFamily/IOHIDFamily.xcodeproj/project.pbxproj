@@ -543,7 +543,6 @@
 		0F18D467225D18710020081B /* IOHIDEventServiceTypes.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724D6215225D165300A6196E /* IOHIDEventServiceTypes.h */; };
 		0F18D468225D18760020081B /* IOHIDEventServiceKeys_Private.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 724D6214225D165200A6196E /* IOHIDEventServiceKeys_Private.h */; };
 		0F18D469225D1CD60020081B /* IOHIDEventData.h in Headers */ = {isa = PBXBuildFile; fileRef = 843C24430C07AE970009057F /* IOHIDEventData.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		0F1BA23B2125E5F4008AE3C8 /* HID.xcconfig in Resources */ = {isa = PBXBuildFile; fileRef = 0F1BA23A2125E5F3008AE3C8 /* HID.xcconfig */; };
 		0F1C2BFB21546E6B00386208 /* HID_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F1C2BF421546E6B00386208 /* HID_Private.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		0F2AF4A622945CE10087A24F /* HIDEventAccessors_Private.h in Headers */ = {isa = PBXBuildFile; fileRef = 0F2AF4A522945CE10087A24F /* HIDEventAccessors_Private.h */; };
 		0F311B9C215C442B00C3FB77 /* HIDSessionFilterExample.m in Sources */ = {isa = PBXBuildFile; fileRef = 0F311B9B215C442B00C3FB77 /* HIDSessionFilterExample.m */; };
@@ -6761,7 +6760,6 @@
 				6C288FC41FB26BB800245AE7 /* Headers */,
 				6C288FC21FB26BB800245AE7 /* Sources */,
 				6C288FC31FB26BB800245AE7 /* Frameworks */,
-				6C288FC51FB26BB800245AE7 /* Resources */,
 			);
 			buildRules = (
 			);
@@ -8077,14 +8075,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		6C288FC51FB26BB800245AE7 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				0F1BA23B2125E5F4008AE3C8 /* HID.xcconfig in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

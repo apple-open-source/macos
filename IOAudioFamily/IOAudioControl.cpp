@@ -224,7 +224,7 @@ bool IOAudioControl::init(UInt32 _type,
         return false;
     }
     
-	reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+	reserved = IOMallocType (ExpansionData);
 	if (!reserved) {
 		return false;
 	}
@@ -316,7 +316,7 @@ void IOAudioControl::free()
 	if (reserved) {
 		OSSafeReleaseNULL(reserved->notificationQueue);
 
-		IOFree (reserved, sizeof (struct ExpansionData));
+		IOFreeType (reserved, ExpansionData);
 		reserved = NULL;
 	}
 	

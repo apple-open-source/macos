@@ -193,7 +193,7 @@ static bool get_num_free_bytes_for_each_heap_callback(pas_heap* heap, void* arg)
 
 size_t pas_all_heaps_get_num_free_bytes(pas_lock_hold_mode heap_lock_hold_mode)
 {
-    size_t result;
+    size_t result = 0;
     pas_heap_lock_lock_conditionally(heap_lock_hold_mode);
     pas_all_heaps_for_each_heap(get_num_free_bytes_for_each_heap_callback, &result);
     result += pas_utility_heap_get_num_free_bytes();
@@ -367,8 +367,7 @@ static bool verify_in_steady_state_segregated_directory_callback(
         if (is_empty) {
             dump_directory_nicely(directory);
             dump_view_nicely(index, view);
-            pas_log(": didn't expect it to be empty.\n",
-                    index, view);
+            pas_log(": didn't expect it to be empty.\n");
             PAS_ASSERT(!is_empty);
         }
         

@@ -39,7 +39,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, NetworkSessionCreationParameters&& parameters)
+NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
     : NetworkSession(networkProcess, parameters)
     , m_networkSession(makeUnique<SoupNetworkSession>(m_sessionID))
     , m_persistentCredentialStorageEnabled(parameters.persistentCredentialStorageEnabled)
@@ -52,16 +52,12 @@ NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, NetworkSe
     setIgnoreTLSErrors(parameters.ignoreTLSErrors);
 
     if (parameters.proxySettings.mode != SoupNetworkProxySettings::Mode::Default)
-        setProxySettings(WTFMove(parameters.proxySettings));
+        setProxySettings(parameters.proxySettings);
 
     if (!parameters.cookiePersistentStoragePath.isEmpty())
         setCookiePersistentStorage(parameters.cookiePersistentStoragePath, parameters.cookiePersistentStorageType);
     else
         m_networkSession->setCookieJar(storageSession->cookieStorage());
-
-    storageSession->setCookieObserverHandler([this] {
-        this->networkProcess().supplement<WebCookieManager>()->notifyCookiesDidChange(m_sessionID);
-    });
 
     if (!parameters.hstsStorageDirectory.isEmpty())
         m_networkSession->setHSTSPersistentStorage(parameters.hstsStorageDirectory);
@@ -69,8 +65,6 @@ NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, NetworkSe
 
 NetworkSessionSoup::~NetworkSessionSoup()
 {
-    if (auto* storageSession = networkProcess().storageSession(m_sessionID))
-        storageSession->setCookieObserverHandler(nullptr);
 }
 
 SoupSession* NetworkSessionSoup::soupSession() const
@@ -125,7 +119,7 @@ static void webSocketMessageNetworkEventCallback(SoupMessage* soupMessage, GSock
 }
 #endif
 
-std::unique_ptr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel& channel, const ResourceRequest& request, const String& protocol)
+std::unique_ptr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPageProxyIdentifier, NetworkSocketChannel& channel, const ResourceRequest& request, const String& protocol, const ClientOrigin&)
 {
     GRefPtr<SoupMessage> soupMessage = request.createSoupMessage(blobRegistry());
     if (!soupMessage)
@@ -151,9 +145,9 @@ void NetworkSessionSoup::setIgnoreTLSErrors(bool ignoreTLSErrors)
     m_networkSession->setIgnoreTLSErrors(ignoreTLSErrors);
 }
 
-void NetworkSessionSoup::setProxySettings(SoupNetworkProxySettings&& settings)
+void NetworkSessionSoup::setProxySettings(const SoupNetworkProxySettings& settings)
 {
-    m_networkSession->setProxySettings(WTFMove(settings));
+    m_networkSession->setProxySettings(settings);
 }
 
 } // namespace WebKit

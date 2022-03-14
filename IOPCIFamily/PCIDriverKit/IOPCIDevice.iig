@@ -115,7 +115,7 @@ public:
 
     /*!
      * @brief       Close a session to the IOPCIDevice
-     * @discussion  This method closes an open session to an IOPCIDevice. Closing the open session will also turn off the Bus Master Enable and
+     * @discussion  This method closes an open session to an IOPCIDevice. Closing the open session will also turn off the Bus Lead Enable and
      *              Memory Space Enable bits defined in the command register in the PCI spec
      * @param       forClient The IOService that is closing its session.
      * @param       options See IOService.h
@@ -367,6 +367,23 @@ public:
                uint8_t*  memoryIndex,
                uint64_t* barSize = 0,
                uint8_t*  barType = 0);
+
+#pragma mark Interrupts Allocation
+
+    /*!
+     * @brief       Configure interrupts
+     * @discussion  This method allocates interrupts based on the passed parameters and the device's capabilities, i.e. MSI(X).
+     * @param       interruptType kIOInterruptTypeLevel, kIOInterruptTypePCIMessaged or kIOInterruptTypePCIMessagedX.
+     * @param       numRequired The minimum number of vectors for allocation to succeed.
+     * @param       numRequested The desired number of vectors to allocate.
+     * @param       options Unused.
+     * @result      kIOReturnSuccess if there were no errors.
+     */
+    virtual kern_return_t
+    ConfigureInterrupts(uint32_t interruptType,
+                        uint32_t numRequired  = 1,
+                        uint32_t numRequested = 1,
+                        IOOptionBits options  = 0);
 };
 
 #pragma mark Private Class Extension

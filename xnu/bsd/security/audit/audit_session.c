@@ -2047,7 +2047,7 @@ audit_sdev_init(void)
 
 	dev = makedev(audit_sdev_major, 0);
 	devnode = devfs_make_node_clone(dev, DEVFS_CHAR, UID_ROOT, GID_WHEEL,
-	    0644, audit_sdev_clone, AUDIT_SDEV_NAME, 0);
+	    0644, audit_sdev_clone, AUDIT_SDEV_NAME);
 
 	if (NULL == devnode) {
 		return KERN_FAILURE;

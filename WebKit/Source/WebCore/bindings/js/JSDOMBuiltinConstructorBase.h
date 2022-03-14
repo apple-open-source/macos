@@ -37,8 +37,8 @@ public:
     }
 
 protected:
-    JSDOMBuiltinConstructorBase(JSC::Structure* structure, JSDOMGlobalObject& globalObject)
-        : JSDOMConstructorBase(structure, globalObject)
+    JSDOMBuiltinConstructorBase(JSC::VM& vm, JSC::Structure* structure, JSC::NativeFunction functionForConstruct)
+        : Base(vm, structure, functionForConstruct)
     {
     }
 
@@ -46,8 +46,6 @@ protected:
 
     JSC::JSFunction* initializeFunction();
     void setInitializeFunction(JSC::VM&, JSC::JSFunction&);
-
-    static void callFunctionWithCurrentArguments(JSC::JSGlobalObject&, JSC::CallFrame&, JSC::JSObject& thisObject, JSC::JSFunction&);
 
 private:
     static JSC::IsoSubspace* subspaceForImpl(JSC::VM&);

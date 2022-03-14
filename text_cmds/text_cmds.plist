@@ -6,19 +6,18 @@
 		<key>OpenSourceProject</key>
 		<string>banner</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2021-07-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/banner/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co banner</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/banner?id=b77e235dd52a682c11ddd93256b3848cdc6f1d72</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-09-13</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Compile fix (needs sys/types.h).</string>
+			<string>banner.c: use __COPYRIGHT (81852097)</string>
+			<string>banner.c: convert nchars to size_t from int (81852097)</string>
 		</array>
 		<key>OpenSourceLicense</key>
-		<string>BSD</string>
+		<string>bsd</string>
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>
@@ -59,13 +58,15 @@
 		<key>OpenSourceProject</key>
 		<string>col</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-10-21</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/col/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co col</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/col?id=8a27a63745f5a2000e243d7f2df76c57a5604be5</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-24</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>col.c: remove capsicum support</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -73,13 +74,15 @@
 		<key>OpenSourceProject</key>
 		<string>colrm</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-06-23</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/colrm/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co colrm</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/colrm?id=c47514db10db5ae0ab9ae8015d5dbb8178ec6b42</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-24</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>colrm.c: fix crash if argv[0] == NULL (4384130)</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -87,13 +90,11 @@
 		<key>OpenSourceProject</key>
 		<string>column</string>
 		<key>OpenSourceVersion</key>
-		<string>2011-11-06</string>
+		<string>2017-12-08</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/column/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co column</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/column?id=290ce7d2a9be4b07a6365e85871a6aa4be8009eb</string>
 		<key>OpenSourceImportDate</key>
-		<string>2012-10-23</string>
+		<string>2021-09-08</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -101,13 +102,11 @@
 		<key>OpenSourceProject</key>
 		<string>comm</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-07-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/comm/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co comm</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/comm?id=bdfea496cf9f32b9fcfa8be83ee37931138e6ea1</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-09-20</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -115,16 +114,14 @@
 		<key>OpenSourceProject</key>
 		<string>csplit</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2017-11-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/csplit/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co csplit</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/csplit?id=1de7b4b805ddbf2429da511c053686ac4591ed89</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-09-20</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Rename getline to csplit_getline (7556902).</string>
+			<string>csplit.c: fix non-english locale tests (54053569)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -150,13 +147,11 @@
 		<key>OpenSourceProject</key>
 		<string>ed</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2021-04-09</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/bin/ed/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co ed</string>
+		<string>https://cgit.freebsd.org/src/commit/bin/edit?id=3ce579325e424ce9297546553fb453a4ec62c20b</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-07-18</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Conformance fixes (3676514, 3738526, 3741027, 3751351, 3754089, 3936064, 3936075).</string>
@@ -185,16 +180,15 @@
 		<key>OpenSourceProject</key>
 		<string>expand</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2018-05-11</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/expand/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co expand</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/expand?id=fe8c16cef1d6669074c262fbb7b55d301ca01d74</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-07-09</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Clarify -t option in manpage (3973603).</string>
+			<string>Avoid crash if argv[0] is NULL (4384130)</string>
+			<string>Terminate on error processing operand (75277617)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -203,13 +197,11 @@
 		<key>OpenSourceProject</key>
 		<string>fmt</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2021-08-02</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/fmt/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co fmt</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/fmt?id=5666643a95389e3ea7637b86cc556d411242f71e</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-02</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -217,13 +209,11 @@
 		<key>OpenSourceProject</key>
 		<string>fold</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-10-29</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/fold/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co fold</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/fold?id=b139a8fa79c1e49104b892c02f821275cd6d8423</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-24</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -277,16 +267,15 @@
 		<key>OpenSourceProject</key>
 		<string>join</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2021-08-02</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/join/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co join</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/join?id=69ad6e739bbea38080102793927729bcebb7d961</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-02</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Conformance fixes (3853584).</string>
+			<string>join.c: fix failure without warning on invalid input or i/o errors (6555390)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -309,13 +298,15 @@
 		<key>OpenSourceProject</key>
 		<string>look</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-12-29</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/look/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co look</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/look?id=f3f16c31fea258b2b1ec51ddd1bceb6207b66198</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-12</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>look.c: Gracefully handle argv[0] == NULL (4384130)</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -390,13 +381,11 @@
 		<key>OpenSourceProject</key>
 		<string>rev</string>
 		<key>OpenSourceVersion</key>
-		<string>2009-12-13</string>
+		<string>2020-06-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/rev/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d anoncvs@anoncvs1.FreeBSD.org:/home/ncvs co rev</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/rev?id=fe5bc3e6afb902a7261dd7b6ee48f91acf9f1a5d</string>
 		<key>OpenSourceImportDate</key>
-		<string>2010-04-07</string>
+		<string>2021-08-12</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceLicense</key>
@@ -406,16 +395,15 @@
 		<key>OpenSourceProject</key>
 		<string>rs</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2017-11-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/rs/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co rs</string>
+		<string>https://cgit.freebsd.org/src/commit/usr.bin/rs?id=013953eb5f868c0a7b9821ad1d196d2795203ac73</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-08-16</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Rename getline to rs_getline (7556902).</string>
+			<string>rs.c: error on invalid input (6555390)</string>
+			<string>rs.c: fix crash with argv[0] == NULL (4384130)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -461,13 +449,11 @@
 		<key>OpenSourceProject</key>
 		<string>split</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-06-18</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/split/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co split</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/split?id=e48cafb55ddaa7ac3ed73ddf25b8019531c83d71</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-06-29</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -475,16 +461,16 @@
 		<key>OpenSourceProject</key>
 		<string>tail</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2021-02-02</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/tail/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co tail</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-05-18</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Don&apos;t read directories (3849683).</string>
+			<string>tail.c: remove capsicum support</string>
+			<string>Fix UNIX compliance issue with following stdin (76241318)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -512,13 +498,15 @@
 		<key>OpenSourceProject</key>
 		<string>ul</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-10-07</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/ul/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co ul</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/ul?id=d643ff21f427e359be18ddbd254641e2118237a3</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-07-09</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>avoid crashes if argv[0] == NULL (4384130)</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -526,13 +514,11 @@
 		<key>OpenSourceProject</key>
 		<string>unexpand</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2017-11-20</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/unexpand/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co unexpand</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/unexpand?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-07-09</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -540,16 +526,14 @@
 		<key>OpenSourceProject</key>
 		<string>uniq</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2020-06-07</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/uniq/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co uniq</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/uniq?id=e6e3cf55d33a627adc59fc90eaced9b20dd639ba</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2011-07-14</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Rename getline to uniq_getline (7556902).</string>
+			<string>uniq.c: Use larger datatypes to prevent truncation (29158858)</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -558,13 +542,11 @@
 		<key>OpenSourceProject</key>
 		<string>unvis</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2013-03-15</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/unvis/</string>
-		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co unvis</string>
+		<string>https://cgit.freebsd.org/src/tree/contrib/unvis?id=f1f890804985a1043da42a5def13c79dc005f5e9</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2021-09-09</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>

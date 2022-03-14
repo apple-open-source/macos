@@ -38,6 +38,20 @@ static Boolean __gDALogDebugHeaderReset = FALSE;
 static Boolean __gDALogError            = FALSE;
 static os_log_t __gDALog                   = NULL;
 
+static void __DALogInternalDebug( char * message )
+{
+    time_t clock = time( NULL );
+    char   stamp[10];
+
+    if ( strftime( stamp, sizeof( stamp ), "%T ", localtime( &clock ) ) )
+    {
+        fprintf( __gDALogDebugFile, "%s", stamp );
+    }
+
+    fprintf( __gDALogDebugFile, "%s", message );
+    fprintf( __gDALogDebugFile, "\n" );
+    fflush( __gDALogDebugFile );
+}
 
 static void __DALog( int level, const char * format, va_list arguments )
 {
@@ -60,26 +74,10 @@ static void __DALog( int level, const char * format, va_list arguments )
             {
                 if ( __gDALogDebug )
                 {
-
-
-                     /* Remove in next version */
                     if ( __gDALogDebugFile )
                     {
-                        time_t clock = time( NULL );
-                        char   stamp[10];
-
-                        if ( strftime( stamp, sizeof( stamp ), "%T ", localtime( &clock ) ) )
-                        {
-                            fprintf( __gDALogDebugFile, "%s", stamp );
-                        }
-
-                        fprintf( __gDALogDebugFile, "%s", message );
-                        fprintf( __gDALogDebugFile, "\n" );
-                        fflush( __gDALogDebugFile );
+                        __DALogInternalDebug( message );
                     }
-
-
-
                 }
 
                 os_log_info(__gDALog ,"%{public}s" , message);
@@ -88,12 +86,6 @@ static void __DALog( int level, const char * format, va_list arguments )
             }
             case LOG_ERR:
             {
-                if ( __gDALogError )
-                {
-                    /* Remove in next version */
-                    syslog( level, "%s", message );
-                }
-
                 os_log_error(__gDALog, "%{public}s", message );
 
                 break;
@@ -101,15 +93,20 @@ static void __DALog( int level, const char * format, va_list arguments )
 
             case LOG_INFO:
             {
-               //For info we use the default case
+                if ( __gDALogDebug )
+                {
+                    if ( __gDALogDebugFile )
+                    {
+                        __DALogInternalDebug( message );
+                    }
+                }
+                os_log(__gDALog ,"%{public}s" , message);
+                
+                break;
             }
 
             default:
             {
-
-                /* Remove in next version */
-                syslog( level, "%s", message );
-
                 os_log(__gDALog ,"%{public}s" , message);
 
                 break;
@@ -166,8 +163,6 @@ void DALogDebug( const char * format, ... )
         __gDALogDebugHeaderLast  = __gDALogDebugHeaderNext;
         __gDALogDebugHeaderNext  = NULL;
         __gDALogDebugHeaderReset = FALSE;
-
-        __DALog( LOG_DEBUG, "", NULL );
 
         __DALog( LOG_DEBUG, __gDALogDebugHeaderLast, NULL );
     }

@@ -33,6 +33,7 @@
 #include "EventNames.h"
 #include "JSDOMPromiseDeferred.h"
 #include "Logging.h"
+#include "NavigationPreloadManager.h"
 #include "ServiceWorker.h"
 #include "ServiceWorkerContainer.h"
 #include "ServiceWorkerTypes.h"
@@ -53,7 +54,9 @@ Ref<ServiceWorkerRegistration> ServiceWorkerRegistration::getOrCreate(ScriptExec
         return *registration;
     }
 
-    return adoptRef(*new ServiceWorkerRegistration(context, WTFMove(container), WTFMove(data)));
+    auto registration = adoptRef(*new ServiceWorkerRegistration(context, WTFMove(container), WTFMove(data)));
+    registration->suspendIfNeeded();
+    return registration;
 }
 
 ServiceWorkerRegistration::ServiceWorkerRegistration(ScriptExecutionContext& context, Ref<ServiceWorkerContainer>&& container, ServiceWorkerRegistrationData&& registrationData)
@@ -62,7 +65,6 @@ ServiceWorkerRegistration::ServiceWorkerRegistration(ScriptExecutionContext& con
     , m_container(WTFMove(container))
 {
     LOG(ServiceWorker, "Creating registration %p for registration key %s", this, m_registrationData.key.loggingString().utf8().data());
-    suspendIfNeeded();
 
     if (m_registrationData.installingWorker)
         m_installingWorker = ServiceWorker::getOrCreate(context, WTFMove(*m_registrationData.installingWorker));
@@ -161,6 +163,46 @@ void ServiceWorkerRegistration::unregister(Ref<DeferredPromise>&& promise)
     m_container->unregisterRegistration(identifier(), WTFMove(promise));
 }
 
+void ServiceWorkerRegistration::subscribeToPushService(const Vector<uint8_t>& applicationServerKey, DOMPromiseDeferred<IDLInterface<PushSubscription>>&& promise)
+{
+    if (isContextStopped()) {
+        promise.reject(Exception(InvalidStateError));
+        return;
+    }
+
+    m_container->subscribeToPushService(*this, applicationServerKey, WTFMove(promise));
+}
+
+void ServiceWorkerRegistration::unsubscribeFromPushService(DOMPromiseDeferred<IDLBoolean>&& promise)
+{
+    if (isContextStopped()) {
+        promise.reject(Exception(InvalidStateError));
+        return;
+    }
+
+    m_container->unsubscribeFromPushService(identifier(), WTFMove(promise));
+}
+
+void ServiceWorkerRegistration::getPushSubscription(DOMPromiseDeferred<IDLNullable<IDLInterface<PushSubscription>>>&& promise)
+{
+    if (isContextStopped()) {
+        promise.reject(Exception(InvalidStateError));
+        return;
+    }
+
+    m_container->getPushSubscription(*this, WTFMove(promise));
+}
+
+void ServiceWorkerRegistration::getPushPermissionState(DOMPromiseDeferred<IDLEnumeration<PushPermissionState>>&& promise)
+{
+    if (isContextStopped()) {
+        promise.reject(Exception(InvalidStateError));
+        return;
+    }
+
+    m_container->getPushPermissionState(identifier(), WTFMove(promise));
+}
+
 void ServiceWorkerRegistration::updateStateFromServer(ServiceWorkerRegistrationState state, RefPtr<ServiceWorker>&& serviceWorker)
 {
     switch (state) {
@@ -213,6 +255,31 @@ bool ServiceWorkerRegistration::virtualHasPendingActivity() const
 {
     return getNewestWorker() && hasEventListeners();
 }
+
+NavigationPreloadManager& ServiceWorkerRegistration::navigationPreload()
+{
+    if (!m_navigationPreload)
+        m_navigationPreload = std::unique_ptr<NavigationPreloadManager>(new NavigationPreloadManager(*this));
+    return *m_navigationPreload;
+}
+
+#if ENABLE(NOTIFICATION_EVENT)
+void ServiceWorkerRegistration::showNotification(ScriptExecutionContext&, const String& title, const NotificationOptions& options, DOMPromiseDeferred<void>&& promise)
+{
+    UNUSED_PARAM(title);
+    UNUSED_PARAM(options);
+
+    promise.reject();
+}
+
+void ServiceWorkerRegistration::getNotifications(ScriptExecutionContext&, const GetNotificationOptions& filter, DOMPromiseDeferred<IDLSequence<IDLDOMString>> promise)
+{
+    UNUSED_PARAM(filter);
+
+    promise.reject();
+
+}
+#endif // ENABLE(NOTIFICATION_EVENT)
 
 } // namespace WebCore
 

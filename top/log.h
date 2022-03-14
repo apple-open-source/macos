@@ -26,7 +26,7 @@
 #include <stddef.h>
 #include <stdio.h>
 
-void top_log(const char *format, ...);
+void top_log(const char *format, ...) __attribute__((format(printf, 1, 2)));
 void top_log_set_file(FILE *fp);
 
 #endif

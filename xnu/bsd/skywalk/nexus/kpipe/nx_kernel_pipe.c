@@ -216,7 +216,7 @@ static struct kern_nexus_domain_provider nx_kpipe_prov_s = {
 	},
 };
 
-static ZONE_DECLARE(na_kpipe_zone, SKMEM_ZONE_PREFIX ".na.kpipe",
+static ZONE_DEFINE(na_kpipe_zone, SKMEM_ZONE_PREFIX ".na.kpipe",
     sizeof(struct nexus_kpipe_adapter), ZC_ZFREE_CLEARMEM);
 
 static void

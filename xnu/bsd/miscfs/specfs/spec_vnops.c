@@ -110,7 +110,7 @@ extern int bpfkqfilter(dev_t dev, struct knote *kn);
 extern int ptsd_kqfilter(dev_t, struct knote *);
 extern int ptmx_kqfilter(dev_t, struct knote *);
 #if CONFIG_PHYS_WRITE_ACCT
-uint64_t kernel_pm_writes;    // to track the sync writes occuring during power management transitions
+uint64_t kernel_pm_writes;    // to track the sync writes occurring during power management transitions
 #endif /* CONFIG_PHYS_WRITE_ACCT */
 
 
@@ -2605,7 +2605,8 @@ spec_strategy(struct vnop_strategy_args *ap)
 	}
 
 #if CONFIG_IO_COMPRESSION_STATS
-	if (!is_vm_privileged()) {
+	// Do not run IO Compression Stats when a privilege thread is active
+	if (!is_vm_privileged() && !is_external_pageout_thread()) {
 		io_compression_stats(bp);
 	}
 #endif /* CONFIG_IO_COMPRESSION_STATS */
@@ -2926,7 +2927,7 @@ filt_spec_common(struct knote *kn, struct kevent_qos_s *kev, bool attach)
 	vfs_context_t ctx = vfs_context_current();
 	vnode_t vp = (vnode_t)fp_get_data(kn->kn_fp);
 	__block bool selrecorded = false;
-	struct waitq_set *old_wqs;
+	struct select_set *old_wqs;
 	int64_t data = 0;
 	int ret, selret;
 
@@ -2946,10 +2947,10 @@ filt_spec_common(struct knote *kn, struct kevent_qos_s *kev, bool attach)
 		selrecorded = true;
 	};
 
-	old_wqs = uth->uu_wqset;
-	uth->uu_wqset = SELSPEC_RECORD_MARKER;
+	old_wqs = uth->uu_selset;
+	uth->uu_selset = SELSPEC_RECORD_MARKER;
 	selret = VNOP_SELECT(vp, knote_get_seltype(kn), 0, cb, ctx);
-	uth->uu_wqset = old_wqs;
+	uth->uu_selset = old_wqs;
 
 	if (!attach) {
 		vnode_put(vp);

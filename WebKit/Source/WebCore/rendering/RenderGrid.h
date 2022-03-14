@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, 2022 Apple Inc. All rights reserved.
  * Copyright (C) 2013-2017 Igalia S.L.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -130,6 +130,7 @@ private:
 
     void repeatTracksSizingIfNeeded(LayoutUnit availableSpaceForColumns, LayoutUnit availableSpaceForRows);
 
+    void updateGridAreaForAspectRatioItems(const Vector<RenderBox*>&);
     void layoutGridItems();
     void populateGridPositionsForDirection(GridTrackSizingDirection);
 
@@ -190,6 +191,8 @@ private:
 
     bool aspectRatioPrefersInline(const RenderBox& child, bool blockFlowIsColumnAxis);
 
+    Vector<RenderBox*> computeAspectRatioDependentAndBaselineItems();
+
     Grid m_grid;
 
     GridTrackSizingAlgorithm m_trackSizingAlgorithm;
@@ -204,7 +207,9 @@ private:
     OutOfFlowPositionsMap m_outOfFlowItemRow;
 
     bool m_hasAnyOrthogonalItem {false};
+    bool m_hasAspectRatioBlockSizeDependentItem { false };
     bool m_baselineItemsCached {false};
+    bool m_hasAnyBaselineAlignmentItem { false };
 };
 
 } // namespace WebCore

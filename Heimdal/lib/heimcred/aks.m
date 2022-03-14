@@ -91,13 +91,11 @@ ksEncryptData(NSData *plainText)
     error = aks_wrap_key(bulkKey, sizeof(bulkKey), key_class_f, bad_keybag_handle, bulkKeyWrapped, &bulkKeyWrappedSize, NULL);
     if (error) {
 	os_log_error(GSSOSLog(), "Error with wrap key: %d", error);
-	//if not ready, keep in memory until next time, else crash
-	if (error == kAKSReturnNotReady) {
-	    //start a transaction
-	    keyNotReadyTransaction = os_transaction_create("com.apple.Heimdal.GSSCred.keyNotReady");
-	    return NULL;
+	// When there is a key error, start an os transaction instead of aborting.  This will keep the service running for the users. The risk is that if the service exits, then all the credentials are lost.  While not ideal, it is better than the service crashing when it tries to save the credentials.
+	if (!keyNotReadyTransaction) {
+	    keyNotReadyTransaction = os_transaction_create("com.apple.Heimdal.GSSCred.keyError");
 	}
-	abort();
+	return NULL;
     }
     //complete the transaction, if present
     if (keyNotReadyTransaction) {

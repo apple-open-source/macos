@@ -89,11 +89,7 @@ CreateNewCDDANode ( mount_t 				mountPtr,
 	DebugAssert ( ( mountPtr != NULL ) );
 	DebugAssert ( ( vNodeHandle != NULL ) );
 	
-	// Allocate the cddaNode. We cannot use IOMallocType because AppleCDDANode has union
-	MALLOC ( cddaNodePtr, AppleCDDANodePtr, sizeof ( AppleCDDANode ), M_TEMP, M_WAITOK );
-	
-	// Zero the structure
-	bzero ( cddaNodePtr, sizeof ( AppleCDDANode ) );
+    cddaNodePtr = IOMallocType( AppleCDDANode );
 	
 	// Set the nodeID
 	cddaNodePtr->nodeID = nodeID;
@@ -159,7 +155,7 @@ FREE_CDDA_NODE_ERROR:
 	
 	
 	// Free the allocated memory
-	FREE ( ( caddr_t ) cddaNodePtr, M_TEMP );
+    IOFreeType( cddaNodePtr, AppleCDDANode );
 	cddaNodePtr = NULL;
 	
 	return result;
@@ -187,7 +183,7 @@ DisposeCDDANode ( vnode_t vNodePtr )
 	{
 		
 		// Free memory associated with our filesystem's internal data
-		FREE ( vnode_fsnode ( vNodePtr ), M_TEMP );
+        IOFreeType( cddaNodePtr, AppleCDDANode );
 		vnode_clearfsnode ( vNodePtr );
 		
 	}

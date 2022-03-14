@@ -6,12 +6,12 @@
 #ifndef _NLM_PROT_H_RPCGEN
 #define _NLM_PROT_H_RPCGEN
 
-#define RPCGEN_VERSION	199506
+#define RPCGEN_VERSION  199506
 
 #include <oncrpc/rpc.h>
 
-#define LM_MAXSTRLEN	1024
-#define MAXNAMELEN	LM_MAXSTRLEN+1
+#define LM_MAXSTRLEN    1024
+#define MAXNAMELEN      LM_MAXSTRLEN+1
 
 enum nlm_stats {
 	nlm_granted = 0,

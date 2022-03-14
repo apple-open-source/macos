@@ -42,6 +42,7 @@
 #include <arpa/nameser.h>
 #include <resolv.h>
 #include <CommonCrypto/CommonDigest.h>
+#include <dispatch/dispatch.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -1761,10 +1762,6 @@ dns_configuration_set(CFDictionaryRef   defaultResolver,
 	return changed;
 }
 
-
-static SCDynamicStoreRef	dns_configuration_store;
-static SCDynamicStoreCallBack	dns_configuration_callout;
-
 static void
 dns_configuration_changed(ConstFSEventStreamRef		streamRef,
 			  void				*clientCallBackInfo,
@@ -1774,13 +1771,11 @@ dns_configuration_changed(ConstFSEventStreamRef		streamRef,
 			  const FSEventStreamEventId	*eventIds)
 {
 #pragma unused(streamRef)
-#pragma unused(clientCallBackInfo)
 #pragma unused(numEvents)
 #pragma unused(eventPaths)
 #pragma unused(eventFlags)
 #pragma unused(eventIds)
-	static const CFStringRef	key	= CFSTR(_PATH_RESOLVER_DIR);
-	CFArrayRef			keys;
+	dns_change_callback		callback;
 	Boolean				resolvers_now;
 	static Boolean			resolvers_save	= FALSE;
 	struct stat			statbuf;
@@ -1788,19 +1783,14 @@ dns_configuration_changed(ConstFSEventStreamRef		streamRef,
 	resolvers_now = (stat(_PATH_RESOLVER_DIR, &statbuf) == 0);
 	if (!resolvers_save && (resolvers_save == resolvers_now)) {
 		// if we did not (and still do not) have an "/etc/resolvers"
-		// directory than this notification is the result of a change
+		// directory then this notification is the result of a change
 		// to the "/etc" directory.
 		return;
 	}
 	resolvers_save = resolvers_now;
-
-	my_log(LOG_INFO, _PATH_RESOLVER_DIR " changed");
-
-	// fake a "DNS" change
-	keys = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
-	(*dns_configuration_callout)(dns_configuration_store, keys, NULL);
-	CFRelease(keys);
-
+	my_log(LOG_NOTICE, _PATH_RESOLVER_DIR " changed");
+	callback = (dns_change_callback)clientCallBackInfo;
+	(*callback)();
 	return;
 }
 
@@ -1831,50 +1821,60 @@ normalize_path(const char *file_name, char resolved_name[PATH_MAX])
 	return FALSE;
 }
 
-
-__private_extern__
-void
-dns_configuration_monitor(SCDynamicStoreRef store, SCDynamicStoreCallBack callout)
+static void
+dns_configuration_start_monitor(CFRunLoopRef runloop,
+				dns_change_callback callback)
 {
-	FSEventStreamContext		context	= { 0,		// version
-						    NULL,	// info
-						    NULL,	// retain
-						    NULL,	// release
-						    NULL };	// copyDescription
-	FSEventStreamCreateFlags	flags	= kFSEventStreamCreateFlagUseCFTypes
-						  | kFSEventStreamCreateFlagFileEvents
-						  | kFSEventStreamCreateFlagWatchRoot;
+	FSEventStreamContext		context	= { 0, NULL, NULL, NULL, NULL };
+	FSEventStreamCreateFlags	flags;
 	FSEventStreamRef		monitor;
 	CFStringRef			path;
-	CFMutableArrayRef		paths;
+	CFArrayRef			paths;
 	char				resolver_directory_path[PATH_MAX];
 
 	if (!normalize_path(_PATH_RESOLVER_DIR, resolver_directory_path)) {
-		my_log(LOG_ERR, "Not monitoring \"%s\", could not resolve directory path", _PATH_RESOLVER_DIR);
+		my_log(LOG_ERR,
+		       "Not monitoring \"%s\", could not resolve directory path",
+		       _PATH_RESOLVER_DIR);
 		return;
 	}
-
-	dns_configuration_store   = store;
-	dns_configuration_callout = callout;
-
-	paths = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	path = CFStringCreateWithCString(NULL, resolver_directory_path, kCFStringEncodingUTF8);
-	CFArrayAppendValue(paths, path);
+	context.info = (void *)callback;
+	path = CFStringCreateWithCString(NULL, resolver_directory_path,
+					 kCFStringEncodingUTF8);
+	paths = CFArrayCreate(NULL, (const void **)&path, 1,
+			      &kCFTypeArrayCallBacks);
 	CFRelease(path);
-
-	monitor = FSEventStreamCreate(NULL,				// allocator
-				      dns_configuration_changed,	// callback
-				      &context,				// context
-				      paths,				// pathsToWatch (CFArray)
-				      kFSEventStreamEventIdSinceNow,	// sinceWhen
-				      0.0,				// latency
-				      flags);				// flags
-
+	flags = kFSEventStreamCreateFlagUseCFTypes
+		| kFSEventStreamCreateFlagFileEvents
+		| kFSEventStreamCreateFlagWatchRoot;
+	monitor = FSEventStreamCreate(NULL,
+				      dns_configuration_changed,
+				      &context,
+				      paths,
+				      kFSEventStreamEventIdSinceNow,
+				      0.0,
+				      flags);
 	CFRelease(paths);
-
-	FSEventStreamScheduleWithRunLoop(monitor, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode);
+	FSEventStreamScheduleWithRunLoop(monitor, runloop,
+					 kCFRunLoopDefaultMode);
 	FSEventStreamStart(monitor);
+}
 
+__private_extern__
+void
+dns_configuration_monitor(dns_change_callback callback)
+{
+	dispatch_block_t	block;
+	CFRunLoopRef		runloop;
+	dispatch_queue_t	queue;
+
+	queue = dispatch_queue_create(__func__, NULL);
+	runloop = CFRunLoopGetCurrent();
+	block = ^{
+		  dns_configuration_start_monitor(runloop, callback);
+		  dispatch_release(queue);
+	};
+	dispatch_async(queue, block);
 	return;
 }
 

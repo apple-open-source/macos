@@ -42,12 +42,15 @@ public:
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> createHandle(IPC::Connection::UniqueID, FileSystemStorageHandle::Type, String&& path, String&& name, bool createIfNecessary);
     const String& getPath(WebCore::FileSystemHandleIdentifier);
     FileSystemStorageHandle::Type getType(WebCore::FileSystemHandleIdentifier);
+    void closeHandle(FileSystemStorageHandle&);
     void connectionClosed(IPC::Connection::UniqueID);
     Expected<WebCore::FileSystemHandleIdentifier, FileSystemStorageError> getDirectory(IPC::Connection::UniqueID);
     bool acquireLockForFile(const String& path, WebCore::FileSystemHandleIdentifier);
     bool releaseLockForFile(const String& path, WebCore::FileSystemHandleIdentifier);
 
 private:
+    void close();
+
     String m_path;
     FileSystemStorageHandleRegistry& m_registry;
     HashMap<IPC::Connection::UniqueID, HashSet<WebCore::FileSystemHandleIdentifier>> m_handlesByConnection;

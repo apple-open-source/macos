@@ -64,6 +64,9 @@ int xar_path_issane(char* path);
 // The returned string must be released by the caller.
 char* xar_path_nextcomponent(char** path_to_advance);
 
+// Make a lower string
+char* xar_lowercase_string(const char* string);
+
 /*!
  @abstract Returns the optimal io size of the filesystem backing the
  file at the path provided.

@@ -66,6 +66,7 @@ enum class LinkTimeConstant : int32_t;
     macro(isRegExpObject) \
     macro(isMap) \
     macro(isSet) \
+    macro(isShadowRealm) \
     macro(isStringIterator) \
     macro(isArrayIterator) \
     macro(isMapIterator) \
@@ -89,6 +90,7 @@ enum class LinkTimeConstant : int32_t;
     macro(putSetIteratorInternalField) \
     macro(toNumber) \
     macro(toString) \
+    macro(toPropertyKey) \
     macro(toObject) \
     macro(newArrayWithSize) \
     macro(newPromise) \
@@ -153,7 +155,6 @@ enum class LinkTimeConstant : int32_t;
     macro(AsyncGeneratorSuspendReasonYield) \
     macro(AsyncGeneratorSuspendReasonAwait) \
     macro(AsyncGeneratorSuspendReasonNone) \
-    macro(useIntlDateTimeFormatDayPeriod) \
     macro(abstractModuleRecordFieldState) \
 
 #define JSC_COMMON_BYTECODE_INTRINSIC_CONSTANTS_CUSTOM_EACH_NAME(macro) \

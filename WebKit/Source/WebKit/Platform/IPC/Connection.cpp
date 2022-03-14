@@ -186,7 +186,7 @@ bool Connection::SyncMessageState::processIncomingMessage(Connection& connection
     }
 
     if (shouldDispatch) {
-        RunLoop::main().dispatch([this, protectedConnection = makeRef(connection)]() mutable {
+        RunLoop::main().dispatch([this, protectedConnection = Ref { connection }]() mutable {
             dispatchMessagesAndResetDidScheduleDispatchMessagesForConnection(protectedConnection);
         });
     }
@@ -226,7 +226,6 @@ void Connection::SyncMessageState::dispatchMessagesAndResetDidScheduleDispatchMe
         Locker locker { m_lock };
         ASSERT(m_didScheduleDispatchMessagesWorkSet.contains(&connection));
         m_didScheduleDispatchMessagesWorkSet.remove(&connection);
-        ASSERT(m_messagesBeingDispatched.isEmpty());
         Deque<ConnectionAndIncomingMessage> messagesToPutBack;
         for (auto& connectionAndIncomingMessage : m_messagesToDispatchWhileWaitingForSyncReply) {
             if (&connection == connectionAndIncomingMessage.connection.ptr())
@@ -238,7 +237,7 @@ void Connection::SyncMessageState::dispatchMessagesAndResetDidScheduleDispatchMe
     }
 
     while (!m_messagesBeingDispatched.isEmpty())
-        m_messagesBeingDispatched.takeFirst().dispatch();
+        m_messagesBeingDispatched.takeFirst().dispatch(); // This may cause the function to re-enter when there is a nested run loop.
 }
 
 // Represents a sync request for which we're waiting on a reply.
@@ -429,8 +428,9 @@ void Connection::invalidate()
     }
     
     m_isValid = false;
+    clearAsyncReplyHandlers(*this);
 
-    m_connectionQueue->dispatch([protectedThis = makeRef(*this)]() mutable {
+    m_connectionQueue->dispatch([protectedThis = Ref { *this }]() mutable {
         protectedThis->platformInvalidate();
     });
 }
@@ -494,9 +494,10 @@ bool Connection::sendMessage(UniqueRef<Encoder>&& encoder, OptionSet<SendOption>
     }
     
     // FIXME: We should add a boolean flag so we don't call this when work has already been scheduled.
-    auto sendOutgoingMessages = [protectedThis = makeRef(*this)]() mutable {
+    auto sendOutgoingMessages = [protectedThis = Ref { *this }]() mutable {
         protectedThis->sendOutgoingMessages();
     };
+
     if (qos)
         m_connectionQueue->dispatchWithQOS(WTFMove(sendOutgoingMessages), *qos);
     else
@@ -518,7 +519,7 @@ Timeout Connection::timeoutRespectingIgnoreTimeoutsForTesting(Timeout timeout) c
 std::unique_ptr<Decoder> Connection::waitForMessage(MessageName messageName, uint64_t destinationID, Timeout timeout, OptionSet<WaitForOption> waitForOptions)
 {
     ASSERT(RunLoop::isMain());
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
 
     timeout = timeoutRespectingIgnoreTimeoutsForTesting(timeout);
 
@@ -773,7 +774,7 @@ void Connection::processIncomingMessage(std::unique_ptr<Decoder> message)
         return terminateDueToIPCTerminateMessage();
 
     if (!MessageReceiveQueueMap::isValidMessage(*message)) {
-        RunLoop::main().dispatch([protectedThis = makeRef(*this), messageName = message->messageName()]() mutable {
+        RunLoop::main().dispatch([protectedThis = Ref { *this }, messageName = message->messageName()]() mutable {
             protectedThis->dispatchDidReceiveInvalidMessage(messageName);
         });
         return;
@@ -871,13 +872,13 @@ void Connection::enableIncomingMessagesThrottling()
 #if ENABLE(IPC_TESTING_API)
 void Connection::addMessageObserver(const MessageObserver& observer)
 {
-    m_messageObservers.append(makeWeakPtr(observer));
+    m_messageObservers.append(observer);
 }
 #endif
 
 void Connection::postConnectionDidCloseOnConnectionWorkQueue()
 {
-    m_connectionQueue->dispatch([protectedThis = makeRef(*this)]() mutable {
+    m_connectionQueue->dispatch([protectedThis = Ref { *this }]() mutable {
         protectedThis->connectionDidClose();
     });
 }
@@ -911,7 +912,7 @@ void Connection::connectionDidClose()
     if (m_didCloseOnConnectionWorkQueueCallback)
         m_didCloseOnConnectionWorkQueueCallback(this);
 
-    RunLoop::main().dispatch([protectedThis = makeRef(*this)]() mutable {
+    RunLoop::main().dispatch([protectedThis = Ref { *this }]() mutable {
         // If the connection has been explicitly invalidated before dispatchConnectionDidClose was called,
         // then the connection will be invalid here.
         if (!protectedThis->isValid())
@@ -955,6 +956,9 @@ void Connection::sendOutgoingMessages()
 
 void Connection::dispatchSyncMessage(Decoder& decoder)
 {
+    // FIXME: If the message is invalid, we should send back a SyncMessageError.
+    // Currently we just wait for a timeout to happen, which will block the WebContent process.
+
     ASSERT(isMainRunLoop());
     ASSERT(decoder.isSyncMessage());
 
@@ -988,7 +992,6 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
         wasHandled = m_client.didReceiveSyncMessage(*this, decoder, replyEncoder);
     }
 
-    // FIXME: If the message was invalid, we should send back a SyncMessageError.
 #if ENABLE(IPC_TESTING_API)
     ASSERT(decoder.isValid() || m_ignoreInvalidMessageForTesting);
 #else
@@ -1001,7 +1004,7 @@ void Connection::dispatchSyncMessage(Decoder& decoder)
 
 void Connection::dispatchDidReceiveInvalidMessage(MessageName messageName)
 {
-    ensureOnMainRunLoop([this, protectedThis = makeRef(*this), messageName]() mutable {
+    ensureOnMainRunLoop([this, protectedThis = Ref { *this }, messageName]() mutable {
         if (!isValid())
             return;
         m_client.didReceiveInvalidMessage(*this, messageName);
@@ -1039,7 +1042,7 @@ void Connection::enqueueIncomingMessage(std::unique_ptr<Decoder> incomingMessage
             return;
     }
 
-    RunLoop::main().dispatch([protectedThis = makeRef(*this)]() mutable {
+    RunLoop::main().dispatch([protectedThis = Ref { *this }]() mutable {
         if (protectedThis->isIncomingMessagesThrottlingEnabled())
             protectedThis->dispatchIncomingMessages();
         else
@@ -1154,7 +1157,7 @@ void Connection::MessagesThrottler::scheduleMessagesDispatch()
         m_dispatchMessagesTimer.startOneShot(0_s);
         return;
     }
-    RunLoop::main().dispatch([this, protectedConnection = makeRefPtr(&m_connection)]() mutable {
+    RunLoop::main().dispatch([this, protectedConnection = RefPtr { &m_connection }]() mutable {
         (protectedConnection.get()->*m_dispatchMessages)();
     });
 }

@@ -38,14 +38,15 @@ namespace WebKit {
 
 class WebUserContentController;
 
-class WebPageGroupProxy : public API::ObjectImpl<API::Object::Type::BundlePageGroup> {
+class WebPageGroupProxy : public RefCounted<WebPageGroupProxy> {
 public:
     static Ref<WebPageGroupProxy> create(const WebPageGroupData&);
     virtual ~WebPageGroupProxy();
 
     const String& identifier() const { return m_data.identifier; }
-    uint64_t pageGroupID() const { return m_data.pageGroupID; }
-    StorageNamespaceIdentifier localStorageNamespaceIdentifier() const { return makeObjectIdentifier<StorageNamespaceIdentifierType>(pageGroupID()); }
+    PageGroupIdentifier pageGroupID() const { return m_data.pageGroupID; }
+    // Namespace IDs for local storage namespaces are currently equivalent to web page group IDs.
+    StorageNamespaceIdentifier localStorageNamespaceIdentifier() const { return makeObjectIdentifier<StorageNamespaceIdentifierType>(pageGroupID().toUInt64()); }
     WebCore::PageGroup* corePageGroup() const { return m_pageGroup; }
 
 private:

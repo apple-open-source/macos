@@ -465,8 +465,7 @@ sec_protocol_options_set_min_tls_protocol_version(sec_protocol_options_t options
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
-        SSLProtocol converted_protocol = SSLProtocolFromVersionCodepoint(version);
-        content->min_version = converted_protocol;
+        content->min_version = version;
         return true;
     });
 }
@@ -504,8 +503,7 @@ sec_protocol_options_set_max_tls_protocol_version(sec_protocol_options_t options
         sec_protocol_options_content_t content = (sec_protocol_options_content_t)handle;
         SEC_PROTOCOL_OPTIONS_VALIDATE(content, false);
 
-        SSLProtocol converted_protocol = SSLProtocolFromVersionCodepoint(version);
-        content->max_version = converted_protocol;
+        content->max_version = version;
         return true;
     });
 }
@@ -1747,7 +1745,7 @@ sec_protocol_metadata_get_negotiated_tls_protocol_version(sec_protocol_metadata_
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-        protocol_version = SSLProtocolGetVersionCodepoint(content->negotiated_protocol_version);
+        protocol_version = content->negotiated_protocol_version;
         return true;
     });
 
@@ -1763,7 +1761,7 @@ sec_protocol_metadata_get_negotiated_protocol_version(sec_protocol_metadata_t me
     (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
         sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-        protocol_version = content->negotiated_protocol_version;
+        protocol_version = SSLProtocolFromVersionCodepoint(content->negotiated_protocol_version);
         return true;
     });
 
@@ -2233,19 +2231,19 @@ sec_protocol_metadata_get_connection_strength(sec_protocol_metadata_t metadata)
         // TLSv1.2 and higher are considered strong. Anything less than TLSv1.2 is considered weak at best.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        SSLProtocol version = content->negotiated_protocol_version;
-        if (version >= kTLSProtocol12) {
+        tls_protocol_version_t version = content->negotiated_protocol_version;
+        if (version >= tls_protocol_version_TLSv12) {
             strength = SSLConnectionStrengthStrong;
-        } else if (version == kTLSProtocol11 || version == kTLSProtocol1) {
+        } else if (version == tls_protocol_version_TLSv11 || version == tls_protocol_version_TLSv10) {
             strength = SSLConnectionStrengthWeak;
         } else {
             strength = SSLConnectionStrengthNonsecure;
         }
 
         // Legacy ciphersuites make the connection weak, for now. We may consider changing this to nonsecure.
-        SSLCipherSuite ciphersuite = content->negotiated_ciphersuite;
+        tls_ciphersuite_t ciphersuite = content->negotiated_ciphersuite;
         if (strength != SSLConnectionStrengthNonsecure &&
-                SSLCiphersuiteGroupContainsCiphersuite(kSSLCiphersuiteGroupLegacy, ciphersuite)) {
+            sec_protocol_helper_ciphersuite_group_contains_ciphersuite(tls_ciphersuite_group_legacy, ciphersuite)) {
             strength = SSLConnectionStrengthWeak;
         }
 #pragma clang diagnostic pop
@@ -2537,17 +2535,14 @@ static struct _options_uint64_key_setter {
     const char *key;
     void (*setter_pointer)(sec_protocol_options_t, uint64_t);
 } _options_uint64_key_setters[] = {
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_min_version,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_tls_min_version
+        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_min_tls_protocol_version
     },
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_max_version,
-        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_tls_max_version
+        .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_max_tls_protocol_version
     },
-#pragma clang diagnostic pop
     {
         .key = SEC_PROTOCOL_OPTIONS_KEY_minimum_rsa_key_size,
         .setter_pointer = (void (*)(sec_protocol_options_t, uint64_t))sec_protocol_options_set_minimum_rsa_key_size,
@@ -2596,7 +2591,7 @@ _apply_config_options(sec_protocol_options_t options, xpc_object_t config)
             if (strncmp(key, SEC_PROTOCOL_OPTIONS_KEY_ciphersuites, key_len) == 0) {
                 if (xpc_get_type(value) == XPC_TYPE_ARRAY) {
                     xpc_array_apply(value, ^bool(size_t index, xpc_object_t  _Nonnull ciphersuite_value) {
-                        SSLCipherSuite ciphersuite = (SSLCipherSuite)xpc_array_get_uint64(value, index);
+                        tls_ciphersuite_t ciphersuite = (tls_ciphersuite_t)xpc_array_get_uint64(value, index);
                         sec_protocol_options_append_tls_ciphersuite(options, ciphersuite);
                         return true;
                     });

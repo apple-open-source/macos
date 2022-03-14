@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>users</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-02-19</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/whereis?id=09d7d4ad9a118f20b40c9ee1097233901bbc038c</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-10</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>whereis.c: Remove support for searching /usr/src, /usr/ports. Fix sysctl. (82892995)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

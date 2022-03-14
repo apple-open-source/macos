@@ -1481,9 +1481,9 @@ print_fq_codel_stats(int pri, struct fq_codel_classstats *fqst,
 	    fqst->fcls_budget, nsec_to_str(fqst->fcls_target_qdelay));
 	printf("update interval:%10s ]\n",
 	    nsec_to_str(fqst->fcls_update_interval));
-	printf("     [ flow control: %u\tfeedback: %u\tstalls: %u\tfailed: %u ]\n",
+	printf("     [ flow control: %u\tfeedback: %u\tstalls: %u\tfailed: %u \toverwhelming: %u ]\n",
 	    fqst->fcls_flow_control, fqst->fcls_flow_feedback,
-	    fqst->fcls_dequeue_stall, fqst->fcls_flow_control_fail);
+	    fqst->fcls_dequeue_stall, fqst->fcls_flow_control_fail, fqst->fcls_overwhelming);
 	printf("     [ drop overflow: %llu\tearly: %llu\tmemfail: %u\tduprexmt:%u ]\n",
 	    fqst->fcls_drop_overflow, fqst->fcls_drop_early,
 	    fqst->fcls_drop_memfailure, fqst->fcls_dup_rexmts);

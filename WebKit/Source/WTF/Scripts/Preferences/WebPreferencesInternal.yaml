@@ -154,6 +154,17 @@ CaptureAudioInUIProcessEnabled:
     WebKit:
       default: WebKit::defaultCaptureAudioInUIProcessEnabled()
 
+CaptureVideoInGPUProcessEnabled:
+  type: bool
+  humanReadableName: "GPU Process: Video Capture"
+  humanReadableDescription: "Enable video capture in GPU Process"
+  webcoreBinding: none
+  condition: ENABLE(MEDIA_STREAM)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: WebKit::defaultCaptureVideoInGPUProcessEnabled()
+
 CaptureVideoInUIProcessEnabled:
   type: bool
   humanReadableName: "Capture video in UI Process"
@@ -162,6 +173,19 @@ CaptureVideoInUIProcessEnabled:
   condition: ENABLE(MEDIA_STREAM)
   exposed: [ WebKit ]
   defaultValue:
+    WebKit:
+      default: false
+
+CookieConsentAPIEnabled:
+  type: bool
+  humanReadableName: "Cookie Consent API"
+  humanReadableDescription: "Enable cookie consent API"
+  exposed: [ WebKit ]
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
     WebKit:
       default: false
 
@@ -231,18 +255,6 @@ EventHandlerDrivenSmoothKeyboardScrollingEnabled:
    default: false
   WebCore:
    default: false
-
-# FIXME: This is not relevent for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
-ExperimentalPlugInSandboxProfilesEnabled:
-  type: bool
-  humanReadableName: "Sandbox Plug-Ins"
-  humanReadableDescription: "Enable Plug-In sandboxing"
-  webcoreBinding: RuntimeEnabledFeatures
-  defaultValue:
-    WebKitLegacy:
-      default: false
-    WebKit:
-      default: false
 
 FasterClicksEnabled:
   type: bool
@@ -343,7 +355,7 @@ InputTypeDateEnabled:
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
+      "PLATFORM(APPLETV)": false
       default: true
     WebCore:
       default: false
@@ -358,7 +370,7 @@ InputTypeDateTimeLocalEnabled:
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
+      "PLATFORM(APPLETV)": false
       default: true
     WebCore:
       default: false
@@ -373,7 +385,7 @@ InputTypeMonthEnabled:
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "!PLATFORM(MAC) && !PLATFORM(MACCATALYST) && !PLATFORM(APPLETV)": true
+      "!PLATFORM(MAC) && !PLATFORM(APPLETV)": true
       default: false
     WebCore:
       default: false
@@ -388,7 +400,7 @@ InputTypeTimeEnabled:
       "PLATFORM(IOS_FAMILY)": true
       default: false
     WebKit:
-      "PLATFORM(MACCATALYST) || PLATFORM(APPLETV)": false
+      "PLATFORM(APPLETV)": false
       default: true
     WebCore:
       default: false
@@ -402,7 +414,7 @@ InputTypeWeekEnabled:
     WebKitLegacy:
       default: false
     WebKit:
-      "!PLATFORM(MAC) && !PLATFORM(MACCATALYST) && !PLATFORM(APPLETV)": true
+      "!PLATFORM(MAC) && !PLATFORM(APPLETV)": true
       default: false
     WebCore:
       default: false
@@ -440,6 +452,20 @@ KeygenElementEnabled:
   humanReadableName: "HTMLKeygenElement"
   humanReadableDescription: "Enables the deprecated and disabled-by-default HTML keygen element."
   defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
+LayerBasedSVGEngineEnabled:
+  type: bool
+  humanReadableName: "Layer-based SVG Engine (LBSE)"
+  humanReadableDescription: "Enable next-generation layer-based SVG Engine (LBSE)"
+  condition: ENABLE(LAYER_BASED_SVG_ENGINE)
+  webcoreOnChange: layerBasedSVGEngineEnabledChanged
+  defaultValue:
+    WebCore:
+      default: false
     WebKitLegacy:
       default: false
     WebKit:
@@ -542,13 +568,10 @@ MomentumScrollingAnimatorEnabled:
   humanReadableDescription: "Generate momentum events in WebKit instead of using those delivered by the system"
   defaultValue:
     WebKitLegacy:
-      "PLATFORM(MAC)": true
       default: false
     WebKit:
-      "PLATFORM(MAC)": true
       default: true
     WebCore:
-      "PLATFORM(MAC)": true
       default: false
 
 MouseEventsSimulationEnabled:
@@ -571,6 +594,18 @@ NPAPIPlugInsEnabledForTestingInWebKitLegacy:
   exposed: [ WebKitLegacy ]
   defaultValue:
     WebKitLegacy:
+      default: false
+
+NotificationEventEnabled:
+  type: bool
+  humanReadableName: "NotificationEvent support"
+  humanReadableDescription: "NotificationEvent and ServiceWorkerRegistration.showNotification() support"
+  webcoreBinding: RuntimeEnabledFeatures
+  condition: ENABLE(NOTIFICATION_EVENT)
+  defaultValue:
+    WebCore:
+      default: false
+    WebKit:
       default: false
 
 OffscreenCanvasEnabled:
@@ -624,17 +659,16 @@ PreferInlineTextSelectionInImages:
     WebKit:
       default: true
 
-PreferPageRenderingUpdatesNear60FPSEnabled:
+ReplayCGDisplayListsIntoBackingStore:
   type: bool
-  humanReadableName: "Prefer Page Rendering Updates near 60fps"
-  humanReadableDescription: "Prefer page rendering updates near 60 frames per second rather than use the display's refresh rate"
+  humanReadableName: "CG Display Lists: Replay for Testing"
+  humanReadableDescription: "Replay CG Display Lists into layer contents for testing"
+  webcoreBinding: none
+  condition: ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
+  exposed: [ WebKit ]
   defaultValue:
-    WebKitLegacy:
-      default: true
     WebKit:
-      default: true
-    WebCore:
-      default: true
+      default: false
 
 ResourceLoadSchedulingEnabled:
   type: bool
@@ -696,6 +730,15 @@ SelectionAcrossShadowBoundariesEnabled:
       default: true
     WebCore:
       default: true
+      
+SelectionFlippingEnabled:
+  type: bool
+  humanReadableName: "Selection Flipping"
+  humanReadableDescription: "Enable Selection Flipping"
+  webcoreBinding: none
+  defaultValue:
+    WebKit:
+      default: true
 
 # FIXME: This is not implemented for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
 ServiceWorkersEnabled:
@@ -755,6 +798,20 @@ TextAutosizingUsesIdempotentMode:
     WebCore:
       default: false
 
+TextRecognitionEnhancementsEnabled:
+  type: bool
+  humanReadableName: "Text Recognition Enhancements"
+  humanReadableDescription: "Enable Text Recognition Enhancements"
+  condition: ENABLE(IMAGE_ANALYSIS)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebCore:
+      default: false
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: false
+
 # FIXME: Is this implemented for WebKitLegacy? If not, this should be excluded from WebKitLegacy entirely.
 UndoManagerAPIEnabled:
   type: bool
@@ -778,27 +835,60 @@ UpgradeKnownHostsToHTTPSEnabled:
     WebKit:
       default: true
 
+UseARKitForModel:
+  type: bool
+  humanReadableName: "Use ARKit for <model>"
+  humanReadableDescription: "Use ARKit for <model>"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  condition: ENABLE(ARKIT_INLINE_PREVIEW)
+  defaultValue:
+    WebKit:
+      default: true
+
 UseCGDisplayListsForDOMRendering:
   type: bool
-  humanReadableName: "Use CG Display Lists for DOM rendering"
+  humanReadableName: "CG Display Lists: DOM Rendering"
   humanReadableDescription: "Use CG Display Lists for DOM rendering"
   webcoreBinding: none
   condition: ENABLE(CG_DISPLAY_LIST_BACKED_IMAGE_BUFFER)
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: false
+      default: true
 
-UseGPUProcessForDOMRenderingEnabled:
+UseGPUProcessForCanvasRenderingEnabled:
   type: bool
-  humanReadableName: "GPU Process: DOM Rendering"
-  humanReadableDescription: "Enable DOM rendering in GPU Process"
+  humanReadableName: "GPU Process: Canvas Rendering"
+  humanReadableDescription: "Enable canvas rendering in GPU Process"
   webcoreBinding: none
-  condition: ENABLE(GPU_PROCESS)
+  condition: ENABLE(GPU_PROCESS) && !(PLATFORM(GTK) || PLATFORM(WPE))
   exposed: [ WebKit ]
   defaultValue:
     WebKit:
-      default: defaultUseGPUProcessForDOMRenderingEnabled()
+      default: defaultUseGPUProcessForCanvasRenderingEnabled()
+
+UseGPUProcessForMediaEnabled:
+  type: bool
+  humanReadableName: "GPU Process: Media"
+  humanReadableDescription: "Do all media loading and playback in the GPU Process"
+  webcoreBinding: none
+  condition: ENABLE(GPU_PROCESS) && !USE(GSTREAMER)
+  exposed: [ WebKit ]
+  defaultValue:
+    WebKit:
+      default: WebKit::defaultUseGPUProcessForMediaEnabled()
+
+UseSceneKitForModel:
+  type: bool
+  humanReadableName: "Use SceneKit for <model>"
+  humanReadableDescription: "Use SceneKit for <model>"
+  webcoreBinding: none
+  exposed: [ WebKit ]
+  condition: HAVE(SCENEKIT)
+  defaultValue:
+    WebKit:
+      default: false
 
 # FIXME: Remove once <rdar://73830961> has been fixed
 UseiTunesAVOutputContext:
@@ -873,6 +963,20 @@ WebRTCMDNSICECandidatesEnabled:
       default: false
     WebKit:
       default: true
+
+# FIXME: This is not relevant for WebKitLegacy, so should be excluded from WebKitLegacy entirely.
+WebRTCPlatformCodecsInGPUProcessEnabled:
+  type: bool
+  humanReadableName: "GPU Process: WebRTC Platform Codecs"
+  humanReadableDescription: "Enable WebRTC Platform Codecs in GPU Process"
+  condition: ENABLE(WEB_RTC)
+  defaultValue:
+    WebKitLegacy:
+      default: false
+    WebKit:
+      default: WebKit::defaultWebRTCCodecsInGPUProcess()
+    WebCore:
+      default: false
 
 WebSQLEnabled:
   type: bool

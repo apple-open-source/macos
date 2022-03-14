@@ -135,7 +135,7 @@ MediaPlayerPrivateMediaStreamAVFObjC::MediaPlayerPrivateMediaStreamAVFObjC(Media
 {
     INFO_LOG(LOGIDENTIFIER);
     // MediaPlayerPrivateMediaStreamAVFObjC::processNewVideoSample expects a weak pointer to be created in the constructor.
-    m_boundsChangeListener = adoptNS([[WebRootSampleBufferBoundsChangeListener alloc] initWithCallback:[this, weakThis = makeWeakPtr(this)] {
+    m_boundsChangeListener = adoptNS([[WebRootSampleBufferBoundsChangeListener alloc] initWithCallback:[this, weakThis = WeakPtr { *this }] {
         if (!weakThis)
             return;
         rootLayerBoundsDidChange();
@@ -244,9 +244,10 @@ static inline CGAffineTransform videoTransformationMatrix(MediaSample& sample)
     return videoTransform;
 }
 
-void MediaPlayerPrivateMediaStreamAVFObjC::videoSampleAvailable(MediaSample& sample)
+void MediaPlayerPrivateMediaStreamAVFObjC::videoSampleAvailable(MediaSample& sample, VideoSampleMetadata metadata)
 {
-    processNewVideoSample(sample, sample.videoRotation() != m_videoRotation || sample.videoMirrored() != m_videoMirrored);
+    auto presentationTime = MonotonicTime::now().secondsSinceEpoch();
+    processNewVideoSample(sample, sample.videoRotation() != m_videoRotation || sample.videoMirrored() != m_videoMirrored, metadata, presentationTime);
     enqueueVideoSample(sample);
 }
 
@@ -276,14 +277,26 @@ void MediaPlayerPrivateMediaStreamAVFObjC::enqueueVideoSample(MediaSample& sampl
     m_sampleBufferDisplayLayer->enqueueSample(sample);
 }
 
-void MediaPlayerPrivateMediaStreamAVFObjC::processNewVideoSample(MediaSample& sample, bool hasChangedOrientation)
+void MediaPlayerPrivateMediaStreamAVFObjC::reenqueueCurrentVideoSampleIfNeeded()
+{
+    if (!m_currentVideoSampleLock.tryLock())
+        return;
+    Locker locker { AdoptLock, m_currentVideoSampleLock };
+
+    if (!m_currentVideoSample && !m_imagePainter.mediaSample)
+        return;
+
+    enqueueVideoSample(m_currentVideoSample ? *m_currentVideoSample : *m_imagePainter.mediaSample);
+}
+
+void MediaPlayerPrivateMediaStreamAVFObjC::processNewVideoSample(MediaSample& sample, bool hasChangedOrientation, VideoSampleMetadata metadata, Seconds presentationTime)
 {
     if (!isMainThread()) {
         {
             Locker locker { m_currentVideoSampleLock };
             m_currentVideoSample = &sample;
         }
-        callOnMainThread([weakThis = makeWeakPtr(this), hasChangedOrientation]() mutable {
+        callOnMainThread([weakThis = WeakPtr { *this }, hasChangedOrientation, metadata, presentationTime]() mutable {
             if (!weakThis)
                 return;
 
@@ -298,7 +311,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::processNewVideoSample(MediaSample& sa
             if (!sample)
                 return;
 
-            weakThis->processNewVideoSample(*sample, hasChangedOrientation);
+            weakThis->processNewVideoSample(*sample, hasChangedOrientation, metadata, presentationTime);
         });
         return;
     }
@@ -315,6 +328,10 @@ void MediaPlayerPrivateMediaStreamAVFObjC::processNewVideoSample(MediaSample& sa
         if (m_readyState < MediaPlayer::ReadyState::HaveEnoughData)
             updateReadyState();
     }
+
+    m_presentationTime = presentationTime;
+    m_sampleMetadata = metadata;
+    ++m_sampleCount;
 
     if (m_displayMode != LivePreview && !m_waitingForFirstImage)
         return;
@@ -380,7 +397,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::ensureLayers()
         m_sampleBufferDisplayLayer->setRenderPolicy(SampleBufferDisplayLayer::RenderPolicy::Immediately);
 
     auto size = snappedIntRect(m_player->playerContentBoxRect()).size();
-    m_sampleBufferDisplayLayer->initialize(hideRootLayer(), size, [weakThis = makeWeakPtr(this), size](auto didSucceed) {
+    m_sampleBufferDisplayLayer->initialize(hideRootLayer(), size, [weakThis = WeakPtr { *this }, size](auto didSucceed) {
         if (weakThis) {
 #if !RELEASE_LOG_DISABLED
             if (weakThis->m_sampleBufferDisplayLayer)
@@ -399,7 +416,10 @@ void MediaPlayerPrivateMediaStreamAVFObjC::layersAreInitialized(IntSize size, bo
         return;
     }
 
-    updateRenderingMode();
+    scheduleRenderingModeChanged();
+
+    m_sampleBufferDisplayLayer->updateBoundsAndPosition(m_sampleBufferDisplayLayer->rootLayer().bounds, m_videoRotation);
+    m_sampleBufferDisplayLayer->updateDisplayMode(m_displayMode < PausedImage, hideRootLayer());
     m_shouldUpdateDisplayLayer = true;
 
     m_videoLayerManager->setVideoLayer(m_sampleBufferDisplayLayer->rootLayer(), size);
@@ -417,7 +437,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::destroyLayers()
     if (m_sampleBufferDisplayLayer)
         m_sampleBufferDisplayLayer = nullptr;
 
-    updateRenderingMode();
+    scheduleRenderingModeChanged();
     
     m_videoLayerManager->didDestroyVideoLayer();
 }
@@ -552,6 +572,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::play()
     if (m_sampleBufferDisplayLayer)
         m_sampleBufferDisplayLayer->play();
     updateDisplayMode();
+    reenqueueCurrentVideoSampleIfNeeded();
 
     scheduleDeferredTask([this] {
         updateReadyState();
@@ -623,6 +644,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::setPageIsVisible(bool isVisible)
 
     m_isPageVisible = isVisible;
     flushRenderers();
+    reenqueueCurrentVideoSampleIfNeeded();
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::setVisibleForCanvas(bool)
@@ -712,15 +734,18 @@ void MediaPlayerPrivateMediaStreamAVFObjC::activeStatusChanged()
 
 void MediaPlayerPrivateMediaStreamAVFObjC::updateRenderingMode()
 {
-    if (!updateDisplayMode())
-        return;
+    if (updateDisplayMode())
+        scheduleRenderingModeChanged();
+}
 
+void MediaPlayerPrivateMediaStreamAVFObjC::scheduleRenderingModeChanged()
+{
     scheduleDeferredTask([this] {
         m_videoTransform = { };
         if (m_player)
             m_player->renderingModeChanged();
+        reenqueueCurrentVideoSampleIfNeeded();
     });
-
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::characteristicsChanged()
@@ -1002,9 +1027,26 @@ void MediaPlayerPrivateMediaStreamAVFObjC::paintCurrentFrameInContext(GraphicsCo
     if (!m_videoTransform)
         m_videoTransform = videoTransformationMatrix(*m_imagePainter.mediaSample);
     AffineTransform videoTransform = *m_videoTransform;
-    FloatRect transformedDestRect = videoTransform.inverse().value_or(AffineTransform()).mapRect(destRect);
+    FloatRect transformedDestRect = valueOrDefault(videoTransform.inverse()).mapRect(destRect);
     context.concatCTM(videoTransform);
     context.drawNativeImage(*image, imageRect.size(), transformedDestRect, imageRect);
+}
+
+std::optional<MediaSampleVideoFrame> MediaPlayerPrivateMediaStreamAVFObjC::videoFrameForCurrentTime()
+{
+    if (m_displayMode == None || !metaDataAvailable())
+        return std::nullopt;
+    if (m_displayMode == PaintItBlack)
+        return std::nullopt;
+    if (!m_imagePainter.mediaSample)
+        return std::nullopt;
+    return m_imagePainter.mediaSample->videoFrame();
+}
+
+DestinationColorSpace MediaPlayerPrivateMediaStreamAVFObjC::colorSpace()
+{
+    updateCurrentFrameImage();
+    return m_imagePainter.cgImage ? m_imagePainter.cgImage->colorSpace() : DestinationColorSpace::SRGB();
 }
 
 void MediaPlayerPrivateMediaStreamAVFObjC::updateLayersAsNeeded()
@@ -1061,7 +1103,7 @@ void MediaPlayerPrivateMediaStreamAVFObjC::audioOutputDeviceChanged()
 void MediaPlayerPrivateMediaStreamAVFObjC::scheduleDeferredTask(Function<void ()>&& function)
 {
     ASSERT(function);
-    callOnMainThread([weakThis = makeWeakPtr(*this), function = WTFMove(function)] {
+    callOnMainThread([weakThis = WeakPtr { *this }, function = WTFMove(function)] {
         if (!weakThis)
             return;
 
@@ -1086,6 +1128,28 @@ void MediaPlayerPrivateMediaStreamAVFObjC::rootLayerBoundsDidChange()
 WTFLogChannel& MediaPlayerPrivateMediaStreamAVFObjC::logChannel() const
 {
     return LogMedia;
+}
+
+std::optional<VideoFrameMetadata> MediaPlayerPrivateMediaStreamAVFObjC::videoFrameMetadata()
+{
+    if (m_sampleCount == m_lastVideoFrameMetadataSampleCount)
+        return { };
+    m_lastVideoFrameMetadataSampleCount = m_sampleCount;
+
+    VideoFrameMetadata metadata;
+    metadata.width = m_intrinsicSize.width();
+    metadata.height = m_intrinsicSize.height();
+    metadata.presentedFrames = m_sampleCount;
+    metadata.presentationTime = m_presentationTime.seconds();
+    metadata.expectedDisplayTime = m_presentationTime.seconds();
+    metadata.processingDuration = m_sampleMetadata.processingDuration;
+    if (m_sampleMetadata.captureTime)
+        metadata.captureTime = m_sampleMetadata.captureTime->seconds();
+    if (m_sampleMetadata.receiveTime)
+        metadata.receiveTime = m_sampleMetadata.receiveTime->seconds();
+    metadata.rtpTimestamp = m_sampleMetadata.rtpTimestamp;
+
+    return metadata;
 }
 
 }

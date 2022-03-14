@@ -29,6 +29,7 @@
 #include "DisplayListItemBuffer.h"
 #include "DisplayListItems.h"
 #include "DisplayListIterator.h"
+#include "Filter.h"
 #include "Logging.h"
 #include <wtf/FastMalloc.h>
 #include <wtf/StdLibExtras.h>
@@ -38,7 +39,7 @@ namespace WebCore {
 namespace DisplayList {
 
 #if !defined(NDEBUG) || !LOG_DISABLED
-WTF::CString DisplayList::description() const
+CString DisplayList::description() const
 {
     TextStream ts;
     ts << *this;
@@ -52,8 +53,7 @@ void DisplayList::dump() const
 #endif
 
 DisplayList::DisplayList(DisplayList&& other)
-    : m_imageBuffers(std::exchange(other.m_imageBuffers, { }))
-    , m_nativeImages(std::exchange(other.m_nativeImages, { }))
+    : m_resourceHeap(std::exchange(other.m_resourceHeap, { }))
     , m_items(std::exchange(other.m_items, nullptr))
     , m_drawingItemExtents(std::exchange(other.m_drawingItemExtents, { }))
 {
@@ -69,8 +69,7 @@ DisplayList::~DisplayList() = default;
 
 DisplayList& DisplayList::operator=(DisplayList&& other)
 {
-    m_imageBuffers = std::exchange(other.m_imageBuffers, { });
-    m_nativeImages = std::exchange(other.m_nativeImages, { });
+    m_resourceHeap = std::exchange(other.m_resourceHeap, { });
     m_items = std::exchange(other.m_items, nullptr);
     m_drawingItemExtents = std::exchange(other.m_drawingItemExtents, { });
     return *this;
@@ -81,8 +80,7 @@ void DisplayList::clear()
     if (m_items)
         m_items->clear();
     m_drawingItemExtents.clear();
-    m_imageBuffers.clear();
-    m_nativeImages.clear();
+    m_resourceHeap.clear();
 }
 
 bool DisplayList::shouldDumpForFlags(AsTextFlags flags, ItemHandle item)
@@ -214,8 +212,6 @@ void DisplayList::append(ItemHandle item)
         return append<ConcatenateCTM>(item.get<ConcatenateCTM>());
     case ItemType::SetCTM:
         return append<SetCTM>(item.get<SetCTM>());
-    case ItemType::SetInlineFillGradient:
-        return append<SetInlineFillGradient>(item.get<SetInlineFillGradient>());
     case ItemType::SetInlineFillColor:
         return append<SetInlineFillColor>(item.get<SetInlineFillColor>());
     case ItemType::SetInlineStrokeColor:
@@ -248,6 +244,8 @@ void DisplayList::append(ItemHandle item)
         return append<BeginClipToDrawingCommands>(item.get<BeginClipToDrawingCommands>());
     case ItemType::EndClipToDrawingCommands:
         return append<EndClipToDrawingCommands>(item.get<EndClipToDrawingCommands>());
+    case ItemType::DrawFilteredImageBuffer:
+        return append<DrawFilteredImageBuffer>(item.get<DrawFilteredImageBuffer>());
     case ItemType::DrawGlyphs:
         return append<DrawGlyphs>(item.get<DrawGlyphs>());
     case ItemType::DrawImageBuffer:
@@ -300,10 +298,6 @@ void DisplayList::append(ItemHandle item)
         return append<FillEllipse>(item.get<FillEllipse>());
     case ItemType::FlushContext:
         return append<FlushContext>(item.get<FlushContext>());
-    case ItemType::MetaCommandChangeDestinationImageBuffer:
-        return append<MetaCommandChangeDestinationImageBuffer>(item.get<MetaCommandChangeDestinationImageBuffer>());
-    case ItemType::MetaCommandChangeItemBuffer:
-        return append<MetaCommandChangeItemBuffer>(item.get<MetaCommandChangeItemBuffer>());
     case ItemType::GetPixelBuffer:
         return append<GetPixelBuffer>(item.get<GetPixelBuffer>());
     case ItemType::PutPixelBuffer:

@@ -72,6 +72,12 @@ ux_exception(int                        exception,
 			return SIGBUS;
 		}
 
+	case EXC_SYSCALL:
+		if (send_sigsys) {
+			return SIGSYS;
+		}
+		break;
+
 	case EXC_BAD_INSTRUCTION:
 		return SIGILL;
 

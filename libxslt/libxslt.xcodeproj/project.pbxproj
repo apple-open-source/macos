@@ -21,8 +21,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
-		444B432A201198F900872977 /* libxslt/module.modulemap in Install Module Map */ = {isa = PBXBuildFile; fileRef = 44E29620201196C200BEE3E0 /* libxslt/module.modulemap */; };
-		444B432C2011993800872977 /* libexslt/module.modulemap in Install Module Map */ = {isa = PBXBuildFile; fileRef = 44E29621201196C200BEE3E0 /* libexslt/module.modulemap */; };
+		44B5CADF27225B0600FC665E /* libxslt/module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 44E29620201196C200BEE3E0 /* libxslt/module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
+		44B5CAE027225B1100FC665E /* libexslt/module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 44E29621201196C200BEE3E0 /* libexslt/module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		5DCB929C14FDA52D00F7276A /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCB929B14FDA52D00F7276A /* libxml2.dylib */; };
 		5DCB92B814FDA5A700F7276A /* libxslt.1.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5D6883EC14FDA2C5009E3E04 /* libxslt.1.dylib */; };
 		5DCB92B914FDA5B100F7276A /* libxml2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 5DCB929B14FDA52D00F7276A /* libxml2.dylib */; };
@@ -127,28 +127,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		444B43292011988800872977 /* Install Module Map */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/include/libxslt;
-			dstSubfolderSpec = 0;
-			files = (
-				444B432A201198F900872977 /* libxslt/module.modulemap in Install Module Map */,
-			);
-			name = "Install Module Map";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		444B432B2011990F00872977 /* Install Module Map */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/include/libexslt;
-			dstSubfolderSpec = 0;
-			files = (
-				444B432C2011993800872977 /* libexslt/module.modulemap in Install Module Map */,
-			);
-			name = "Install Module Map";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
 		5DCB92C514FDAA5500F7276A /* Install Man Page */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
@@ -503,6 +481,7 @@
 				5DCB932814FDAB1700F7276A /* functions.h in Headers */,
 				5DCB932A14FDAB1700F7276A /* imports.h in Headers */,
 				5DCB932C14FDAB1700F7276A /* keys.h in Headers */,
+				44B5CADF27225B0600FC665E /* libxslt/module.modulemap in Headers */,
 				5DCB932F14FDAB1700F7276A /* namespaces.h in Headers */,
 				5DCB933114FDAB1700F7276A /* numbersInternals.h in Headers */,
 				5DCB933314FDAB1700F7276A /* pattern.h in Headers */,
@@ -529,8 +508,9 @@
 			files = (
 				5DCB92EB14FDAAE500F7276A /* exslt.h in Headers */,
 				5DCB92EC14FDAAE500F7276A /* exsltexports.h in Headers */,
-				5DCB92EE14FDAAE500F7276A /* libexslt.h in Headers */,
 				5DCB935214FDAC6000F7276A /* include/libexslt/exsltconfig.h in Headers */,
+				5DCB92EE14FDAAE500F7276A /* libexslt.h in Headers */,
+				44B5CAE027225B1100FC665E /* libexslt/module.modulemap in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -549,7 +529,6 @@
 				5DCB936414FDB16200F7276A /* Install License File */,
 				5DCB936514FDB17C00F7276A /* Install Open Source Property List */,
 				5DCB935C14FDAF7200F7276A /* Install Man Page */,
-				444B43292011988800872977 /* Install Module Map */,
 				5DCB936A14FDB1D900F7276A /* Install xslt-config */,
 			);
 			buildRules = (
@@ -570,7 +549,6 @@
 				5D87352114FDA3BB006E89B4 /* Frameworks */,
 				5DCB936D14FDB25D00F7276A /* Create libexslt.dylib Symlink */,
 				5DCB935A14FDAF4D00F7276A /* Install Man Page */,
-				444B432B2011990F00872977 /* Install Module Map */,
 			);
 			buildRules = (
 			);
@@ -644,7 +622,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ln -sf libxslt.1.dylib \"${BUILT_PRODUCTS_DIR}/libxslt.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxslt.1.dylib \"${DSTROOT}${INSTALL_PATH}/libxslt.dylib\";\nfi;\n";
+			shellScript = "set -e\nln -sf libxslt.1.dylib \"${BUILT_PRODUCTS_DIR}/libxslt.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libxslt.1.dylib \"${DSTROOT}${INSTALL_PATH}/libxslt.dylib\";\nfi;\n";
 		};
 		5DCB936314FDB13300F7276A /* Rename License File */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -660,7 +638,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "cp libxslt/Copyright \"${BUILT_PRODUCTS_DIR}/libxslt.txt\"\n";
+			shellScript = "set -e\ncp libxslt/Copyright \"${BUILT_PRODUCTS_DIR}/libxslt.txt\"\n";
 		};
 		5DCB936D14FDB25D00F7276A /* Create libexslt.dylib Symlink */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -675,7 +653,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "ln -sf libexslt.0.dylib \"${BUILT_PRODUCTS_DIR}/libexslt.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libexslt.0.dylib \"${DSTROOT}${INSTALL_PATH}/libexslt.dylib\";\nfi;\n";
+			shellScript = "set -e\nln -sf libexslt.0.dylib \"${BUILT_PRODUCTS_DIR}/libexslt.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    ln -sf libexslt.0.dylib \"${DSTROOT}${INSTALL_PATH}/libexslt.dylib\";\nfi;\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

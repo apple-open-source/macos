@@ -117,7 +117,7 @@ ImageBufferIOSurfaceBackend::ImageBufferIOSurfaceBackend(const Parameters& param
     , m_surface(WTFMove(surface))
 {
     ASSERT(m_surface);
-    setupContext();
+    applyBaseTransformToContext();
 }
 
 GraphicsContext& ImageBufferIOSurfaceBackend::context() const
@@ -125,7 +125,7 @@ GraphicsContext& ImageBufferIOSurfaceBackend::context() const
     GraphicsContext& context = m_surface->ensureGraphicsContext();
     if (m_needsSetupContext) {
         m_needsSetupContext = false;
-        setupContext();
+        applyBaseTransformToContext();
     }
     return context;
 }
@@ -175,6 +175,14 @@ RefPtr<NativeImage> ImageBufferIOSurfaceBackend::sinkIntoNativeImage()
     return NativeImage::create(IOSurface::sinkIntoImage(WTFMove(m_surface)));
 }
 
+void ImageBufferIOSurfaceBackend::draw(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
+{
+    ImageBufferCGBackend::draw(destContext, destRect, srcRect, options);
+    // Accelerated to/from unaccelerated image buffers need complex caching. We trust that
+    // this is a one-off draw, and as such we clear the caches of the source image after each draw.
+    if (destContext.renderingMode() != context().renderingMode())
+        invalidateCachedNativeImage();
+}
 void ImageBufferIOSurfaceBackend::drawConsuming(GraphicsContext& destContext, const FloatRect& destRect, const FloatRect& srcRect, const ImagePaintingOptions& options)
 {
     prepareToDrawIntoContext(destContext);
@@ -234,6 +242,12 @@ VolatilityState ImageBufferIOSurfaceBackend::setVolatile(bool isVolatile)
 void ImageBufferIOSurfaceBackend::releaseBufferToPool()
 {
     IOSurface::moveToPool(WTFMove(m_surface));
+}
+
+void ImageBufferIOSurfaceBackend::ensureNativeImagesHaveCopiedBackingStore()
+{
+    invalidateCachedNativeImage();
+    flushContext();
 }
 
 } // namespace WebCore

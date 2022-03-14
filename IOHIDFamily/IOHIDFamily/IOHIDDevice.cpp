@@ -1726,7 +1726,7 @@ IOReturn IOHIDDevice::updateElementValues(IOHIDElementCookie *cookies, UInt32 co
 
     // Allocate a mem descriptor with the maxReportLength.
     // This way, we only have to allocate one mem discriptor
-    report = IOBufferMemoryDescriptor::withCapacity(maxReportLength, kIODirectionIn);
+    report = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, maxReportLength);
 
     if (report == NULL) {
         return kIOReturnNoMemory;

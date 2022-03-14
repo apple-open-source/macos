@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -20,7 +20,6 @@ public int screen_trashed;
 public int squished;
 public int no_back_scroll = 0;
 public int forw_prompt;
-public int same_pos_bell = 1;
 
 public int display_next_file_or_exit = 0;
 
@@ -41,7 +40,6 @@ extern int hilite_search;
 extern int status_col;
 #endif
 
-extern int unix2003_compat;
 #if TAGS
 extern char *tagoption;
 #endif
@@ -50,8 +48,15 @@ extern char *tagoption;
  * Sound the bell to indicate user is trying to move past end of file.
  */
 	static void
-eof_bell()
+eof_bell(VOID_PARAM)
 {
+#if HAVE_TIME
+	static time_type last_eof_bell = 0;
+	time_type now = get_time();
+	if (now == last_eof_bell) /* max once per second */
+		return;
+	last_eof_bell = now;
+#endif
 	if (quiet == NOT_QUIET)
 		bell();
 	else
@@ -62,7 +67,7 @@ eof_bell()
  * Check to see if the end of file is currently displayed.
  */
 	public int
-eof_displayed()
+eof_displayed(VOID_PARAM)
 {
 	POSITION pos;
 
@@ -89,7 +94,7 @@ eof_displayed()
  * Check to see if the entire file is currently displayed.
  */
 	public int
-entire_file_displayed()
+entire_file_displayed(VOID_PARAM)
 {
 	POSITION pos;
 
@@ -109,7 +114,7 @@ entire_file_displayed()
  * for the first time.
  */
 	public void
-squish_check()
+squish_check(VOID_PARAM)
 {
 	if (!squished)
 		return;
@@ -128,7 +133,7 @@ squish_check()
  */
 	public void
 forw(n, pos, force, only_last, nblank)
-	register int n;
+	int n;
 	POSITION pos;
 	int force;
 	int only_last;
@@ -172,7 +177,7 @@ forw(n, pos, force, only_last, nblank)
 			pos_clear();
 			add_forw_pos(pos);
 			force = 1;
-			if (!unix2003_compat) {
+			if (less_is_more == 0) {
 				clear();
 				home();
 			}
@@ -192,7 +197,7 @@ forw(n, pos, force, only_last, nblank)
 			{
 				clear();
 				home();
-			} else if (!first_time)
+			} else if (!first_time && !is_filtering())
 			{
 				putstr("...skipping...\n");
 			}
@@ -291,7 +296,7 @@ forw(n, pos, force, only_last, nblank)
 		forw_prompt = 1;
 	}
 
-	if (nlines == 0 && same_pos_bell)
+	if (nlines == 0 && !ignore_eoi)
 		eof_bell();
 	else if (do_repaint)
 		repaint();
@@ -304,7 +309,7 @@ forw(n, pos, force, only_last, nblank)
  */
 	public void
 back(n, pos, force, only_last)
-	register int n;
+	int n;
 	POSITION pos;
 	int force;
 	int only_last;
@@ -351,7 +356,7 @@ back(n, pos, force, only_last)
 		}
 	}
 
-	if (nlines == 0 && same_pos_bell)
+	if (nlines == 0)
 		eof_bell();
 	else if (do_repaint)
 		repaint();
@@ -440,7 +445,7 @@ backward(n, force, only_last)
  * top_scroll, as well as back_scroll.
  */
 	public int
-get_back_scroll()
+get_back_scroll(VOID_PARAM)
 {
 	if (no_back_scroll)
 		return (0);
@@ -449,4 +454,21 @@ get_back_scroll()
 	if (top_scroll)
 		return (sc_height - 2);
 	return (10000); /* infinity */
+}
+
+/*
+ * Will the entire file fit on one screen?
+ */
+	public int
+get_one_screen(VOID_PARAM)
+{
+	int nlines;
+	POSITION pos = ch_zero();
+
+	for (nlines = 0;  nlines < sc_height;  nlines++)
+	{
+		pos = forw_line(pos);
+		if (pos == NULL_POSITION) break;
+	}
+	return (nlines < sc_height);
 }

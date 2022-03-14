@@ -1674,6 +1674,111 @@ OSStatus SecServerDeleteForAppClipApplicationIdentifier(CFStringRef identifier) 
     return status;
 }
 
+OSStatus SecServerPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStringRef parentAppID) {
+    secnotice("item", "Request to promote keychain items for app clip '%@' to parent app '%@'", appClipAppID, parentAppID);
+
+    __block CFErrorRef cfError = NULL;
+    __block bool ok = true;
+    __block CFMutableDictionaryRef dict = CFDictionaryCreateMutableForCFTypesWithSafe(kCFAllocatorDefault,
+                                                                                      kSecAttrAccessGroup, appClipAppID,
+                                                                                      kSecAttrAppClipItem, kCFBooleanTrue,
+                                                                                      NULL);
+    CFDictionaryRef updates = CFDictionaryCreateForCFTypes(kCFAllocatorDefault, kSecAttrAppClipItem, kCFBooleanFalse, kSecAttrAccessGroup, parentAppID, NULL);
+
+    ok &= kc_with_dbt(true, &cfError, ^bool(SecDbConnectionRef dbt) {
+		return kc_transaction(dbt, &cfError, ^bool{
+			const SecDbSchema* schema = current_schema();
+			for (const SecDbClass *const * class = schema->classes; *class != NULL; ++class) {
+				if ((*class)->itemclass) {
+                    CFDictionarySetValue(dict, kSecClass, (*class)->name);
+                    SecDbQueryRef query = query_create_with_limit(dict, SecMUSRGetAllViews(), kSecMatchUnlimited, NULL, &cfError);
+                    if (!query) {
+                        secerror("AppcClipPromotion: unable to create query for class %@: %@", (*class)->name, cfError);
+                        CFReleaseNull(cfError);
+                        continue;   // We can always try the other classes..?
+                    }
+
+                    ok &= SecDbItemSelect(query, dbt, &cfError,
+                    // return_attrs
+                    NULL,
+                    // use_attr_in_where
+                    ^bool(const SecDbAttr *attr) {
+                        return CFEqualSafe(attr->name, kSecAttrAppClipItem) || CFEqualSafe(attr->name, kSecAttrAccessGroup);
+                    },
+
+                    // add_where_sql
+                    NULL,
+                    // bind_added_where
+                    NULL,
+
+                    // handle_row
+                    ^(SecDbItemRef item, bool *stop) {
+                        CFErrorRef localError = NULL;
+                        if (SecDbItemEnsureDecrypted(item, true, &localError)) {
+                            SecDbItemRef newItem = SecDbItemCopyWithUpdates(item, updates, &localError);
+                            if (!localError) {
+                                // clear the rowid, so sql doesn't get angry for trying to insert a row with the same sql-primary-key as an extant row
+                                SecDbItemClearRowId(newItem, &localError);
+                            }
+                            if (!localError) {
+                                bool replaceOk = SecDbItemInsertOrReplace(newItem, dbt, &localError, ^(SecDbItemRef unused_item, SecDbItemRef *replace) {
+                                    *replace = CFRetainSafe(newItem);
+                                });
+                                if (!replaceOk && SecErrorIsSqliteDuplicateItemError(localError)) {
+                                    replaceOk = true;
+                                    CFReleaseNull(localError);
+                                }
+                                secinfo("item", "SecServerPromoteAppClipItemsToParentApp SecDbItemInsertOrReplace %d", replaceOk);
+                            }
+                            CFReleaseNull(newItem);
+                        }
+
+                        if (localError) {
+                            OSStatus code = (OSStatus)CFErrorGetCode(localError);
+                            switch (code) {
+                                case errSecDecode:      // item dead, oh well
+                                case errSecAuthNeeded:  // item has ACL, oh well
+                                    secnotice("item", "Unable (%i) to promote item: %@", (int)code, item);
+                                    break;
+                                case errSecInteractionNotAllowed:   // Keychain is locked, abandon ship
+                                default:
+                                    secnotice("item", "Encountered error %i during promotion: %@", (int)code, item);
+                                    ok = false;
+                                    break;
+                            }
+                        }
+
+                        if (!ok) {
+                            *stop = true;
+                            if (localError && !cfError) {
+                                cfError = localError;
+                            }
+                        } else {
+                            CFReleaseNull(localError);
+                        }
+                    });
+					query_destroy(query, NULL);
+				}
+			}
+			return ok;
+		});
+    });
+
+	CFReleaseNull(dict);
+    CFReleaseNull(updates);
+
+    if (ok) {
+        secnotice("item", "Promotion reports success, now deleting leftover app clip items");
+        // There might be leftovers, make sure they do not persist
+        return SecServerDeleteForAppClipApplicationIdentifier(appClipAppID);
+    } else {
+        secnotice("item", "App clip item promotion failed: %@", cfError);
+        OSStatus status = (OSStatus)CFErrorGetCode(cfError);
+        CFReleaseNull(cfError);
+        return status;
+    }
+}
+
 struct s3dl_export_row_ctx {
     struct s3dl_query_ctx qc;
     keybag_handle_t dest_keybag;

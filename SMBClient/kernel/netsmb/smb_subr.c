@@ -308,6 +308,25 @@ void * smb_memdupin(user_addr_t umem, int len)
 }
 
 /*
+ * duplicate c-style string memory block from a user space.
+ * len includes the null byte.
+ */
+void *
+smb_str_memdupin(user_addr_t umem, int len, int *errp) {
+    *errp = 0;
+    char *p = smb_memdupin(umem, len);
+    /* check null-termination to prevent race-condition attack */
+    if (p == NULL) {
+        *errp = ENOMEM;
+    } else if (p[len - 1] != '\0') {
+        SMB_FREE(p, M_SMBDATA);
+        *errp = EINVAL;
+    }
+
+    return p;
+}
+
+/*
  * duplicate memory block in the kernel space.
  */
 void *

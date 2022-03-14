@@ -912,7 +912,7 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 		if ( inPacketHeader->CommonHeader.type == IOFWPacketHeader::kIncomingPacket and (fFlags & kFWAddressSpaceAutoCopyOnWrite) != 0 )
 		{
 			IOByteCount len = IOFWPacketHeaderGetSize(inPacketHeader) ;
-			void * bytes = IOMalloc( len );
+			void * bytes = IOMallocData( len );
 			
 			fPacketQueue->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
 			
@@ -920,28 +920,12 @@ IOFWUserPseudoAddressSpace::sendPacketNotification(
 								bytes,
 								len ) ;
 
-			IOFree( bytes, len );
+			IOFreeData( bytes, len );
 		}
 		
 		if (inPacketHeader->CommonHeader.whichAsyncRef[0])
 		{
 			DebugLog("sPN cmdID 0x%llx\n", inPacketHeader->IncomingPacket.commandID);
-			#if 0	// debug logging
-			io_user_reference_t hdrSize = IOFWPacketHeaderGetSize(inPacketHeader);
-			io_user_reference_t hdrOffset = IOFWPacketHeaderGetOffset(inPacketHeader);
-			kprintf("\tsPN hdr: %p off %llu size %llu %s\n", inPacketHeader, hdrOffset, hdrSize, inPacketHeader->CommonHeader.type == IOFWPacketHeader::kSkippedPacket ? "SkippedPkt" : "");
-			
-			IOByteCount len = IOFWPacketHeaderGetSize(inPacketHeader) ;
-			void * bytes = IOMalloc( len );
-			
-			if ( inPacketHeader->CommonHeader.type == IOFWPacketHeader::kIncomingPacket || inPacketHeader->CommonHeader.type == IOFWPacketHeader::kLockPacket )
-			{
-				fPacketQueue->readBytes( IOFWPacketHeaderGetOffset( inPacketHeader ), bytes, len );
-				kprintf("\tsPN %lu 0x%x\n", len, *((UInt32 *)bytes));
-			}
-			
-			IOFree( bytes, len );
-			#endif
 			
 			IOFireWireUserClient::sendAsyncResult64(*(inPacketHeader->CommonHeader.whichAsyncRef),
 							kIOReturnSuccess,

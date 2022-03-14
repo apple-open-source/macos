@@ -878,7 +878,7 @@ again:
 				wakeup(TSA_HUP_OR_INPUT(tp));
 				goto block;
 			}
-			(*linesw[tp->t_line].l_rint)(*cp++, tp);
+			OS_ANALYZER_SUPPRESS("80961525") (*linesw[tp->t_line].l_rint)(*cp++, tp);
 			wcnt++;
 			cc--;
 		}

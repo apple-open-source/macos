@@ -31,7 +31,25 @@
 
 @class SFSQLite;
 
-@interface SFSQLiteStatement : NSObject {
+@protocol SFSQLiteRow <NSObject>
+
+- (NSUInteger)columnCount;
+- (int)columnTypeAtIndex:(NSUInteger)index;
+- (NSString *)columnNameAtIndex:(NSUInteger)index;
+- (NSUInteger)indexForColumnName:(NSString *)columnName;
+
+- (SInt32)intAtIndex:(NSUInteger)index;
+- (SInt64)int64AtIndex:(NSUInteger)index;
+- (double)doubleAtIndex:(NSUInteger)index;
+- (NSData *)blobAtIndex:(NSUInteger)index;
+- (NSString *)textAtIndex:(NSUInteger)index;
+- (id)objectAtIndex:(NSUInteger)index;
+- (NSArray *)allObjects;
+- (NSDictionary *)allObjectsByColumnName;
+
+@end
+
+@interface SFSQLiteStatement : NSObject <SFSQLiteRow> {
     __weak SFSQLite* _SQLite;
     NSString* _SQL;
     sqlite3_stmt* _handle;
@@ -60,19 +78,6 @@
 - (void)bindNullAtIndex:(NSUInteger)index;
 - (void)bindValue:(id)value atIndex:(NSUInteger)index;
 - (void)bindValues:(NSArray *)values;
-
-- (NSUInteger)columnCount;
-- (int)columnTypeAtIndex:(NSUInteger)index;
-- (NSString *)columnNameAtIndex:(NSUInteger)index;
-
-- (SInt32)intAtIndex:(NSUInteger)index;
-- (SInt64)int64AtIndex:(NSUInteger)index;
-- (double)doubleAtIndex:(NSUInteger)index;
-- (NSData *)blobAtIndex:(NSUInteger)index;
-- (NSString *)textAtIndex:(NSUInteger)index;
-- (id)objectAtIndex:(NSUInteger)index;
-- (NSArray *)allObjects;
-- (NSDictionary *)allObjectsByColumnName;
 
 @end
 

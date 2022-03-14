@@ -145,7 +145,7 @@ sec_protocol_options_add_tls_ciphersuite(sec_protocol_options_t options, SSLCiph
  *      A `sec_protocol_options_t` instance.
  *
  * @param group
- *      A SSLCipherSuiteGroup value.
+ *      A tls_ciphersuite_group_t value.
  */
 API_AVAILABLE(macos(10.15), ios(13.0), watchos(6.0), tvos(13.0))
 void

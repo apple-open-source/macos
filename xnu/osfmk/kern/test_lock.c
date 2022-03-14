@@ -181,7 +181,7 @@ hw_lck_ticket_allow_invalid_test(__unused int64_t in, int64_t *out)
 	hw_lck_ticket_test_wait_for_delta(lck, 2, 20);
 	hw_lck_ticket_invalidate(lck);
 	hw_lck_ticket_unlock(lck);
-	hw_lck_ticket_destroy(lck, false, NULL);
+	hw_lck_ticket_destroy(lck, NULL);
 
 	hw_lck_ticket_init(lck, NULL);
 #endif /* !KASAN */

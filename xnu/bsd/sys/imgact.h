@@ -132,8 +132,6 @@ struct image_params {
 	uint64_t ip_dyld_fsobjid;
 	uint64_t ip_inherited_jop_pid;
 	unsigned int    ip_simulator_binary;    /* simulator binary flags */
-
-	ipc_port_t      ip_sc_port;             /* SUID port. */
 };
 
 /*

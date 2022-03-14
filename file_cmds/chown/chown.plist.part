@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>chown</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-12-08</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.sbin/chown?id=2dfa4b66b3d0caaaae6ce2df476b5615f8415a19</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-06-23</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>chgrp.1, chown.8, chown.c: add -n option (35375995)</string>
+			<string>chown.c: unix2003 compatibility (3936037)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

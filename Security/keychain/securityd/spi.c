@@ -66,7 +66,6 @@ static struct securityd securityd_spi = {
     .sec_delete_items_with_access_groups    = _SecItemServerDeleteAllWithAccessGroups,
 #if SHAREDWEBCREDENTIALS
     .sec_add_shared_web_credential          = _SecAddSharedWebCredential,
-    .sec_copy_shared_web_credential         = _SecCopySharedWebCredential,
 #endif
 #if SECUREOBJECTSYNC
     .sec_keychain_backup_syncable           = _SecServerBackupSyncable,

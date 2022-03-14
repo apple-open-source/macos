@@ -1,2 +1,13 @@
 #freebsd = https://github.com/freebsd/freebsd.git
+#freebsd-src = https://git.FreeBSD.org/src.git
+getconf.tproj/confstr.gperf	freebsd-src	usr.bin/getconf/confstr.gperf	dda1cfcf5976e27a9d70dab0a7761e27a672ba1e
+getconf.tproj/fake-gperf.awk	freebsd-src	usr.bin/getconf/fake-gperf.awk	df630de5e10c774ffc1671382016101920f1a072
+getconf.tproj/getconf.1	freebsd-src	usr.bin/getconf/getconf.1	da61c776f36c37d0a70105f70faf947eb4f9ceb4
+getconf.tproj/getconf.c	freebsd-src	usr.bin/getconf/getconf.c	0840e619bb18986a24a001f81c907f385bb2d3cf
+getconf.tproj/getconf.h	freebsd-src	usr.bin/getconf/getconf.h	0840e619bb18986a24a001f81c907f385bb2d3cf
+getconf.tproj/limits.gperf	freebsd-src	usr.bin/getconf/limits.gperf	0840e619bb18986a24a001f81c907f385bb2d3cf
+getconf.tproj/pathconf.gperf	freebsd-src	usr.bin/getconf/pathconf.gperf	dda1cfcf5976e27a9d70dab0a7761e27a672ba1e
+getconf.tproj/progenv.gperf	freebsd-src	usr.bin/getconf/progenv.gperf	7250a09527ee141e57142c29b4d3a04fa0477f1f
+getconf.tproj/sysconf.gperf	freebsd-src	usr.bin/getconf/sysconf.gperf	7b9730054781e1ccae8b182d30510ebc200349bf
+getconf.tproj/unsigned_limits.gperf	freebsd-src	usr.bin/getconf/unsigned_limits.gperf	6cf21d56cab6833d85e3dd474937bd98693323bb
 iostat.tproj/iostat.8	freebsd	usr.sbin/iostat/iostat.8	4724d1448f7e7698308a1e05a7bb9b2069d68234

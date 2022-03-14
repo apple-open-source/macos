@@ -80,7 +80,19 @@ bool isThunderRanked();
 
 inline GstClockTime toGstClockTime(const MediaTime &mediaTime)
 {
+    if (mediaTime.isInvalid())
+        return GST_CLOCK_TIME_NONE;
+    if (mediaTime < MediaTime::zeroTime())
+        return 0;
     return static_cast<GstClockTime>(toGstUnsigned64Time(mediaTime));
+}
+
+inline MediaTime fromGstClockTime(GstClockTime time)
+{
+    if (!GST_CLOCK_TIME_IS_VALID(time))
+        return MediaTime::invalidTime();
+
+    return MediaTime(GST_TIME_AS_USECONDS(time), G_USEC_PER_SEC);
 }
 
 class GstMappedBuffer {
@@ -294,7 +306,8 @@ enum class GstVideoDecoderPlatform { ImxVPU, Video4Linux, OpenMAX };
 bool isGStreamerPluginAvailable(const char* name);
 bool gstElementFactoryEquals(GstElement*, const char* name);
 
-GstElement* createPlatformAudioSink();
+GstElement* createAutoAudioSink(const String& role);
+GstElement* createPlatformAudioSink(const String& role);
 
 bool webkitGstSetElementStateSynchronously(GstElement*, GstState, Function<bool(GstMessage*)>&& = [](GstMessage*) -> bool {
     return true;
@@ -334,5 +347,72 @@ inline void gstPadStreamUnlock(GstPad* pad) { GST_PAD_STREAM_UNLOCK(pad); }
 
 using GstObjectLocker = ExternalLocker<void, gstObjectLock, gstObjectUnlock>;
 using GstPadStreamLocker = ExternalLocker<GstPad, gstPadStreamLock, gstPadStreamUnlock>;
+
+template <typename T>
+class GstIteratorAdaptor {
+public:
+    GstIteratorAdaptor(GUniquePtr<GstIterator>&& iter)
+        : m_iter(WTFMove(iter))
+    { }
+
+    class iterator {
+    public:
+        iterator(GstIterator* iter, gboolean done = FALSE)
+            : m_iter(iter)
+            , m_done(done)
+        { }
+
+        T* operator*()
+        {
+            return m_currentValue;
+        }
+
+        iterator& operator++()
+        {
+            GValue value = G_VALUE_INIT;
+            switch (gst_iterator_next(m_iter, &value)) {
+            case GST_ITERATOR_OK:
+                m_currentValue = static_cast<T*>(g_value_get_object(&value));
+                g_value_reset(&value);
+                break;
+            case GST_ITERATOR_DONE:
+                m_done = TRUE;
+                m_currentValue = nullptr;
+                break;
+            default:
+                ASSERT_NOT_REACHED_WITH_MESSAGE("Unexpected iterator invalidation");
+            }
+            return *this;
+        }
+
+        bool operator==(const iterator& other)
+        {
+            return m_iter == other.m_iter && m_done == other.m_done;
+        }
+        bool operator!=(const iterator& other) { return !(*this == other); }
+
+    private:
+        GstIterator* m_iter;
+        gboolean m_done;
+        T* m_currentValue { nullptr };
+    };
+
+    iterator begin()
+    {
+        ASSERT(!m_started);
+        m_started = true;
+        iterator iter { m_iter.get() };
+        return ++iter;
+    }
+
+    iterator end()
+    {
+        return { m_iter.get(), TRUE };
+    }
+
+private:
+    GUniquePtr<GstIterator> m_iter;
+    bool m_started { false };
+};
 
 #endif // USE(GSTREAMER)

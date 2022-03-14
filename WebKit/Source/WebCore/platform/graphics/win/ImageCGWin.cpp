@@ -41,15 +41,15 @@ RefPtr<BitmapImage> BitmapImage::create(HBITMAP hBitmap)
 {
     DIBSECTION dibSection;
     if (!GetObject(hBitmap, sizeof(DIBSECTION), &dibSection))
-        return 0;
+        return nullptr;
 
     ASSERT(dibSection.dsBm.bmBitsPixel == 32);
     if (dibSection.dsBm.bmBitsPixel != 32)
-        return 0;
+        return nullptr;
 
     ASSERT(dibSection.dsBm.bmBits);
     if (!dibSection.dsBm.bmBits)
-        return 0;
+        return nullptr;
 
     RetainPtr<CGContextRef> bitmapContext = adoptCF(CGBitmapContextCreate(dibSection.dsBm.bmBits, dibSection.dsBm.bmWidth, dibSection.dsBm.bmHeight, 8,
         dibSection.dsBm.bmWidthBytes, sRGBColorSpaceRef(), kCGBitmapByteOrder32Little | kCGImageAlphaPremultipliedFirst));
@@ -68,6 +68,9 @@ bool BitmapImage::getHBITMAPOfSize(HBITMAP bmp, const IntSize* size)
     GetObject(bmp, sizeof(BITMAP), &bmpInfo);
 
     ASSERT(bmpInfo.bmBitsPixel == 32);
+    if (bmpInfo.bmBitsPixel != 32)
+        return false;
+
     int bufferSize = bmpInfo.bmWidthBytes * bmpInfo.bmHeight;
     
     auto cgContext = adoptCF(CGBitmapContextCreate(bmpInfo.bmBits, bmpInfo.bmWidth, bmpInfo.bmHeight,

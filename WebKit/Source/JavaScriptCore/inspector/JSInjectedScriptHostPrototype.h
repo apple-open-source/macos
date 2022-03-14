@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2013-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,14 +40,14 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSInjectedScriptHostPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     DECLARE_INFO;
 
     static JSInjectedScriptHostPrototype* create(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSInjectedScriptHostPrototype* ptr = new (NotNull, JSC::allocateCell<JSInjectedScriptHostPrototype>(vm.heap)) JSInjectedScriptHostPrototype(vm, globalObject, structure);
+        JSInjectedScriptHostPrototype* ptr = new (NotNull, JSC::allocateCell<JSInjectedScriptHostPrototype>(vm)) JSInjectedScriptHostPrototype(vm, globalObject, structure);
         ptr->finishCreation(vm, globalObject);
         return ptr;
     }

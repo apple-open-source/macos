@@ -45,6 +45,7 @@ class Encoder;
 
 namespace WebCore {
 class SharedBuffer;
+class FragmentedSharedBuffer;
 }
 
 #if OS(DARWIN)
@@ -74,7 +75,7 @@ public:
 
         bool isNull() const;
 
-#if OS(DARWIN) || OS(WINDOWS)
+#if (OS(DARWIN) || OS(WINDOWS)) && !USE(UNIX_DOMAIN_SOCKETS)
         size_t size() const { return m_size; }
 #endif
 
@@ -120,7 +121,7 @@ public:
 
     // FIXME: Change these factory functions to return Ref<SharedMemory> and crash on failure.
     static RefPtr<SharedMemory> allocate(size_t);
-    static RefPtr<SharedMemory> copyBuffer(const WebCore::SharedBuffer&);
+    static RefPtr<SharedMemory> copyBuffer(const WebCore::FragmentedSharedBuffer&);
     static RefPtr<SharedMemory> map(const Handle&, Protection);
 #if USE(UNIX_DOMAIN_SOCKETS)
     static RefPtr<SharedMemory> wrapMap(void*, size_t, int fileDescriptor);

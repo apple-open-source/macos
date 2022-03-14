@@ -56,7 +56,7 @@ static errno_t hfs_ext_iter_check_group(hfs_ext_iter_t *iter);
 		}															\
 	} while (0)
 
-#define min(a,b) \
+#define hfs_min(a,b) \
 	({ typeof (a) _a = (a); typeof (b) _b = (b); _a < _b ? _a : _b; })
 
 static __attribute__((pure))
@@ -377,7 +377,7 @@ errno_t hfs_ext_replace(hfsmount_t *hfsmp, vnode_t vp,
 	if (end_file_block > ff_allocblocks(ff))
 		return EINVAL;
 
-	iter_in = hfs_malloc(sizeof(*iter_in) * 2);
+	iter_in = hfs_new(hfs_ext_iter_t, 2);
 	iter_out = iter_in + 1;
 	HFSPlusExtentKey *key_in = hfs_ext_iter_key_mut(iter_in);
 
@@ -396,8 +396,7 @@ errno_t hfs_ext_replace(hfsmount_t *hfsmp, vnode_t vp,
 
 	start_group_block = key_in->startBlock;
 
-	roll_back_extents = hfs_malloc(max_roll_back_extents
-								   * sizeof(HFSPlusExtentDescriptor));
+	roll_back_extents = hfs_new_data(HFSPlusExtentDescriptor, max_roll_back_extents);
 
 	// Move to the first extent in this group
 	iter_in->ndx = 0;
@@ -407,7 +406,7 @@ errno_t hfs_ext_replace(hfsmount_t *hfsmp, vnode_t vp,
 	// Create a buffer for our extents
 	buffered_extents = roundup(3 * kHFSPlusExtentDensity + repl_count,
 							   kHFSPlusExtentDensity);
-	extents = hfs_malloc(sizeof(*extents) * buffered_extents);
+	extents = hfs_new_data(HFSPlusExtentDescriptor, buffered_extents);
 	int count = 0;
 
 	/*
@@ -724,7 +723,7 @@ exit:
 		}
 
 		// And we need to reallocate the blocks we deallocated
-		const uint32_t end_block = min(block, end_file_block);
+		const uint32_t end_block = hfs_min(block, end_file_block);
 		block = start_group_block;
 		for (int i = 0; i < roll_back_count && block < end_block; ++i) {
 			HFSPlusExtentDescriptor *ext = &roll_back_extents[i];
@@ -762,10 +761,9 @@ exit:
 
 roll_back_failed:
 
-	hfs_free(iter_in, sizeof(*iter_in) * 2);
-	hfs_free(extents, sizeof(*extents) * buffered_extents);
-	hfs_free(roll_back_extents, (max_roll_back_extents
-								 * sizeof(HFSPlusExtentDescriptor)));
+	hfs_delete(iter_in, hfs_ext_iter_t, 2);
+	hfs_delete_data(extents, HFSPlusExtentDescriptor, buffered_extents);
+	hfs_delete_data(roll_back_extents, HFSPlusExtentDescriptor, max_roll_back_extents);
 
 	return MacToVFSError(ret);
 }

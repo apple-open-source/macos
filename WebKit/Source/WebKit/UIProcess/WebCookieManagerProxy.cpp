@@ -30,7 +30,6 @@
 #include "APISecurityOrigin.h"
 #include "NetworkProcessMessages.h"
 #include "NetworkProcessProxy.h"
-#include "OptionalCallbackID.h"
 #include "WebCookieManagerMessages.h"
 #include "WebCookieManagerProxyMessages.h"
 #include "WebProcessPool.h"
@@ -41,7 +40,7 @@ namespace WebKit {
 using namespace WebCore;
 
 WebCookieManagerProxy::WebCookieManagerProxy(NetworkProcessProxy& networkProcess)
-    : m_networkProcess(makeWeakPtr(networkProcess))
+    : m_networkProcess(networkProcess)
 {
     networkProcess.addMessageReceiver(Messages::WebCookieManagerProxy::messageReceiverName(), *this);
 }
@@ -136,7 +135,7 @@ void WebCookieManagerProxy::stopObservingCookieChanges(PAL::SessionID sessionID)
 void WebCookieManagerProxy::registerObserver(PAL::SessionID sessionID, Observer& observer)
 {
     auto result = m_cookieObservers.set(sessionID, WeakHashSet<Observer>());
-    result.iterator->value.add(&observer);
+    result.iterator->value.add(observer);
 
     if (result.isNewEntry)
         startObservingCookieChanges(sessionID);

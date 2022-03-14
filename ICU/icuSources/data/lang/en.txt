@@ -1,4 +1,4 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en{
@@ -706,6 +706,11 @@ en{
         zh_Hant{"Traditional Mandarin Chinese"}
     }
     Languages%menu{
+        se{"Sami, Northern"}
+        sma{"Sami, Southern"}
+        smj{"Sami, Lule"}
+        smn{"Sami, Inari"}
+        sms{"Sami, Skolt"}
         yue{"Chinese, Cantonese"}
         zh{"Chinese, Mandarin"}
     }
@@ -750,6 +755,7 @@ en{
         Chrs{"Chorasmian"}
         Cirt{"Cirth"}
         Copt{"Coptic"}
+        Cpmn{"Cypro-Minoan"}
         Cprt{"Cypriot"}
         Cyrl{"Cyrillic"}
         Cyrs{"Old Church Slavonic Cyrillic"}
@@ -848,6 +854,7 @@ en{
         Orya{"Odia"}
         Osge{"Osage"}
         Osma{"Osmanya"}
+        Ougr{"Old Uyghur"}
         Palm{"Palmyrene"}
         Pauc{"Pau Cin Hau"}
         Perm{"Old Permic"}
@@ -860,7 +867,7 @@ en{
         Prti{"Inscriptional Parthian"}
         Qaag{"Zawgyi"}
         Rjng{"Rejang"}
-        Rohg{"Hanifi Rohingya"}
+        Rohg{"Hanifi"}
         Roro{"Rongorongo"}
         Runr{"Runic"}
         Samr{"Samaritan"}
@@ -898,9 +905,12 @@ en{
         Thai{"Thai"}
         Tibt{"Tibetan"}
         Tirh{"Tirhuta"}
+        Tnsa{"Tangsa"}
+        Toto{"Toto"}
         Ugar{"Ugaritic"}
         Vaii{"Vai"}
         Visp{"Visible Speech"}
+        Vith{"Vithkuqi"}
         Wara{"Varang Kshiti"}
         Wcho{"Wancho"}
         Wole{"Woleai"}
@@ -924,6 +934,7 @@ en{
     Scripts%stand-alone{
         Hans{"Simplified Han"}
         Hant{"Traditional Han"}
+        Rohg{"Hanifi Rohingya"}
     }
     Scripts%variant{
         Arab{"Perso-Arabic"}
@@ -977,6 +988,13 @@ en{
         colNumeric{
             no{"Sort Digits Individually"}
             yes{"Sort Digits Numerically"}
+        }
+        colReorder{
+            currency{"Currency"}
+            digit{"Digits"}
+            punct{"Punctuation"}
+            space{"Whitespace"}
+            symbol{"Symbol"}
         }
         colStrength{
             identical{"Sort All"}
@@ -1088,13 +1106,6 @@ en{
             var{"Keyboard Variant"}
             viqr{"Vietnamese VIQR Keyboard"}
             windows{"Windows Keyboard"}
-        }
-        kr{
-            currency{"Currency"}
-            digit{"Digits"}
-            punct{"Punctuation"}
-            space{"Whitespace"}
-            symbol{"Symbol"}
         }
         kv{
             currency{"Ignore Symbols affects spaces, punctuation, all symbols"}
@@ -1226,6 +1237,7 @@ en{
             thai{"Thai Digits"}
             tibt{"Tibetan Digits"}
             tirh{"Tirhuta Digits"}
+            tnsa{"Tangsa Digits"}
             traditional{"Traditional Numerals"}
             vaii{"Vai Digits"}
             wara{"Warang Citi Digits"}

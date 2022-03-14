@@ -28,15 +28,15 @@
 
 #if ENABLE(WEBM_FORMAT_READER)
 
+#include "Logging.h"
 #include "MediaTrackReader.h"
-#include <WebCore/Logging.h>
 #include <WebCore/MediaSample.h>
 #include <WebCore/SampleMap.h>
 #include <pal/avfoundation/MediaTimeAVFoundation.h>
+#include <variant>
 #include <wtf/CompletionHandler.h>
 #include <wtf/LoggerHelper.h>
 #include <wtf/MediaTime.h>
-#include <wtf/Variant.h>
 
 #include <pal/cocoa/MediaToolboxSoftLink.h>
 
@@ -153,13 +153,11 @@ std::optional<typename OrderedMap::iterator> MediaSampleCursor::locateIterator(O
             else
                 return std::nullopt;
             return locateIterator(samples, hasAllSamples);
-        },
-        [&](const auto& otherIterator) {
+        }, [&](const auto& otherIterator) -> std::optional<Iterator> {
             assertIsHeld(m_locatorLock);
             m_locator = otherIterator->second->presentationTime();
             return locateIterator(samples, hasAllSamples);
-        },
-        [&](const Iterator& iterator) {
+        }, [&](const Iterator& iterator) -> std::optional<Iterator> {
             return iterator;
         }
     );
@@ -242,7 +240,7 @@ OSStatus MediaSampleCursor::getSampleMap(Function&& function) const
     m_trackReader->waitForSample([&](SampleMap& samples, bool hasAllSamples) {
         if (!samples.size())
             ERROR_LOG(LOGIDENTIFIER, "track ", m_trackReader->trackID(), " finished parsing with no samples.");
-        status = samples.size() ? function(samples, hasAllSamples) : kMTPluginSampleCursorError_NoSamples;
+        status = samples.size() ? function(samples, hasAllSamples) : static_cast<OSStatus>(kMTPluginSampleCursorError_NoSamples);
         return true;
     });
     return status;
@@ -399,7 +397,7 @@ OSStatus MediaSampleCursor::getPlayableHorizon(CMTime* playableHorizon) const
 
 WTFLogChannel& MediaSampleCursor::logChannel() const
 {
-    return LogMedia;
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 
 } // namespace WebKit

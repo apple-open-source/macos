@@ -149,7 +149,7 @@ sec_protocol_configuration_copy_transformed_options_for_host_internal(sec_protoc
         sec_protocol_options_set_ats_non_pfs_ciphersuite_allowed(options, true);
     }
 
-    tls_protocol_version_t minimum_protocol = (SSLProtocol)xpc_dictionary_get_int64(entry, kExceptionMinimumTLSVersion);
+    tls_protocol_version_t minimum_protocol = (tls_protocol_version_t)xpc_dictionary_get_int64(entry, kExceptionMinimumTLSVersion);
     if (minimum_protocol != 0) {
         // Record the fact that an excepted TLS version was configured.
         sec_protocol_options_set_min_tls_protocol_version(options, minimum_protocol);

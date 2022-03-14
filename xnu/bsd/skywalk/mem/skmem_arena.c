@@ -137,15 +137,15 @@ static TAILQ_HEAD(, skmem_arena) skmem_arena_head;
 	lck_mtx_unlock(&skmem_arena_lock)
 
 #define AR_NEXUS_SIZE           sizeof(struct skmem_arena_nexus)
-static ZONE_DECLARE(ar_nexus_zone, SKMEM_ZONE_PREFIX ".mem.arena.nexus",
+static ZONE_DEFINE(ar_nexus_zone, SKMEM_ZONE_PREFIX ".mem.arena.nexus",
     AR_NEXUS_SIZE, ZC_ZFREE_CLEARMEM);
 
 #define AR_NECP_SIZE            sizeof(struct skmem_arena_necp)
-static ZONE_DECLARE(ar_necp_zone, SKMEM_ZONE_PREFIX ".mem.arena.necp",
+static ZONE_DEFINE(ar_necp_zone, SKMEM_ZONE_PREFIX ".mem.arena.necp",
     AR_NECP_SIZE, ZC_ZFREE_CLEARMEM);
 
 #define AR_SYSTEM_SIZE          sizeof(struct skmem_arena_system)
-static ZONE_DECLARE(ar_system_zone, SKMEM_ZONE_PREFIX ".mem.arena.system",
+static ZONE_DEFINE(ar_system_zone, SKMEM_ZONE_PREFIX ".mem.arena.system",
     AR_SYSTEM_SIZE, ZC_ZFREE_CLEARMEM);
 
 #define SKMEM_TAG_ARENA_MIB     "com.apple.skywalk.arena.mib"
@@ -185,7 +185,7 @@ skmem_arena_sd_setup(const struct nexus_adapter *na,
 	struct skmem_cache **cachep;
 	struct skmem_region *ksd_skr = NULL, *usd_skr = NULL;
 	const char *name = na->na_name;
-	char *fmt, cname[64];
+	char cname[64];
 	skmem_region_id_t usd_type, ksd_type;
 	int err = 0;
 
@@ -195,12 +195,10 @@ skmem_arena_sd_setup(const struct nexus_adapter *na,
 		usd_type = SKMEM_REGION_TXAUSD;
 		ksd_type = SKMEM_REGION_TXAKSD;
 		cachep = &arn->arn_txaksd_cache;
-		fmt = "txa_ksd.%s";
 	} else {
 		usd_type = SKMEM_REGION_RXFUSD;
 		ksd_type = SKMEM_REGION_RXFKSD;
 		cachep = &arn->arn_rxfksd_cache;
-		fmt = "rxf_ksd.%s";
 	}
 	ksd_skr = skmem_region_create(name, &srp[ksd_type], NULL, NULL, NULL);
 	if (ksd_skr == NULL) {
@@ -221,7 +219,7 @@ skmem_arena_sd_setup(const struct nexus_adapter *na,
 		ar->ar_regions[usd_type] = usd_skr;
 		skmem_region_mirror(ksd_skr, usd_skr);
 	}
-	(void) snprintf(cname, sizeof(cname), fmt, name);
+	snprintf(cname, sizeof(cname), tx ? "txa_ksd.%s" : "rxf_ksd.%s", name);
 	ASSERT(ar->ar_regions[ksd_type] != NULL);
 	*cachep = skmem_cache_create(cname,
 	    srp[ksd_type].srp_c_obj_size, 0, NULL, NULL, NULL, NULL,

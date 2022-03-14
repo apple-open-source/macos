@@ -322,7 +322,7 @@ hfs_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_context_t conte
 					if (hfsmp->hfs_allocation_vp) {
 						err = hfs_lock (VTOC(hfsmp->hfs_allocation_vp), HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
 					}
-					hfs_free(hfsmp->hfs_summary_table, hfsmp->hfs_summary_bytes);
+					hfs_free_data(hfsmp->hfs_summary_table, hfsmp->hfs_summary_bytes);
 					hfsmp->hfs_summary_table = NULL;
 					hfsmp->hfs_flags &= ~HFS_SUMMARY_TABLE;
 					if (err == 0 && hfsmp->hfs_allocation_vp){
@@ -1264,12 +1264,12 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 		}
 		goto error_exit;
 	}
-	mdbp = hfs_malloc(kMDBSize);
+	mdbp = hfs_malloc_data(kMDBSize);
 	bcopy((char *)buf_dataptr(bp) + HFS_PRI_OFFSET(phys_blksize), mdbp, kMDBSize);
 	buf_brelse(bp);
 	bp = NULL;
 
-	hfsmp = hfs_mallocz(sizeof(struct hfsmount));
+	hfsmp = hfs_malloc_type(struct hfsmount);
 
 	hfs_chashinit_finish(hfsmp);
 	
@@ -1861,14 +1861,14 @@ hfs_mountfs(struct vnode *devvp, struct mount *mp, struct hfs_mount_args *args,
 	if (ronly == 0) {
 		(void) hfs_flushvolumeheader(hfsmp, HFS_FVH_WAIT);
 	}
-	hfs_free(mdbp, kMDBSize);
+	hfs_free_data(mdbp, kMDBSize);
 	return (0);
 
 error_exit:
 	if (bp)
 		buf_brelse(bp);
 
-	hfs_free(mdbp, kMDBSize);
+	hfs_free_data(mdbp, kMDBSize);
 
 	hfs_close_jvp(hfsmp);
 
@@ -1880,7 +1880,7 @@ error_exit:
 		hfs_delete_chash(hfsmp);
 		hfs_idhash_destroy (hfsmp);
 
-		hfs_free(hfsmp, sizeof(*hfsmp));
+		hfs_free_type(hfsmp, struct hfsmount);
 		if (mp)
 			vfs_setfsprivate(mp, NULL);
 	}
@@ -1947,7 +1947,7 @@ hfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 			if (hfsmp->hfs_allocation_vp) {
 				err = hfs_lock (VTOC(hfsmp->hfs_allocation_vp), HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT);
 			}
-			hfs_free(hfsmp->hfs_summary_table, hfsmp->hfs_summary_bytes);
+			hfs_free_data(hfsmp->hfs_summary_table, hfsmp->hfs_summary_bytes);
 			hfsmp->hfs_summary_table = NULL;
 			hfsmp->hfs_flags &= ~HFS_SUMMARY_TABLE;
 			
@@ -2097,7 +2097,7 @@ hfs_unmount(struct mount *mp, int mntflags, vfs_context_t context)
 		   && TAILQ_EMPTY(&hfsmp->hfs_reserved_ranges[HFS_LOCKED_BLOCKS]));
 	hfs_assert(!hfsmp->lockedBlocks);
 
-	hfs_free(hfsmp, sizeof(*hfsmp));
+	hfs_free_type(hfsmp, struct hfsmount);
 
 	// decrement kext retain count
 #if	TARGET_OS_OSX
@@ -3301,7 +3301,7 @@ hfs_vget(struct hfsmount *hfsmp, cnid_t cnid, struct vnode **vpp, int skiplock, 
 	} else {
 		int newvnode_flags = 0;
 
-		void *buf = hfs_malloc(MAXPATHLEN);
+		void *buf = hfs_malloc_data(MAXPATHLEN);
 
 		/* Supply hfs_getnewvnode with a component name. */
 		struct componentname cn = {
@@ -3322,7 +3322,7 @@ hfs_vget(struct hfsmount *hfsmp, cnid_t cnid, struct vnode **vpp, int skiplock, 
 			hfs_savelinkorigin(VTOC(vp), cndesc.cd_parentcnid);
 		}
 
-		hfs_free(buf, MAXPATHLEN);
+		hfs_free_data(buf, MAXPATHLEN);
 	}
 	cat_releasedesc(&cndesc);
 

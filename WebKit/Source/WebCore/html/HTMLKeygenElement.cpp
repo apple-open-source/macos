@@ -33,6 +33,7 @@
 #include "HTMLSelectElement.h"
 #include "HTMLOptionElement.h"
 #include "SSLKeyGenerator.h"
+#include "ShadowPseudoIds.h"
 #include "ShadowRoot.h"
 #include "Text.h"
 #include <wtf/IsoMallocInlines.h>
@@ -51,8 +52,7 @@ public:
     static Ref<KeygenSelectElement> create(Document& document)
     {
         auto element = adoptRef(*new KeygenSelectElement(document));
-        static MainThreadNeverDestroyed<const AtomString> pseudoId("-webkit-keygen-select", AtomString::ConstructFromLiteral);
-        element->setPseudo(pseudoId);
+        element->setPseudo(ShadowPseudoIds::webkitKeygenSelect());
         return element;
     }
 
@@ -117,7 +117,7 @@ String HTMLKeygenElement::keytype() const
     return isKeytypeRSA() ? "rsa"_s : emptyString();
 }
 
-bool HTMLKeygenElement::appendFormData(DOMFormData& formData, bool)
+bool HTMLKeygenElement::appendFormData(DOMFormData& formData)
 {
     // Only RSA is supported at this time.
     if (!isKeytypeRSA())

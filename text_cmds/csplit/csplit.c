@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-FreeBSD
+ *
  * Copyright (c) 2002 Tim J. Robbins.
  * All rights reserved.
  *
@@ -43,7 +45,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/csplit/csplit.c,v 1.9 2004/03/22 11:15:03 tjr Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
 
@@ -60,36 +62,36 @@ __FBSDID("$FreeBSD: src/usr.bin/csplit/csplit.c,v 1.9 2004/03/22 11:15:03 tjr Ex
 #include <string.h>
 #include <unistd.h>
 
-void	 cleanup(void);
-void	 do_lineno(const char *);
-void	 do_rexp(const char *);
-char	*csplit_getline(void);
-void	 handlesig(int);
-FILE	*newfile(void);
-void	 toomuch(FILE *, long);
-void	 usage(void);
+static void	 cleanup(void);
+static void	 do_lineno(const char *);
+static void	 do_rexp(const char *);
+static char	*get_line(void);
+static void	 handlesig(int);
+static FILE	*newfile(void);
+static void	 toomuch(FILE *, long);
+static void	 usage(void);
 
 /*
  * Command line options
  */
-const char *prefix;		/* File name prefix */
-long	 sufflen;		/* Number of decimal digits for suffix */
-int	 sflag;			/* Suppress output of file names */
-int	 kflag;			/* Keep output if error occurs */
+static const char *prefix;	/* File name prefix */
+static long	 sufflen;	/* Number of decimal digits for suffix */
+static int	 sflag;		/* Suppress output of file names */
+static int	 kflag;		/* Keep output if error occurs */
 
 /*
  * Other miscellaneous globals (XXX too many)
  */
-long	 lineno;		/* Current line number in input file */
-long	 reps;			/* Number of repetitions for this pattern */
-long	 nfiles;		/* Number of files output so far */
-long	 maxfiles;		/* Maximum number of files we can create */
-char	 currfile[PATH_MAX];	/* Current output file */
-const char *infn;		/* Name of the input file */
-FILE	*infile;		/* Input file handle */
-FILE	*overfile;		/* Overflow file for toomuch() */
-off_t	 truncofs;		/* Offset this file should be truncated at */
-int	 doclean;		/* Should cleanup() remove output? */
+static long	 lineno;	/* Current line number in input file */
+static long	 reps;		/* Number of repetitions for this pattern */
+static long	 nfiles;	/* Number of files output so far */
+static long	 maxfiles;	/* Maximum number of files we can create */
+static char	 currfile[PATH_MAX]; /* Current output file */
+static const char *infn;	/* Name of the input file */
+static FILE	*infile;	/* Input file handle */
+static FILE	*overfile;	/* Overflow file for toomuch() */
+static off_t	 truncofs;	/* Offset this file should be truncated at */
+static int	 doclean;	/* Should cleanup() remove output? */
 
 int
 main(int argc, char *argv[])
@@ -195,7 +197,7 @@ main(int argc, char *argv[])
 	/* Copy the rest into a new file. */
 	if (!feof(infile)) {
 		ofp = newfile();
-		while ((p = csplit_getline()) != NULL && fputs(p, ofp) != EOF)
+		while ((p = get_line()) != NULL && fputs(p, ofp) != EOF)
 			;
 		if (!sflag)
 			printf("%jd\n", (intmax_t)ftello(ofp));
@@ -209,7 +211,7 @@ main(int argc, char *argv[])
 	return (0);
 }
 
-void
+static void
 usage(void)
 {
 
@@ -218,7 +220,7 @@ usage(void)
 	exit(1);
 }
 
-void
+static void
 handlesig(int sig __unused)
 {
 	const char msg[] = "csplit: caught signal, cleaning up\n";
@@ -229,7 +231,7 @@ handlesig(int sig __unused)
 }
 
 /* Create a new output file. */
-FILE *
+static FILE *
 newfile(void)
 {
 	FILE *fp;
@@ -245,7 +247,7 @@ newfile(void)
 }
 
 /* Remove partial output, called before exiting. */
-void
+static void
 cleanup(void)
 {
 	char fnbuf[PATH_MAX];
@@ -269,8 +271,8 @@ cleanup(void)
 }
 
 /* Read a line from the input into a static buffer. */
-char *
-csplit_getline(void)
+static char *
+get_line(void)
 {
 	static char lbuf[LINE_MAX];
 	FILE *src;
@@ -291,8 +293,8 @@ again: if (fgets(lbuf, sizeof(lbuf), src) == NULL) {
 	return (lbuf);
 }
 
-/* Conceptually rewind the input (as obtained by csplit_getline()) back `n' lines. */
-void
+/* Conceptually rewind the input (as obtained by get_line()) back `n' lines. */
+static void
 toomuch(FILE *ofp, long n)
 {
 	char buf[BUFSIZ];
@@ -343,7 +345,7 @@ toomuch(FILE *ofp, long n)
 		err(1, "%s", currfile);
 
 	/*
-	 * csplit_getline() will read from here. Next call will truncate to
+	 * get_line() will read from here. Next call will truncate to
 	 * truncofs in this file.
 	 */
 	overfile = ofp;
@@ -351,7 +353,7 @@ toomuch(FILE *ofp, long n)
 }
 
 /* Handle splits for /regexp/ and %regexp% patterns. */
-void
+static void
 do_rexp(const char *expr)
 {
 	regex_t cre;
@@ -377,7 +379,12 @@ do_rexp(const char *expr)
 	} else
 		ofs = 0;
 
+#ifdef __APPLE__
+	/* rdar://problem/54053569 - non-english locale issues. */
 	if (regcomp(&cre, re, REG_BASIC|REG_NOSUB|REG_NEWLINE) != 0)
+#else
+	if (regcomp(&cre, re, REG_BASIC|REG_NOSUB) != 0)
+#endif
 		errx(1, "%s: bad regular expression", re);
 
 	if (*expr == '/')
@@ -391,7 +398,7 @@ do_rexp(const char *expr)
 
 	/* Read and output lines until we get a match. */
 	first = 1;
-	while ((p = csplit_getline()) != NULL) {
+	while ((p = get_line()) != NULL) {
 		if (fputs(p, ofp) == EOF)
 			break;
 		if (!first && regexec(&cre, p, 0, NULL, 0) == 0)
@@ -399,8 +406,10 @@ do_rexp(const char *expr)
 		first = 0;
 	}
 
-	if (p == NULL)
+	if (p == NULL) {
+		toomuch(NULL, 0);
 		errx(1, "%s: no match", re);
+	}
 
 	if (ofs <= 0) {
 		/*
@@ -417,7 +426,7 @@ do_rexp(const char *expr)
 		 * Positive offset: copy the requested number of lines
 		 * after the match.
 		 */
-		while (--ofs > 0 && (p = csplit_getline()) != NULL)
+		while (--ofs > 0 && (p = get_line()) != NULL)
 			fputs(p, ofp);
 		toomuch(NULL, 0);
 		nwritten = (intmax_t)ftello(ofp);
@@ -433,7 +442,7 @@ do_rexp(const char *expr)
 }
 
 /* Handle splits based on line number. */
-void
+static void
 do_lineno(const char *expr)
 {
 	long lastline, tgtline;
@@ -451,7 +460,7 @@ do_lineno(const char *expr)
 	while (nfiles < maxfiles - 1) {
 		ofp = newfile();
 		while (lineno + 1 != lastline) {
-			if ((p = csplit_getline()) == NULL)
+			if ((p = get_line()) == NULL)
 				errx(1, "%ld: out of range", lastline);
 			if (fputs(p, ofp) == EOF)
 				break;

@@ -13,7 +13,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -30,34 +30,34 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)cp.1	8.3 (Berkeley) 4/18/94
-.\" $FreeBSD: src/bin/cp/cp.1,v 1.33 2005/02/25 00:40:46 trhodes Exp $
+.\" $FreeBSD$
 .\"
-.Dd February 23, 2005
+.Dd June 6, 2015
 .Dt CP 1
 .Os
 .Sh NAME
 .Nm cp
 .Nd copy files
 .Sh SYNOPSIS
-.Nm cp
+.Nm
 .Oo
 .Fl R
 .Op Fl H | Fl L | Fl P
 .Oc
 .Op Fl fi | n
-.Op Fl apvX
+.Op Fl alpsvXx
 .Ar source_file target_file
-.Nm cp
+.Nm
 .Oo
 .Fl R
 .Op Fl H | Fl L | Fl P
 .Oc
 .Op Fl fi | n
-.Op Fl apvX
+.Op Fl alpsvXx
 .Ar source_file ... target_directory
 .Sh DESCRIPTION
 In the first synopsis form, the
-.Nm cp
+.Nm
 utility copies the contents of the
 .Ar source_file
 to the
@@ -69,14 +69,57 @@ is copied to the destination
 .Ar target_directory .
 The names of the files themselves are not changed.
 If
-.Nm cp
+.Nm
 detects an attempt to copy a file to itself, the copy will fail.
 .Pp
 The following options are available:
 .Bl -tag -width flag
+.It Fl H
+If the
+.Fl R
+option is specified, symbolic links on the command line are followed.
+(Symbolic links encountered in the tree traversal are not followed.)
+.It Fl L
+If the
+.Fl R
+option is specified, all symbolic links are followed.
+.It Fl P
+If the
+.Fl R
+option is specified, no symbolic links are followed.
+This is the default.
+.It Fl R
+If
+.Ar source_file
+designates a directory,
+.Nm
+copies the directory and the entire subtree connected at that point.
+If the
+.Ar source_file
+ends in a
+.Pa / ,
+the contents of the directory are copied rather than the
+directory itself.
+This option also causes symbolic links to be copied, rather than
+indirected through, and for
+.Nm
+to create special files rather than copying them as normal files.
+Created directories have the same mode as the corresponding source
+directory, unmodified by the process' umask.
+.Pp
+Note that
+.Nm
+copies hard linked files as separate files.
+If you need to preserve hard links, consider using
+.Xr tar 1 ,
+.Xr cpio 1 ,
+or
+.Xr pax 1
+instead.
 .It Fl a
-Same as 
-.Fl pPR
+Archive mode.
+Same as
+.Fl RpP
 options. Preserves structure and attributes of files
 but not directory structure.
 .It Fl f
@@ -92,14 +135,9 @@ option.)
 .Pp
 The target file is not unlinked before the copy.
 Thus, any existing access rights will be retained.
-.It Fl H
-If the
-.Fl R
-option is specified, symbolic links on the command line are followed.
-(Symbolic links encountered in the tree traversal are not followed.)
 .It Fl i
 Cause
-.Nm cp
+.Nm
 to write a prompt to the standard error output before copying a file
 that would overwrite an existing file.
 If the response from the standard input begins with the character
@@ -112,10 +150,8 @@ the file copy is attempted.
 option overrides any previous
 .Fl n
 option.)
-.It Fl L
-If the
-.Fl R
-option is specified, all symbolic links are followed.
+.It Fl l
+Create hard links to regular files in a hierarchy instead of copying.
 .It Fl n
 Do not overwrite an existing file.
 (The
@@ -125,14 +161,9 @@ option overrides any previous
 or
 .Fl i
 options.)
-.It Fl P
-If the
-.Fl R
-option is specified, no symbolic links are followed.
-This is the default.
 .It Fl p
 Cause
-.Nm cp
+.Nm
 to preserve the following attributes of each source
 file in the copy: modification time, access time,
 file flags, file mode, user ID, and group ID, as allowed by permissions.
@@ -156,7 +187,7 @@ permissions.
 If
 .Ar source_file
 designates a directory,
-.Nm cp
+.Nm
 copies the directory and the entire subtree connected at that point.
 If the
 .Ar source_file
@@ -166,7 +197,7 @@ the contents of the directory are copied rather than the
 directory itself.
 This option also causes symbolic links to be copied, rather than
 indirected through, and for
-.Nm cp
+.Nm
 to create special files rather than copying them as normal files.
 Created directories have the same mode as the corresponding source
 directory, unmodified by the process' umask.
@@ -174,11 +205,11 @@ directory, unmodified by the process' umask.
 In
 .Fl R
 mode,
-.Nm cp
+.Nm
 will continue copying even if errors are detected. 
 .Pp
 Note that
-.Nm cp
+.Nm
 copies hard-linked files as separate files.
 If you need to preserve hard links, consider using
 .Xr tar 1 ,
@@ -186,12 +217,16 @@ If you need to preserve hard links, consider using
 or
 .Xr pax 1
 instead.
+.It Fl s
+Create symbolic links to regular files in a hierarchy instead of copying.
 .It Fl v
 Cause
-.Nm cp
+.Nm
 to be verbose, showing files as they are copied.
 .It Fl X
 Do not copy Extended Attributes (EAs) or resource forks.
+.It Fl x
+File system mount points are not traversed.
 .It Fl c
 copy files using clonefile(2)
 .El
@@ -249,7 +284,7 @@ In addition, these options override each other and the
 command's actions are determined by the last one specified.
 .Pp
 If
-.Nm cp
+.Nm
 receives a
 .Dv SIGINFO
 (see the
@@ -260,18 +295,57 @@ signal, the current input and output file and the percentage complete
 will be written to the standard output.
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Make a copy of file
+.Pa foo
+named
+.Pa bar :
+.Pp
+.Dl $ cp foo bar
+.Pp
+Copy a group of files to the
+.Pa /tmp
+directory:
+.Pp
+.Dl $ cp *.txt /tmp
+.Pp
+Copy the directory
+.Pa junk
+and all of its contents (including any subdirectories) to the
+.Pa /tmp
+directory:
+.Pp
+.Dl $ cp -R junk /tmp
 .Sh COMPATIBILITY
 Historic versions of the
-.Nm cp
+.Nm
 utility had a
 .Fl r
 option.
-This implementation supports that option;
-however, its use is strongly discouraged,
-as it does not correctly copy special files, symbolic links, or fifo's.
+This implementation supports that option, however, its behavior
+is different from historical
+.Fx
+behavior.
+Use of this option
+is strongly discouraged as the behavior is
+implementation-dependent.
+In
+.Fx ,
+.Fl r
+is a synonym for
+.Fl RL
+and works the same unless modified by other flags.
+Historical implementations
+of
+.Fl r
+differ as they copy special files as normal
+files while recreating a hierarchy.
 .Pp
 The
-.Fl v
+.Fl l ,
+.Fl s ,
+.Fl v ,
+.Fl x
 and
 .Fl n
 options are non-standard and their use in scripts is not recommended.
@@ -300,12 +374,12 @@ For more information about legacy mode, see
 .Xr symlink 7
 .Sh STANDARDS
 The
-.Nm cp
+.Nm
 command is expected to be
 .St -p1003.2
 compatible.
 .Sh HISTORY
 A
-.Nm cp
+.Nm
 command appeared in
 .At v1 .

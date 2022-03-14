@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>nohup</string>
+		<key>OpenSourceVersion</key>
+		<string>2018-11-09</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/nohup?id=a641e44515274167ef2e2244fe02ae0e49b91e3b</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-23</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>nohup.c: migrate to background session (5066707,6428892)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

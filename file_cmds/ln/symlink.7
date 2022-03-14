@@ -10,7 +10,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -27,9 +27,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)symlink.7	8.3 (Berkeley) 3/31/94
-.\" $FreeBSD: src/bin/ln/symlink.7,v 1.30 2005/02/13 22:25:09 ru Exp $
+.\" $FreeBSD$
 .\"
-.Dd March 31, 1994
+.Dd February 16, 2015
 .Dt SYMLINK 7
 .Os
 .Sh NAME
@@ -103,7 +103,7 @@ the system call
 would return a file descriptor to the file
 .Dq afile .
 .Pp
-There are nine system calls that do not follow links, and which operate
+There are twelve system calls that do not follow links, and which operate
 on the symbolic link itself.
 They are:
 .Xr lchflags 2 ,
@@ -112,10 +112,13 @@ They are:
 .Xr lstat 2 ,
 .Xr lutimes 3 ,
 .Xr readlink 2 ,
+.Xr readlinkat 2 ,
 .Xr rename 2 ,
+.Xr renameat 2 ,
 .Xr rmdir 2 ,
+.Xr unlink 2 ,
 and
-.Xr unlink 2 .
+.Xr unlinkat 2 .
 Because
 .Xr remove 3
 is an alias for
@@ -123,8 +126,31 @@ is an alias for
 it also does not follow symbolic links.
 When
 .Xr rmdir 2
+or
+.Xr unlinkat 2
+with the
+.Dv AT_REMOVEDIR
+flag
 is applied to a symbolic link, it fails with the error
 .Er ENOTDIR .
+.Pp
+The
+.Xr linkat 2
+system call does not follow symbolic links
+unless given the
+.Dv AT_SYMLINK_FOLLOW
+flag.
+.Pp
+The following system calls follow symbolic links
+unless given the
+.Dv AT_SYMLINK_NOFOLLOW
+flag:
+.Xr chflagsat 2 ,
+.Xr fchmodat 2 ,
+.Xr fchownat 2 ,
+.Xr fstatat 2
+and
+.Xr utimensat 2 .
 .Pp
 The owner and group of an existing symbolic link can be changed by
 means of the
@@ -138,8 +164,8 @@ an existing symbolic link can be changed by means of the
 and
 .Xr lutimes 3
 system calls, respectively.
-Of these, only the flags are used by the system;
-the access permissions and ownership are ignored.
+Of these, only the flags and ownership are used by the system;
+the access permissions are ignored.
 .Pp
 The
 .Bx 4.4
@@ -194,7 +220,7 @@ would change the ownership of
 .Dq Li slink
 itself.
 .Pp
-There are four exceptions to this rule.
+There are five exceptions to this rule.
 The
 .Xr mv 1
 and
@@ -237,13 +263,12 @@ a file tree.)
 .Pp
 The
 .Xr file 1
-command is also an exception to this rule.
-The
-.Xr file 1
-command does not follow symbolic links named as argument by default.
-The
-.Xr file 1
-command does follow symbolic links named as argument if
+and
+.Xr stat 1
+commands are also exceptions to this rule.
+These
+commands do not follow symbolic links named as argument by default,
+but do follow symbolic links named as argument if the
 .Fl L
 option is specified.
 .Pp

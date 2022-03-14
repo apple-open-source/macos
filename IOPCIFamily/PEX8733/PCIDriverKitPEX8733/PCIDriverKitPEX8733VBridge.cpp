@@ -68,11 +68,11 @@ IMPL(PCIDriverKitPEX8733VBridge, Start)
         return kIOReturnNoDevice;
     }
 
-    debugLog("enabling bus master and memory space");
+    debugLog("enabling bus lead and memory space");
     uint16_t command;
     ivars->pciDevice->ConfigurationRead16(kIOPCIConfigurationOffsetCommand, &command);
     ivars->pciDevice->ConfigurationWrite16(kIOPCIConfigurationOffsetCommand,
-                                           command | kIOPCICommandBusMaster | kIOPCICommandMemorySpace);
+                                           command | kIOPCICommandBusLead | kIOPCICommandMemorySpace);
 
     return result;
 }
@@ -80,13 +80,13 @@ IMPL(PCIDriverKitPEX8733VBridge, Start)
 kern_return_t
 IMPL(PCIDriverKitPEX8733VBridge, Stop)
 {
-    debugLog("disabling bus master and memory space");
+    debugLog("disabling bus lead and memory space");
     if(ivars->pciDevice != NULL)
     {
         uint16_t command;
         ivars->pciDevice->ConfigurationRead16(kIOPCIConfigurationOffsetCommand, &command);
         ivars->pciDevice->ConfigurationWrite16(kIOPCIConfigurationOffsetCommand,
-                                               command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+                                               command & ~(kIOPCICommandBusLead | kIOPCICommandMemorySpace));
 
     }
     OSSafeReleaseNULL(ivars->pciDevice);

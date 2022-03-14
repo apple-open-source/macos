@@ -2,14 +2,14 @@
  * Copyright (c) 1999-2018 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*
@@ -99,10 +99,11 @@ static void *
 nfsd_server_thread(__unused void *arg)
 {
 	set_thread_sigmask();
-	if (nfssvc(NFSSVC_NFSD, NULL) < 0)
+	if (nfssvc(NFSSVC_NFSD, NULL) < 0) {
 		log(LOG_ERR, "nfssvc: %s (%d)", strerror(errno), errno);
+	}
 	DEBUG(1, "nfsd thread exiting.");
-	return (NULL);
+	return NULL;
 }
 
 void *
@@ -122,17 +123,20 @@ nfsd_accept_thread(__unused void *arg)
 
 	FD_ZERO(&sockbits);
 	if (config.tcp) {
-		if (nfstcpsock != -1)
+		if (nfstcpsock != -1) {
 			FD_SET(nfstcpsock, &sockbits);
-		if (nfstcp6sock != -1)
+		}
+		if (nfstcp6sock != -1) {
 			FD_SET(nfstcp6sock, &sockbits);
+		}
 		maxlistensock = MAX(nfstcpsock, nfstcp6sock);
 	}
 
 	/*XXX if (config.ticotsord) */
 	{
-		if (nfsticosock != -1)
+		if (nfsticosock != -1) {
 			FD_SET(nfsticosock, &sockbits);
+		}
 		maxlistensock = MAX(maxlistensock, nfsticosock);
 	}
 
@@ -145,14 +149,16 @@ nfsd_accept_thread(__unused void *arg)
 		tv.tv_sec = 3600;
 		tv.tv_usec = 0;
 		ready = sockbits;
-		if (select(maxlistensock+1, ((maxlistensock < 0) ? NULL : &ready), NULL, NULL, &tv) < 0) {
-			if (errno == EINTR)
+		if (select(maxlistensock + 1, ((maxlistensock < 0) ? NULL : &ready), NULL, NULL, &tv) < 0) {
+			if (errno == EINTR) {
 				continue;
+			}
 			log(LOG_ERR, "select failed: %s (%d)", strerror(errno), errno);
 			break;
 		}
-		if (!config.tcp || (maxlistensock < 0))
+		if (!config.tcp || (maxlistensock < 0)) {
 			continue;
+		}
 		if ((nfstcpsock >= 0) && FD_ISSET(nfstcpsock, &ready)) {
 			len = sizeof(peer);
 			if ((newsock = accept(nfstcpsock, (struct sockaddr *)&peer, &len)) < 0) {
@@ -166,8 +172,9 @@ nfsd_accept_thread(__unused void *arg)
 			}
 			memset(&((struct sockaddr_in*)&peer)->sin_zero[0], 0, sizeof(((struct sockaddr_in*)&peer)->sin_zero[0]));
 			if (setsockopt(newsock, SOL_SOCKET,
-			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
+			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);
+			}
 			nfsdargs.sock = newsock;
 			nfsdargs.name = (caddr_t)&peer;
 			nfsdargs.namelen = len;
@@ -186,8 +193,9 @@ nfsd_accept_thread(__unused void *arg)
 				DEBUG(1, "NFS IPv6 socket accepted from %s", hostbuf);
 			}
 			if (setsockopt(newsock, SOL_SOCKET,
-			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
+			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);
+			}
 			nfsdargs.sock = newsock;
 			nfsdargs.name = (caddr_t)&peer;
 			nfsdargs.namelen = len;
@@ -200,12 +208,14 @@ nfsd_accept_thread(__unused void *arg)
 				log(LOG_WARNING, "accept failed: %s (%d)", strerror(errno), errno);
 				continue;
 			}
-			if (config.verbose >= 3)
+			if (config.verbose >= 3) {
 				DEBUG(1, "NFS TICOTSORD socket accepted");
+			}
 
 			if (setsockopt(newsock, SOL_SOCKET,
-			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0)
+			    SO_KEEPALIVE, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_NOTICE, "setsockopt SO_KEEPALIVE: %s (%d)", strerror(errno), errno);
+			}
 			nfsdargs.sock = newsock;
 			nfsdargs.name = (caddr_t)&peer;
 			nfsdargs.namelen = len;
@@ -214,7 +224,7 @@ nfsd_accept_thread(__unused void *arg)
 		}
 	}
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -228,7 +238,7 @@ nfsd_start_server_threads(int count)
 
 	/* set up the server threads */
 	threadcnt = 0;
-	for (i=0; i < count; i++) {
+	for (i = 0; i < count; i++) {
 		rv = pthread_create(&thd, &pattr, nfsd_server_thread, NULL);
 		if (rv) {
 			log(LOG_ERR, "pthread_create: %s (%d)", strerror(rv), rv);
@@ -238,10 +248,12 @@ nfsd_start_server_threads(int count)
 	}
 	DEBUG(1, "Started %d of %d new nfsd threads", threadcnt, count);
 	/* if no threads started exit */
-	if (!threadcnt)
+	if (!threadcnt) {
 		log(LOG_ERR, "unable to start any nfsd threads");
-	if (threadcnt != count)
+	}
+	if (threadcnt != count) {
 		log(LOG_WARNING, "only able to create %d of %d nfsd threads", threadcnt, count);
+	}
 }
 
 /*
@@ -272,10 +284,10 @@ nfsd(void)
 
 	/* If we are serving UDP, set up the NFS/UDP sockets. */
 	if (config.udp) {
-
 		/* IPv4 */
-		if ((nfsudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+		if ((nfsudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_WARNING, "can't create NFS/UDP IPv4 socket");
+		}
 		if (nfsudpsock >= 0) {
 			nfsudpport = config.port;
 			sin->sin_family = AF_INET;
@@ -309,12 +321,14 @@ nfsd(void)
 		}
 
 		/* IPv6 */
-		if ((nfsudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+		if ((nfsudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_WARNING, "can't create NFS/UDP IPv6 socket");
+		}
 		if (nfsudp6sock >= 0) {
 			nfsudp6port = config.port;
-			if (setsockopt(nfsudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0)
+			if (setsockopt(nfsudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt NFS/UDP IPV6_V6ONLY: %s (%d)", strerror(errno), errno);
+			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.port);
@@ -344,18 +358,18 @@ nfsd(void)
 				close(nfsudp6sock);
 			}
 		}
-
 	}
 
 #ifdef _PATH_NFSD_TICLTS_SOCK
 	/*XXX if (config.ticlts?) */
 	{
-		if ((nfsticlsock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0)
+		if ((nfsticlsock = socket(AF_LOCAL, SOCK_DGRAM, 0)) < 0) {
 			log(LOG_WARNING, "can't create NFS/TICLTS socket");
+		}
 		if (nfsticlsock >= 0) {
 			sun->sun_family = AF_LOCAL;
-			sun->sun_len = sizeof (struct sockaddr_un);
-			strlcpy(sun->sun_path, _PATH_NFSD_TICLTS_SOCK, sizeof (sun->sun_path));
+			sun->sun_len = sizeof(struct sockaddr_un);
+			strlcpy(sun->sun_path, _PATH_NFSD_TICLTS_SOCK, sizeof(sun->sun_path));
 			(void)unlink(_PATH_NFSD_TICLTS_SOCK);
 			if (bind(nfsticlsock, (struct sockaddr *)sun, sizeof(*sun)) < 0) {
 				log(LOG_WARNING, "can't bind NFS/TICLTS addr %s", _PATH_NFSD_TICLTS_SOCK);
@@ -379,20 +393,20 @@ nfsd(void)
 				close(nfsticlsock);
 			}
 		}
-
 	}
 #endif
 
 	/* If we are serving TCP, set up the NFS/TCP socket. */
 	if (config.tcp) {
-
 		/* IPv4 */
-		if ((nfstcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+		if ((nfstcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
 			log(LOG_WARNING, "can't create NFS/TCP IPv4 socket");
+		}
 		if (nfstcpsock >= 0) {
 			nfstcpport = config.port;
-			if (setsockopt(nfstcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+			if (setsockopt(nfstcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt NFS/TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			}
 			sin->sin_family = AF_INET;
 			sin->sin_addr.s_addr = INADDR_ANY;
 			sin->sin_port = htons(config.port);
@@ -412,14 +426,17 @@ nfsd(void)
 		}
 
 		/* IPv6 */
-		if ((nfstcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+		if ((nfstcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0) {
 			log(LOG_WARNING, "can't create NFS/TCP IPv6 socket");
+		}
 		if (nfstcp6sock >= 0) {
 			nfstcp6port = config.port;
-			if (setsockopt(nfstcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+			if (setsockopt(nfstcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt NFS/TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
-			if (setsockopt(nfstcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0)
+			}
+			if (setsockopt(nfstcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, (char *)&on, sizeof(on)) < 0) {
 				log(LOG_WARNING, "setsockopt NFS/TCP IPV6_V6ONLY: %s (%d)", strerror(errno), errno);
+			}
 			sin6->sin6_family = AF_INET6;
 			sin6->sin6_addr = in6addr_any;
 			sin6->sin6_port = htons(config.port);
@@ -442,12 +459,13 @@ nfsd(void)
 #ifdef _PATH_NFSD_TICOTSORD_SOCK
 	/*XXX if (config.ticotsord?) */
 	{
-		if ((nfsticosock = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0)
+		if ((nfsticosock = socket(AF_LOCAL, SOCK_STREAM, 0)) < 0) {
 			log(LOG_WARNING, "can't create NFS/TICOTSORD socket");
+		}
 		if (nfsticosock >= 0) {
 			sun->sun_family = AF_LOCAL;
-			sun->sun_len = sizeof (struct sockaddr_un);
-			strlcpy(sun->sun_path, _PATH_NFSD_TICOTSORD_SOCK, sizeof (sun->sun_path));
+			sun->sun_len = sizeof(struct sockaddr_un);
+			strlcpy(sun->sun_path, _PATH_NFSD_TICOTSORD_SOCK, sizeof(sun->sun_path));
 			(void)unlink(_PATH_NFSD_TICOTSORD_SOCK);
 			if (bind(nfsticosock, (struct sockaddr *)sun, sizeof(*sun)) < 0) {
 				log(LOG_WARNING, "can't bind NFS/TICOTSORD addr %s", _PATH_NFSD_TICOTSORD_SOCK);
@@ -467,13 +485,16 @@ nfsd(void)
 	}
 #endif
 
-	if ((nfsudp6sock < 0) && (nfstcp6sock < 0))
+	if ((nfsudp6sock < 0) && (nfstcp6sock < 0)) {
 		log(LOG_WARNING, "Can't create NFS IPv6 sockets");
-	if ((nfsudpsock < 0) && (nfstcpsock < 0))
+	}
+	if ((nfsudpsock < 0) && (nfstcpsock < 0)) {
 		log(LOG_WARNING, "Can't create NFS IPv4 sockets");
+	}
 #if defined(_PATH_NFSD_TICLTS_SOCK) || defined(_PATH_NFSD_TICOTS_SOCK)
-	if ((nfsticlsock < 0) && (nfsticosock < 0))
+	if ((nfsticlsock < 0) && (nfsticosock < 0)) {
 		log(LOG_WARNING, "Can't create NFS TI (Local) sockets");
+	}
 #endif
 	if ((nfsudp6sock < 0) && (nfstcp6sock < 0) &&
 	    (nfsudpsock < 0) && (nfstcpsock < 0) &&
@@ -483,10 +504,11 @@ nfsd(void)
 	}
 
 	if (config.materialize_dataless_files) {
-		if (setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_ON) < 0)
+		if (setiopolicy_np(IOPOL_TYPE_VFS_MATERIALIZE_DATALESS_FILES, IOPOL_SCOPE_PROCESS, IOPOL_MATERIALIZE_DATALESS_FILES_ON) < 0) {
 			log(LOG_ERR, "Failed to enable materialization of dataless files: %s (%d)", strerror(errno), errno);
-		else
+		} else {
 			log(LOG_INFO, "Materialization of dataless files enabled successfully");
+		}
 	}
 
 	/* start up all the server threads */

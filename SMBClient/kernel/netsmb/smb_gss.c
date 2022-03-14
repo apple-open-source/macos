@@ -1106,6 +1106,11 @@ void smb_gss_rel_cred(struct smbiod *iod)
 		return;
 	}
 	
+    if (!IPC_PORT_VALID(sessionp->gss_mp)) {
+        SMBERROR("smb_gss_rel_cred: iod %d gssd port not valid\n", iod->iod_id);
+        return;
+    }
+
 	if (sessionp->session_flags & SMBV_RAW_NTLMSSP) {
 		mechtype = GSSD_NTLM_MECH;
 	} else {

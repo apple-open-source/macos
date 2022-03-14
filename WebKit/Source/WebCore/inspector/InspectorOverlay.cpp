@@ -38,7 +38,7 @@
 #include "CSSStyleDeclaration.h"
 #include "DOMCSSNamespace.h"
 #include "DOMTokenList.h"
-#include "Element.h"
+#include "ElementInlines.h"
 #include "FloatLine.h"
 #include "FloatPoint.h"
 #include "FloatRoundedRect.h"
@@ -143,8 +143,8 @@ static void buildRendererHighlight(RenderObject* renderer, const InspectorOverla
     FrameView* containingView = containingFrame->view();
     FrameView* mainView = containingFrame->page()->mainFrame().view();
 
-    // RenderSVGRoot should be highlighted through the isBox() code path, all other SVG elements should just dump their absoluteQuads().
-    bool isSVGRenderer = renderer->node() && renderer->node()->isSVGElement() && !renderer->isSVGRoot();
+    // (Legacy)RenderSVGRoot should be highlighted through the isBox() code path, all other SVG elements should just dump their absoluteQuads().
+    bool isSVGRenderer = renderer->node() && renderer->node()->isSVGElement() && !renderer->isSVGRootOrLegacySVGRoot();
 
     if (isSVGRenderer) {
         highlight.type = InspectorOverlay::Highlight::Type::Rects;
@@ -606,7 +606,7 @@ ErrorStringOr<void> InspectorOverlay::setGridOverlayForNode(Node& node, const In
 
     removeGridOverlayForNode(node);
 
-    m_activeGridOverlays.append({ makeWeakPtr(node), gridOverlayConfig });
+    m_activeGridOverlays.append({ node, gridOverlayConfig });
 
     update();
 
@@ -1170,7 +1170,7 @@ Path InspectorOverlay::drawElementTitle(GraphicsContext& context, Node& node, co
     return path;
 }
 
-void InspectorOverlay::drawLayoutHatching(GraphicsContext& context, FloatQuad quad)
+static void drawLayoutHatching(GraphicsContext& context, FloatQuad quad)
 {
     GraphicsContextStateSaver saver(context);
     context.clipPath(quadToPath(quad));
@@ -1204,7 +1204,7 @@ void InspectorOverlay::drawLayoutHatching(GraphicsContext& context, FloatQuad qu
     context.strokePath(hatchPath);
 }
 
-FontCascade InspectorOverlay::fontForLayoutLabel()
+static FontCascade fontForLayoutLabel()
 {
     FontCascadeDescription fontDescription;
     fontDescription.setFamilies({ "system-ui" });
@@ -1216,7 +1216,7 @@ FontCascade InspectorOverlay::fontForLayoutLabel()
     return font;
 }
 
-Path InspectorOverlay::backgroundPathForLayoutLabel(float width, float height, InspectorOverlay::LabelArrowDirection arrowDirection, InspectorOverlay::LabelArrowEdgePosition arrowEdgePosition, float arrowSize)
+static Path backgroundPathForLayoutLabel(float width, float height, InspectorOverlay::LabelArrowDirection arrowDirection, InspectorOverlay::LabelArrowEdgePosition arrowEdgePosition, float arrowSize)
 {
     Path path;
     FloatSize offsetForArrowEdgePosition;
@@ -1346,7 +1346,7 @@ Path InspectorOverlay::backgroundPathForLayoutLabel(float width, float height, I
 
 static FloatSize expectedSizeForLayoutLabel(String label, InspectorOverlay::LabelArrowDirection direction, float maximumWidth = 0)
 {
-    auto font = InspectorOverlay::fontForLayoutLabel();
+    auto font = fontForLayoutLabel();
 
     float textHeight = font.fontMetrics().floatHeight();
     float textWidth = font.width(TextRun(label));
@@ -1367,9 +1367,9 @@ static FloatSize expectedSizeForLayoutLabel(String label, InspectorOverlay::Labe
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-void InspectorOverlay::drawLayoutLabel(GraphicsContext& context, String label, FloatPoint point, InspectorOverlay::LabelArrowDirection arrowDirection, InspectorOverlay::LabelArrowEdgePosition arrowEdgePosition, Color backgroundColor, float maximumWidth)
+static void drawLayoutLabel(GraphicsContext& context, String label, FloatPoint point, InspectorOverlay::LabelArrowDirection arrowDirection, InspectorOverlay::LabelArrowEdgePosition arrowEdgePosition, Color backgroundColor, float maximumWidth = 0)
 {
-    ASSERT(arrowEdgePosition != LabelArrowEdgePosition::None || arrowDirection == LabelArrowDirection::None);
+    ASSERT(arrowEdgePosition != InspectorOverlay::LabelArrowEdgePosition::None || arrowDirection == InspectorOverlay::LabelArrowDirection::None);
 
     GraphicsContextStateSaver saver(context);
     

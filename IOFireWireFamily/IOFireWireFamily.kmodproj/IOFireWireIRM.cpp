@@ -572,7 +572,7 @@ void IOFireWireIRMAllocation::handleBusReset(UInt32 generation)
 	}
 	
 	// Spawn a thread to do the reallocation
-	IRMAllocationThreadInfo * threadInfo = (IRMAllocationThreadInfo *)IOMalloc( sizeof(IRMAllocationThreadInfo) );
+	IRMAllocationThreadInfo * threadInfo = IOMallocType( IRMAllocationThreadInfo );
 	if( threadInfo ) 
 	{
 		threadInfo->fGeneration = generation;
@@ -676,10 +676,10 @@ void IOFireWireIRMAllocation::threadFunc( void * arg )
 	// Unlock the lock
 	IORecursiveLockUnlock(fLock);
 	
+	FWTrace( kFWTIsoch, kTPIsochIRMThreadFunc, (uintptr_t)(threadInfo->fControl->getLink()), threadInfo->fIsochChannel, threadInfo->fBandwidthUnits, res );
+
 	// clean up thread info
-	IOFree( threadInfo, sizeof(IRMAllocationThreadInfo) );
+	IOFreeType( threadInfo, IRMAllocationThreadInfo );
     pIRMAllocation->release();		// retain occurred in handleBusReset
     pIRMAllocation=NULL;
-	
-	FWTrace( kFWTIsoch, kTPIsochIRMThreadFunc, (uintptr_t)(threadInfo->fControl->getLink()), threadInfo->fIsochChannel, threadInfo->fBandwidthUnits, res );
 }

@@ -1,4 +1,6 @@
 #include <OpenDirectory/OpenDirectory.h>
+#include <security/pam_appl.h>
+#include <security/pam_modules.h>
 
 #ifndef _COMMON_H_
 #define _COMMON_H_
@@ -29,5 +31,8 @@ int cfstring_to_cstring(const CFStringRef val, char **buffer);
 #define CFReleaseNull(CF) { CFTypeRef _cf = (CF); \
 if (_cf) { (CF) = NULL; CFRelease(_cf); } }
 #endif
+
+CF_RETURNS_RETAINED
+CFStringRef    GetPrincipalFromUser(CFDictionaryRef inUserRecord);
 
 #endif /* _COMMON_H_ */

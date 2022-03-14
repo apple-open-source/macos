@@ -27,7 +27,9 @@
 #include "config.h"
 #include "HTMLOptionElement.h"
 
+#include "AXObjectCache.h"
 #include "Document.h"
+#include "DocumentInlines.h"
 #include "ElementAncestorIterator.h"
 #include "HTMLDataListElement.h"
 #include "HTMLNames.h"
@@ -36,6 +38,7 @@
 #include "HTMLSelectElement.h"
 #include "NodeRenderStyle.h"
 #include "NodeTraversal.h"
+#include "PseudoClassChangeInvalidation.h"
 #include "RenderMenuList.h"
 #include "RenderTheme.h"
 #include "ScriptElement.h"
@@ -52,8 +55,6 @@ using namespace HTMLNames;
 
 HTMLOptionElement::HTMLOptionElement(const QualifiedName& tagName, Document& document)
     : HTMLElement(tagName, document)
-    , m_disabled(false)
-    , m_isSelected(false)
 {
     ASSERT(hasTagName(optionTag));
     setHasCustomStyleResolveCallbacks();
@@ -99,7 +100,7 @@ bool HTMLOptionElement::isFocusable() const
 
 bool HTMLOptionElement::matchesDefaultPseudoClass() const
 {
-    return hasAttributeWithoutSynchronization(selectedAttr);
+    return m_isDefault;
 }
 
 String HTMLOptionElement::text() const
@@ -175,23 +176,23 @@ void HTMLOptionElement::parseAttribute(const QualifiedName& name, const AtomStri
     } else
 #endif
     if (name == disabledAttr) {
-        bool oldDisabled = m_disabled;
-        m_disabled = !value.isNull();
-        if (oldDisabled != m_disabled) {
-            invalidateStyleForSubtree();
-            if (renderer() && renderer()->style().hasAppearance())
+        bool newDisabled = !value.isNull();
+        if (m_disabled != newDisabled) {
+            Style::PseudoClassChangeInvalidation disabledInvalidation(*this, { { CSSSelector::PseudoClassDisabled, newDisabled },  { CSSSelector::PseudoClassEnabled, !newDisabled } });
+            m_disabled = newDisabled;
+            if (renderer() && renderer()->style().hasEffectiveAppearance())
                 renderer()->theme().stateChanged(*renderer(), ControlStates::States::Enabled);
         }
     } else if (name == selectedAttr) {
-        invalidateStyleForSubtree();
+        // FIXME: Use PseudoClassChangeInvalidation in other elements that implement matchesDefaultPseudoClass().
+        Style::PseudoClassChangeInvalidation defaultInvalidation(*this, CSSSelector::PseudoClassDefault, !value.isNull());
+        m_isDefault = !value.isNull();
 
         // FIXME: This doesn't match what the HTML specification says.
         // The specification implies that removing the selected attribute or
         // changing the value of a selected attribute that is already present
-        // has no effect on whether the element is selected. Further, it seems
-        // that we need to do more than just set m_isSelected to select in that
-        // case; we'd need to do the other work from the setSelected function.
-        m_isSelected = !value.isNull();
+        // has no effect on whether the element is selected.
+        setSelectedState(!value.isNull());
     } else
         HTMLElement::parseAttribute(name, value);
 }
@@ -209,10 +210,10 @@ void HTMLOptionElement::setValue(const String& value)
     setAttributeWithoutSynchronization(valueAttr, value);
 }
 
-bool HTMLOptionElement::selected() const
+bool HTMLOptionElement::selected(AllowStyleInvalidation allowStyleInvalidation) const
 {
     if (RefPtr<HTMLSelectElement> select = ownerSelectElement())
-        select->updateListItemSelectedStates();
+        select->updateListItemSelectedStates(allowStyleInvalidation);
     return m_isSelected;
 }
 
@@ -227,13 +228,21 @@ void HTMLOptionElement::setSelected(bool selected)
         select->optionSelectionStateChanged(*this, selected);
 }
 
-void HTMLOptionElement::setSelectedState(bool selected)
+void HTMLOptionElement::setSelectedState(bool selected, AllowStyleInvalidation allowStyleInvalidation)
 {
     if (m_isSelected == selected)
         return;
 
+    std::optional<Style::PseudoClassChangeInvalidation> checkedInvalidation;
+    if (allowStyleInvalidation == AllowStyleInvalidation::Yes)
+        emplace(checkedInvalidation, *this, { { CSSSelector::PseudoClassChecked, selected } });
+
     m_isSelected = selected;
-    invalidateStyleForSubtree();
+
+#if ENABLE(ACCESSIBILITY) && USE(ATSPI)
+    if (auto* cache = document().existingAXObjectCache())
+        cache->postNotification(this, AXObjectCache::AXSelectedStateChanged);
+#endif
 }
 
 void HTMLOptionElement::childrenChanged(const ChildChange& change)

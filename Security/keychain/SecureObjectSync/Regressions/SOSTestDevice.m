@@ -278,7 +278,6 @@ CFDataRef SOSTestDeviceCreateMessage(SOSTestDeviceRef td, CFStringRef peerID) {
        "create message to %@: %@", peerID, error);
 
     SOSEngineMessageCallCallback(sent, true);
-    SOSEngineFreeMessageCallback(sent);
 
     return msgData;
 }

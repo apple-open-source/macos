@@ -74,7 +74,7 @@ void SVGFEGaussianBlurElement::parseAttribute(const QualifiedName& name, const A
 
     if (name == SVGNames::edgeModeAttr) {
         auto propertyValue = SVGPropertyTraits<EdgeModeType>::fromString(value);
-        if (propertyValue > 0)
+        if (propertyValue != EdgeModeType::Unknown)
             m_edgeMode->setBaseValInternal<EdgeModeType>(propertyValue);
         else
             document().accessSVGExtensions().reportWarning("feGaussianBlur: problem parsing edgeMode=\"" + value + "\". Filtered element will not be displayed.");
@@ -95,17 +95,17 @@ void SVGFEGaussianBlurElement::svgAttributeChanged(const QualifiedName& attrName
     SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
 }
 
-RefPtr<FilterEffect> SVGFEGaussianBlurElement::build(SVGFilterBuilder* filterBuilder, Filter& filter) const
+RefPtr<FilterEffect> SVGFEGaussianBlurElement::build(SVGFilterBuilder& filterBuilder) const
 {
-    auto input1 = filterBuilder->getEffectById(in1());
+    auto input1 = filterBuilder.getEffectById(in1());
     if (!input1)
         return nullptr;
 
     if (stdDeviationX() < 0 || stdDeviationY() < 0)
         return nullptr;
 
-    auto effect = FEGaussianBlur::create(filter, stdDeviationX(), stdDeviationY(), edgeMode());
-    effect->inputEffects() = { input1 };
+    auto effect = FEGaussianBlur::create(stdDeviationX(), stdDeviationY(), edgeMode());
+    effect->inputEffects() = { input1.releaseNonNull() };
     return effect;
 }
 

@@ -195,6 +195,11 @@ sc{
                     "era buddhista",
                 }
             }
+            intervalFormats{
+                GyMMMd{
+                    d{"d–d MMM y G"}
+                }
+            }
         }
         chinese{
             DateTimePatterns{
@@ -217,6 +222,9 @@ sc{
                 Gy{"r (U)"}
                 GyMMM{"MMM r (U)"}
                 GyMMMEd{"E d MMM r (U)"}
+                GyMMMM{"MMMM 'de' 'su' r (U)"}
+                GyMMMMEd{"E d 'de' MMMM 'de' 'su' r (U)"}
+                GyMMMMd{"d 'de' MMMM 'de' 'su' r (U)"}
                 GyMMMd{"d MMM r"}
                 MEd{"E d/M"}
                 MMMEd{"E d MMM"}
@@ -235,6 +243,8 @@ sc{
                 yyyyMMM{"MMM r (U)"}
                 yyyyMMMEd{"E d MMM r (U)"}
                 yyyyMMMM{"MMMM 'de' 'su' r (U)"}
+                yyyyMMMMEd{"E d 'de' MMMM 'de' 'su' r (U)"}
+                yyyyMMMMd{"d 'de' MMMM 'de' 'su' r (U)"}
                 yyyyMMMd{"d MMM r"}
                 yyyyMd{"dd/MM/r"}
                 yyyyQQQ{"QQQ r (U)"}
@@ -243,6 +253,58 @@ sc{
             cyclicNameSets{
                 solarTerms{
                     format{
+                        abbreviated{
+                            "incumintzu de su beranu",
+                            "abba dae chelu",
+                            "ischidada de sos boborrotos",
+                            "ecuinòtziu de beranu",
+                            "luminosu e craru",
+                            "abba pro trigu",
+                            "incumintzu de s’istiu",
+                            "maturatzione minore",
+                            "trigu in ispigas",
+                            "solstìtziu de istiu",
+                            "afogu minore",
+                            "afogu mannu",
+                            "incumintzu de s’atòngiu",
+                            "acabu de s’afogu",
+                            "lentore biancu",
+                            "ecuinòtziu de atòngiu",
+                            "lentore fritu",
+                            "achirrada de su ghiliore",
+                            "incumintzu de s’ierru",
+                            "nie minore",
+                            "nie mannu",
+                            "solstìtziu de ierru",
+                            "fritu minore",
+                            "fritu mannu",
+                        }
+                        narrow{
+                            "incumintzu de su beranu",
+                            "abba dae chelu",
+                            "ischidada de sos boborrotos",
+                            "ecuinòtziu de beranu",
+                            "luminosu e craru",
+                            "abba pro trigu",
+                            "incumintzu de s’istiu",
+                            "maturatzione minore",
+                            "trigu in ispigas",
+                            "solstìtziu de istiu",
+                            "afogu minore",
+                            "afogu mannu",
+                            "incumintzu de s’atòngiu",
+                            "acabu de s’afogu",
+                            "lentore biancu",
+                            "ecuinòtziu de atòngiu",
+                            "lentore fritu",
+                            "achirrada de su ghiliore",
+                            "incumintzu de s’ierru",
+                            "nie minore",
+                            "nie mannu",
+                            "solstìtziu de ierru",
+                            "fritu minore",
+                            "fritu mannu",
+                        }
                         wide{
                             "incumintzu de su beranu",
                             "abba dae chelu",
@@ -273,6 +335,34 @@ sc{
                 }
                 zodiacs{
                     format{
+                        abbreviated{
+                            "sòrighe",
+                            "boe",
+                            "tigre",
+                            "cunillu",
+                            "dragu",
+                            "serpente",
+                            "caddu",
+                            "craba",
+                            "martinica",
+                            "puddu",
+                            "cane",
+                            "porcu",
+                        }
+                        narrow{
+                            "sòrighe",
+                            "boe",
+                            "tigre",
+                            "cunillu",
+                            "dragu",
+                            "serpente",
+                            "caddu",
+                            "craba",
+                            "martinica",
+                            "puddu",
+                            "cane",
+                            "porcu",
+                        }
                         wide{
                             "sòrighe",
                             "boe",
@@ -343,6 +433,66 @@ sc{
                     y{"dd/MM/y – dd/MM/y"}
                 }
             }
+            monthNames{
+                format{
+                    abbreviated{
+                        "m01",
+                        "m02",
+                        "m03",
+                        "m04",
+                        "m05",
+                        "m06",
+                        "m07",
+                        "m08",
+                        "m09",
+                        "m10",
+                        "m11",
+                        "m12",
+                    }
+                    wide{
+                        "su de unu mese",
+                        "su de duos meses",
+                        "su de tres meses",
+                        "su de bator meses",
+                        "su de chimbe meses",
+                        "su de ses meses",
+                        "su de sete meses",
+                        "su de oto meses",
+                        "su de nove meses",
+                        "su de deghe meses",
+                        "su de ùndighi meses",
+                        "su de dòighi meses",
+                    }
+                }
+                stand-alone{
+                    wide{
+                        "su de unu mese",
+                        "su de duos meses",
+                        "su de tres meses",
+                        "su de bator meses",
+                        "su de chimbe meses",
+                        "su de ses meses",
+                        "su de sete meses",
+                        "su de oto meses",
+                        "su de nove meses",
+                        "su de deghe meses",
+                        "su de ùndighi meses",
+                        "su de dòighi meses",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    wide{
+                        leap{"{0} bis"}
+                    }
+                }
+                stand-alone{
+                    wide{
+                        leap{"{0} bis"}
+                    }
+                }
+            }
         }
         coptic{
             eras{
@@ -371,6 +521,184 @@ sc{
                         "epep",
                         "mesra",
                         "nasie",
+                    }
+                }
+            }
+        }
+        dangi{
+            cyclicNameSets{
+                solarTerms{
+                    format{
+                        abbreviated{
+                            "incumintzu de su beranu",
+                            "abba dae chelu",
+                            "ischidada de sos boborrotos",
+                            "ecuinòtziu de beranu",
+                            "luminosu e craru",
+                            "abba pro trigu",
+                            "incumintzu de s’istiu",
+                            "maturatzione minore",
+                            "trigu in ispigas",
+                            "solstìtziu de istiu",
+                            "afogu minore",
+                            "afogu mannu",
+                            "incumintzu de s’atòngiu",
+                            "acabu de s’afogu",
+                            "lentore biancu",
+                            "ecuinòtziu de atòngiu",
+                            "lentore fritu",
+                            "achirrada de su ghiliore",
+                            "incumintzu de s’ierru",
+                            "nie minore",
+                            "nie mannu",
+                            "solstìtziu de ierru",
+                            "fritu minore",
+                            "fritu mannu",
+                        }
+                        narrow{
+                            "incumintzu de su beranu",
+                            "abba dae chelu",
+                            "ischidada de sos boborrotos",
+                            "ecuinòtziu de beranu",
+                            "luminosu e craru",
+                            "abba pro trigu",
+                            "incumintzu de s’istiu",
+                            "maturatzione minore",
+                            "trigu in ispigas",
+                            "solstìtziu de istiu",
+                            "afogu minore",
+                            "afogu mannu",
+                            "incumintzu de s’atòngiu",
+                            "acabu de s’afogu",
+                            "lentore biancu",
+                            "ecuinòtziu de atòngiu",
+                            "lentore fritu",
+                            "achirrada de su ghiliore",
+                            "incumintzu de s’ierru",
+                            "nie minore",
+                            "nie mannu",
+                            "solstìtziu de ierru",
+                            "fritu minore",
+                            "fritu mannu",
+                        }
+                        wide{
+                            "incumintzu de su beranu",
+                            "abba dae chelu",
+                            "ischidada de sos boborrotos",
+                            "ecuinòtziu de beranu",
+                            "luminosu e craru",
+                            "abba pro trigu",
+                            "incumintzu de s’istiu",
+                            "maturatzione minore",
+                            "trigu in ispigas",
+                            "solstìtziu de istiu",
+                            "afogu minore",
+                            "afogu mannu",
+                            "incumintzu de s’atòngiu",
+                            "acabu de s’afogu",
+                            "lentore biancu",
+                            "ecuinòtziu de atòngiu",
+                            "lentore fritu",
+                            "achirrada de su ghiliore",
+                            "incumintzu de s’ierru",
+                            "nie minore",
+                            "nie mannu",
+                            "solstìtziu de ierru",
+                            "fritu minore",
+                            "fritu mannu",
+                        }
+                    }
+                }
+                zodiacs{
+                    format{
+                        abbreviated{
+                            "sòrighe",
+                            "boe",
+                            "tigre",
+                            "cunillu",
+                            "dragu",
+                            "serpente",
+                            "caddu",
+                            "craba",
+                            "martinica",
+                            "puddu",
+                            "cane",
+                            "porcu",
+                        }
+                        narrow{
+                            "sòrighe",
+                            "boe",
+                            "tigre",
+                            "cunillu",
+                            "dragu",
+                            "serpente",
+                            "caddu",
+                            "craba",
+                            "martinica",
+                            "puddu",
+                            "cane",
+                            "porcu",
+                        }
+                        wide{
+                            "sòrighe",
+                            "boe",
+                            "tigre",
+                            "cunillu",
+                            "dragu",
+                            "serpente",
+                            "caddu",
+                            "craba",
+                            "martinica",
+                            "puddu",
+                            "cane",
+                            "porcu",
+                        }
+                    }
+                }
+            }
+            monthNames{
+                format{
+                    wide{
+                        "su de unu mese",
+                        "su de duos meses",
+                        "su de tres meses",
+                        "su de bator meses",
+                        "su de chimbe meses",
+                        "su de ses meses",
+                        "su de sete meses",
+                        "su de oto meses",
+                        "su de nove meses",
+                        "su de deghe meses",
+                        "su de ùndighi meses",
+                        "su de dòighi meses",
+                    }
+                }
+                stand-alone{
+                    wide{
+                        "su de unu mese",
+                        "su de duos meses",
+                        "su de tres meses",
+                        "su de bator meses",
+                        "su de chimbe meses",
+                        "su de ses meses",
+                        "su de sete meses",
+                        "su de oto meses",
+                        "su de nove meses",
+                        "su de deghe meses",
+                        "su de ùndighi meses",
+                        "su de dòighi meses",
+                    }
+                }
+            }
+            monthPatterns{
+                format{
+                    wide{
+                        leap{"{0} bis"}
+                    }
+                }
+                stand-alone{
+                    wide{
+                        leap{"{0} bis"}
                     }
                 }
             }
@@ -457,6 +785,7 @@ sc{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"dd/MM/y GGGGG"}
                 MEd{"E d/M"}
                 MMMEd{"E d MMM"}
                 MMMMd{"d MMMM"}
@@ -605,6 +934,7 @@ sc{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E d 'de' MMM 'de' 'su' y G"}
                 GyMMMd{"d 'de' MMM 'de' 'su' y G"}
+                GyMd{"dd/MM/y GGGGG"}
                 MEd{"E d/M"}
                 MMMEd{"E d 'de' MMM"}
                 MMMMW{

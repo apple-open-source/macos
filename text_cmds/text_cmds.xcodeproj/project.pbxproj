@@ -57,6 +57,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		2AC6B55E268C1B16006AA0B7 /* libutil.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 2AC6B55D268C1B16006AA0B7 /* libutil.tbd */; };
 		FC6C98FC149A94EB00DDCC47 /* libcurses.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FC6C98FB149A94EB00DDCC47 /* libcurses.dylib */; };
 		FC7A7DE514986CD60086576A /* banner.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B4C149866AE0086576A /* banner.c */; };
 		FC7A7DE614986CDB0086576A /* cat.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B50149866AE0086576A /* cat.c */; };
@@ -67,7 +68,6 @@
 		FC7A7DEB14986D0C0086576A /* csplit.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B65149866AE0086576A /* csplit.c */; };
 		FC7A7DEC14986D120086576A /* cut.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B69149866AE0086576A /* cut.c */; };
 		FC7A7DED14986D690086576A /* buf.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B6C149866AE0086576A /* buf.c */; };
-		FC7A7DEE14986D690086576A /* cbc.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B6D149866AE0086576A /* cbc.c */; };
 		FC7A7DF014986D690086576A /* glbl.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B70149866AE0086576A /* glbl.c */; };
 		FC7A7DF114986D690086576A /* io.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B71149866AE0086576A /* io.c */; };
 		FC7A7DF214986D690086576A /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = FC7A7B72149866AE0086576A /* main.c */; };
@@ -752,6 +752,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		2AC6B55D268C1B16006AA0B7 /* libutil.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libutil.tbd; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX11.3.Internal.sdk/usr/lib/libutil.tbd; sourceTree = DEVELOPER_DIR; };
 		3EF506E11F7ABD7500421EB3 /* tests */ = {isa = PBXFileReference; lastKnownFileType = folder; path = tests; sourceTree = "<group>"; };
 		FC6C98FB149A94EB00DDCC47 /* libcurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcurses.dylib; path = /usr/lib/libcurses.dylib; sourceTree = "<absolute>"; };
 		FC7A7B39149865C80086576A /* banner */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = banner; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -773,7 +774,6 @@
 		FC7A7B68149866AE0086576A /* cut.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = cut.1; sourceTree = "<group>"; };
 		FC7A7B69149866AE0086576A /* cut.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cut.c; sourceTree = "<group>"; };
 		FC7A7B6C149866AE0086576A /* buf.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = buf.c; sourceTree = "<group>"; };
-		FC7A7B6D149866AE0086576A /* cbc.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = cbc.c; sourceTree = "<group>"; };
 		FC7A7B6E149866AE0086576A /* ed.1 */ = {isa = PBXFileReference; lastKnownFileType = text.man; path = ed.1; sourceTree = "<group>"; };
 		FC7A7B6F149866AE0086576A /* ed.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ed.h; sourceTree = "<group>"; };
 		FC7A7B70149866AE0086576A /* glbl.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = glbl.c; sourceTree = "<group>"; };
@@ -1262,6 +1262,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2AC6B55E268C1B16006AA0B7 /* libutil.tbd in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1339,6 +1340,14 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		2AC6B55C268C1B16006AA0B7 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2AC6B55D268C1B16006AA0B7 /* libutil.tbd */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		FC7A7B2E149865C70086576A = {
 			isa = PBXGroup;
 			children = (
@@ -1381,6 +1390,7 @@
 				FC7A7CDF149866AF0086576A /* wc */,
 				FD2BDC151B7188240053EE6B /* xcconfigs */,
 				FC7A7B3A149865C80086576A /* Products */,
+				2AC6B55C268C1B16006AA0B7 /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -1503,7 +1513,6 @@
 			isa = PBXGroup;
 			children = (
 				FC7A7B6C149866AE0086576A /* buf.c */,
-				FC7A7B6D149866AE0086576A /* cbc.c */,
 				FC7A7B6E149866AE0086576A /* ed.1 */,
 				FC7A7B6F149866AE0086576A /* ed.h */,
 				FC7A7B70149866AE0086576A /* glbl.c */,
@@ -2821,7 +2830,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				FC7A7DED14986D690086576A /* buf.c in Sources */,
-				FC7A7DEE14986D690086576A /* cbc.c in Sources */,
 				FC7A7DF014986D690086576A /* glbl.c in Sources */,
 				FC7A7DF114986D690086576A /* io.c in Sources */,
 				FC7A7DF214986D690086576A /* main.c in Sources */,
@@ -3493,6 +3501,7 @@
 			buildSettings = {
 				GCC_WARN_64_TO_32_BIT_CONVERSION = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

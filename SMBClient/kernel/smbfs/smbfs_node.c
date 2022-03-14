@@ -599,7 +599,8 @@ smb_hashget(struct smbmount *smp, struct smbnode *dnp, uint64_t hashval,
 	size_t snmlen = (sname) ? strnlen(sname, maxfilenamelen+1) : 0;
     struct smb_session *sessionp = NULL;
     vnode_t par_vp = NULL;
-    
+    struct timespec ts;
+
     if (smp->sm_share == NULL) {
         SMBERROR("smp->sm_share is NULL? \n");
         return (NULL);
@@ -686,18 +687,29 @@ loop:
 			}
 		}
         
+        /*
+         * <82732371> Use a sleeptime to handle possible race where the thread that
+         * set NALLOC/NTRANSIT did not see the NWALLOC bit so we will sleep forever.
+         * Using sleeptime is enough here as we will just go over the table again
+         * anyway, expecting the node to change state.
+         */
+
 		if (ISSET(np->n_flag, NALLOC)) {
 			SET(np->n_flag, NWALLOC);
-			(void)msleep((caddr_t)np, smp->sm_hashlock, PINOD|PDROP, "smb_ngetalloc", 0);
+            ts.tv_sec = 1;
+            ts.tv_nsec = 0;
+			(void)msleep((caddr_t)np, smp->sm_hashlock, PINOD|PDROP, "smb_ngetalloc", &ts);
 			goto loop;
 		}
-        
+
 		if (ISSET(np->n_flag, NTRANSIT)) {
 			SET(np->n_flag, NWTRANSIT);
-			(void)msleep((caddr_t)np, smp->sm_hashlock, PINOD|PDROP, "smb_ngettransit", 0);
+            ts.tv_sec = 1;
+            ts.tv_nsec = 0;
+			(void)msleep((caddr_t)np, smp->sm_hashlock, PINOD|PDROP, "smb_ngettransit", &ts);
 			goto loop;
 		}
-        
+
 		vp = SMBTOV(np);
 		vid = vnode_vid(vp);
         
@@ -1178,8 +1190,10 @@ smbfs_nget(struct smb_share *share, struct mount *mp,
 
 	*vpp = vp;
 	CLR(np->n_flag, NALLOC);
-        if (ISSET(np->n_flag, NWALLOC))
-                wakeup(np);
+    if (ISSET(np->n_flag, NWALLOC)) {
+        CLR(np->n_flag, NWALLOC);
+        wakeup(np);
+    }
 	return 0;
     
 errout:
@@ -1432,8 +1446,10 @@ smbfs_vgetstrm(struct smb_share *share, struct smbmount *smp, vnode_t vp,
 	smbfs_attr_cacheenter(share, *svpp, fap, FALSE, NULL);
 	
 	CLR(snp->n_flag, NALLOC);
-	if (ISSET(snp->n_flag, NWALLOC))
-		wakeup(snp);
+    if (ISSET(snp->n_flag, NWALLOC)) {
+        CLR(snp->n_flag, NWALLOC);
+        wakeup(snp);
+    }
 	goto done;
 	
 errout:

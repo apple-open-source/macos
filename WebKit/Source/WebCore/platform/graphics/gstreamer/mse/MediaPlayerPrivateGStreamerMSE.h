@@ -68,10 +68,15 @@ public:
 
     void sourceSetup(GstElement*) override;
 
+    // return false to avoid false-positive "stalled" event - it should be soon addressed in the spec
+    // see: https://github.com/w3c/media-source/issues/88
+    // see: https://w3c.github.io/media-source/#h-note-19
+    bool supportsProgressMonitoring() const override { return false; }
+
     void setReadyState(MediaPlayer::ReadyState);
     MediaSourcePrivateClient* mediaSourcePrivateClient() { return m_mediaSource.get(); }
 
-    void trackDetected(AppendPipeline&, RefPtr<WebCore::TrackPrivateBase>);
+    void setInitialVideoSize(const FloatSize&);
 
     void blockDurationChanges();
     void unblockDurationChanges();

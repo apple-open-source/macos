@@ -127,7 +127,8 @@ hfs_delete_chash(struct hfsmount *hfsmp)
 {
 	lck_mtx_destroy(&hfsmp->hfs_chash_mutex, chash_lck_grp);
 
-	FREE(hfsmp->hfs_cnodehashtbl, M_TEMP);
+	hashdestroy(hfsmp->hfs_cnodehashtbl, M_TEMP, hfsmp->hfs_cnodehash);
+	hfsmp->hfs_cnodehashtbl = NULL;
 }
 
 
@@ -405,12 +406,7 @@ loop_with_lock:
 		goto loop;
 	}
 	hfs_chash_lock_convert(hfsmp);
-
-#if HFS_MALLOC_DEBUG
-	bzero(ncp, __builtin_offsetof(struct cnode, magic));
-#else
 	bzero(ncp, sizeof(*ncp));
-#endif
 
 	SET(ncp->c_hflag, H_ALLOC);
 	*hflags |= H_ALLOC;

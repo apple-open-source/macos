@@ -68,11 +68,11 @@ inline bool isValueType(Type type)
     case TypeKind::I64:
     case TypeKind::F32:
     case TypeKind::F64:
-        return true;
     case TypeKind::Externref:
     case TypeKind::Funcref:
-        return Options::useWebAssemblyReferences();
-    case TypeKind::TypeIdx:
+        return true;
+    case TypeKind::Ref:
+    case TypeKind::RefNull:
         return Options::useWebAssemblyTypedFunctionReferences();
     default:
         break;
@@ -91,6 +91,59 @@ inline JSString* typeToString(VM& vm, TypeKind type)
     }
 
 #undef TYPE_CASE
+
+    RELEASE_ASSERT_NOT_REACHED();
+}
+
+inline bool isRefType(Type type)
+{
+    if (Options::useWebAssemblyTypedFunctionReferences())
+        return type.isRef() || type.isRefNull();
+    return type.isFuncref() || type.isExternref();
+}
+
+inline bool isExternref(Type type)
+{
+    if (Options::useWebAssemblyTypedFunctionReferences())
+        return isRefType(type) && type.index == static_cast<SignatureIndex>(TypeKind::Externref);
+    return type.kind == TypeKind::Externref;
+}
+
+inline bool isFuncref(Type type)
+{
+    if (Options::useWebAssemblyTypedFunctionReferences())
+        return isRefType(type) && type.index == static_cast<SignatureIndex>(TypeKind::Funcref);
+    return type.kind == TypeKind::Funcref;
+}
+
+inline Type funcrefType()
+{
+    if (Options::useWebAssemblyTypedFunctionReferences())
+        return Wasm::Type { Wasm::TypeKind::RefNull, Wasm::Nullable::Yes, static_cast<Wasm::SignatureIndex>(Wasm::TypeKind::Funcref) };
+    return Types::Funcref;
+}
+
+inline Type externrefType()
+{
+    if (Options::useWebAssemblyTypedFunctionReferences())
+        return Wasm::Type { Wasm::TypeKind::RefNull, Wasm::Nullable::Yes, static_cast<Wasm::SignatureIndex>(Wasm::TypeKind::Externref) };
+    return Types::Externref;
+}
+
+inline bool isRefWithTypeIndex(Type type)
+{
+    if (!Options::useWebAssemblyTypedFunctionReferences())
+        return false;
+
+    return isRefType(type) && !isExternref(type) && !isFuncref(type);
+}
+
+inline bool isTypeIndexHeapType(int32_t heapType)
+{
+    if (!Options::useWebAssemblyTypedFunctionReferences())
+        return false;
+
+    return heapType >= 0;
 }
 
 inline bool isSubtype(Type sub, Type parent)
@@ -98,15 +151,13 @@ inline bool isSubtype(Type sub, Type parent)
     if (sub.isNullable() && !parent.isNullable())
         return false;
 
-    if (sub.isTypeIdx() && parent.isFuncref())
+    if ((sub.isRef() || sub.isRefNull()) && isFuncref(parent))
+        return true;
+
+    if (sub.isRef() && parent.isRefNull() && sub.index == parent.index)
         return true;
 
     return sub == parent;
-}
-
-inline bool isRefType(Type type)
-{
-    return type.isFuncref() || type.isExternref() || type.isTypeIdx();
 }
 
 inline bool isValidHeapTypeKind(TypeKind kind)
@@ -123,7 +174,7 @@ inline bool isValidHeapTypeKind(TypeKind kind)
 
 inline bool isDefaultableType(Type type)
 {
-    return !isRefType(type) || type.isNullable();
+    return !type.isRef();
 }
 
 enum class ExternalKind : uint8_t {
@@ -344,7 +395,7 @@ public:
     uint32_t initial() const { return m_initial; }
     std::optional<uint32_t> maximum() const { return m_maximum; }
     TableElementType type() const { return m_type; }
-    Type wasmType() const { return m_type == TableElementType::Funcref ? Types::Funcref : Types::Externref; }
+    Type wasmType() const { return m_type == TableElementType::Funcref ? funcrefType() : externrefType(); }
 
 private:
     uint32_t m_initial;

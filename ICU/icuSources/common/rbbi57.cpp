@@ -336,21 +336,21 @@ RuleBasedBreakIterator57::clone(void) const {
  * Equality operator.  Returns TRUE if both BreakIterators are of the
  * same class, have the same behavior, and iterate over the same text.
  */
-UBool
+bool
 RuleBasedBreakIterator57::operator==(const BreakIterator& that) const {
     if (typeid(*this) != typeid(that)) {
-        return FALSE;
+        return false;
     }
 
     const RuleBasedBreakIterator57& that2 = (const RuleBasedBreakIterator57&) that;
     if (that2.fLineWordOpts != fLineWordOpts) {
-        return FALSE;
+        return false;
     }
 
     if (!utext_equals(fText, that2.fText)) {
         // The two break iterators are operating on different text,
         //   or have a different interation position.
-        return FALSE;
+        return false;
     };
 
     // TODO:  need a check for when in a dictionary region at different offsets.
@@ -358,9 +358,9 @@ RuleBasedBreakIterator57::operator==(const BreakIterator& that) const {
     if (that2.fData == fData ||
         (fData != NULL && that2.fData != NULL && *that2.fData == *fData)) {
             // The two break iterators are using the same rules.
-            return TRUE;
+            return true;
         }
-    return FALSE;
+    return false;
 }
 
 /**
@@ -1702,7 +1702,7 @@ int32_t RuleBasedBreakIterator57::checkDictionary(int32_t startPos,
         // Ask the language object if there are any breaks. It will leave the text
         // pointer on the other side of its range, ready to search for the next one.
         if (lbe != NULL) {
-            foundBreakCount += lbe->findBreaks(fText, rangeStart, rangeEnd, breaks);
+            foundBreakCount += lbe->findBreaks(fText, rangeStart, rangeEnd, breaks, status);
         }
         
         // Reload the loop variables for the next go-round

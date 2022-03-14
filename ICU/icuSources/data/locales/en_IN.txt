@@ -134,6 +134,16 @@ en_IN{
                 "{1} 'at' {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
+            }
             availableFormats{
                 EBhm{"E, h:mm B"}
                 EBhms{"E, h:mm:ss B"}
@@ -161,21 +171,6 @@ en_IN{
                 yyyyMMMM{"MMMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyMd{"d/M/y G"}
-                 
-                // The following are all copied over from en_001.txt to work around the horizontal-inheritance
-                // problem and to address rdar://78420184 and should be removed when the horizontal inheritance
-                // bug is fixed.
-                Bhms{"h:mm:ss B"}
-                Ed{"E d"}
-                Hmsv{"HH:mm:ss v"}
-                Hmv{"HH:mm v"}
-                M{"LL"}
-                MMMMd{"d MMMM"}
-                MMMd{"d MMM"}
-                hmsv{"h:mm:ss a v"}
-                hmv{"h:mm a v"}
-                y{"y G"}
-                yyyy{"y G"}
            }
             intervalFormats{
                 GyMEd{
@@ -239,6 +234,16 @@ en_IN{
                 "{1} 'at' {0}",
                 "{1} 'at' {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMdd",
+                "yyMMdd",
             }
             availableFormats{
                 EBhm{"E, h:mm B"}

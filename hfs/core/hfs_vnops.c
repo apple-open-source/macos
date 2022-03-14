@@ -1945,7 +1945,7 @@ int hfs_exchangedata_getxattr (struct vnode *vp, uint32_t name_selector,  void *
 
 	//allocate 4k memory to hold the EA.  We don't use this for "large" EAs, and the default
 	//EA B-tree size should produce inline attributes of size < 4K
-	xattr_rawdata = hfs_malloc (MAX_EXCHANGE_EA_SIZE);	
+	xattr_rawdata = hfs_malloc_data(MAX_EXCHANGE_EA_SIZE);
 	if (!xattr_rawdata) {
 		return ENOMEM;
 	}	
@@ -1953,7 +1953,7 @@ int hfs_exchangedata_getxattr (struct vnode *vp, uint32_t name_selector,  void *
 	//now create the UIO
 	uio = uio_create (1, 0, UIO_SYSSPACE, UIO_READ);
 	if (!uio) {
-		hfs_free (xattr_rawdata, memsize);
+		hfs_free_data(xattr_rawdata, memsize);
 		return ENOMEM;
 	}
 	uio_addiov(uio, CAST_USER_ADDR_T(xattr_rawdata), memsize);
@@ -1975,7 +1975,7 @@ int hfs_exchangedata_getxattr (struct vnode *vp, uint32_t name_selector,  void *
 		 * was the EA not found? == ENOATTR
 		 */
 		uio_free(uio);
-		hfs_free (xattr_rawdata, memsize);
+		hfs_free_data(xattr_rawdata, memsize);
 		return error;
 	}
 
@@ -1983,9 +1983,9 @@ int hfs_exchangedata_getxattr (struct vnode *vp, uint32_t name_selector,  void *
 	uio_free(uio);
 
 	//upon success, a_size/attrsize now contains the actua/exported EA size
-	extracted_xattr = hfs_malloc (attrsize);
+	extracted_xattr = hfs_malloc_data(attrsize);
 	memcpy (extracted_xattr, xattr_rawdata, attrsize);
-	hfs_free (xattr_rawdata, memsize);
+	hfs_free_data(xattr_rawdata, memsize);
 
 	*xattr_size = attrsize;
 	*buffer = extracted_xattr;
@@ -2648,12 +2648,12 @@ exit:
 
 	/* Free the memory used by the EAs */
 	if (from_xattr) {
-		hfs_free (from_xattr, from_attrsize);
+		hfs_free_data(from_xattr, from_attrsize);
 		from_xattr = NULL;
 	}
 
 	if (to_xattr) {
-		hfs_free (to_xattr, to_attrsize);
+		hfs_free_data(to_xattr, to_attrsize);
 		to_xattr = NULL;
 	}
 
@@ -2690,7 +2690,8 @@ static int hfs_move_compressed(cnode_t *from_cp, cnode_t *to_cp)
 	 */
 
 	size_t size;
-	data = hfs_malloc(size = MAX_DECMPFS_XATTR_SIZE);
+	size = MAX_DECMPFS_XATTR_SIZE;
+	data = hfs_malloc_data(size);
 
 	ret = hfs_xattr_read(from_cp->c_vp, DECMPFS_XATTR_NAME, data, &size);
 	if (ret)
@@ -2704,7 +2705,7 @@ static int hfs_move_compressed(cnode_t *from_cp, cnode_t *to_cp)
 	SET(to_cp->c_flag, C_MODIFIED);
 
 exit:
-	hfs_free(data, MAX_DECMPFS_XATTR_SIZE);
+	hfs_free_data(data, MAX_DECMPFS_XATTR_SIZE);
 
 	return ret;
 }
@@ -4313,7 +4314,7 @@ hfs_removefile(struct vnode *dvp, struct vnode *vp, struct componentname *cnp,
 #endif
 
 		if (vnode_islnk(vp) && cp->c_datafork->ff_symlinkptr) {
-			hfs_free(cp->c_datafork->ff_symlinkptr, cp->c_datafork->ff_size);
+			hfs_free_data(cp->c_datafork->ff_symlinkptr, cp->c_datafork->ff_size);
 			cp->c_datafork->ff_symlinkptr = NULL;
 		}
 
@@ -5424,7 +5425,7 @@ skip_rm:
 		int len;
 
 		/* Create a new temporary buffer that's going to hold the new name */
-		rsrc_path = hfs_malloc(MAXPATHLEN);
+		rsrc_path = hfs_malloc_data(MAXPATHLEN);
 		len = snprintf (rsrc_path, MAXPATHLEN, "%s%s", tcnp->cn_nameptr, _PATH_RSRCFORKSPEC);
 		len = MIN(len, MAXPATHLEN);
 
@@ -5438,7 +5439,7 @@ skip_rm:
 		vnode_update_identity (fcp->c_rsrc_vp, fvp, rsrc_path, len, 0, (VNODE_UPDATE_NAME | VNODE_UPDATE_CACHE));
 		
 		/* Free the memory associated with the resource fork's name */
-		hfs_free(rsrc_path, MAXPATHLEN);
+		hfs_free_data(rsrc_path, MAXPATHLEN);
 	}
 out:
 	if (got_cookie) {
@@ -6082,7 +6083,7 @@ hfs_vnop_readlink(struct vnop_readlink_args *ap)
 	if (fp->ff_symlinkptr == NULL) {
 		struct buf *bp = NULL;
 
-		fp->ff_symlinkptr = hfs_malloc(fp->ff_size);
+		fp->ff_symlinkptr = hfs_malloc_data(fp->ff_size);
 		error = (int)buf_meta_bread(vp, (daddr64_t)0,
 		                            roundup((int)fp->ff_size, VTOHFS(vp)->hfs_physical_block_size),
 		                            vfs_context_ucred(ap->a_context), &bp);
@@ -6090,7 +6091,7 @@ hfs_vnop_readlink(struct vnop_readlink_args *ap)
 			if (bp)
 				buf_brelse(bp);
 			if (fp->ff_symlinkptr) {
-				hfs_free(fp->ff_symlinkptr, fp->ff_size);
+				hfs_free_data(fp->ff_symlinkptr, fp->ff_size);
 				fp->ff_symlinkptr = NULL;
 			}
 			goto exit;
@@ -7129,7 +7130,7 @@ restart:
 		 */
 		cn.cn_pnbuf = NULL;
 		if (descptr->cd_nameptr) {
-			void *buf = hfs_malloc(MAXPATHLEN);
+			void *buf = hfs_malloc_data(MAXPATHLEN);
 
 			cn = (struct componentname){
 				.cn_nameiop = LOOKUP,
@@ -7144,7 +7145,7 @@ restart:
 
 			// Should never happen because cn.cn_nameptr won't ever be long...
 			if (cn.cn_namelen >= MAXPATHLEN) {
-				hfs_free(buf, MAXPATHLEN);
+				hfs_free_data(buf, MAXPATHLEN);
 				/* Drop our 'empty' vnode ! */
 				vnode_put (empty_rvp);
 				return ENAMETOOLONG;
@@ -7167,7 +7168,7 @@ restart:
 			
 		if (dvp)
 			vnode_put(dvp);
-		hfs_free(cn.cn_pnbuf, MAXPATHLEN);
+		hfs_free_data(cn.cn_pnbuf, MAXPATHLEN);
 		if (error)
 			return (error);
 	}  /* End 'else' for rsrc fork not existing */

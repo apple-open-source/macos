@@ -77,7 +77,7 @@ void IOUserBlockStorageDevice::free( void )
 {
 
 	/* At this point, there is no client using  IOUserBlockStorageDevice and the dext is stopped */
-	IODelete(fOutstandingRequests, IORequest *, fDeviceParams.numOfOutstandingIOs);
+	IODelete(fOutstandingRequests, IORequest * _Atomic, fDeviceParams.numOfOutstandingIOs);
 
 	if (fPoolInitialized)
 		fRequestsPool.deinit();
@@ -209,7 +209,7 @@ bool IOUserBlockStorageDevice::start(IOService *provider)
 	return true;
 
 FailedToInitPool:
-	IODelete(fOutstandingRequests, IORequest *, fDeviceParams.numOfOutstandingIOs);
+	IODelete(fOutstandingRequests, IORequest * _Atomic, fDeviceParams.numOfOutstandingIOs);
 FailedToAlloc:
 FailedToAllocDictionary:
 	/* TODO: Stop() should be called explicitly ? */

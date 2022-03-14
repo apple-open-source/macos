@@ -150,6 +150,9 @@
 		F6C0B8EB1B8DE6BC00892765 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
 		F6C0B8EC1B8DE6BC00892765 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
 		F6C0B8ED1B8DE6BC00892765 /* libpam.2.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.tbd */; };
+		F6D2E89126737A41005D165D /* ds_ops.c in Sources */ = {isa = PBXBuildFile; fileRef = F6D2E89026737A41005D165D /* ds_ops.c */; };
+		F6D2E89326737AB2005D165D /* krb5principal.m in Sources */ = {isa = PBXBuildFile; fileRef = F6D2E89226737AB2005D165D /* krb5principal.m */; };
+		F6D2E89526737C8C005D165D /* ds_ops.h in Headers */ = {isa = PBXBuildFile; fileRef = F6D2E89426737C8C005D165D /* ds_ops.h */; };
 		F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */ = {isa = PBXBuildFile; fileRef = F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */; };
 		F6EF67F01D1C308000342741 /* attribute_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67ED1D1C306100342741 /* attribute_matching.c */; };
 		F6EF67F11D1C308000342741 /* hash_matching.c in Sources */ = {isa = PBXBuildFile; fileRef = F6EF67EE1D1C306100342741 /* hash_matching.c */; };
@@ -446,6 +449,9 @@
 		F6AAC60B1DF07D6A008A6811 /* Logging.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = Logging.h; path = common/Logging.h; sourceTree = "<group>"; };
 		F6ABB8B11D22CDCC00AECC36 /* scmatch_evaluation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = scmatch_evaluation.h; path = modules/pam_smartcard/scmatch_evaluation.h; sourceTree = "<group>"; };
 		F6C0B8F01B8DE6BC00892765 /* pam_smartcard.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_smartcard.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		F6D2E89026737A41005D165D /* ds_ops.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ds_ops.c; path = modules/pam_smartcard/ds_ops.c; sourceTree = "<group>"; };
+		F6D2E89226737AB2005D165D /* krb5principal.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = krb5principal.m; path = modules/pam_smartcard/krb5principal.m; sourceTree = "<group>"; };
+		F6D2E89426737C8C005D165D /* ds_ops.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ds_ops.h; path = modules/pam_smartcard/ds_ops.h; sourceTree = "<group>"; };
 		F6DD1CAC1B8DFDAE00BA6BE0 /* pam_smartcard.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_smartcard.c; path = modules/pam_smartcard/pam_smartcard.c; sourceTree = "<group>"; };
 		F6EF67ED1D1C306100342741 /* attribute_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = attribute_matching.c; path = modules/pam_smartcard/attribute_matching.c; sourceTree = "<group>"; };
 		F6EF67EE1D1C306100342741 /* hash_matching.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = hash_matching.c; path = modules/pam_smartcard/hash_matching.c; sourceTree = "<group>"; };
@@ -691,7 +697,10 @@
 			isa = PBXGroup;
 			children = (
 				F6EF67ED1D1C306100342741 /* attribute_matching.c */,
+				F6D2E89426737C8C005D165D /* ds_ops.h */,
+				F6D2E89026737A41005D165D /* ds_ops.c */,
 				F6EF67EE1D1C306100342741 /* hash_matching.c */,
+				F6D2E89226737AB2005D165D /* krb5principal.m */,
 				F6ABB8B11D22CDCC00AECC36 /* scmatch_evaluation.h */,
 				F6EF67EF1D1C306100342741 /* scmatch_evaluation.c */,
 				7434C97812554E6F001D7F9E /* Common.c */,
@@ -880,6 +889,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				F6D2E89526737C8C005D165D /* ds_ops.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1388,6 +1398,8 @@
 				F6EF67F21D1C308000342741 /* scmatch_evaluation.c in Sources */,
 				F6DD1CAD1B8DFE0B00BA6BE0 /* pam_smartcard.c in Sources */,
 				F6C0B8E81B8DE6BC00892765 /* Common.c in Sources */,
+				F6D2E89326737AB2005D165D /* krb5principal.m in Sources */,
+				F6D2E89126737A41005D165D /* ds_ops.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

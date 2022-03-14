@@ -46,7 +46,7 @@ class IOFireWireSBP2Target;
     Finally the LUN can supply a reference to the IOFireWireUnit.  This can be useful if a driver wishes to access the standard FireWire APIs.  
 */
 
-class IOFireWireSBP2LUN : public IOService
+class __exported IOFireWireSBP2LUN : public IOService
 {
     OSDeclareDefaultStructors( IOFireWireSBP2LUN );
 

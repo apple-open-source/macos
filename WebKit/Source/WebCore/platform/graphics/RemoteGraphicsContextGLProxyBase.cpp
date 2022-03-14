@@ -29,12 +29,19 @@
 #if ENABLE(GPU_PROCESS) && ENABLE(WEBGL)
 #include "NotImplemented.h"
 
+#if PLATFORM(COCOA)
+#include "IOSurface.h"
+#endif
+
+#if USE(GRAPHICS_LAYER_WC)
+#include "TextureMapperPlatformLayer.h"
+#endif
+
 namespace WebCore {
 
 RemoteGraphicsContextGLProxyBase::RemoteGraphicsContextGLProxyBase(const GraphicsContextGLAttributes& attrs)
     : GraphicsContextGL(attrs)
 {
-    platformInitialize();
 }
 
 RemoteGraphicsContextGLProxyBase::~RemoteGraphicsContextGLProxyBase() = default;
@@ -61,40 +68,10 @@ bool RemoteGraphicsContextGLProxyBase::isGLES2Compliant() const
 void RemoteGraphicsContextGLProxyBase::markContextChanged()
 {
     // FIXME: The caller should track this state.
-    if (m_layerComposited)
+    if (m_layerComposited) {
         notifyMarkContextChanged();
-    m_layerComposited = false;
-}
-
-void RemoteGraphicsContextGLProxyBase::markLayerComposited()
-{
-    m_layerComposited = true;
-    auto attrs = contextAttributes();
-    if (!attrs.preserveDrawingBuffer) {
-        m_buffersToAutoClear = GraphicsContextGL::COLOR_BUFFER_BIT;
-        if (attrs.depth)
-            m_buffersToAutoClear |= GraphicsContextGL::DEPTH_BUFFER_BIT;
-        if (attrs.stencil)
-            m_buffersToAutoClear |= GraphicsContextGL::STENCIL_BUFFER_BIT;
+        GraphicsContextGL::markContextChanged();
     }
-    for (auto* client : copyToVector(m_clients))
-        client->didComposite();
-}
-
-bool RemoteGraphicsContextGLProxyBase::layerComposited() const
-{
-    return m_layerComposited;
-}
-
-void RemoteGraphicsContextGLProxyBase::setBuffersToAutoClear(GCGLbitfield buffers)
-{
-    if (!contextAttributes().preserveDrawingBuffer)
-        m_buffersToAutoClear = buffers;
-}
-
-GCGLbitfield RemoteGraphicsContextGLProxyBase::getBuffersToAutoClear() const
-{
-    return m_buffersToAutoClear;
 }
 
 bool RemoteGraphicsContextGLProxyBase::supports(const String& name)
@@ -126,16 +103,6 @@ void RemoteGraphicsContextGLProxyBase::initialize(const String& availableExtensi
         m_requestableExtensions.add(extension);
 }
 
-#if !PLATFORM(COCOA)
-void RemoteGraphicsContextGLProxyBase::platformInitialize()
-{
-}
-
-PlatformLayer* RemoteGraphicsContextGLProxyBase::platformLayer() const
-{
-    return nullptr;
-}
-#endif
 #if !USE(ANGLE)
 void RemoteGraphicsContextGLProxyBase::readnPixelsEXT(GCGLint, GCGLint, GCGLsizei, GCGLsizei, GCGLenum, GCGLenum, GCGLsizei, GCGLvoid*)
 {
@@ -151,10 +118,6 @@ void RemoteGraphicsContextGLProxyBase::getnUniformivEXT(GCGLuint, GCGLint, GCGLs
 #endif
 
 #if ENABLE(MEDIA_STREAM) && !PLATFORM(COCOA)
-RefPtr<MediaSample> RemoteGraphicsContextGLProxyBase::paintCompositedResultsToMediaSample()
-{
-    return nullptr;
-}
 #endif
 }
 #endif

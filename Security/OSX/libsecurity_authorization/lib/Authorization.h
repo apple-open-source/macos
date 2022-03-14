@@ -177,7 +177,7 @@ typedef struct {
 } AuthorizationItemSet;
 
 
-static const size_t kAuthorizationExternalFormLength = 32;
+#define kAuthorizationExternalFormLength 32
 /*!
 	@typedef AuthorizationExternalForm
 	An AuthorizationExternalForm structure can hold the externalized form of
@@ -282,8 +282,6 @@ OSStatus AuthorizationFree(AuthorizationRef authorization, AuthorizationFlags fl
 	Setting the kAuthorizationFlagPreAuthorize flag will pre authorize the requested rights so that at a later time -- by calling AuthorizationMakeExternalForm() follow by AuthorizationCreateFromExternalForm() -- the obtained rights can be used in a different process.  Rights that can't be preauthorized will be treated as if they were authorized for the sake of returning an error (in other words if all rights are either authorized or could not be preauthorized this call will still succeed), and they will be returned in authorizedRights with their kAuthorizationFlagCanNotPreAuthorize bit in the flags field set to 1.
 		The rights which could not be preauthorized are not currently authorized and may fail to authorize when a later call to AuthorizationCopyRights() is made, unless the kAuthorizationFlagExtendRights and kAuthorizationFlagInteractionAllowed flags are set.  Even then they might still fail if the user does not supply the correct credentials.
 		The reason for passing in this flag is to provide correct audit trail information and to avoid unnecessary user interaction.
-
-	Setting the kAuthorizationFlagPreAuthorize flag will pre authorize the requested rights so that at a later time -- by calling AuthorizationMakeExternalForm() follow by AuthorizationCreateFromExternalForm() -- the obtained rights can be used in a different process.  When this flags is specified rights that can't be preauthorized will be returned as if they were authorized with their kAuthorizationFlagCanNotPreAuthorize bit in the flags field set to 1.  These rights are not currently authorized and may fail to authorize later unless kAuthorizationFlagExtendRights and kAuthorizationFlagInteractionAllowed flags are set when the actual authorization is done.  And even then they might still fail if the user does not supply the correct credentials.
 
     @param authorization (input) The authorization object on which this operation is performed.
     @param rights (input) A rights set (see AuthorizationCreate).

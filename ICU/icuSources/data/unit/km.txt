@@ -3,9 +3,9 @@
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 km{
     durationUnits{
-        hm{"ម៉:នន"}
-        hms{"ម៉:នន:វិវិ"}
-        ms{"ម៉:វិវិ"}
+        hm{"h:mm"}
+        hms{"h:mm:ss"}
+        ms{"m:ss"}
     }
     units{
         acceleration{
@@ -88,14 +88,52 @@ km{
             }
         }
         compound{
+            10p-1{"ដេស៊ី{0}"}
+            10p-12{"ពីកូ{0}"}
+            10p-15{"ហ្វង់តូ{0}"}
+            10p-18{"អាត់តូ{0}"}
+            10p-2{"សង់ទី{0}"}
+            10p-21{"ហ្សិបតូ{0}"}
+            10p-24{"យ៉ុកតូ{0}"}
+            10p-3{"មីល្លី{0}"}
+            10p-6{"មីក្រូ{0}"}
+            10p-9{"ណាណូ{0}"}
+            10p1{"ដេកា{0}"}
+            10p12{"តេរ៉ា{0}"}
+            10p15{"ប៉េតា{0}"}
+            10p18{"អ៊ិចសា{0}"}
+            10p2{"ហិកតូ{0}"}
+            10p21{"ហ្សិតតា{0}"}
+            10p24{"យ៉ុតតា{0}"}
+            10p3{"គីឡូ{0}"}
+            10p6{"មេហ្គា{0}"}
+            10p9{"ហ្គីហ្គា{0}"}
             per{"{0}​ ក្នុង​មួយ​ {1}"}
+            power2{
+                other{
+                    _{
+                        _{"{0} ការ៉េ"}
+                    }
+                }
+            }
+            power3{
+                other{
+                    _{
+                        _{"{0}គូប"}
+                    }
+                }
+            }
         }
         concentr{
+            item{
+                dnam{"របស់"}
+                other{"{0} របស់"}
+            }
             karat{
                 dnam{"ការ៉ាត់"}
                 other{"{0} ការ៉ាត់"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"មិល្លីក្រាមក្នុងមួយដេស៊ីលីត្រ"}
                 other{"{0} មិល្លីក្រាមក្នុងមួយដេស៊ីលីត្រ"}
             }
@@ -298,6 +336,12 @@ km{
             therm-us{
                 dnam{"ឯកតាកម្ដៅអាមេរិក"}
                 other{"{0} ឯកតាកម្ដៅអាមេរិក"}
+            }
+        }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"គីឡូវ៉ាត់ម៉ោងក្នុង 100 គីឡូម៉ែត្រ"}
+                other{"{0} គីឡូវ៉ាត់ម៉ោងក្នុង 100 គីឡូម៉ែត្រ"}
             }
         }
         frequency{
@@ -773,9 +817,41 @@ km{
             }
         }
         compound{
+            10p-1{"d{0}"}
+            10p-12{"p{0}"}
+            10p-15{"f{0}"}
+            10p-18{"a{0}"}
+            10p-2{"c{0}"}
+            10p-21{"z{0}"}
+            10p-24{"y{0}"}
+            10p-3{"m{0}"}
+            10p-6{"μ{0}"}
+            10p-9{"n{0}"}
+            10p1{"da{0}"}
+            10p12{"T{0}"}
+            10p15{"P{0}"}
+            10p18{"E{0}"}
+            10p2{"h{0}"}
+            10p21{"Z{0}"}
+            10p24{"Y{0}"}
+            10p3{"k{0}"}
+            10p6{"M{0}"}
+            10p9{"G{0}"}
             per{"{0}/{1}"}
         }
         concentr{
+            item{
+                dnam{"របស់"}
+                other{"{0} របស់"}
+            }
+            millimole-per-liter{
+                dnam{"ម.ម៉ូល/លី"}
+                other{"{0} ម.ម៉ូល/លី"}
+            }
+            mole{
+                dnam{"ម៉ូល"}
+                other{"{0} ម៉ូល"}
+            }
             percent{
                 dnam{"%"}
                 other{"{0}%"}
@@ -785,6 +861,10 @@ km{
             liter-per-100-kilometer{
                 dnam{"L/100km"}
                 other{"{0}L/100km"}
+            }
+            liter-per-kilometer{
+                dnam{"លី/គម"}
+                other{"{0} លី/គម"}
             }
         }
         coordinate{
@@ -891,14 +971,23 @@ km{
             }
         }
         pressure{
+            bar{
+                dnam{"បារ"}
+                other{"{0} បារ"}
+            }
             hectopascal{
                 other{"{0} hPa"}
             }
             inch-ofhg{
+                dnam{"″ Hg"}
                 other{"{0}\u0022 Hg"}
             }
             millibar{
-                other{"{0} ម.ប."}
+                other{"{0}mb"}
+            }
+            millimeter-ofhg{
+                dnam{"mmHg"}
+                other{"{0}mmHg"}
             }
         }
         speed{
@@ -1016,20 +1105,44 @@ km{
             }
         }
         compound{
+            10p-1{"d{0}"}
+            10p-12{"p{0}"}
+            10p-15{"f{0}"}
+            10p-18{"a{0}"}
+            10p-2{"c{0}"}
+            10p-21{"z{0}"}
+            10p-24{"y{0}"}
+            10p-3{"m{0}"}
+            10p-6{"μ{0}"}
+            10p-9{"n{0}"}
+            10p1{"da{0}"}
+            10p12{"T{0}"}
+            10p15{"P{0}"}
+            10p18{"E{0}"}
+            10p2{"h{0}"}
+            10p21{"Z{0}"}
+            10p24{"Y{0}"}
+            10p3{"k{0}"}
+            10p6{"M{0}"}
+            10p9{"G{0}"}
             per{"{0}/{1}"}
         }
         concentr{
+            item{
+                dnam{"របស់"}
+                other{"{0} របស់"}
+            }
             karat{
                 dnam{"ការ៉ាត់"}
                 other{"{0} kt"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dL"}
                 other{"{0} mg/dL"}
             }
             millimole-per-liter{
-                dnam{"mmol/L"}
-                other{"{0} mmol/L"}
+                dnam{"មិល្លីម៉ូល/លីត្រ"}
+                other{"{0} ម.ម៉ូល/លី"}
             }
             percent{
                 dnam{"ភាគរយ"}
@@ -1050,8 +1163,8 @@ km{
                 other{"{0} L/100km"}
             }
             liter-per-kilometer{
-                dnam{"លីត្រ/km"}
-                other{"{0} L/km"}
+                dnam{"លីត្រ/គម"}
+                other{"{0} លី/គម"}
             }
             mile-per-gallon{
                 dnam{"ម៉ាយ​/​ហ្គាឡុង"}
@@ -1290,7 +1403,7 @@ km{
             }
             micrometer{
                 dnam{"មីក្រូ​ម៉ែត្រ"}
-                other{"{0} µm"}
+                other{"{0} μm"}
             }
             mile{
                 dnam{"ម៉ាយ"}
@@ -1359,8 +1472,8 @@ km{
                 other{"{0} t"}
             }
             microgram{
-                dnam{"µg"}
-                other{"{0} µg"}
+                dnam{"μg"}
+                other{"{0} μg"}
             }
             milligram{
                 dnam{"mg"}

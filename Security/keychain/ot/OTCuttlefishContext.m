@@ -27,6 +27,7 @@
 #import <os/feature_private.h>
 #import <Security/Security.h>
 #include <Security/SecRandomP.h>
+#import <Security/SecXPCHelper.h>
 #import <SecurityFoundation/SFKey_Private.h>
 #include <sys/sysctl.h>
 #import <TrustedPeers/TrustedPeers.h>
@@ -125,8 +126,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     NSString* _bottleID;
     NSString* _bottleSalt;
     NSData* _entropy;
-    NSString* _recoveryKey;
-    OTAccountSettings *_settings;
     CuttlefishResetReason _resetReason;
     BOOL _skipRateLimitingCheck;
 }
@@ -637,12 +636,21 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)localReset:(nonnull void (^)(NSError * _Nullable))reply
 {
-    OTLocalResetOperation* pendingOp = [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
-                                                                             intendedState:OctagonStateInitializing
-                                                                                errorState:OctagonStateError];
+    
+    OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary:@{
+        OctagonStateLocalReset:  @{
+            OctagonStateLocalResetClearLocalContextState: @{
+                OctagonStateInitializing: [OctagonStateTransitionPathStep success],
+            },
+        },
+    }];
 
     NSMutableSet* sourceStates = [NSMutableSet setWithArray: [OTStates OctagonStateMap].allKeys];
-    [self.stateMachine doSimpleStateMachineRPC:@"local-reset" op:pendingOp sourceStates:sourceStates reply:reply];
+
+    [self.stateMachine doWatchedStateMachineRPC:@"local-reset-watcher"
+                                   sourceStates:sourceStates
+                                           path:path
+                                          reply:reply];
 }
 
 - (NSDictionary*)establishStatePathDictionary
@@ -695,7 +703,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
     OctagonStateTransitionPath* path = [OctagonStateTransitionPath pathFromDictionary: @{
         OctagonStateResetBecomeUntrusted: @{
             OctagonStateResetAndEstablish: @{
-                OctagonStateResetAnyMissingTLKCKKSViews: [self establishStatePathDictionary]
+                OctagonStateResetAnyMissingTLKCKKSViews: @{
+                    OctagonStateResetAndEstablishClearLocalContextState: [self establishStatePathDictionary]
+                },
             },
         },
     }];
@@ -845,7 +855,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         } else {
             secnotice("octagon", "Waiting for a CloudKit account; current state is %@", self.cloudKitAccountInfo ?: @"uninitialized");
 
-            // Nuge the accountStateTracker if it hasn't successfully delivered a status
+            // Nudge the accountStateTracker if it hasn't successfully delivered a status
             if(self.cloudKitAccountInfo == nil) {
                 secnotice("octagon", "Asking for a real CK account state");
                 [self.accountStateTracker recheckCKAccountStatus];
@@ -1078,20 +1088,36 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                                                         errorState:OctagonStateError];
     }
 
+    if([currentState isEqualToString:OctagonStateLocalReset]) {
+        secnotice("octagon", "Attempting local-reset");
+        return [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
+                                                     intendedState:OctagonStateLocalResetClearLocalContextState
+                                                    errorState:OctagonStateInitializing];
+    }
+
+    if([currentState isEqualToString:OctagonStateLocalResetClearLocalContextState]) {
+        [self clearContextState];
+        return [OctagonStateTransitionOperation named:@"move-to-initializing"
+                                             entering:OctagonStateInitializing];
+    }
+    
     if([currentState isEqualToString:OctagonStateNoAccountDoReset]) {
         secnotice("octagon", "Attempting local-reset as part of signout");
+        [self clearContextState];
         return [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
                                                      intendedState:OctagonStateNoAccount
                                                         errorState:OctagonStateNoAccount];
     }
 
     if([currentState isEqualToString:OctagonStatePeerMissingFromServer]) {
+        [self clearContextState];
         return [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
                                                      intendedState:OctagonStateBecomeUntrusted
                                                         errorState:OctagonStateBecomeUntrusted];
     }
 
     if([currentState isEqualToString:OctagonStateLostAccountAuth]) {
+        [self clearContextState];
         return [[OTLocalResetOperation alloc] initWithDependencies:self.operationDependencies
                                                      intendedState:OctagonStateBecomeUntrusted
                                                         errorState:OctagonStateBecomeUntrusted];
@@ -1269,8 +1295,14 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
     } else if([currentState isEqualToString:OctagonStateResetAnyMissingTLKCKKSViews]) {
         return [[OTResetCKKSZonesLackingTLKsOperation alloc] initWithDependencies:self.operationDependencies
-                                                                    intendedState:OctagonStateEstablishEnableCDPBit
+                                                                    intendedState:OctagonStateResetAndEstablishClearLocalContextState
                                                                        errorState:OctagonStateError];
+
+    } else if([currentState isEqualToString:OctagonStateResetAndEstablishClearLocalContextState]) {
+        secnotice("octagon","clear cuttlefish context state");
+        [self clearContextState];
+        return [OctagonStateTransitionOperation named:@"moving-to-enable-cdp-bit"
+                                             entering:OctagonStateEstablishEnableCDPBit];
 
     } else if([currentState isEqualToString:OctagonStateEstablishEnableCDPBit]) {
         return [[OTSetCDPBitOperation alloc] initWithDependencies:self.operationDependencies
@@ -3116,7 +3148,7 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
                                            reply:^(NSDictionary * _Nullable dump, NSError * _Nullable dumpError) {
             secnotice("octagon", "Finished dump for status RPC");
             if(dumpError) {
-                result[@"contextDumpError"] = dumpError;
+                result[@"contextDumpError"] = [SecXPCHelper cleanseErrorForXPC:dumpError];
             } else {
                 result[@"contextDump"] = dump;
             }
@@ -3558,34 +3590,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         }];
 }
 
-- (void)rpcValidatePeers:(void (^)(NSDictionary* _Nullable result, NSError* _Nullable error))reply
-{
-    __block NSMutableDictionary* result = [NSMutableDictionary dictionary];
-
-    result[@"containerName"] = self.containerName;
-    result[@"contextID"] = self.contextID;
-    result[@"state"] = [self.stateMachine waitForState:OctagonStateReady wait:3*NSEC_PER_SEC];
-
-    NSError* accountError = [self errorIfNoCKAccount:nil];
-    if (accountError != nil) {
-        secnotice("octagon", "No cloudkit account present: %@", accountError);
-        reply(nil, accountError);
-        return;
-    }
-
-    [self.cuttlefishXPCWrapper validatePeersWithContainer:self.containerName
-                                                  context:self.contextID
-                                                    reply:^(NSDictionary * _Nullable validateData, NSError * _Nullable dumpError) {
-            secnotice("octagon", "Finished validatePeers for status RPC");
-            if(dumpError) {
-                result[@"error"] = dumpError;
-            } else {
-                result[@"validate"] = validateData;
-            }
-            reply(result, nil);
-        }];
-}
-
 - (void)rpcRefetchCKKSPolicy:(void (^)(NSError * _Nullable error))reply
 {
     [self.stateMachine doWatchedStateMachineRPC:@"octagon-refetch-ckks-policy"
@@ -3870,8 +3874,9 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
 - (void)rpcWaitForPriorityViewKeychainDataRecovery:(void (^)(NSError* replyError))reply
 {
-    CKKSResultOperation* waitOp = [CKKSResultOperation named:@"wait-for-sync" withBlock:^{}];
     secnotice("octagon-ckks", "Beginning to wait for CKKS Priority view download");
+
+    CKKSResultOperation* waitOp = [self.ckks rpcWaitForPriorityViewProcessing];
 
     CKKSResultOperation* replyOp = [CKKSResultOperation named:@"wait-for-sync-reply" withBlock:^{
         if(waitOp.error) {
@@ -3882,15 +3887,6 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
 
         reply(waitOp.error);
     }];
-
-    [waitOp addNullableSuccessDependency:self.ckks.zoneChangeFetcher.inflightFetch];
-
-    [waitOp addSuccessDependency:[self.ckks rpcProcessIncomingQueue:nil
-                                               errorOnClassAFailure:true]];
-
-    // Chosen as a Very Long Time (+5min), but a non-round number of seconds
-    [waitOp timeout:323 * NSEC_PER_SEC];
-    [self.operationQueue addOperation:waitOp];
 
     [replyOp addDependency:waitOp];
     [self.operationQueue addOperation:replyOp];
@@ -4305,5 +4301,28 @@ static dispatch_time_t OctagonStateTransitionDefaultTimeout = 10*NSEC_PER_SEC;
         }
     }];
 }
+
+- (void)clearContextState
+{
+    _bottleID = nil;
+    _bottleSalt = nil;
+    _entropy = nil;
+    _resetReason = CuttlefishResetReasonUnknown;
+    self.recoveryKey = nil;
+    self.inheritanceKey = nil;
+    self.custodianRecoveryKey = nil;
+}
+
+- (BOOL)checkAllStateCleared
+{
+    return self.inheritanceKey == nil &&
+        self.custodianRecoveryKey == nil &&
+        self.recoveryKey == nil &&
+        _bottleID == nil &&
+        _bottleSalt == nil &&
+        _entropy == nil &&
+        _resetReason == CuttlefishResetReasonUnknown;
+}
+
 @end
 #endif

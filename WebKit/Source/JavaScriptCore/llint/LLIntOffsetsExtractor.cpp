@@ -71,7 +71,7 @@
 #include "VM.h"
 #include "ValueProfile.h"
 #include "WasmCallingConvention.h"
-#include "WasmFunctionCodeBlock.h"
+#include "WasmFunctionCodeBlockGenerator.h"
 #include "WasmInstance.h"
 #include "Watchdog.h"
 #include "WebAssemblyFunction.h"
@@ -87,8 +87,17 @@ class LLIntOffsetsExtractor {
     // These types are useful since we can't use '<...>' syntax in LLInt offsets extraction. e.g. Vector<int>::m_data
     using Vector = WTF::Vector<int>;
     using JSInternalFieldObjectImpl = JSC::JSInternalFieldObjectImpl<>;
-    using FixedVector = WTF::FixedVector<int>;
-    using RefCountedArray = WTF::RefCountedArray<int>;
+    using ValueProfileFixedVector = WTF::FixedVector<ValueProfile>;
+    using BinaryArithProfileFixedVector = FixedVector<BinaryArithProfile>;
+    using UnaryArithProfileFixedVector = FixedVector<UnaryArithProfile>;
+    using UnlinkedSimpleJumpTableFixedVector = FixedVector<UnlinkedSimpleJumpTable>;
+    using UnlinkedStringJumpTableFixedVector = FixedVector<UnlinkedStringJumpTable>;
+    using Int32FixedVector = FixedVector<int32_t>;
+    using Int64FixedVector = FixedVector<uint64_t>;
+    using VoidPointerFixedVector = FixedVector<void*>;
+#if ENABLE(WEBASSEMBLY)
+    using WasmJumpTableFixedVector = FixedVector<Wasm::JumpTable>;
+#endif
 
 public:
     static const int64_t* dummy();

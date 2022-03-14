@@ -452,6 +452,7 @@ DateFormatSymbols::copyData(const DateFormatSymbols& other) {
  */
 DateFormatSymbols& DateFormatSymbols::operator=(const DateFormatSymbols& other)
 {
+    if (this == &other) { return *this; }  // self-assignment: no-op
     dispose();
     copyData(other);
 
@@ -538,12 +539,12 @@ DateFormatSymbols::arrayCompare(const UnicodeString* array1,
     return TRUE;
 }
 
-UBool
+bool
 DateFormatSymbols::operator==(const DateFormatSymbols& other) const
 {
     // First do cheap comparisons
     if (this == &other) {
-        return TRUE;
+        return true;
     }
     if (fErasCount == other.fErasCount &&
         fEraNamesCount == other.fEraNamesCount &&
@@ -624,22 +625,22 @@ DateFormatSymbols::operator==(const DateFormatSymbols& other) const
             // Compare the contents of fZoneStrings
             if (fZoneStrings == NULL && other.fZoneStrings == NULL) {
                 if (fZSFLocale == other.fZSFLocale) {
-                    return TRUE;
+                    return true;
                 }
             } else if (fZoneStrings != NULL && other.fZoneStrings != NULL) {
                 if (fZoneStringsRowCount == other.fZoneStringsRowCount
                     && fZoneStringsColCount == other.fZoneStringsColCount) {
-                    UBool cmpres = TRUE;
+                    bool cmpres = true;
                     for (int32_t i = 0; (i < fZoneStringsRowCount) && cmpres; i++) {
                         cmpres = arrayCompare(fZoneStrings[i], other.fZoneStrings[i], fZoneStringsColCount);
                     }
                     return cmpres;
                 }
             }
-            return FALSE;
+            return false;
         }
     }
-    return FALSE;
+    return false;
 }
 
 //------------------------------------------------------
@@ -1544,7 +1545,7 @@ struct CalendarDataSink : public ResourceSink {
         aliasPathPairs.removeAllElements();
     }
 
-    virtual void put(const char *key, ResourceValue &value, UBool, UErrorCode &errorCode) {
+    virtual void put(const char *key, ResourceValue &value, UBool, UErrorCode &errorCode) override {
         if (U_FAILURE(errorCode)) { return; }
         U_ASSERT(!currentCalendarType.isEmpty());
 
@@ -1574,7 +1575,7 @@ struct CalendarDataSink : public ResourceSink {
                     if (U_FAILURE(errorCode)) { return; }
                 }
                 LocalPointer<UnicodeString> aliasRelativePathCopy(new UnicodeString(aliasRelativePath), errorCode);
-                resourcesToVisitNext->addElement(aliasRelativePathCopy.getAlias(), errorCode);
+                resourcesToVisitNext->addElementX(aliasRelativePathCopy.getAlias(), errorCode);
                 if (U_FAILURE(errorCode)) { return; }
                 // Only release ownership after resourcesToVisitNext takes it (no error happened):
                 aliasRelativePathCopy.orphan();
@@ -1584,12 +1585,12 @@ struct CalendarDataSink : public ResourceSink {
                 // Register same-calendar alias
                 if (arrays.get(aliasRelativePath) == NULL && maps.get(aliasRelativePath) == NULL) {
                     LocalPointer<UnicodeString> aliasRelativePathCopy(new UnicodeString(aliasRelativePath), errorCode);
-                    aliasPathPairs.addElement(aliasRelativePathCopy.getAlias(), errorCode);
+                    aliasPathPairs.addElementX(aliasRelativePathCopy.getAlias(), errorCode);
                     if (U_FAILURE(errorCode)) { return; }
                     // Only release ownership after aliasPathPairs takes it (no error happened):
                     aliasRelativePathCopy.orphan();
                     LocalPointer<UnicodeString> keyUStringCopy(new UnicodeString(keyUString), errorCode);
-                    aliasPathPairs.addElement(keyUStringCopy.getAlias(), errorCode);
+                    aliasPathPairs.addElementX(keyUStringCopy.getAlias(), errorCode);
                     if (U_FAILURE(errorCode)) { return; }
                     // Only release ownership after aliasPathPairs takes it (no error happened):
                     keyUStringCopy.orphan();
@@ -1760,12 +1761,12 @@ struct CalendarDataSink : public ResourceSink {
             if (aliasType == SAME_CALENDAR) {
                 // Store the alias path and the current path on aliasPathPairs
                 LocalPointer<UnicodeString> aliasRelativePathCopy(new UnicodeString(aliasRelativePath), errorCode);
-                aliasPathPairs.addElement(aliasRelativePathCopy.getAlias(), errorCode);
+                aliasPathPairs.addElementX(aliasRelativePathCopy.getAlias(), errorCode);
                 if (U_FAILURE(errorCode)) { return; }
                 // Only release ownership after aliasPathPairs takes it (no error happened):
                 aliasRelativePathCopy.orphan();
                 LocalPointer<UnicodeString> pathCopy(new UnicodeString(path), errorCode);
-                aliasPathPairs.addElement(pathCopy.getAlias(), errorCode);
+                aliasPathPairs.addElementX(pathCopy.getAlias(), errorCode);
                 if (U_FAILURE(errorCode)) { return; }
                 // Only release ownership after aliasPathPairs takes it (no error happened):
                 pathCopy.orphan();
@@ -2110,7 +2111,7 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
 
     if (U_FAILURE(status)) return;
 
-    // Create a CalendarDataSink to process this data and the resouce bundles
+    // Create a CalendarDataSink to process this data and the resource bundles
     CalendarDataSink calendarSink(status);
     UResourceBundle *rb = ures_open(NULL, locale.getBaseName(), &status);
     UResourceBundle *cb = ures_getByKey(rb, gCalendarTag, NULL, &status);
@@ -2338,7 +2339,7 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
         // If format/narrow not available, use standalone/narrow
         assignArray(fNarrowMonths, fNarrowMonthsCount, fStandaloneNarrowMonths, fStandaloneNarrowMonthsCount);
     } else if (narrowMonthsEC != U_MISSING_RESOURCE_ERROR && standaloneNarrowMonthsEC == U_MISSING_RESOURCE_ERROR) {
-        // If standalone/narrow not availabe, use format/narrow
+        // If standalone/narrow not available, use format/narrow
         assignArray(fStandaloneNarrowMonths, fStandaloneNarrowMonthsCount, fNarrowMonths, fNarrowMonthsCount);
     } else if (narrowMonthsEC == U_MISSING_RESOURCE_ERROR && standaloneNarrowMonthsEC == U_MISSING_RESOURCE_ERROR) {
         // If neither is available, use format/abbreviated
@@ -2390,7 +2391,7 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
         status = U_ZERO_ERROR;
         assignArray(fNarrowQuarters, fNarrowQuartersCount, fStandaloneNarrowQuarters, fStandaloneNarrowQuartersCount);
     }
-
+    
     // ICU 3.8 or later version no longer uses localized date-time pattern characters by default (ticket#5597)
     /*
     // fastCopyFrom()/setTo() - see assignArray comments

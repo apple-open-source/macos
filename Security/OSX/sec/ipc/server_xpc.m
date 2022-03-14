@@ -489,4 +489,16 @@
     CFReleaseNull(cferror);
 }
 
+- (void)secItemPromoteItemsForAppClip:(NSString*)appClipAppID
+                          toParentApp:(NSString*)parentAppID
+                           completion:(void (^)(OSStatus))completion
+{
+    if (![self clientHasBooleanEntitlement:(__bridge NSString*)kSecEntitlementPrivateAppClipDeletion]) {
+        completion(errSecMissingEntitlement);
+        return;
+    }
+
+    completion(SecServerPromoteAppClipItemsToParentApp((__bridge CFStringRef)appClipAppID, (__bridge CFStringRef)parentAppID));
+}
+
 @end

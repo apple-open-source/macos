@@ -36,8 +36,17 @@
 static NSString * const _CKErrorDomain = @"CKErrorDomain";
 static NSString * const _CKInternalErrorDomain = @"CKInternalErrorDomain";
 static NSString * const _CKErrorRetryAfterKey = @"CKRetryAfter";
+static NSString * const _CKPartialErrorsByItemIDKey   = @"CKPartialErrors";
+
+static NSString * const _AKAppleIDAuthenticationErrorDomain = @"AKAuthenticationError";
 
 enum {
+    /*! Some items failed, but the operation succeeded overall. Check CKPartialErrorsByItemIDKey in the userInfo dictionary for more details.
+     *  This error is only returned from CKOperation completion blocks, which are deprecated in swift.
+     *  It will not be returned from (swift-only) CKOperation result blocks, which are their replacements
+     */
+    _CKErrorPartialFailure                 = 2,
+
     /*! Network not available */
     _CKErrorNetworkUnavailable             = 3,
 
@@ -69,7 +78,7 @@ enum {
         underlyingError.code == _CKErrorInternalServerInternalError;
 }
 
-- (BOOL)_isCuttlefishError:(CuttlefishErrorCode)cuttlefishErrorCode
+- (BOOL)isCuttlefishError:(CuttlefishErrorCode)cuttlefishErrorCode
 {
     NSError *error = self;
 
@@ -104,7 +113,7 @@ enum {
 - (BOOL)_isRetryableAKError {
     NSError* underlyingError = self.userInfo[NSUnderlyingErrorKey];
 
-    return [self.domain isEqualToString:AKAppleIDAuthenticationErrorDomain] &&
+    return [self.domain isEqualToString:_AKAppleIDAuthenticationErrorDomain] &&
         underlyingError &&
         [underlyingError _isRetryableNSURLError];
 }
@@ -112,15 +121,15 @@ enum {
 - (bool)isRetryable {
     bool retry = false;
     // Specific errors that are transaction failed -- try them again
-    if ([self _isCuttlefishError:CuttlefishErrorRetryableServerFailure] ||
-        [self _isCuttlefishError:CuttlefishErrorTransactionalFailure]) {
+    if ([self isCuttlefishError:CuttlefishErrorRetryableServerFailure] ||
+        [self isCuttlefishError:CuttlefishErrorTransactionalFailure]) {
         retry = true;
     // These are the CuttlefishError -> FunctionErrorType
-    } else if ([self _isCuttlefishError:CuttlefishErrorJoinFailed] ||
-               [self _isCuttlefishError:CuttlefishErrorUpdateTrustFailed] ||
-               [self _isCuttlefishError:CuttlefishErrorEstablishPeerFailed] ||
-               [self _isCuttlefishError:CuttlefishErrorEstablishBottleFailed] ||
-               [self _isCuttlefishError:CuttlefishErrorEscrowProxyFailure]) {
+    } else if ([self isCuttlefishError:CuttlefishErrorJoinFailed] ||
+               [self isCuttlefishError:CuttlefishErrorUpdateTrustFailed] ||
+               [self isCuttlefishError:CuttlefishErrorEstablishPeerFailed] ||
+               [self isCuttlefishError:CuttlefishErrorEstablishBottleFailed] ||
+               [self isCuttlefishError:CuttlefishErrorEscrowProxyFailure]) {
         retry = true;
     } else if ([self.domain isEqualToString:TrustedPeersHelperErrorDomain]) {
         switch (self.code) {
@@ -153,6 +162,66 @@ enum {
     }
 
     return retry;
+}
+
+static NSTimeInterval _CKRetryAfterSecondsForError(NSError *error) {
+    __block NSNumber *lowestRetryAfterSeconds = nil;
+    
+    if ([error.domain isEqualToString:_CKErrorDomain]) {
+        if (error.code != _CKErrorPartialFailure) {
+            lowestRetryAfterSeconds = error.userInfo[_CKErrorRetryAfterKey];
+        } else {
+            NSDictionary<id, NSError *> *partialErrors = error.userInfo[_CKPartialErrorsByItemIDKey];
+            [partialErrors enumerateKeysAndObjectsUsingBlock:^(id key, NSError *partialError, BOOL *stop) {
+                NSNumber *retryAfterSeconds = partialError.userInfo[_CKErrorRetryAfterKey];
+                if (retryAfterSeconds && (lowestRetryAfterSeconds == nil || retryAfterSeconds.doubleValue < lowestRetryAfterSeconds.doubleValue)) {
+                    lowestRetryAfterSeconds = retryAfterSeconds;
+                }
+            }];
+        }
+    }
+    
+    if (lowestRetryAfterSeconds != nil) {
+        return (NSTimeInterval)lowestRetryAfterSeconds.doubleValue;
+    } else {
+        return 0;
+    }
+}
+
+- (NSTimeInterval)cuttlefishRetryAfter {
+    NSError *error = self;
+
+    if ([error.domain isEqualToString:_CKErrorDomain] && error.code == _CKErrorServerRejectedRequest) {
+        NSError* underlyingError = error.userInfo[NSUnderlyingErrorKey];
+
+        if([underlyingError.domain isEqualToString:_CKInternalErrorDomain] && underlyingError.code == _CKErrorInternalPluginError) {
+            NSError* cuttlefishError = underlyingError.userInfo[NSUnderlyingErrorKey];
+
+            if([cuttlefishError.domain isEqualToString:CuttlefishErrorDomain]) {
+                NSNumber* val = cuttlefishError.userInfo[CuttlefishErrorRetryAfterKey];
+                if (val != nil) {
+                    return (NSTimeInterval)val.doubleValue;
+                }
+            }
+        }
+    }
+    return 0;
+}
+
+static NSTimeInterval baseDelay = 30;
+
++ (void)setDefaultRetryIntervalForTests:(NSTimeInterval)retryInterval {
+    baseDelay = retryInterval;
+}
+
+- (NSTimeInterval)retryInterval {
+    NSTimeInterval ckDelay = _CKRetryAfterSecondsForError(self);
+    NSTimeInterval cuttlefishDelay = [self cuttlefishRetryAfter];
+    NSTimeInterval delay = MAX(ckDelay, cuttlefishDelay);
+    if (delay == 0) {
+        delay = baseDelay;
+    }
+    return delay;
 }
 
 @end

@@ -45,7 +45,7 @@
  * This function requires the sprlock to be held
  *
  * In general, it will not block. If it needs to allocate a new
- * page of memory, the underlying kernel _MALLOC may block.
+ * page of memory, the underlying kernel kalloc may block.
  */
 struct dtrace_ptss_page_entry*
 dtrace_ptss_claim_entry_locked(struct proc* p)

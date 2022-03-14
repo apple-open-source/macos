@@ -40,15 +40,15 @@ WTF_MAKE_ISO_ALLOCATED_IMPL(PaymentResponse);
 
 PaymentResponse::PaymentResponse(ScriptExecutionContext* context, PaymentRequest& request)
     : ActiveDOMObject { context }
-    , m_request { makeWeakPtr(request) }
+    , m_request { request }
 {
-    suspendIfNeeded();
 }
 
 void PaymentResponse::finishConstruction()
 {
     ASSERT(!hasPendingActivity());
     m_pendingActivity = makePendingActivity(*this);
+    suspendIfNeeded();
 }
 
 PaymentResponse::~PaymentResponse()
@@ -60,7 +60,7 @@ PaymentResponse::~PaymentResponse()
 void PaymentResponse::setDetailsFunction(DetailsFunction&& detailsFunction)
 {
     m_detailsFunction = WTFMove(detailsFunction);
-    m_cachedDetails = { };
+    m_cachedDetails.clear();
 }
 
 void PaymentResponse::complete(std::optional<PaymentComplete>&& result, DOMPromiseDeferred<void>&& promise)
@@ -104,7 +104,7 @@ void PaymentResponse::retry(PaymentValidationErrors&& errors, DOMPromiseDeferred
         return;
     }
 
-    m_retryPromise = WTF::makeUnique<DOMPromiseDeferred<void>>(WTFMove(promise));
+    m_retryPromise = makeUnique<DOMPromiseDeferred<void>>(WTFMove(promise));
 }
 
 void PaymentResponse::abortWithException(Exception&& exception)

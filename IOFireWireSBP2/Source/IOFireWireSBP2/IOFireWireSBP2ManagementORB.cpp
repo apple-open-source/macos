@@ -57,14 +57,13 @@ bool IOFireWireSBP2ManagementORB::initWithLUN( IOFireWireSBP2LUN * lun, void * r
  
 	// we want the expansion data member to be zeroed if it's available 
 	// so create and zero in a local then assign to the member when were done
+	// (IOMallocType guarantees to return zero'd memory)
 	
-	ExpansionData * exp_data = (ExpansionData*) IOMalloc( sizeof(ExpansionData) );
+	ExpansionData * exp_data = IOMallocType( ExpansionData );
 	if( !exp_data )
 	{
 		return false;
 	}
-
-	bzero( exp_data, sizeof(ExpansionData) );
 	
 	fExpansionData = exp_data;
    
@@ -321,8 +320,7 @@ void IOFireWireSBP2ManagementORB::free( void )
 	
 	if( fExpansionData )
 	{
-		IOFree( fExpansionData, sizeof(ExpansionData) );
-		fExpansionData = NULL;
+		IOFreeType( fExpansionData, ExpansionData );
 	}
 
     IOFWCommand::free();

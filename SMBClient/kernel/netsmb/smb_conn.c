@@ -188,10 +188,15 @@ static void smb_co_put(struct smb_connobj *cp, vfs_context_t context)
 	} else {
 		SMBERROR("negative usecount\n");
 	}
-	lck_mtx_unlock(&(cp)->co_interlock);
-	smb_co_unlock(cp);
-	if ((cp->co_flags & SMBO_GONE) == 0)
-		return;
+
+    if ((cp->co_flags & SMBO_GONE) == 0) {
+        lck_mtx_unlock(&(cp)->co_interlock);
+        smb_co_unlock(cp);
+        return;
+    }
+
+    lck_mtx_unlock(&(cp)->co_interlock);
+    smb_co_unlock(cp);
 
 	smb_co_gone(cp, context);
 }

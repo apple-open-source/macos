@@ -29,8 +29,8 @@
 
 #include "LayoutUnits.h"
 #include "RenderStyle.h"
+#include <wtf/CheckedPtr.h>
 #include <wtf/IsoMalloc.h>
-#include <wtf/WeakPtr.h>
 
 namespace WebCore {
 
@@ -42,7 +42,7 @@ class InitialContainingBlock;
 class LayoutState;
 class TreeBuilder;
 
-class Box : public CanMakeWeakPtr<Box> {
+class Box : public CanMakeCheckedPtr {
     WTF_MAKE_ISO_ALLOCATED(Box);
 public:
     enum class ElementType {
@@ -61,7 +61,7 @@ public:
 
     enum BaseTypeFlag : uint8_t {
         BoxFlag                    = 1 << 0,
-        LegacyInlineTextBoxFlag          = 1 << 1,
+        InlineTextBoxFlag          = 1 << 1,
         LineBreakBoxFlag           = 1 << 2,
         ReplacedBoxFlag            = 1 << 3,
         InitialContainingBlockFlag = 1 << 4,
@@ -138,29 +138,32 @@ public:
     bool isIFrame() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::IFrame; }
     bool isImage() const { return m_elementAttributes && m_elementAttributes.value().elementType == ElementType::Image; }
     bool isInternalRubyBox() const { return false; }
+    bool isIntegrationBlockContainer() const { return m_isIntegrationBlockContainer; }
+    bool isIntegrationRoot() const { return isIntegrationBlockContainer() && !m_parent; }
 
     const ContainerBox& parent() const { return *m_parent; }
-    const Box* nextSibling() const { return m_nextSibling; }
+    const Box* nextSibling() const { return m_nextSibling.get(); }
     const Box* nextInFlowSibling() const;
     const Box* nextInFlowOrFloatingSibling() const;
-    const Box* previousSibling() const { return m_previousSibling; }
+    const Box* previousSibling() const { return m_previousSibling.get(); }
     const Box* previousInFlowSibling() const;
     const Box* previousInFlowOrFloatingSibling() const;
     bool isDescendantOf(const ContainerBox&) const;
 
     // FIXME: This is currently needed for style updates.
-    Box* nextSibling() { return m_nextSibling; }
+    Box* nextSibling() { return m_nextSibling.get(); }
 
     bool isContainerBox() const { return baseTypeFlags().contains(ContainerBoxFlag); }
-    bool isInlineTextBox() const { return baseTypeFlags().contains(LegacyInlineTextBoxFlag); }
+    bool isInlineTextBox() const { return baseTypeFlags().contains(InlineTextBoxFlag); }
     bool isLineBreakBox() const { return baseTypeFlags().contains(LineBreakBoxFlag); }
     bool isReplacedBox() const { return baseTypeFlags().contains(ReplacedBoxFlag); }
 
     bool isPaddingApplicable() const;
     bool isOverflowVisible() const;
 
-    void updateStyle(const RenderStyle& newStyle);
+    void updateStyle(const RenderStyle& newStyle, std::unique_ptr<RenderStyle>&& newFirstLineStyle);
     const RenderStyle& style() const { return m_style; }
+    const RenderStyle& firstLineStyle() const { return hasRareData() && rareData().firstLineStyle ? *rareData().firstLineStyle : m_style; }
 
     // FIXME: Find a better place for random DOM things.
     void setRowSpan(size_t);
@@ -172,20 +175,23 @@ public:
     void setColumnWidth(LayoutUnit);
     std::optional<LayoutUnit> columnWidth() const;
 
-    void setParent(ContainerBox& parent) { m_parent = &parent; }
-    void setNextSibling(Box& nextSibling) { m_nextSibling = &nextSibling; }
-    void setPreviousSibling(Box& previousSibling) { m_previousSibling = &previousSibling; }
-
     void setIsAnonymous() { m_isAnonymous = true; }
+    void setIsIntegrationBlockContainer() { m_isIntegrationBlockContainer = true; }
 
     bool canCacheForLayoutState(const LayoutState&) const;
     BoxGeometry* cachedGeometryForLayoutState(const LayoutState&) const;
     void setCachedGeometryForLayoutState(LayoutState&, std::unique_ptr<BoxGeometry>) const;
 
 protected:
-    Box(std::optional<ElementAttributes>, RenderStyle&&, OptionSet<BaseTypeFlag>);
+    Box(std::optional<ElementAttributes>, RenderStyle&&, std::unique_ptr<RenderStyle>&& firstLineStyle, OptionSet<BaseTypeFlag>);
 
 private:
+    friend class ContainerBox;
+
+    void setParent(ContainerBox*);
+    void setNextSibling(Box*);
+    void setPreviousSibling(Box*);
+
     class BoxRareData {
         WTF_MAKE_FAST_ALLOCATED;
     public:
@@ -193,6 +199,7 @@ private:
 
         CellSpan tableCellSpan;
         std::optional<LayoutUnit> columnWidth;
+        std::unique_ptr<RenderStyle> firstLineStyle;
     };
 
     bool hasRareData() const { return m_hasRareData; }
@@ -210,9 +217,9 @@ private:
     RenderStyle m_style;
     std::optional<ElementAttributes> m_elementAttributes;
 
-    ContainerBox* m_parent { nullptr };
-    Box* m_previousSibling { nullptr };
-    Box* m_nextSibling { nullptr };
+    CheckedPtr<ContainerBox> m_parent;
+    CheckedPtr<Box> m_previousSibling;
+    CheckedPtr<Box> m_nextSibling;
     
     // First LayoutState gets a direct cache.
     mutable WeakPtr<LayoutState> m_cachedLayoutState;
@@ -221,6 +228,7 @@ private:
     unsigned m_baseTypeFlags : 6; // OptionSet<BaseTypeFlag>
     bool m_hasRareData : 1;
     bool m_isAnonymous : 1;
+    bool m_isIntegrationBlockContainer : 1;
 };
 
 inline bool Box::isContainingBlockForInFlow() const

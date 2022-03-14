@@ -29,6 +29,8 @@
 #import "keychain/ckks/tests/CKKSTests+MultiZone.h"
 #import "keychain/ckks/tests/MockCloudKit.h"
 
+#import "keychain/ot/ObjCImprovements.h"
+
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 #include <Security/SecureObjectSync/SOSCloudCircle.h>
@@ -88,10 +90,14 @@
         [rules addObject:mapping];
     }
 
+    // These aren't the normal priority views, but they'll do for testing.
+    NSMutableSet<NSString*>* priorityViews = [viewList mutableCopy];
+    [priorityViews intersectSet:[NSSet setWithArray:@[@"LimitedPeersAllowed", @"Home"]]];
+
     TPSyncingPolicy* policy = [[TPSyncingPolicy alloc] initWithModel:@"test-policy"
                                                              version:[[TPPolicyVersion alloc] initWithVersion:1 hash:@"fake-policy-for-views"]
                                                             viewList:viewList
-                                                       priorityViews:[NSSet set]
+                                                       priorityViews:priorityViews
                                                userControllableViews:[NSSet set]
                                            syncUserControllableViews:TPPBPeerStableInfoUserControllableViewStatus_ENABLED
                                                 viewsToPiggybackTLKs:[viewList containsObject:@"Passwords"] ? [NSSet setWithObject:@"Passwords"] : [NSSet set]
@@ -180,6 +186,11 @@
     XCTAssertNotNil(self.ptaView, "should have a PTA ckks view");
     [self.ckksViews addObject:self.ptaView];
     [self.ckksZones addObject:self.ptaZoneID];
+
+    // The PTC zone is also created by CKKS, but none of our tests use it right now
+    CKRecordZoneID* ptcZoneID = [[CKRecordZoneID alloc] initWithZoneName:CKKSSEViewPTC ownerName:CKCurrentUserDefaultName];
+    self.zones[ptcZoneID] = [[FakeCKZone alloc] initZone:ptcZoneID];
+    [self.ckksZones addObject:ptcZoneID];
 
     [self.defaultCKKS setCurrentSyncingPolicy:self.viewSortingPolicyForManagedViewList];
 }
@@ -385,6 +396,37 @@
     [self deleteTLKMaterialFromKeychain:self.passwordsZoneID];
 }
 
+- (void)putAllFakeDeviceStatusesInCloudKit
+{
+    [self putFakeDeviceStatusInCloudKit:self.engramZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.manateeZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.autoUnlockZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.healthZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.applepayZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.homeZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.mfiZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.limitedZoneID];
+    [self putFakeDeviceStatusInCloudKit:self.passwordsZoneID];
+}
+
+- (void)putAllSelfTLKSharesInCloudKit:(id<CKKSSelfPeer>)sharingPeer
+{
+    [self putAllTLKSharesInCloudKitFrom:sharingPeer to:sharingPeer];
+}
+
+- (void)putAllTLKSharesInCloudKitFrom:(id<CKKSSelfPeer>)sharingPeer to:(id<CKKSPeer>)receivingPeer
+{
+    [self putTLKShareInCloudKit:self.engramZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.engramZoneID];
+    [self putTLKShareInCloudKit:self.manateeZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.manateeZoneID];
+    [self putTLKShareInCloudKit:self.autoUnlockZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.autoUnlockZoneID];
+    [self putTLKShareInCloudKit:self.healthZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.healthZoneID];
+    [self putTLKShareInCloudKit:self.applepayZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.applepayZoneID];
+    [self putTLKShareInCloudKit:self.homeZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.homeZoneID];
+    [self putTLKShareInCloudKit:self.mfiZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.mfiZoneID];
+    [self putTLKShareInCloudKit:self.limitedZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.limitedZoneID];
+    [self putTLKShareInCloudKit:self.passwordsZoneKeys.tlk from:sharingPeer to:receivingPeer zoneID:self.passwordsZoneID];
+}
+
 - (void)waitForKeyHierarchyReadinesses {
     XCTAssertEqual([self.manateeView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Manatee should enter key state ready");
     XCTAssertEqual([self.engramView.keyHierarchyConditions[SecCKKSZoneKeyStateReady] wait:30 * NSEC_PER_SEC], 0, "Engram should enter key state ready");
@@ -415,10 +457,10 @@
 - (void)testAllViewsMakeNewKeyHierarchies {
     // Test starts with nothing anywhere
 
-    // Due to our new cross-zone fetch system, CKKS should only issue one fetch for all zones
-    // Since the tests can sometimes be slow, slow down the fetcher to normal speed
-    [self.injectedManager.zoneChangeFetcher.fetchScheduler changeDelays:2*NSEC_PER_SEC continuingDelay:30*NSEC_PER_SEC];
     self.silentFetchesAllowed = false;
+
+    // One fetch for the priority zones, one fetch for the rest of them
+    [self expectCKFetch];
     [self expectCKFetch];
 
     [self startCKKSSubsystem];
@@ -436,16 +478,15 @@
     for(CKKSKeychainViewState* viewState in self.ckksViews) {
         if(viewState.ckksManagedView) {
             [self putFakeKeyHierarchyInCloudKit:viewState.zoneID];
-
-            if(viewState.ckksManagedView) {
-                [self saveTLKMaterialToKeychain:viewState.zoneID];
-                [self expectCKKSTLKSelfShareUpload:viewState.zoneID];
-            }
+            [self saveTLKMaterialToKeychain:viewState.zoneID];
+            [self expectCKKSTLKSelfShareUpload:viewState.zoneID];
         }
     }
 
-    [self.injectedManager.zoneChangeFetcher.fetchScheduler changeDelays:2*NSEC_PER_SEC continuingDelay:30*NSEC_PER_SEC];
     self.silentFetchesAllowed = false;
+
+    // One fetch for priority views, one fetch for the rest
+    [self expectCKFetch];
     [self expectCKFetch];
 
     [self startCKKSSubsystem];

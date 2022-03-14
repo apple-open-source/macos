@@ -186,9 +186,7 @@ SECURITY_READ_ONLY_LATE(task_t) kernel_task;
 
 int64_t         next_taskuniqueid = 0;
 
-static SECURITY_READ_ONLY_LATE(zone_t) task_zone;
-ZONE_INIT(&task_zone, "tasks", sizeof(struct task),
-    ZC_ZFREE_CLEARMEM, ZONE_ID_TASK, NULL);
+ZONE_DEFINE_ID(ZONE_ID_TASK, "tasks", struct task, ZC_ZFREE_CLEARMEM);
 
 extern uint32_t ipc_control_port_options;
 
@@ -396,7 +394,7 @@ int hwm_user_cores = 0; /* high watermark violations generate user core files */
 
 #ifdef MACH_BSD
 extern uint32_t proc_platform(const struct proc *);
-extern uint32_t proc_min_sdk(struct proc *);
+extern uint32_t proc_sdk(struct proc *);
 extern void     proc_getexecutableuuid(void *, unsigned char *, unsigned long);
 extern int      proc_pid(struct proc *p);
 extern int      proc_selfpid(void);
@@ -1320,10 +1318,10 @@ task_create_internal(
 	struct task_ro_data     task_ro_data = {};
 
 	*child_task = NULL;
-	new_task = zalloc_flags(task_zone, Z_WAITOK | Z_NOFAIL);
+	new_task = zalloc_id(ZONE_ID_TASK, Z_WAITOK | Z_NOFAIL);
 
 	if (task_ref_count_init(new_task) != KERN_SUCCESS) {
-		zfree(task_zone, new_task);
+		zfree_id(ZONE_ID_TASK, new_task);
 		return KERN_RESOURCE_SHORTAGE;
 	}
 
@@ -1332,7 +1330,7 @@ task_create_internal(
 	ledger = ledger_instantiate(task_ledger_template, LEDGER_CREATE_ACTIVE_ENTRIES);
 	if (ledger == NULL) {
 		task_ref_count_fini(new_task);
-		zfree(task_zone, new_task);
+		zfree_id(ZONE_ID_TASK, new_task);
 		return KERN_RESOURCE_SHORTAGE;
 	}
 
@@ -1357,22 +1355,20 @@ task_create_internal(
 			counter_free(&new_task->faults);
 			ledger_dereference(ledger);
 			task_ref_count_fini(new_task);
-			zfree(task_zone, new_task);
+			zfree_id(ZONE_ID_TASK, new_task);
 			return KERN_RESOURCE_SHORTAGE;
 		}
-		new_task->map = vm_map_create(pmap,
+		new_task->map = vm_map_create_options(pmap,
 		    (vm_map_offset_t)(VM_MIN_ADDRESS),
-		    (vm_map_offset_t)(VM_MAX_ADDRESS), TRUE);
-		if (new_task->map == NULL) {
-			pmap_destroy(pmap);
-		}
+		    (vm_map_offset_t)(VM_MAX_ADDRESS),
+		    VM_MAP_CREATE_PAGEABLE);
 	}
 
 	if (new_task->map == NULL) {
 		counter_free(&new_task->faults);
 		ledger_dereference(ledger);
 		task_ref_count_fini(new_task);
-		zfree(task_zone, new_task);
+		zfree_id(ZONE_ID_TASK, new_task);
 		return KERN_RESOURCE_SHORTAGE;
 	}
 
@@ -2019,7 +2015,7 @@ task_deallocate_internal(
 		task->bsd_info_ro = NULL;
 	}
 
-	zfree(task_zone, task);
+	zfree_id(ZONE_ID_TASK, task);
 }
 
 /*
@@ -2367,6 +2363,9 @@ task_mark_corpse(task_t task)
 	/*
 	 * ipc_task_reset() moved to last thread_terminate_self(): rdar://75737960.
 	 * disable old ports here instead.
+	 *
+	 * The vm_map and ipc_space must exist until this function returns,
+	 * convert_port_to_{map,space}_with_flavor relies on this behavior.
 	 */
 	ipc_task_disable(task);
 
@@ -2694,7 +2693,8 @@ task_duplicate_map_and_threads(
 		/* Copy thread name */
 		bsd_copythreadname(get_bsdthread_info(new_thread),
 		    get_bsdthread_info(thread_array[i]));
-		new_thread->thread_tag = thread_array[i]->thread_tag;
+		new_thread->thread_tag = thread_array[i]->thread_tag &
+		    ~THREAD_TAG_USER_JOIN;
 		thread_copy_resource_info(new_thread, thread_array[i]);
 	}
 
@@ -2824,6 +2824,9 @@ task_terminate_internal(
 	 *	but this way we may be more likely to already find it
 	 *	held there).  Mark the task inactive, and prevent
 	 *	further task operations via the task port.
+	 *
+	 *	The vm_map and ipc_space must exist until this function returns,
+	 *	convert_port_to_{map,space}_with_flavor relies on this behavior.
 	 */
 	task_hold_locked(task);
 	task->active = FALSE;
@@ -5380,7 +5383,7 @@ task_info(
 		uint32_t platform, sdk;
 		p = current_proc();
 		platform = proc_platform(p);
-		sdk = proc_min_sdk(p);
+		sdk = proc_sdk(p);
 		if (original_task_info_count > TASK_VM_INFO_REV2_COUNT &&
 		    platform == PLATFORM_IOS &&
 		    sdk != 0 &&
@@ -7803,7 +7806,7 @@ SENDING_NOTIFICATION__THIS_PROCESS_IS_CAUSING_TOO_MUCH_IO(int flavor)
 #ifdef EXC_RESOURCE_MONITORS
 	mach_exception_data_type_t      code[EXCEPTION_CODE_MAX];
 #endif /* EXC_RESOURCE_MONITORS */
-	struct ledger_entry_info        lei;
+	struct ledger_entry_info        lei = {};
 	kern_return_t                   kr;
 
 #ifdef MACH_BSD
@@ -8065,7 +8068,7 @@ task_swap_mach_voucher(
 	 * a call to release it has been added here.
 	 */
 	ipc_voucher_release(*in_out_old_voucher);
-	return KERN_NOT_SUPPORTED;
+	OS_ANALYZER_SUPPRESS("81787115") return KERN_NOT_SUPPORTED;
 }
 
 void
@@ -8514,6 +8517,7 @@ task_set_exc_guard_ctrl_port_default(
 		/* Disable protection for control ports for simulated binaries */
 		task->task_control_port_options = TASK_CONTROL_PORT_OPTIONS_NONE;
 	}
+
 
 	task_set_immovable_pinned(task);
 	main_thread_set_immovable_pinned(main_thread);
@@ -9054,6 +9058,53 @@ task_test_sync_upcall(
 #else
 	(void)task;
 	(void)send_port;
+	return KERN_NOT_SUPPORTED;
+#endif
+}
+
+kern_return_t
+task_test_async_upcall_propagation(
+	task_t      task,
+	ipc_port_t  send_port,
+	int         qos,
+	int         iotier)
+{
+#if DEVELOPMENT || DEBUG
+	kern_return_t kr;
+
+	if (task != current_task() || !IPC_PORT_VALID(send_port)) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	if (qos < THREAD_QOS_DEFAULT || qos > THREAD_QOS_USER_INTERACTIVE ||
+	    iotier < THROTTLE_LEVEL_START || iotier > THROTTLE_LEVEL_END) {
+		return KERN_INVALID_ARGUMENT;
+	}
+
+	struct thread_attr_for_ipc_propagation attr = {
+		.tafip_iotier = iotier,
+		.tafip_qos = qos
+	};
+
+	/* Apply propagate attr to port */
+	kr = ipc_port_propagate_thread_attr(send_port, attr);
+	if (kr != KERN_SUCCESS) {
+		return kr;
+	}
+
+	thread_enable_send_importance(current_thread(), TRUE);
+
+	/* Perform an async kernel upcall on the given send port */
+	mach_test_async_upcall(send_port);
+	thread_enable_send_importance(current_thread(), FALSE);
+
+	ipc_port_release_send(send_port);
+	return KERN_SUCCESS;
+#else
+	(void)task;
+	(void)send_port;
+	(void)qos;
+	(void)iotier;
 	return KERN_NOT_SUPPORTED;
 #endif
 }

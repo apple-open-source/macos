@@ -18,5 +18,5 @@ func CuttlefishRetryAfter(error: Error?) -> TimeInterval {
         return 0
     }
     let nserror = error as NSError
-    return nserror.cuttlefishRetryAfter()
+    return nserror.retryInterval()
 }

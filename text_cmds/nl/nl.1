@@ -1,4 +1,4 @@
-.\" $FreeBSD: src/usr.bin/nl/nl.1,v 1.16 2005/01/25 22:32:48 tjr Exp $
+.\" $FreeBSD$
 .\"
 .\" Copyright (c) 1999 The NetBSD Foundation, Inc.
 .\" All rights reserved.
@@ -14,13 +14,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"        This product includes software developed by the NetBSD
-.\"        Foundation, Inc. and its contributors.
-.\" 4. Neither the name of The NetBSD Foundation nor the names of its
-.\"    contributors may be used to endorse or promote products derived
-.\"    from this software without specific prior written permission.
 .\"
 .\" THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
 .\" ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -34,7 +27,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.Dd January 26, 2005
+.Dd June 18, 2020
 .Dt NL 1
 .Os
 .Sh NAME
@@ -78,12 +71,16 @@
 The
 .Nm
 utility reads lines from the named
+.Ar file ,
+applies a configurable line numbering filter operation,
+and writes the result to the standard output.
+If
 .Ar file
-or the standard input if the
-.Ar file
-argument is omitted,
-applies a configurable line numbering filter operation and writes the result
-to the standard output.
+is a single dash
+.Pq Sq Fl
+or absent,
+.Nm
+reads from the standard input.
 .Pp
 The
 .Nm
@@ -233,6 +230,42 @@ as described in
 .Xr environ 7 .
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Number all non-blank lines:
+.Bd -literal -offset indent
+$ echo -e "This is\\n\\n\\na simple text" | nl
+     1  This is
+
+
+     2  a simple text
+.Ed
+.Pp
+Number all lines including blank ones, with right justified line numbers with
+leading zeroes, starting at 2, with increment of 2 and a custom multi-character
+separator:
+.Bd -literal -offset indent
+$ echo -e "This\\nis\\nan\\n\\n\\nexample" | nl -ba -n rz -i2 -s "->" -v2
+000002->This
+000004->is
+000006->an
+000008->
+000010->
+000012->example
+.Ed
+.Pp
+Number lines matching regular expression for an
+.Em i
+.No followed by either
+.Em m
+.No or
+.Em n
+.Bd -literal -offset indent
+$ echo -e "This is\\na simple text\\nwith multiple\\nlines" | nl -bp'i[mn]'
+        This is
+     1  a simple text
+        with multiple
+     2  lines
+.Ed
 .Sh SEE ALSO
 .Xr jot 1 ,
 .Xr pr 1

@@ -24,6 +24,7 @@
 #include "ElementIterator.h"
 #include "FEMerge.h"
 #include "FilterEffect.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGFEMergeNodeElement.h"
 #include "SVGFilterBuilder.h"
 #include "SVGNames.h"
@@ -44,16 +45,15 @@ Ref<SVGFEMergeElement> SVGFEMergeElement::create(const QualifiedName& tagName, D
     return adoptRef(*new SVGFEMergeElement(tagName, document));
 }
 
-RefPtr<FilterEffect> SVGFEMergeElement::build(SVGFilterBuilder* filterBuilder, Filter& filter) const
+RefPtr<FilterEffect> SVGFEMergeElement::build(SVGFilterBuilder& filterBuilder) const
 {
-    auto effect = FEMerge::create(filter);
-    auto& mergeInputs = effect->inputEffects();
+    FilterEffectVector mergeInputs;
 
     for (auto& mergeNode : childrenOfType<SVGFEMergeNodeElement>(*this)) {
-        auto mergeEffect = filterBuilder->getEffectById(mergeNode.in1());
+        auto mergeEffect = filterBuilder.getEffectById(mergeNode.in1());
         if (!mergeEffect)
             return nullptr;
-        mergeInputs.append(WTFMove(mergeEffect));
+        mergeInputs.append(mergeEffect.releaseNonNull());
     }
 
     mergeInputs.shrinkToFit();
@@ -61,6 +61,8 @@ RefPtr<FilterEffect> SVGFEMergeElement::build(SVGFilterBuilder* filterBuilder, F
     if (mergeInputs.isEmpty())
         return nullptr;
 
+    auto effect = FEMerge::create(mergeInputs.size());
+    effect->inputEffects() = WTFMove(mergeInputs);
     return effect;
 }
 

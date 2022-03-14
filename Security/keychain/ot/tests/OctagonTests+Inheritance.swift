@@ -174,9 +174,9 @@ class OctagonInheritanceTests: OctagonTestsBase {
         XCTAssertTrue(ik1.isRecoveryKeyEqual(ik2), "first IK and reconstructed should match")
     }
 
-    func assertMatches(string: String, re: String, msg: String) {
+    func assertMatches(string: String, re: String, msg: String, file: StaticString = #file, line: UInt = #line) {
         let r = string.range(of: re, options: .regularExpression)
-        XCTAssertNotNil(r, "failed to match re (\(re)) to string (\(string)): \(msg)")
+        XCTAssertNotNil(r, "failed to match re (\(re)) to string (\(string)): \(msg)", file: file, line: line)
     }
 
     func testIKStringFormat() throws {

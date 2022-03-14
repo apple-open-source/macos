@@ -49,7 +49,7 @@ public:
     template<typename CellType, SubspaceAccess mode>
     static IsoSubspace* subspaceFor(VM& vm)
     {
-        return &vm.regExpSpace;
+        return &vm.regExpSpace();
     }
 
     JS_EXPORT_PRIVATE static RegExp* create(VM&, const String& pattern, OptionSet<Yarr::Flags>);
@@ -140,6 +140,13 @@ public:
     String escapedPattern() const;
 
     String toSourceString() const;
+
+#if ENABLE(YARR_JIT)
+    Yarr::YarrCodeBlock* getRegExpJITCodeBlock()
+    {
+        return m_regExpJITCode.get();
+    }
+#endif
 
 private:
     friend class RegExpCache;

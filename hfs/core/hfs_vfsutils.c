@@ -843,7 +843,7 @@ OSErr hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 		/* Get the EAs as needed. */
 		int cperr = 0;
 		struct cp_root_xattr *xattr = NULL;
-		xattr = hfs_malloc(sizeof(*xattr));
+		xattr = hfs_malloc_type(struct cp_root_xattr);
 
 		/* go get the EA to get the version information */
 		cperr = cp_getrootxattr (hfsmp, xattr);
@@ -868,7 +868,7 @@ OSErr hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 		}
 
 		if (cperr) {
-			hfs_free(xattr, sizeof(*xattr));
+			hfs_free_type(xattr, struct cp_root_xattr);
 			retval = EPERM;
 			goto ErrorExit;
 		}
@@ -883,7 +883,7 @@ OSErr hfs_MountHFSPlusVolume(struct hfsmount *hfsmp, HFSPlusVolumeHeader *vhp,
 		hfsmp->hfs_auto_roll_max_key_os_version = xattr->auto_roll_max_version;
 #endif
 
-		hfs_free(xattr, sizeof(*xattr));
+		hfs_free_type(xattr, struct cp_root_xattr);
 
 		/*
 		 * Acquire the boot-arg for the AKS default key; if invalid, obtain from the device tree.
@@ -1691,7 +1691,7 @@ hfs_remove_orphans(struct hfsmount * hfsmp)
 	btdata.itemSize = sizeof(filerec);
 	btdata.itemCount = 1;
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	/* Build a key to "temp" */
 	keyp = (HFSPlusCatalogKey*)&iterator->key;
@@ -1912,7 +1912,7 @@ exit:
 		hfs_end_transaction(hfsmp);
 	}
 
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	hfsmp->hfs_flags |= HFS_CLEANED_ORPHANS;
 }
 
@@ -2310,7 +2310,7 @@ hfs_namecmp(const u_int8_t *str1, size_t len1, const u_int8_t *str2, size_t len2
 		return (cmp);
 
 	maxbytes = kHFSPlusMaxFileNameChars << 1;
-	ustr1 = hfs_malloc(maxbytes << 1);
+	ustr1 = hfs_malloc_data(maxbytes << 1);
 	ustr2 = ustr1 + (maxbytes >> 1);
 
 	if (utf8_decodestr(str1, len1, ustr1, &ulen1, maxbytes, ':', 0) != 0)
@@ -2320,7 +2320,7 @@ hfs_namecmp(const u_int8_t *str1, size_t len1, const u_int8_t *str2, size_t len2
 	
 	cmp = FastUnicodeCompare(ustr1, ulen1>>1, ustr2, ulen2>>1);
 out:
-	hfs_free(ustr1, maxbytes << 1);
+	hfs_free_data(ustr1, maxbytes << 1);
 	return (cmp);
 }
 
@@ -3854,235 +3854,10 @@ uintptr_t obfuscate_addr(void *addr)
 	return new_addr;
 }
 
-static uint64_t hfs_allocated __attribute__((aligned(8)));
-
-#if HFS_MALLOC_DEBUG
-
-#warning HFS_MALLOC_DEBUG is on
-
-#include <libkern/OSDebug.h>
-#include "hfs_alloc_trace.h"
-
-struct alloc_debug_header {
-	uint32_t magic;
-	uint32_t size;
-	uint64_t sequence;
-	LIST_ENTRY(alloc_debug_header) chain;
-	void *backtrace[HFS_ALLOC_BACKTRACE_LEN];
-};
-
-enum {
-	HFS_ALLOC_MAGIC = 0x68667361,	// "hfsa"
-	HFS_ALLOC_DEAD  = 0x68667364,	// "hfsd"
-};
-
-static LIST_HEAD(, alloc_debug_header) hfs_alloc_list;
-static lck_mtx_t *hfs_alloc_mtx;
-static int hfs_alloc_tracing;
-static uint64_t hfs_alloc_sequence;
-
-void hfs_alloc_trace_enable(void)
-{
-	if (hfs_alloc_tracing)
-		return;
-
-	// Not thread-safe, but this is debug so who cares
-	extern lck_grp_t *hfs_mutex_group;
-	extern lck_attr_t *hfs_lock_attr;
-
-	if (!hfs_alloc_mtx) {
-		hfs_alloc_mtx = lck_mtx_alloc_init(hfs_mutex_group, hfs_lock_attr);
-		LIST_INIT(&hfs_alloc_list);
-	}
-
-	// Using OSCompareAndSwap in lieu of a barrier
-	OSCompareAndSwap(hfs_alloc_tracing, true, &hfs_alloc_tracing);
-}
-
-void hfs_alloc_trace_disable(void)
-{
-	if (!hfs_alloc_tracing)
-		return;
-
-	hfs_alloc_tracing = false;
-
-	lck_mtx_lock_spin(hfs_alloc_mtx);
-
-	struct alloc_debug_header *hdr;
-	LIST_FOREACH(hdr, &hfs_alloc_list, chain) {
-		hdr->chain.le_prev = NULL;
-	}
-	LIST_INIT(&hfs_alloc_list);
-
-	lck_mtx_unlock(hfs_alloc_mtx);
-}
-
-static int hfs_handle_alloc_tracing SYSCTL_HANDLER_ARGS
-{
-	int v = hfs_alloc_tracing;
-
-	int err = sysctl_handle_int(oidp, &v, 0, req);
-	if (err || req->newptr == USER_ADDR_NULL || v == hfs_alloc_tracing)
-		return err;
-
-	if (v)
-		hfs_alloc_trace_enable();
-	else
-		hfs_alloc_trace_disable();
-
-	return 0;
-}
-
-HFS_SYSCTL(PROC, _vfs_generic_hfs, OID_AUTO, alloc_tracing,
-		   CTLTYPE_INT | CTLFLAG_RW | CTLFLAG_LOCKED, NULL, 0,
-		   hfs_handle_alloc_tracing, "I", "Allocation tracing")
-
-static int hfs_handle_alloc_trace_info SYSCTL_HANDLER_ARGS
-{
-	if (!hfs_alloc_tracing) {
-		struct hfs_alloc_trace_info info = {};
-		return sysctl_handle_opaque(oidp, &info, sizeof(info), req);
-	}
-
-	const int size = 128 * 1024;
-	struct hfs_alloc_trace_info *info = kalloc(size);
-
-	const int max_entries = ((size - sizeof(*info))
-							 / sizeof(struct hfs_alloc_info_entry));
-
-	info->entry_count = 0;
-	info->more = false;
-
-	lck_mtx_lock_spin(hfs_alloc_mtx);
-
-	struct alloc_debug_header *hdr;
-	LIST_FOREACH(hdr, &hfs_alloc_list, chain) {
-		if (info->entry_count == max_entries) {
-			info->more = true;
-			break;
-		}
-		vm_offset_t o;
-		vm_kernel_addrperm_external((vm_offset_t)hdr, &o);
-		info->entries[info->entry_count].ptr = o;
-		info->entries[info->entry_count].size = hdr->size;
-		info->entries[info->entry_count].sequence = hdr->sequence;
-		for (int i = 0; i < HFS_ALLOC_BACKTRACE_LEN; ++i) {
-			vm_kernel_unslide_or_perm_external((vm_offset_t)hdr->backtrace[i], &o);
-			info->entries[info->entry_count].backtrace[i] = o;
-		}
-		++info->entry_count;
-	}
-
-	lck_mtx_unlock(hfs_alloc_mtx);
-
-	int err = sysctl_handle_opaque(oidp, info,
-								   sizeof(*info) + info->entry_count
-								   * sizeof(struct hfs_alloc_info_entry),
-								   req);
-
-	kfree(info, size);
-
-	return err;
-}
-
-HFS_SYSCTL(PROC, _vfs_generic_hfs, OID_AUTO, alloc_trace_info,
-		   CTLTYPE_OPAQUE | CTLFLAG_RD | CTLFLAG_LOCKED, NULL, 0,
-		   hfs_handle_alloc_trace_info, "-", "Allocation trace info")
-
-bool hfs_dump_allocations(void)
-{
-	if (!hfs_allocated)
-		return false;
-
-	lck_mtx_lock(hfs_alloc_mtx);
-
-	struct alloc_debug_header *hdr;
-	LIST_FOREACH(hdr, &hfs_alloc_list, chain) {
-		vm_offset_t o;
-		vm_kernel_addrperm_external((vm_offset_t)hdr, &o);
-		printf(" -- 0x%lx:%llu <%u> --\n", o, hdr->sequence, hdr->size);
-		for (int j = 0; j < HFS_ALLOC_BACKTRACE_LEN && hdr->backtrace[j]; ++j) {
-			vm_kernel_unslide_or_perm_external((vm_offset_t)hdr->backtrace[j], &o);
-			printf("0x%lx\n", o);
-		}
-	}
-
-	lck_mtx_unlock(hfs_alloc_mtx);
-
-	return true;
-}
-
-#endif
+uint64_t hfs_allocated __attribute__((aligned(8)));
 
 HFS_SYSCTL(QUAD, _vfs_generic_hfs, OID_AUTO, allocated,
 		   CTLFLAG_RD | CTLFLAG_LOCKED, &hfs_allocated, "Memory allocated")
-
-void *hfs_malloc(size_t size)
-{
-#if HFS_MALLOC_DEBUG
-	hfs_assert(size <= 0xffffffff);
-
-	struct alloc_debug_header *hdr;
-
-	void *ptr;
-	ptr = kalloc(size + sizeof(*hdr));
-
-	hdr = ptr + size;
-
-	hdr->magic = HFS_ALLOC_MAGIC;
-	hdr->size = size;
-
-	if (hfs_alloc_tracing) {
-		OSBacktrace(hdr->backtrace, HFS_ALLOC_BACKTRACE_LEN);
-		lck_mtx_lock_spin(hfs_alloc_mtx);
-		LIST_INSERT_HEAD(&hfs_alloc_list, hdr, chain);
-		hdr->sequence = ++hfs_alloc_sequence;
-		lck_mtx_unlock(hfs_alloc_mtx);
-	} else
-		hdr->chain.le_prev = NULL;
-#else
-	void *ptr;
-	ptr = kalloc(size);
-#endif
-
-	OSAddAtomic64(size, &hfs_allocated);
-
-	return ptr;
-}
-
-void hfs_free(void *ptr, size_t size)
-{
-	if (!ptr)
-		return;
-
-	OSAddAtomic64(-(int64_t)size, &hfs_allocated);
-
-#if HFS_MALLOC_DEBUG
-	struct alloc_debug_header *hdr = ptr + size;
-
-	hfs_assert(hdr->magic == HFS_ALLOC_MAGIC);
-	hfs_assert(hdr->size == size);
-
-	hdr->magic = HFS_ALLOC_DEAD;
-
-	if (hdr->chain.le_prev) {
-		lck_mtx_lock_spin(hfs_alloc_mtx);
-		LIST_REMOVE(hdr, chain);
-		lck_mtx_unlock(hfs_alloc_mtx);
-	}
-
-	kfree(ptr, size + sizeof(*hdr));
-#else
-	kfree(ptr, size);
-#endif
-}
-
-void *hfs_mallocz(size_t size)
-{
-	void *ptr = hfs_malloc(size);
-	bzero(ptr, size);
-	return ptr;
-}
 
 // -- Zone allocator-related structures and routines --
 

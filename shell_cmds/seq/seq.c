@@ -1,5 +1,7 @@
-/*	$NetBSD: seq.c,v 1.5 2008/07/21 14:19:26 lukem Exp $	*/
-/*
+/*	$NetBSD: seq.c,v 1.7 2010/05/27 08:40:19 dholland Exp $	*/
+/*-
+ * SPDX-License-Identifier: BSD-2-Clause-NetBSD
+ *
  * Copyright (c) 2005 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
@@ -29,11 +31,12 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/seq/seq.c,v 1.2 2010/02/20 01:23:15 delphij Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <ctype.h>
 #include <err.h>
 #include <errno.h>
+#include <getopt.h>
 #include <math.h>
 #include <locale.h>
 #include <stdio.h>
@@ -51,20 +54,28 @@ __FBSDID("$FreeBSD: src/usr.bin/seq/seq.c,v 1.2 2010/02/20 01:23:15 delphij Exp 
 
 /* Globals */
 
-const char *decimal_point = ".";	/* default */
-char default_format[] = { "%g" };	/* default */
+static const char *decimal_point = ".";	/* default */
+static char default_format[] = { "%g" };	/* default */
+
+static const struct option long_opts[] =
+{
+	{"format",	required_argument,	NULL, 'f'},
+	{"separator",	required_argument,	NULL, 's'},
+	{"terminator",	required_argument,	NULL, 't'},
+	{"equal-width",	no_argument,		NULL, 'w'},
+	{NULL,		no_argument,		NULL, 0}
+};
 
 /* Prototypes */
 
-double e_atof(const char *);
+static double e_atof(const char *);
 
-int decimal_places(const char *);
-int main(int, char *[]);
-int numeric(const char *);
-int valid_format(const char *);
+static int decimal_places(const char *);
+static int numeric(const char *);
+static int valid_format(const char *);
 
-char *generate_format(double, double, double, int, char);
-char *unescape(char *);
+static char *generate_format(double, double, double, int, char);
+static char *unescape(char *);
 
 /*
  * The seq command will print out a numeric sequence from 1, the default,
@@ -75,16 +86,19 @@ char *unescape(char *);
 int
 main(int argc, char *argv[])
 {
-	int c = 0, errflg = 0;
-	int equalize = 0;
-	double first = 1.0;
-	double last = 0.0;
-	double incr = 0.0;
+	const char *sep, *term;
 	struct lconv *locale;
-	char *fmt = NULL;
-	const char *sep = "\n";
-	const char *term = NULL;
-	char pad = ZERO;
+	char pad, *fmt, *cur_print, *last_print;
+	double first, last, incr, last_shown_value, cur, step;
+	int c, errflg, equalize;
+
+	pad = ZERO;
+	fmt = NULL;
+	first = 1.0;
+	last = incr = last_shown_value = 0.0;
+	c = errflg = equalize = 0;
+	sep = "\n";
+	term = NULL;
 
 	/* Determine the locale's decimal point. */
 	locale = localeconv();
@@ -96,7 +110,7 @@ main(int argc, char *argv[])
          * least they trip up getopt(3).
          */
 	while ((optind < argc) && !numeric(argv[optind]) &&
-	    (c = getopt(argc, argv, "f:hs:t:w")) != -1) {
+	    (c = getopt_long(argc, argv, "+f:hs:t:w", long_opts, NULL)) != -1) {
 
 		switch (c) {
 		case 'f':	/* format (plan9) */
@@ -159,6 +173,8 @@ main(int argc, char *argv[])
 		if (!valid_format(fmt))
 			errx(1, "invalid format string: `%s'", fmt);
 		fmt = unescape(fmt);
+		if (!valid_format(fmt))
+			errx(1, "invalid format string");
 		/*
 	         * XXX to be bug for bug compatible with Plan 9 add a
 		 * newline if none found at the end of the format string.
@@ -166,17 +182,32 @@ main(int argc, char *argv[])
 	} else
 		fmt = generate_format(first, incr, last, equalize, pad);
 
-	if (incr > 0) {
-		for (; first <= last; first += incr) {
-			printf(fmt, first);
-			fputs(sep, stdout);
-		}
-	} else {
-		for (; first >= last; first += incr) {
-			printf(fmt, first);
-			fputs(sep, stdout);
-		}
+	for (step = 1, cur = first; incr > 0 ? cur <= last : cur >= last;
+	    cur = first + incr * step++) {
+		printf(fmt, cur);
+		fputs(sep, stdout);
+		last_shown_value = cur;
 	}
+
+	/*
+	 * Did we miss the last value of the range in the loop above?
+	 *
+	 * We might have, so check if the printable version of the last
+	 * computed value ('cur') and desired 'last' value are equal.  If they
+	 * are equal after formatting truncation, but 'cur' and
+	 * 'last_shown_value' are not equal, it means the exit condition of the
+	 * loop held true due to a rounding error and we still need to print
+	 * 'last'.
+	 */
+	asprintf(&cur_print, fmt, cur);
+	asprintf(&last_print, fmt, last);
+	if (strcmp(cur_print, last_print) == 0 && cur != last_shown_value) {
+		fputs(last_print, stdout);
+		fputs(sep, stdout);
+	}
+	free(cur_print);
+	free(last_print);
+
 	if (term != NULL)
 		fputs(term, stdout);
 
@@ -186,7 +217,7 @@ main(int argc, char *argv[])
 /*
  * numeric - verify that string is numeric
  */
-int
+static int
 numeric(const char *s)
 {
 	int seen_decimal_pt, decimal_pt_len;
@@ -223,52 +254,70 @@ numeric(const char *s)
 /*
  * valid_format - validate user specified format string
  */
-int
+static int
 valid_format(const char *fmt)
 {
-	int conversions = 0;
+	unsigned conversions = 0;
 
 	while (*fmt != '\0') {
 		/* scan for conversions */
-		if (*fmt != '\0' && *fmt != '%') {
-			do {
-				fmt++;
-			} while (*fmt != '\0' && *fmt != '%');
+		if (*fmt != '%') {
+			fmt++;
+			continue;
 		}
-		/* scan a conversion */
-		if (*fmt != '\0') {
-			do {
+		fmt++;
+
+		/* allow %% but not things like %10% */
+		if (*fmt == '%') {
+			fmt++;
+			continue;
+		}
+
+		/* flags */
+		while (*fmt != '\0' && strchr("#0- +'", *fmt)) {
+			fmt++;
+		}
+
+		/* field width */
+		while (*fmt != '\0' && strchr("0123456789", *fmt)) {
+			fmt++;
+		}
+
+		/* precision */
+		if (*fmt == '.') {
+			fmt++;
+			while (*fmt != '\0' && strchr("0123456789", *fmt)) {
 				fmt++;
+			}
+		}
 
-				/* ok %% */
-				if (*fmt == '%') {
-					fmt++;
-					break;
-				}
-				/* valid conversions */
-				if (strchr("eEfgG", *fmt) &&
-				    conversions++ < 1) {
-					fmt++;
-					break;
-				}
-				/* flags, width and precsision */
-				if (isdigit((unsigned char)*fmt) ||
-				    strchr("+- 0#.", *fmt))
-					continue;
-
-				/* oops! bad conversion format! */
-				return (0);
-			} while (*fmt != '\0');
+		/* conversion */
+		switch (*fmt) {
+		    case 'A':
+		    case 'a':
+		    case 'E':
+		    case 'e':
+		    case 'F':
+		    case 'f':
+		    case 'G':
+		    case 'g':
+			/* floating point formats are accepted */
+			conversions++;
+			break;
+		    default:
+			/* anything else is not */
+			return 0;
 		}
 	}
 
-	return (conversions <= 1);
+	/* PR 236347 -- user format strings must have a conversion */
+	return (conversions == 1);
 }
 
 /*
  * unescape - handle C escapes in a string
  */
-char *
+static char *
 unescape(char *orig)
 {
 	char c, *cp, *new = orig;
@@ -329,7 +378,7 @@ unescape(char *orig)
 			*orig = c;
 			--cp;
 			continue;
-		case 'x':	/* hexidecimal number */
+		case 'x':	/* hexadecimal number */
 			cp++;	/* skip 'x' */
 			for (i = 0, c = 0;
 			     isxdigit((unsigned char)*cp) && i < 2;
@@ -358,7 +407,7 @@ unescape(char *orig)
  *	exit if string is not a valid double, or if converted value would
  *	cause overflow or underflow
  */
-double
+static double
 e_atof(const char *num)
 {
 	char *endp;
@@ -383,7 +432,7 @@ e_atof(const char *num)
 /*
  * decimal_places - count decimal places in a number (string)
  */
-int
+static int
 decimal_places(const char *number)
 {
 	int places = 0;
@@ -402,10 +451,10 @@ decimal_places(const char *number)
 /*
  * generate_format - create a format string
  *
- * XXX to be bug for bug compatable with Plan9 and GNU return "%g"
+ * XXX to be bug for bug compatible with Plan9 and GNU return "%g"
  * when "%g" prints as "%e" (this way no width adjustments are made)
  */
-char *
+static char *
 generate_format(double first, double incr, double last, int equalize, char pad)
 {
 	static char buf[256];

@@ -1902,8 +1902,9 @@ smb_iod_recvall(struct smbiod *iod)
                                 tmp_m = m;
                                 offset = 0;
 
-                                while (tmp_m) {
+                                while (tmp_m && (offset < mbuf_chain_len)) {
                                     len = mbuf_len(tmp_m);
+                                    len = ((offset + len) > mbuf_chain_len) ? (mbuf_chain_len - offset) : len;
                                     memcpy(iod->iod_sess_setup_reply + offset,
                                            (uint8_t *) mbuf_data(tmp_m), len);
                                    
@@ -3737,6 +3738,7 @@ static void smb_iod_thread(void *arg)
         OSAddAtomic64(iod->iod_total_rx_bytes,
                       &sessionp->session_gone_iod_total_rx_bytes);
 
+        smb_iod_gss_destroy(iod);
         /*
          * this comment is the last place where alt-ch iod can access
          * iod->iod_session as it might be released in case the session_free
@@ -3959,13 +3961,18 @@ smb_iod_create(struct smb_session *sessionp, struct smbiod **iodpp)
 	return (0);
 }
 
-int
-smb_iod_destroy(struct smbiod *iod, bool selfclean)
+void
+smb_iod_gss_destroy(struct smbiod *iod)
 {
     smb_gss_rel_cred(iod);
     smb_gss_destroy(&iod->iod_gss);
+}
 
+int
+smb_iod_destroy(struct smbiod *iod, bool selfclean)
+{
     if (!selfclean) {
+        smb_iod_gss_destroy(iod);
         /*
          * We don't post this synchronously, as that causes a wakeup
          * when the SMBIOD_SHUTDOWN flag is set, but that happens

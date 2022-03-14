@@ -1,0 +1,17 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>lastcomm</string>
+		<key>OpenSourceVersion</key>
+		<string>2012-06-31</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://cvsweb.netbsd.org/bsdweb.cgi/src/usr.bin/lastcomm/</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-10-12</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>lastcomm.1, lastcomm.c: note that -w is a nop (83864156)</string>
+			<string>lastcomm.c: fix timestamp (28056519)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

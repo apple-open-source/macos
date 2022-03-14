@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2017 Caio Lima <ticaiolima@gmail.com>.
- * Copyright (C) 2017-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2017-2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,12 +39,12 @@ public:
     static IsoSubspace* subspaceFor(VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(BigIntPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
 
     static BigIntPrototype* create(VM& vm, JSGlobalObject* globalObject, Structure* structure)
     {
-        BigIntPrototype* prototype = new (NotNull, allocateCell<BigIntPrototype>(vm.heap)) BigIntPrototype(vm, structure);
+        BigIntPrototype* prototype = new (NotNull, allocateCell<BigIntPrototype>(vm)) BigIntPrototype(vm, structure);
         prototype->finishCreation(vm, globalObject);
         return prototype;
     }

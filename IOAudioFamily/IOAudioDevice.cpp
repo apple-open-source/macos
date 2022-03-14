@@ -262,7 +262,7 @@ bool IOAudioDevice::init(OSDictionary *properties)
 
 	if ( super::init ( properties ) )
 	{
-		reserved = (ExpansionData *)IOMalloc (sizeof(struct ExpansionData));
+		reserved = IOMallocType (ExpansionData);
 		if ( 0 != reserved )
 		{
 			reserved->idleSleepDelayTime = 0;
@@ -348,7 +348,7 @@ void IOAudioDevice::free()
 	audioDebugIOLog ( 3, "  did workLoop->removeEventSource ( reserved->idleTimer )\n" );
 
     if (reserved) {
-        IOFree (reserved, sizeof(struct ExpansionData));
+        IOFreeType (reserved, ExpansionData);
     }
     
     audioDebugIOLog ( 3, "  did IOFree ()\n" );
@@ -909,7 +909,7 @@ void IOAudioDevice::setDeviceName(const char *deviceName)
 			stringLen = 1;
 			stringLen += strlen (deviceName) + 1;
 			stringLen += strlen (getName ());
-			string = (char *)IOMalloc (stringLen);
+			string = (char *)IOMallocData (stringLen);
 			if ( string )									// we should not panic for this
 			{	
 				strncpy (string, getName (), stringLen);
@@ -918,7 +918,7 @@ void IOAudioDevice::setDeviceName(const char *deviceName)
 				tempLength = strlen (deviceName);			//	<rdar://problem/6411827>
 				strncat (string, deviceName, tempLength);
 				setDeviceModelName (string);
-				IOFree (string, stringLen);
+				IOFreeData (string, stringLen);
 			}
 		}
     }

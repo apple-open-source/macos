@@ -37,6 +37,7 @@
 #include "IOATADevConfig.h"
 
 #include <IOKit/IOMemoryCursor.h>
+#include <IOKit/IOLib.h>
 
 #include <libkern/OSByteOrder.h>
 #include <libkern/OSAtomic.h>
@@ -162,12 +163,10 @@ IOPCIATA::start(IOService *provider)
         return false;
 	}
 	
-	reserved = ( ExpansionData * ) IOMalloc ( sizeof ( ExpansionData ) );
+	reserved = ( ExpansionData * ) IOMallocType ( IOPCIATA::ExpansionData );
 	if ( !reserved )
 		return false;
-	
-	bzero ( reserved, sizeof ( ExpansionData ) );
-	
+		
 	// Allocate the DMA descriptor area
 	if( ! allocDMAChannel() )
 	{
@@ -193,7 +192,7 @@ IOPCIATA::free()
 	
 	if ( reserved )
 	{
-		IOFree ( reserved, sizeof ( ExpansionData ) );
+		IOFreeType ( reserved, IOPCIATA::ExpansionData );
 		reserved = NULL;
 	}
 	

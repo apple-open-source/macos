@@ -2,13 +2,11 @@
 		<key>OpenSourceProject</key>
 		<string>mktemp</string>
 		<key>OpenSourceVersion</key>
-		<string>2012-11-18</string>
+		<string>2021-07-27</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://svnweb.freebsd.org/base/head/usr.bin/mktemp/</string>
-		<key>OpenSourceSCM</key>
-		<string>svn co http://svn.freebsd.org/base/head/usr.bin/mktemp/</string>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/mktemp?id=1de7b4b805ddbf2429da511c053686ac4591ed89</string>
 		<key>OpenSourceImportDate</key>
-		<string>2014-08-11</string>
+		<string>2021-10-19</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Avoid double-slash in output. (5334050)</string>

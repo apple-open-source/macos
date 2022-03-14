@@ -32,15 +32,26 @@
 #define HFS 1
 #define RANGELIST_TEST	1
 
-static void *hfs_malloc(size_t size)
-{
-    return malloc(size);
-}
 
-static void hfs_free(void *ptr, __unused size_t size)
-{
-    return free(ptr);
-}
+#define _hfs_malloc_zero(size)                                 \
+({                                                             \
+        void *_ptr = NULL;                                     \
+        typeof(size) _size = size;                             \
+        _ptr = calloc(1, _size);                               \
+        _ptr;                                                  \
+})
+
+#define _hfs_free(ptr, size)                                   \
+({                                                             \
+        __unused typeof(size) _size = size;                    \
+        typeof(ptr) _ptr = ptr;                                \
+        if (_ptr) {                                            \
+                free(_ptr);                                    \
+        }                                                      \
+})
+
+#define hfs_malloc_type(type) _hfs_malloc_zero(sizeof(type))
+#define hfs_free_type(ptr, type) _hfs_free(ptr, sizeof(type))
 
 #include "../core/rangelist.c"
 

@@ -50,7 +50,6 @@
 #import "PersistentState.h"
 #include <xpc/private.h>
 #include <sys/time.h>
-#import "NSDate+TimeIntervalDescription.h"
 #include <xpc/activity.h>
 #include <xpc/private.h>
 #import "os/activity.h"
@@ -581,7 +580,7 @@ static void postApplicationReminderAlert(NSDate *nowish, PersistentState *state,
 #ifdef DEBUG
 		body = [body stringByAppendingFormat: @"〖debug interval %u; wait time %@〗",
 					state.pendingApplicationReminderAlertInterval,
-					[nowish copyDescriptionOfIntervalSince:state.applicationDate]];
+                             [[[NSDateComponentsFormatter alloc] init] stringFromTimeInterval:[nowish timeIntervalSinceDate:state.applicationDate]]];
 #endif
     }
 

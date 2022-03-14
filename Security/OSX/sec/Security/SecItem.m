@@ -2471,3 +2471,24 @@ OSStatus SecItemPersistKeychainWritesAtHighPerformanceCost(CFErrorRef* error)
     }
     return status;
 }
+
+OSStatus SecItemPromoteAppClipItemsToParentApp(CFStringRef appClipAppID, CFStringRef parentAppID)
+{
+    __block OSStatus status = errSecInternal;
+    @autoreleasepool {
+        id<SecuritydXPCProtocol> rpc = SecuritydXPCProxyObject(true, ^(NSError *error) {
+            secerror("xpc: failure to obtain XPC proxy object for app clip promotion, %@", error);
+        });
+        [rpc secItemPromoteItemsForAppClip:(__bridge NSString*)appClipAppID toParentApp:(__bridge NSString*)parentAppID completion:^(OSStatus xpcStatus) {
+            secnotice("xpc", "app clip promotion result: %i", (int)xpcStatus);
+
+            if (xpcStatus == errSecMissingEntitlement ||
+                xpcStatus == errSecSuccess ||
+                xpcStatus == errSecInteractionNotAllowed)
+            {
+                status = xpcStatus;
+            }
+        }];
+    }
+    return status;
+}

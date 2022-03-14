@@ -1440,10 +1440,12 @@ malloc_create_zone(vm_size_t start_size, unsigned flags)
 	zone = create_scalable_zone(start_size, flags | malloc_debug_flags);
 	malloc_zone_register(zone);
 
+#if CONFIG_PGM_WRAP_CUSTOM_ZONES
 	if (enable_pgm()) {
 		zone = pgm_create_zone(zone);
 		malloc_zone_register(zone);
 	}
+#endif
 	return zone;
 }
 

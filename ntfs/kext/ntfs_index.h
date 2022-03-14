@@ -179,10 +179,10 @@ struct _ntfs_index_context {
 		 */
 		ntfs_attr_search_ctx *actx;
 		struct {
+            u8 *addr;
 			s64 upl_ofs;
 			upl_t upl;
 			upl_page_info_array_t pl;
-			u8 *addr;
 		};
 	};
 	unsigned bytes_free;	/* Number of bytes free in this node. */
@@ -237,6 +237,11 @@ struct _ntfs_index_context {
 	u8 *right_addr;
 };
 
+// Make sure that all pointers in the unions are on the same offsets
+_Static_assert(offsetof(ntfs_index_context,entry) == offsetof(ntfs_index_context,follow_entry), "INDEX_ENTRY *entry and INDEX_ENTRY *follow_entry; should be at the same offset");
+_Static_assert(offsetof(ntfs_index_context,ir)    == offsetof(ntfs_index_context,ia),           "INDEX_ROOT *ir and INDEX_ALLOCATION *ia should be at the same offset");
+_Static_assert(offsetof(ntfs_index_context,actx)  == offsetof(ntfs_index_context,addr),         "ntfs_attr_search_ctx *actx and u8 *addr should be at the same offset");
+
 /**
  * ntfs_index_ctx_alloc - allocate an index context
  *
@@ -245,7 +250,7 @@ struct _ntfs_index_context {
 static inline ntfs_index_context *ntfs_index_ctx_alloc(void)
 {
     // Cannot use IOMallocType here: the ntfs_index_context has unions with pointers inside
-    return IOMalloc(sizeof(ntfs_index_context));
+    return IOMallocType(ntfs_index_context);
 }
 
 /**
@@ -319,7 +324,7 @@ static inline void ntfs_index_ctx_disconnect(ntfs_index_context *ictx)
  */
 static inline void ntfs_index_ctx_free(ntfs_index_context *ictx)
 {
-    IOFree(ictx, sizeof(*ictx));
+    IOFreeType(ictx, ntfs_index_context);
 }
 
 /**

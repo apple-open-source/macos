@@ -130,11 +130,12 @@ std::unique_ptr<GCGLANGLELayer::ANGLEContext> GCGLANGLELayer::ANGLEContext::crea
     }
     LOG(WebGL, "Got EGLContext");
 
-    return std::unique_ptr<ANGLEContext>(new ANGLEContext(display, context, EGL_NO_SURFACE));
+    return std::unique_ptr<ANGLEContext>(new ANGLEContext(display, config, context, EGL_NO_SURFACE));
 }
 
-GCGLANGLELayer::ANGLEContext::ANGLEContext(EGLDisplay display, EGLContext context, EGLSurface surface)
+GCGLANGLELayer::ANGLEContext::ANGLEContext(EGLDisplay display, EGLConfig config, EGLContext context, EGLSurface surface)
     : m_display(display)
+    , m_config(config)
     , m_context(context)
     , m_surface(surface)
 {
@@ -143,7 +144,7 @@ GCGLANGLELayer::ANGLEContext::ANGLEContext(EGLDisplay display, EGLContext contex
 GCGLANGLELayer::ANGLEContext::~ANGLEContext()
 {
     if (m_context) {
-        gl::BindFramebuffer(GL_FRAMEBUFFER, 0);
+        GL_BindFramebuffer(GL_FRAMEBUFFER, 0);
         EGL_MakeCurrent(m_display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
         EGL_DestroyContext(m_display, m_context);
     }
@@ -166,7 +167,17 @@ PlatformGraphicsContextGL GCGLANGLELayer::ANGLEContext::platformContext() const
     return m_context;
 }
 
-GCGLANGLELayer::GCGLANGLELayer(GraphicsContextGLOpenGL& context)
+PlatformGraphicsContextGLDisplay GCGLANGLELayer::ANGLEContext::platformDisplay() const
+{
+    return m_display;
+}
+
+PlatformGraphicsContextGLConfig GCGLANGLELayer::ANGLEContext::platformConfig() const
+{
+    return m_config;
+}
+
+GCGLANGLELayer::GCGLANGLELayer(GraphicsContextGLANGLE& context)
     : GCGLLayer(context)
     , m_angleContext(ANGLEContext::createContext())
 {
@@ -184,6 +195,18 @@ bool GCGLANGLELayer::makeContextCurrent()
 }
 
 PlatformGraphicsContextGL GCGLANGLELayer::platformContext() const
+{
+    ASSERT(m_angleContext);
+    return m_angleContext->platformContext();
+}
+
+PlatformGraphicsContextGLDisplay GCGLANGLELayer::platformDisplay() const
+{
+    ASSERT(m_angleContext);
+    return m_angleContext->platformDisplay();
+}
+
+PlatformGraphicsContextGLConfig GCGLANGLELayer::platformConfig() const
 {
     ASSERT(m_angleContext);
     return m_angleContext->platformContext();

@@ -45,6 +45,9 @@ class WorkerOrWorkletGlobalScope : public ScriptExecutionContext, public RefCoun
 public:
     virtual ~WorkerOrWorkletGlobalScope();
 
+    using ScriptExecutionContext::weakPtrFactory;
+    using WeakValueType = ScriptExecutionContext::WeakValueType;
+
     bool isClosing() const { return m_isClosing; }
     WorkerOrWorkletThread* workerOrWorkletThread() const { return m_thread; }
 
@@ -53,8 +56,6 @@ public:
 
     JSC::VM& vm() final;
     WorkerInspectorController& inspectorController() const { return *m_inspectorController; }
-
-    unsigned long createUniqueIdentifier() { return m_uniqueIdentifier++; }
 
     ScriptModuleLoader& moduleLoader() { return *m_moduleLoader; }
 
@@ -99,7 +100,6 @@ private:
     RefPtr<WorkerEventLoop> m_eventLoop;
     std::unique_ptr<EventLoopTaskGroup> m_defaultTaskGroup;
     std::unique_ptr<WorkerInspectorController> m_inspectorController;
-    unsigned long m_uniqueIdentifier { 1 };
     bool m_isClosing { false };
 };
 

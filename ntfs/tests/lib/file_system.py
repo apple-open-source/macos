@@ -1,11 +1,11 @@
 #!/usr/bin/python3
 """File System Class."""
-import os
 import logging
-from lib.constants import NTFS, IMAGE, EXTERNAL, SUCCESS, FAIL
+from lib.constants import NTFS, IMAGE, EXTERNAL
 from lib.general import (
     docmd, docmd_stdout, docmd_plist, is_userfs_enabled,
     device_to_mntpt, hdiutil_attach, diskutil_mount, diskutil_unmount,
+    syscall_mount, syscall_unmount,
 )
 
 
@@ -47,8 +47,8 @@ class FileSystem:
         """NTFS diskimage is customized for testing."""
         plist = docmd_plist(["hdiutil", "attach", "-plist", self.dmg])
         if plist == '':
-            logging.error('setup ntfs dmg Fail: no plist from hdiutil attach')
-            return FAIL
+            logging.error('Setup ntfs dmg Fail: no plist from hdiutil attach')
+            return 1
 
         for entity in plist['system-entities']:
             if entity['volume-kind'] == 'ntfs':
@@ -58,41 +58,46 @@ class FileSystem:
                 break
 
         if self.fsmntpt is None:
-            logging.error('setup ntfs dmg Fail: no ntfs image is mounted')
-            return FAIL
+            logging.error('Setup ntfs dmg Fail: no ntfs image is mounted')
+            return 1
+        logging.info("setup_ntfs_dmg Succeeds")
+        return 0
 
-        logging.info(self)
-        return SUCCESS
-
-    def setup(self):
+    def setup(self, kext=False):
         """Set up a File System object and its attributes values."""
         if self.disktype == IMAGE:
-            if self.dmg is None:
-                logging.error('setup Fail: no diskimage to setup')
-                return FAIL
-
             if self.fstype == NTFS:
-                return self.setup_ntfs_dmg()
-
-            self.diskdev, self.fsdev, self.fsmntpt = hdiutil_attach(
-                self.dmg, False, None)
-            if None in [self.diskdev, self.fsdev, self.fsmntpt]:
-                logging.error('setup Fail: no information from hdituil')
-                return FAIL
+                if self.setup_ntfs_dmg() != 0:
+                    return 1
+            else:
+                if self.dmg is None:
+                    self.dmg = hdiutil_create(self.tmp_dir, self.fstype,
+                                              self.dmgsize)
+                    if self.dmg is None:
+                        logging.error('Setup Fail to create a diskimage')
+                        return 1
+                self.diskdev, self.fsdev, self.fsmntpt = hdiutil_attach(
+                    self.dmg, False, None)
+                if None in [self.diskdev, self.fsdev, self.fsmntpt]:
+                    logging.error('Setup Fail: no information from hdituil')
+                    return 1
         elif self.disktype == EXTERNAL:
             if self.__get_external_device() != 0:
-                logging.error('setup Fail to get external device')
-                return FAIL
-            self.mount()
-            if self.fsmntpt is None:
-                logging.error('setup Fail to mount the external device')
-                return FAIL
+                logging.error('Setup Fail to get external device')
+                return 1
         else:
-            logging.error('setup Fail: unsupported disk type')
-            return FAIL
+            raise RuntimeError(f"Unexpected disktype data {self.disktype}")
 
+        # diskimage or external disk may be mounted via userfs by now,
+        # remount per requested setup via kext/mount(8) or userfs
+        self.unmount()
+        if self.mount(kext=kext) != 0:
+            msg = f"Setup Fail to mount {'via mount(8)' if kext is True else ''}"
+            logging.error(msg)
+            return 1
+        logging.info("Setup Succeeds")
         logging.info(self)
-        return SUCCESS
+        return 0
 
     def release(self, err):
         """Reverse setup() to release this object."""
@@ -106,26 +111,23 @@ class FileSystem:
         self.fsmntpt = None
 
     def mount(self, kext=False):
-        """Mount via UserFS or Kext plugin."""
-        if kext:
-            mntpt = '/Volumes/' + self.fstype.lower() + str(os.getpid())
-            if not os.path.exists(mntpt):
-                err = docmd(["sudo", "mkdir", mntpt])
-                if err:
-                    logging.error(f"Fail to mkdir {mntpt}")
-                    return err
-            mountcmd = ["sudo", "mount", "-t", self.fstype, self.fsdev, mntpt]
-            err = docmd(mountcmd)
+        """Mount via UserFS or kext plugin."""
+        if kext is True:
+            err = syscall_mount(self.fstype, self.fsdev)
         else:
             err = diskutil_mount(self.fsdev)
-        if err == 0:
-            self.fsmntpt = device_to_mntpt(self.fsdev)
-        return err
+        if err:
+            return err
+        if self.is_mounted_fs(kext=kext) is False:
+            return 1
+
+        self.fsmntpt = device_to_mntpt(self.fsdev)
+        return 0
 
     def unmount(self, kext=False):
-        """Unmount via UserFS or Kext plugin."""
-        if kext:
-            err = docmd(["sudo", "umount", self.fsdev])
+        """Unmount via UserFS or kext plugin."""
+        if kext is True:
+            err = syscall_unmount(dev=self.fsdev)
         else:
             err = diskutil_unmount(self.fsdev)
         if err == 0:
@@ -145,14 +147,13 @@ class FileSystem:
         result = docmd_stdout(["mount"])
         mountout = result['out']
         dev = self.fsdev.replace('/dev/', '')
+        expected_fs = self.fstype
         if is_userfs_enabled(self.fstype) and kext is False:
             expected_fs = 'lifs'
-        else:
-            expected_fs = self.fstype
+
         for line in mountout.split('\n'):
-            if dev in line and self.fstype in line:
-                if expected_fs in line:
-                    return True
+            if dev in line and expected_fs in line and self.fstype in line:
+                return True
         logging.error(f"Fail: file system is not mounted as {expected_fs}")
         return False
 
@@ -182,7 +183,7 @@ class FileSystem:
         plist = docmd_plist(["diskutil", "list", "-plist", "external"])
         if plist == '':
             logging.error("Fail: Can not get external drive plist")
-            return FAIL
+            return 1
         external_disks = plist['AllDisksAndPartitions']
         for disk in external_disks:
             if disk['Content'] == 'FDisk_partition_scheme':
@@ -190,7 +191,7 @@ class FileSystem:
                     if partition['Content'] == 'Windows_NTFS':
                         if found:
                             logging.error('More than 1 Windows_NTFS disk')
-                            return FAIL
+                            return 1
                         self.diskdev = disk['DeviceIdentifier']
                         self.fsdev = partition['DeviceIdentifier']
                         if not self.fsdev.startswith('/dev/'):
@@ -198,5 +199,5 @@ class FileSystem:
                         found = True
         if not found:
             logging.error('Fail: external Windows disk not found')
-            return FAIL
-        return SUCCESS
+            return 1
+        return 0

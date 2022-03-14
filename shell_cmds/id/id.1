@@ -12,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -33,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)id.1	8.1 (Berkeley) 6/6/93
-.\" $FreeBSD: src/usr.bin/id/id.1,v 1.18 2006/09/26 22:28:12 ceri Exp $
+.\" $FreeBSD$
 .\"
-.Dd September 26, 2006
+.Dd March 5, 2011
 .Dt ID 1
 .Os
 .Sh NAME
@@ -52,11 +48,13 @@
 .Nm
 .Fl G Op Fl n
 .Op Ar user
-.Nm
-.Fl M
+.\" .Nm
+.\" .Fl M
 .Nm
 .Fl P
 .Op Ar user
+.\" .Nm
+.\" .Fl c
 .Nm
 .Fl g Op Fl nr
 .Op Ar user
@@ -90,14 +88,16 @@ Display the full name of the user.
 .It Fl G
 Display the different group IDs (effective, real and supplementary)
 as white-space separated numbers, in no particular order.
-.It Fl M
-Display the MAC label of the current process.
+.\" .It Fl M
+.\" Display the MAC label of the current process.
 .It Fl P
 Display the id as a password file entry.
 .It Fl a
 Ignored for compatibility with other
 .Nm
 implementations.
+.\" .It Fl c
+.\" Display current login class.
 .It Fl g
 Display the effective group ID as a number.
 .It Fl n
@@ -141,7 +141,43 @@ Display the effective user ID as a number.
 .El
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Show information for the user
+.Ql bob
+as a password file entry:
+.Bd -literal -offset indent
+$ id -P bob
+bob:*:0:0::0:0:Robert:/bob:/usr/local/bin/bash
+.Ed
+.Pp
+Same output as
+.Xr groups 1 for the root user:
+.Bd -literal -offset indent
+$ id -Gn root
+wheel operator
+.Ed
+.Pp
+Show human readable information about
+.Ql alice :
+.Bd -literal -offset indent
+$ id -p alice
+uid     alice
+groups  alice webcamd vboxusers
+.Ed
+.Pp
+Assuming the user
+.Ql bob
+executed
+.Dq Nm su Fl l
+to simulate a root login, compare the result of the following commands:
+.Bd -literal -offset indent
+# id -un
+root
+# who am i
+bob          pts/5        Dec  4 19:51
+.Ed
 .Sh SEE ALSO
+.Xr groups 1 ,
 .Xr who 1
 .Sh STANDARDS
 The

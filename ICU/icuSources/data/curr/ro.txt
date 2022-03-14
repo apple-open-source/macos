@@ -932,7 +932,7 @@ ro{
             "franc UIC francez",
         }
         XOF{
-            "CFA",
+            "F CFA",
             "franc CFA BCEAO",
         }
         XPD{
@@ -1633,6 +1633,11 @@ ro{
             few{"dolari liberieni"}
             one{"dolar liberian"}
             other{"dolari liberieni"}
+        }
+        LSL{
+            few{"maloti leshotieni"}
+            one{"maloti leshotieni"}
+            other{"maloti leshotieni"}
         }
         LTL{
             few{"lite lituaniene"}

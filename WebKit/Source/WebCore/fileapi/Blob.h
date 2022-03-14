@@ -36,10 +36,10 @@
 #include "FileReaderLoader.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptWrappable.h"
+#include "URLRegistry.h"
+#include <variant>
 #include <wtf/IsoMalloc.h>
 #include <wtf/URL.h>
-#include "URLRegistry.h"
-#include <wtf/Variant.h>
 
 namespace JSC {
 class ArrayBufferView;
@@ -53,11 +53,11 @@ class BlobLoader;
 class DeferredPromise;
 class ReadableStream;
 class ScriptExecutionContext;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 
 template<typename> class ExceptionOr;
 
-using BlobPartVariant = Variant<RefPtr<JSC::ArrayBufferView>, RefPtr<JSC::ArrayBuffer>, RefPtr<Blob>, String>;
+using BlobPartVariant = std::variant<RefPtr<JSC::ArrayBufferView>, RefPtr<JSC::ArrayBuffer>, RefPtr<Blob>, String>;
 
 class Blob : public ScriptWrappable, public URLRegistrable, public RefCounted<Blob>, public ActiveDOMObject {
     WTF_MAKE_ISO_ALLOCATED_EXPORT(Blob, WEBCORE_EXPORT);

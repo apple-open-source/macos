@@ -189,16 +189,16 @@ AppleSCSIPDT00Emulator::SetDeviceBuffers (
 	ERROR_LOG ( ( "fInquiryPage80DataSize = %d\n", fInquiryPage80DataSize ) );
 	ERROR_LOG ( ( "fInquiryPage83DataSize = %d\n", fInquiryPage83DataSize ) );
 	
-	fInquiryData = ( UInt8 * ) IOMalloc ( fInquiryDataSize );
+	fInquiryData = ( UInt8 * ) IOMallocData ( fInquiryDataSize );
 	require_nonzero ( fInquiryData, ErrorExit );
 
-	fInquiryPage00Data = ( UInt8 * ) IOMalloc ( fInquiryPage00DataSize );
+	fInquiryPage00Data = ( UInt8 * ) IOMallocData ( fInquiryPage00DataSize );
 	require_nonzero ( fInquiryPage00Data, ErrorExit );
 
-	fInquiryPage80Data = ( UInt8 * ) IOMalloc ( fInquiryPage80DataSize );
+	fInquiryPage80Data = ( UInt8 * ) IOMallocData ( fInquiryPage80DataSize );
 	require_nonzero ( fInquiryPage80Data, ErrorExit );
 
-	fInquiryPage83Data = ( UInt8 * ) IOMalloc ( fInquiryPage83DataSize );
+	fInquiryPage83Data = ( UInt8 * ) IOMallocData ( fInquiryPage83DataSize );
 	require_nonzero ( fInquiryPage83Data, ErrorExit );
 	
 	inquiryBuffer->readBytes ( 0, fInquiryData, fInquiryDataSize );
@@ -238,7 +238,7 @@ AppleSCSIPDT00Emulator::free ( void )
 	if ( fInquiryData != NULL )
 	{
 		
-		IOFree ( fInquiryData, fInquiryDataSize );
+		IOFreeData ( fInquiryData, fInquiryDataSize );
 		fInquiryData = NULL;
 		
 	}
@@ -246,7 +246,7 @@ AppleSCSIPDT00Emulator::free ( void )
 	if ( fInquiryPage00Data != NULL )
 	{
 		
-		IOFree ( fInquiryPage00Data, fInquiryPage00DataSize );
+        IOFreeData ( fInquiryPage00Data, fInquiryPage00DataSize );
 		fInquiryPage00Data = NULL;
 		
 	}
@@ -254,7 +254,7 @@ AppleSCSIPDT00Emulator::free ( void )
 	if ( fInquiryPage80Data != NULL )
 	{
 		
-		IOFree ( fInquiryPage80Data, fInquiryPage80DataSize );
+        IOFreeData ( fInquiryPage80Data, fInquiryPage80DataSize );
 		fInquiryPage80Data = NULL;
 		
 	}
@@ -262,7 +262,7 @@ AppleSCSIPDT00Emulator::free ( void )
 	if ( fInquiryPage83Data != NULL )
 	{
 		
-		IOFree ( fInquiryPage83Data, fInquiryPage83DataSize );
+        IOFreeData ( fInquiryPage83Data, fInquiryPage83DataSize );
 		fInquiryPage83Data = NULL;
 		
 	}

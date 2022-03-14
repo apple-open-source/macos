@@ -39,8 +39,10 @@ endif
 export TOPDIR = $(shell echo $(PYPREFIX) | cut -d '/' -f2)
 ifeq ($(TOPDIR),AppleInternal)
 export INSTALLPREFIX = /usr/local
+export INTERNALINSTALL = YES
 else
 export INSTALLPREFIX = /usr
+export INTERNALINSTALL = NO
 endif
 export BINDIR = $(INSTALLPREFIX)/bin
 
@@ -103,7 +105,7 @@ build::
 	echo '</plist>') > $(DSTROOT)/usr/local/$(OSV)/$(Project).plist
 
 #merge: mergebegin mergedefault mergeversions mergebin
-merge: mergebegin mergeversions mergebin
+merge: mergebegin mergeversions mergebin fixconflicts
 
 mergebegin:
 	@echo ####### Merging #######
@@ -162,3 +164,10 @@ mergeversions:
 	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
 	    rsync -Ra AppleInternal/Library/Python $(DSTROOT) || exit 1; \
 	done
+
+# python3 creates /usr/local/bin/easy_install
+# This will still leave /usr/local/bin/easy_install-2.7
+fixconflicts:
+ifeq ($(INTERNALINSTALL), YES)
+	rm -f $(DSTROOT)/usr/local/bin/easy_install
+endif

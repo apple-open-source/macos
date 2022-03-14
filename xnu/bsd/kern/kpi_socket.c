@@ -854,10 +854,10 @@ sock_send_internal(socket_t sock, const struct msghdr *msg, mbuf_t data,
 	if (data == NULL && msg != NULL) {
 		struct iovec *tempp = msg->msg_iov;
 
-		MALLOC(uio_bufp, char *, UIO_SIZEOF(msg->msg_iovlen), M_TEMP, M_WAITOK);
+		uio_bufp = kalloc_data(UIO_SIZEOF(msg->msg_iovlen), Z_WAITOK);
 		if (uio_bufp == NULL) {
 #if (DEBUG || DEVELOPMENT)
-			printf("sock_send_internal: so %p MALLOC(%lu) failed, ENOMEM\n",
+			printf("sock_send_internal: so %p kalloc_data(%lu) failed, ENOMEM\n",
 			    sock, UIO_SIZEOF(msg->msg_iovlen));
 #endif /* (DEBUG || DEVELOPMENT) */
 			error = ENOMEM;
@@ -952,7 +952,7 @@ sock_send_internal(socket_t sock, const struct msghdr *msg, mbuf_t data,
 		}
 	}
 	if (uio_bufp != NULL) {
-		FREE(uio_bufp, M_TEMP);
+		kfree_data(uio_bufp, UIO_SIZEOF(msg->msg_iovlen));
 	}
 
 	return error;
@@ -973,7 +973,7 @@ errorout:
 		*sentlen = 0;
 	}
 	if (uio_bufp != NULL) {
-		FREE(uio_bufp, M_TEMP);
+		kfree_data(uio_bufp, UIO_SIZEOF(msg->msg_iovlen));
 	}
 	return error;
 }

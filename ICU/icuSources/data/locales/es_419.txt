@@ -191,12 +191,22 @@ es_419{
                 "EEEE, d 'de' MMMM 'de' y G",
                 "d 'de' MMMM 'de' y G",
                 "d 'de' MMM 'de' y G",
-                "dd/MM/yy GGGGG",
+                "d/M/y GGGGG",
                 "{1} {0}",
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
             }
             availableFormats{
                 Bh{"h B"}
@@ -316,6 +326,16 @@ es_419{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "HHmmsszzzz",
+                "HHmmssz",
+                "HHmmss",
+                "HHmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h:mm B"}
@@ -334,7 +354,9 @@ es_419{
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
-                Hmsv{"H:mm:ss v"}
+                Hmsv{"HH:mm:ss v"}
+                Hmsvvvv{"HH:mm:ss vvvv"}
+                Hmv{"HH:mm v"}
                 MEd{"E, d/M"}
                 MMMMEd{"E, d 'de' MMMM"}
                 MMMdd{"dd-MMM"}

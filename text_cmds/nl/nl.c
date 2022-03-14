@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-2-Clause-NetBSD
+ *
  * Copyright (c) 1999 The NetBSD Foundation, Inc.
  * All rights reserved.
  *
@@ -13,13 +15,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the NetBSD
- *        Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -39,7 +34,7 @@
 __COPYRIGHT(
 "@(#) Copyright (c) 1999\
  The NetBSD Foundation, Inc.  All rights reserved.");
-__RCSID("$FreeBSD: src/usr.bin/nl/nl.c,v 1.10 2005/04/09 14:31:41 stefanf Exp $");
+__RCSID("$FreeBSD$");
 #endif    
 
 #include <sys/types.h>
@@ -79,9 +74,9 @@ struct numbering_property {
 #define NP_LAST		HEADER
 
 static struct numbering_property numbering_properties[NP_LAST + 1] = {
-	{ "footer",	number_none	},
-	{ "body",	number_nonempty	},
-	{ "header",	number_none	}
+	{ .name = "footer", .type = number_none },
+	{ .name = "body", .type = number_nonempty },
+	{ .name = "header", .type = number_none }
 };
 
 #define max(a, b)	((a) > (b) ? (a) : (b))
@@ -98,19 +93,13 @@ static void	parse_numbering(const char *, int);
 static void	usage(void);
 
 /*
- * Pointer to dynamically allocated input line buffer, and its size.
- */
-static char *buffer;
-static size_t buffersize;
-
-/*
  * Dynamically allocated buffer suitable for string representation of ints.
  */
 static char *intbuffer;
 
 /* delimiter characters that indicate the start of a logical page section */
 static char delim[2 * MB_LEN_MAX];
-static int delimlen;
+static size_t delimlen;
 
 /*
  * Configurable parameters.
@@ -140,9 +129,7 @@ static int width = 6;
 
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
 	int c;
 	long val;
@@ -251,13 +238,13 @@ main(argc, argv)
 	}
 	argc -= optind;
 	argv += optind;
-	
+
 	switch (argc) {
 	case 0:
 		break;
 	case 1:
-                if (!*argv) usage();
-		if (freopen(argv[0], "r", stdin) == NULL)
+		if (strcmp(argv[0], "-") != 0 &&
+		    freopen(argv[0], "r", stdin) == NULL)
 			err(EXIT_FAILURE, "%s", argv[0]);
 		break;
 	default:
@@ -270,16 +257,8 @@ main(argc, argv)
 	memcpy(delim + delim1len, delim2, delim2len);
 	delimlen = delim1len + delim2len;
 
-	/* Determine the maximum input line length to operate on. */
-	if ((val = sysconf(_SC_LINE_MAX)) == -1) /* ignore errno */
-		val = LINE_MAX;
-	/* Allocate sufficient buffer space (including the terminating NUL). */
-	buffersize = (size_t)val + 1;
-	if ((buffer = malloc(buffersize)) == NULL)
-		err(EXIT_FAILURE, "cannot allocate input line buffer");
-
 	/* Allocate a buffer suitable for preformatting line number. */
-	intbuffersize = max(INT_STRLEN_MAXIMUM, width) + 1;	/* NUL */
+	intbuffersize = max((int)INT_STRLEN_MAXIMUM, width) + 1; /* NUL */
 	if ((intbuffer = malloc(intbuffersize)) == NULL)
 		err(EXIT_FAILURE, "cannot allocate preformatting buffer");
 
@@ -291,46 +270,46 @@ main(argc, argv)
 }
 
 static void
-filter()
+filter(void)
 {
+	char *buffer;
+	size_t buffersize;
+	ssize_t linelen;
 	int line;		/* logical line number */
 	int section;		/* logical page section */
 	unsigned int adjblank;	/* adjacent blank lines */
 	int consumed;		/* intbuffer measurement */
-	int donumber, idx;
+	int donumber = 0, idx;
 
 	adjblank = 0;
 	line = startnum;
 	section = BODY;
-#ifdef __GNUC__
-	(void)&donumber;	/* avoid bogus `uninitialized' warning */
-#endif
 
-	while (fgets(buffer, (int)buffersize, stdin) != NULL) {
+	buffer = NULL;
+	buffersize = 0;
+	while ((linelen = getline(&buffer, &buffersize, stdin)) > 0) {
 		for (idx = FOOTER; idx <= NP_LAST; idx++) {
 			/* Does it look like a delimiter? */
-			if (memcmp(buffer + delimlen * idx, delim,
-			    delimlen) == 0) {
-				/* Was this the whole line? */
-				if (buffer[delimlen * (idx + 1)] == '\n') {
-#ifdef __APPLE__
-					/* if user wishes to restart line numbering on each logical page, AND
-					 * the new section is logically "before", or the same as, the current
-					 * section (thereby starting a new logical page), reset the line numbers.
-					 */
-					if (restart && idx >= section)
-						line = startnum;
-#endif /* __APPLE __*/
-					section = idx;
-					adjblank = 0;
-#ifndef __APPLE__
-					if (restart)
-						line = startnum;
-#endif /* !__APPLE__ */
-					goto nextline;
-				}
-			} else {
+			if (delimlen * (idx + 1) > linelen)
 				break;
+			if (memcmp(buffer + delimlen * idx, delim,
+			    delimlen) != 0)
+				break;
+			/* Was this the whole line? */
+			if (buffer[delimlen * (idx + 1)] == '\n') {
+				if (restart
+#ifdef __APPLE__
+				/* if user wishes to restart line numbering on each logical page, AND
+				 * the new section is logically "before", or the same as, the current
+				 * section (thereby starting a new logical page), reset the line numbers.
+				 */
+				    && idx >= section
+#endif /* __APPLE __*/
+				    )
+					line = startnum;
+				section = idx;
+				adjblank = 0;
+				goto nextline;
 			}
 		}
 
@@ -368,7 +347,8 @@ filter()
 		} else {
 			(void)printf("%*s", width, "");
 		}
-		(void)printf("%s%s", sep, buffer);
+		(void)fputs(sep, stdout);
+		(void)fwrite(buffer, linelen, 1, stdout);
 
 		if (ferror(stdout))
 			err(EXIT_FAILURE, "output error");
@@ -378,6 +358,8 @@ nextline:
 
 	if (ferror(stdin))
 		err(EXIT_FAILURE, "input error");
+
+	free(buffer);
 }
 
 /*
@@ -385,9 +367,7 @@ nextline:
  */
 
 static void
-parse_numbering(argstr, section)
-	const char *argstr;
-	int section;
+parse_numbering(const char *argstr, int section)
 {
 	int error;
 	char errorbuf[NL_TEXTMAX];
@@ -429,7 +409,7 @@ parse_numbering(argstr, section)
 }
 
 static void
-usage()
+usage(void)
 {
 
 	(void)fprintf(stderr,

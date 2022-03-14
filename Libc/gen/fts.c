@@ -469,12 +469,13 @@ next:	tmp = p;
 		 * the root of the tree), and load the paths for the next root.
 		 */
 		if (p->fts_level == FTS_ROOTLEVEL) {
+			sp->fts_cur = p;
 			if (FCHDIR(sp, sp->fts_rfd)) {
 				SET(FTS_STOP);
 				return (NULL);
 			}
 			fts_load(sp, p);
-			return (sp->fts_cur = p);
+			return (sp->fts_cur);
 		}
 
 		/*
@@ -626,12 +627,18 @@ fts_children(FTS *sp, int instr)
 	 * fts_read will work.
 	 */
 	if (p->fts_level != FTS_ROOTLEVEL || p->fts_accpath[0] == '/' ||
-	    ISSET(FTS_NOCHDIR))
-		return (sp->fts_child = fts_build(sp, instr));
+		ISSET(FTS_NOCHDIR)) {
+		sp->fts_child = fts_build(sp, instr);
+		if (errno)
+			p->fts_errno = errno;
+		return (sp->fts_child);
+	}
 
 	if ((fd = open(".", O_RDONLY | O_CLOEXEC, 0)) < 0)
 		return (NULL);
 	sp->fts_child = fts_build(sp, instr);
+	if (errno)
+		p->fts_errno = errno;
 	if (fchdir(fd)) {
 		(void)close(fd);
 		return (NULL);

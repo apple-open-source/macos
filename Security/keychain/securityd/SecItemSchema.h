@@ -34,6 +34,9 @@ __BEGIN_DECLS
 
 const SecDbSchema* current_schema(void);
 const SecDbSchema * const * all_schemas(void);
+// for tests
+void set_current_schema_index(int idx);
+void reset_current_schema_index(void);
 
 // class accessors for current schema
 const SecDbClass* genp_class(void);

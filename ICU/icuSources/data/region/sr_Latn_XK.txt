@@ -6,9 +6,7 @@ sr_Latn_XK{
         CG{"Kongo"}
         CV{"Kabo Verde"}
         CZ{"Češka Republika"}
-        HK{"Hongkong"}
         KN{"Sveti Kits i Nevis"}
-        MO{"Makao"}
         PM{"Sveti Pjer i Mikelon"}
         RE{"Reunion"}
         UM{"Manja udaljena ostrva SAD"}

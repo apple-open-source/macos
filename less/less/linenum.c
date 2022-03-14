@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -40,11 +40,11 @@
  */
 struct linenum_info
 {
-	struct linenum_info *next;	/* Link to next in the list */
-	struct linenum_info *prev;	/* Line to previous in the list */
-	POSITION pos;			/* File position */
-	POSITION gap;			/* Gap between prev and next */
-	LINENUM line;			/* Line number */
+	struct linenum_info *next;      /* Link to next in the list */
+	struct linenum_info *prev;      /* Line to previous in the list */
+	POSITION pos;                   /* File position */
+	POSITION gap;                   /* Gap between prev and next */
+	LINENUM line;                   /* Line number */
 };
 /*
  * "gap" needs some explanation: the gap of any particular line number
@@ -55,14 +55,14 @@ struct linenum_info
  * when we have a new one to insert and the table is full.
  */
 
-#define	NPOOL	200			/* Size of line number pool */
+#define NPOOL   200                     /* Size of line number pool */
 
-#define	LONGTIME	(2)		/* In seconds */
+#define LONGTIME        (2)             /* In seconds */
 
-static struct linenum_info anchor;	/* Anchor of the list */
-static struct linenum_info *freelist;	/* Anchor of the unused entries */
-static struct linenum_info pool[NPOOL];	/* The pool itself */
-static struct linenum_info *spare;		/* We always keep one spare entry */
+static struct linenum_info anchor;      /* Anchor of the list */
+static struct linenum_info *freelist;   /* Anchor of the unused entries */
+static struct linenum_info pool[NPOOL]; /* The pool itself */
+static struct linenum_info *spare;              /* We always keep one spare entry */
 
 extern int linenums;
 extern int sigs;
@@ -73,9 +73,9 @@ extern int screen_trashed;
  * Initialize the line number structures.
  */
 	public void
-clr_linenum()
+clr_linenum(VOID_PARAM)
 {
-	register struct linenum_info *p;
+	struct linenum_info *p;
 
 	/*
 	 * Put all the entries on the free list.
@@ -102,7 +102,7 @@ clr_linenum()
  */
 	static void
 calcgap(p)
-	register struct linenum_info *p;
+	struct linenum_info *p;
 {
 	/*
 	 * Don't bother to compute a gap for the anchor.
@@ -125,11 +125,11 @@ add_lnum(linenum, pos)
 	LINENUM linenum;
 	POSITION pos;
 {
-	register struct linenum_info *p;
-	register struct linenum_info *new;
-	register struct linenum_info *nextp;
-	register struct linenum_info *prevp;
-	register POSITION mingap;
+	struct linenum_info *p;
+	struct linenum_info *new;
+	struct linenum_info *nextp;
+	struct linenum_info *prevp;
+	POSITION mingap;
 
 	/*
 	 * Find the proper place in the list for the new one.
@@ -209,7 +209,7 @@ add_lnum(linenum, pos)
  * line number, print a message to tell the user what we're doing.
  */
 	static void
-longloopmessage()
+longloopmessage(VOID_PARAM)
 {
 	ierror("Calculating line numbers", NULL_PARG);
 }
@@ -220,7 +220,7 @@ static time_type startime;
 #endif
 
 	static void
-longish()
+longish(VOID_PARAM)
 {
 #if HAVE_TIME
 	if (loopcount >= 0 && ++loopcount > 100)
@@ -246,8 +246,10 @@ longish()
  * a lengthy line number calculation.
  */
 	static void
-abort_long()
+abort_long(VOID_PARAM)
 {
+	if (loopcount >= 0)
+		return;
 	if (linenums == OPT_ONPLUS)
 		/*
 		 * We were displaying line numbers, so need to repaint.
@@ -265,8 +267,8 @@ abort_long()
 find_linenum(pos)
 	POSITION pos;
 {
-	register struct linenum_info *p;
-	register LINENUM linenum;
+	struct linenum_info *p;
+	LINENUM linenum;
 	POSITION cpos;
 
 	if (!linenums)
@@ -308,6 +310,7 @@ find_linenum(pos)
 #if HAVE_TIME
 	startime = get_time();
 #endif
+	loopcount = 0;
 	if (p == &anchor || pos - p->prev->pos < p->pos - pos)
 	{
 		/*
@@ -316,7 +319,6 @@ find_linenum(pos)
 		p = p->prev;
 		if (ch_seek(p->pos))
 			return (0);
-		loopcount = 0;
 		for (linenum = p->line, cpos = p->pos;  cpos < pos;  linenum++)
 		{
 			/*
@@ -348,7 +350,6 @@ find_linenum(pos)
 		 */
 		if (ch_seek(p->pos))
 			return (0);
-		loopcount = 0;
 		for (linenum = p->line, cpos = p->pos;  cpos > pos;  linenum--)
 		{
 			/*
@@ -368,7 +369,7 @@ find_linenum(pos)
 		 */
 		add_lnum(linenum, cpos);
 	}
-
+	loopcount = 0;
 	return (linenum);
 }
 
@@ -380,7 +381,7 @@ find_linenum(pos)
 find_pos(linenum)
 	LINENUM linenum;
 {
-	register struct linenum_info *p;
+	struct linenum_info *p;
 	POSITION cpos;
 	LINENUM clinenum;
 

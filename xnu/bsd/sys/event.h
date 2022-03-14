@@ -813,7 +813,7 @@ static inline struct kqueue *
 knote_get_kq(struct knote *kn)
 {
 	vm_offset_t ptr = VM_UNPACK_POINTER(kn->kn_kq_packed, KNOTE_KQ_PACKED);
-	return __unsafe_forge_single((struct kqueue *)ptr);
+	return __unsafe_forge_single(struct kqueue *, ptr);
 }
 
 static inline int
@@ -1107,6 +1107,7 @@ struct filterops {
 	        ((result >> FILTER_ADJUST_EVENT_QOS_SHIFT) & THREAD_QOS_LAST)
 #define FILTER_RESET_EVENT_QOS              FILTER_ADJUST_EVENT_QOS_BIT
 #define FILTER_THREADREQ_NODEFEER           0x00000080
+#define FILTER_ADJUST_EVENT_IOTIER_BIT      0x00000100
 
 #define filter_call(_ops, call)  \
 	        ((_ops)->f_extended_codes ? (_ops)->call : !!((_ops)->call))
@@ -1134,6 +1135,8 @@ extern const struct filterops *knote_fops(struct knote *kn);
 
 extern struct turnstile *kqueue_turnstile(struct kqueue *);
 extern struct turnstile *kqueue_alloc_turnstile(struct kqueue *);
+extern void kqueue_set_iotier_override(struct kqueue *kqu, uint8_t iotier_override);
+extern uint8_t kqueue_get_iotier_override(struct kqueue *kqu);
 
 int kevent_proc_copy_uptrs(void *proc, uint64_t *buf, uint32_t bufsize);
 #if CONFIG_PREADOPT_TG

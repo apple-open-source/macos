@@ -32,6 +32,7 @@ typedef (FetchRequest or USVString) RequestInfo;
 
 [
     ActiveDOMObject,
+    ExportMacro=WEBCORE_EXPORT,
     Exposed=(Window,Worker),
     GenerateIsReachable=Impl,
     InterfaceName=Request,
@@ -50,14 +51,14 @@ typedef (FetchRequest or USVString) RequestInfo;
     readonly attribute FetchRequestCache cache;
     readonly attribute FetchRequestRedirect redirect;
     readonly attribute DOMString integrity;
-    [EnabledAtRuntime=FetchAPIKeepAlive] readonly attribute boolean keepalive;
+    [EnabledAtRuntime=FetchAPIKeepAliveEnabled] readonly attribute boolean keepalive;
     // FIXME: Implement 'isReloadNavigation'.
     // readonly attribute boolean isReloadNavigation;
     // FIXME: Implement 'isHistoryNavigation'.
     // readonly attribute boolean isHistoryNavigation;
     readonly attribute AbortSignal signal;
 
-    [CallWith=ScriptExecutionContext, NewObject] FetchRequest clone();
+    [NewObject] FetchRequest clone();
 };
 
 FetchRequest includes FetchBody;

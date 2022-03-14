@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, 2018, 2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2015, 2018, 2020, 2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -98,7 +98,7 @@ test_SCNetworkConfiguration()
 }
 #endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
-void
+static void
 test_SCNetworkReachability()
 {
 	NSLog(@"\n\n*** SCNetworkReachability ***\n\n");
@@ -146,7 +146,7 @@ test_SCPreferences()
 }
 #endif	// !TARGET_OS_SIMULATOR && !defined(USING_PUBLIC_SDK)
 
-void
+static void
 SCTest()
 {
 

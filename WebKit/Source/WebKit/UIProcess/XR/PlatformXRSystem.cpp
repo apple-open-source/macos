@@ -33,6 +33,7 @@
 #include "PlatformXRSystemProxyMessages.h"
 #include "WebPageProxy.h"
 #include "WebProcessProxy.h"
+#include <WebCore/SecurityOriginData.h>
 
 namespace WebKit {
 
@@ -73,14 +74,27 @@ void PlatformXRSystem::enumerateImmersiveXRDevices(CompletionHandler<void(Vector
     });
 }
 
+void PlatformXRSystem::requestPermissionOnSessionFeatures(const WebCore::SecurityOriginData& securityOriginData, PlatformXR::SessionMode mode, const Vector<PlatformXR::ReferenceSpaceType>& granted, const Vector<PlatformXR::ReferenceSpaceType>& consentRequired, const Vector<PlatformXR::ReferenceSpaceType>& consentOptional,  CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler)
+{
+    auto* xrCoordinator = PlatformXRSystem::xrCoordinator();
+    if (!xrCoordinator) {
+        completionHandler(granted);
+        return;
+    }
+
+    xrCoordinator->requestPermissionOnSessionFeatures(m_page, securityOriginData, mode, granted, consentRequired, consentOptional, WTFMove(completionHandler));
+}
+
 void PlatformXRSystem::initializeTrackingAndRendering()
 {
     auto* xrCoordinator = PlatformXRSystem::xrCoordinator();
     if (!xrCoordinator)
         return;
 
-    xrCoordinator->startSession(m_page, [weakThis = makeWeakPtr(*this)](XRDeviceIdentifier deviceIdentifier) {
-        RunLoop::main().dispatch([weakThis, deviceIdentifier]() mutable {
+    auto immersiveSessionActivity = m_page.process().throttler().foregroundActivity("XR immersive session"_s);
+
+    xrCoordinator->startSession(m_page, [weakThis = WeakPtr { *this }, immersiveSessionActivity = WTFMove(immersiveSessionActivity)](XRDeviceIdentifier deviceIdentifier) mutable {
+        RunLoop::main().dispatch([weakThis, deviceIdentifier, immersiveSessionActivity = WTFMove(immersiveSessionActivity)]() mutable {
             if (weakThis)
                 weakThis->m_page.send(Messages::PlatformXRSystemProxy::SessionDidEnd(deviceIdentifier));
         });

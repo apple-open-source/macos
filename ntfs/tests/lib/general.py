@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 """Common routines to share."""
+import os
 import logging
 import plistlib
 import zlib
+from uuid import uuid4
 from datetime import datetime
 from subprocess import run
 from lib.constants import SUCCESS, SKIP
@@ -143,7 +145,7 @@ def test_begin(testname, description, debug=False):
     """
     logging.info('TEST Begins: ' + testname + ' (' + description + ')')
     if not debug:
-        print('Test ' + testname + ' ... ', end='')
+        print(testname + ' ... ', end='')
 
 
 def test_end(testname, err, debug=False):
@@ -284,6 +286,48 @@ def hdiutil_attach(dmg, nomount=False, mntpt=None):
     if None in [diskdev, fsdev]:
         logging.error('Fail: no disk device nor fs device is identified')
     return diskdev, fsdev, fsmntpt
+
+
+def syscall_mount(fstype, fsdev):
+    """Mount via mount(8)->mount(2) syscall.
+
+    Arguments:
+        fstype (str):  filesystem type, e.g. 'ntfs'
+        fsdev (str):   filesystem device name, e.g. /dev/disk5s2
+
+    Returns:
+        0 if succeed
+        non-o if fail
+
+    """
+    mntpt = '/Volumes/' + fstype.lower() + str(uuid4())
+    if not os.path.exists(mntpt):
+        err = docmd(["sudo", "mkdir", mntpt])
+        if err:
+            logging.error(f"Fail to mkdir {mntpt}")
+            return err
+    mountcmd = ["sudo", "mount", "-t", fstype, fsdev, mntpt]
+    return docmd(mountcmd)
+
+
+def syscall_unmount(dev=None, mntpt=None):
+    """Unmount via umount(8)->umount(2) syscall.
+
+    Arguments:
+        dev (str):     filesystem device name, e.g. /dev/disk5s2
+        mntpt (str):   filesystem mount point, e.g. /Volumes/ntfsvol
+
+    Returns:
+        0 if succeed
+        non-0 if fail
+
+    """
+    if dev is not None:
+        return docmd(["sudo", "umount", dev])
+    elif mntpt is not None:
+        return docmd(["sudo", "umount", mntpt])
+    else:
+        raise RuntimeError("Missing argument value")
 
 
 def diskutil_mount(fsdev, read_only=False, no_browse=False, mount_opts=None,

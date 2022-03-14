@@ -745,15 +745,15 @@ make_roff_command (const char *path, const char *file) {
 
 #ifdef __APPLE__
 static char *
-make_mandoc_command(const char * __unused path, const char *file) {
+make_mandoc_command(const char * path, const char *file) {
     // like setll()
     int width = line_length;
     if (width > 80) {
 	width = width * 9/10;
     }
 
-    char *command = my_xsprintf("%s -c -O width=%d '%Q'",
-	    "/usr/bin/mandoc", width, file);
+    char *command = my_xsprintf("(cd %S && %s -c -O width=%d '%Q')",
+	    path, "/usr/bin/mandoc", width, file);
 
     if (os_variant_is_darwinos("com.apple.man")) {
 	// darwinOS won't have roff available

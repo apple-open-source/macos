@@ -235,6 +235,16 @@ ko{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmszzzz",
+                "ahmsz",
+                "ahmmss",
+                "ahmm",
+                "UMMMEEEEd",
+                "UMMMd",
+                "yMd",
+                "yMd",
+            }
             availableFormats{
                 Bh{"B h시"}
                 Bhm{"B h:mm"}
@@ -248,6 +258,9 @@ ko{
                 GyMMM{"r년(U년) MMM"}
                 GyMMMEEEEd{"r년(U년) MMM d일 EEEE"}
                 GyMMMEd{"r년(U년) MMM d일 (E)"}
+                GyMMMM{"r년(U년) MMMM"}
+                GyMMMMEd{"r년(U년) MMMM d일 (E)"}
+                GyMMMMd{"r년(U년) MMMM d일"}
                 GyMMMd{"r년 MMM d일"}
                 H{"H시"}
                 Hm{"HH:mm"}
@@ -280,6 +293,8 @@ ko{
                 yyyyMMMEEEEd{"r년(U년) MMM d일 EEEE"}
                 yyyyMMMEd{"r년(U년) MMM d일 (E)"}
                 yyyyMMMM{"r년(U년) MMMM"}
+                yyyyMMMMEd{"r년(U년) MMMM d일(E)"}
+                yyyyMMMMd{"r년(U년) MMMM d일"}
                 yyyyMMMd{"r년 MMM d일"}
                 yyyyMd{"r. M. d."}
                 yyyyQQQ{"r년(U년) QQQ"}
@@ -596,6 +611,16 @@ ko{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmszzzz",
+                "ahmsz",
+                "ahmmss",
+                "ahmm",
+                "UMMMEEEEd",
+                "UMMMd",
+                "yMd",
+                "yMd",
             }
             cyclicNameSets{
                 dayParts{
@@ -951,6 +976,16 @@ ko{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmszzzz",
+                "ahmsz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyMd",
+            }
             availableFormats{
                 Bh{"B h시"}
                 Bhm{"B h:mm"}
@@ -969,6 +1004,7 @@ ko{
                 GyMMMEEEEd{"G y년 MMM d일 EEEE"}
                 GyMMMEd{"G y년 MMM d일 (E)"}
                 GyMMMd{"G y년 MMM d일"}
+                GyMd{"GGGGG y/M/d"}
                 H{"H시"}
                 HHmmss{"HH:mm:ss"}
                 Hm{"HH:mm"}
@@ -1184,6 +1220,16 @@ ko{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmszzzz",
+                "ahmsz",
+                "ahmmss",
+                "ahmm",
+                "yMEEEEd",
+                "yMd",
+                "yMd",
+                "yyMd",
+            }
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -1205,6 +1251,7 @@ ko{
                 GyMMMEEEEd{"G y년 MMM d일 EEEE"}
                 GyMMMEd{"G y년 MMM d일 (E)"}
                 GyMMMd{"G y년 MMM d일"}
+                GyMd{"GGGGG y/M/d"}
                 H{"H시"}
                 HHmmss{"HH:mm:ss"}
                 Hm{"HH:mm"}
@@ -2009,7 +2056,7 @@ ko{
                     "분쇼 (1466 ~ 1467)",
                     "오닌 (1467 ~ 1469)",
                     "분메이 (1469 ~ 1487)",
-                    "조쿄 (1487 ~ 1489)<",
+                    "조쿄 (1487 ~ 1489)",
                     "엔토쿠 (1489 ~ 1492)",
                     "메이오 (1492 ~ 1501)",
                     "분키 (1501 ~ 1504)",

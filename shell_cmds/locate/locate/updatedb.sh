@@ -31,6 +31,7 @@
 # $FreeBSD$
 
 if [ "$(id -u)" = "0" ]; then
+#ifdef __APPLE__
 	rc=0
 	export FCODES=`sudo -u nobody mktemp -t updatedb`
 	chown nobody $FCODES
@@ -40,6 +41,11 @@ if [ "$(id -u)" = "0" ]; then
 	fi
 	rm $FCODES
 	exit $rc
+#else
+#	echo ">>> WARNING" 1>&2
+#	echo ">>> Executing updatedb as root.  This WILL reveal all filenames" 1>&2
+#	echo ">>> on your machine to all login users, which is a security risk." 1>&2
+#endif
 fi
 : ${LOCATE_CONFIG="/etc/locate.rc"}
 if [ -f "$LOCATE_CONFIG" -a -r "$LOCATE_CONFIG" ]; then
@@ -58,12 +64,20 @@ PATH=$LIBEXECDIR:/bin:/usr/bin:$PATH; export PATH
 # 6497475
 set -o noglob
 
-: ${mklocatedb:=locate.mklocatedb}      # make locate database program
-: ${FCODES:=/var/db/locate.database}    # the database
-: ${SEARCHPATHS="/"}                   # directories to be put in the database
+: ${mklocatedb:=locate.mklocatedb}	 # make locate database program
+: ${FCODES:=/var/db/locate.database}	 # the database
+: ${SEARCHPATHS="/"}		# directories to be put in the database
+#ifdef __APPLE__
 : ${PRUNEPATHS="/private/tmp /private/var/folders /private/var/tmp */Backups.backupdb"} # unwanted directories
-: ${FILESYSTEMS="hfs ufs apfs"}        # allowed filesystems
 : ${PRUNEDIRS=""}	# unwanted directories, in any parent
+: ${FILESYSTEMS="hfs ufs apfs"}		# allowed filesystems
+#else
+#: ${PRUNEPATHS="/tmp /usr/tmp /var/tmp /var/db/portsnap /var/db/freebsd-update"} # unwanted directories
+#: ${PRUNEDIRS=".zfs"}	# unwanted directories, in any parent
+#: ${FILESYSTEMS="$(lsvfs | tail -n +3 | \
+#	egrep -vw "loopback|network|synthetic|read-only|0" | \
+#	cut -d " " -f1)"}		# allowed filesystems
+#endif
 : ${find:=find}
 
 if [ -z "$SEARCHPATHS" ]; then
@@ -77,30 +91,36 @@ fi
 excludes="! (" or=""
 for fstype in $FILESYSTEMS
 do
-	excludes="$excludes $or -fstype $fstype"
-	or="-or"
+       excludes="$excludes $or -fstype $fstype"
+       or="-or"
 done
 excludes="$excludes ) -prune"
 
 if [ -n "$PRUNEPATHS" ]; then
-	for path in $PRUNEPATHS; do
+	for path in $PRUNEPATHS; do 
 		excludes="$excludes -or -path $path -prune"
 	done
 fi
 
 if [ -n "$PRUNEDIRS" ]; then
 	for dir in $PRUNEDIRS; do
-		excludes="$excludes -or -name dir -type d -prune"
+		excludes="$excludes -or -name $dir -type d -prune"
 	done
 fi
 
+#ifdef __APPLE__
 # Ignore the target of firmlinks
 while read firmlink; do
 	excludes="$excludes -or -path $firmlink -prune"
 done <<< "$(awk -F'\t' '{print "/System/Volumes/Data/" $2}' /usr/share/firmlinks)"
+#endif
 
 tmp=$TMPDIR/_updatedb$$
+#ifdef __APPLE__
 trap 'rm -f $tmp; rmdir $TMPDIR; exit' 0 1 2 3 5 10 15
+#else
+#trap 'rm -f $tmp; rmdir $TMPDIR' 0 1 2 3 5 10 15
+#endif
 
 # search locally
 if $find -s $SEARCHPATHS $excludes -or -print 2>/dev/null |

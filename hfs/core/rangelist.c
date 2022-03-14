@@ -101,7 +101,7 @@ rl_add(off_t start, off_t end, struct rl_head *rangelist)
 			 * overlap points to the entry we should insert before, or
 			 * if NULL, we should insert at the end.
 			 */
-			range = hfs_malloc(sizeof(*range));
+			range = hfs_malloc_type(struct rl_entry);
 			range->rl_start = start;
 			range->rl_end = end;
 			
@@ -181,7 +181,7 @@ rl_remove(off_t start, off_t end, struct rl_head *rangelist)
 
 		case RL_MATCHINGOVERLAP: /* 1: overlap == range */
 			TAILQ_REMOVE(rangelist, overlap, rl_link);
-			hfs_free(overlap, sizeof(*overlap));
+			hfs_free_type(overlap, struct rl_entry);
 			break;
 
 		case RL_OVERLAPCONTAINSRANGE: /* 2: overlap contains range: split it */
@@ -198,7 +198,7 @@ rl_remove(off_t start, off_t end, struct rl_head *rangelist)
 			/*
 			* Make a new range consisting of the last part of the encompassing range
 			*/
-			splitrange = hfs_malloc(sizeof *splitrange);
+			splitrange = hfs_malloc_type(struct rl_entry);
 			splitrange->rl_start = end + 1;
 			splitrange->rl_end = overlap->rl_end;
 			overlap->rl_end = start - 1;
@@ -213,7 +213,7 @@ rl_remove(off_t start, off_t end, struct rl_head *rangelist)
 			/* Check before discarding overlap entry */
 			next_range = TAILQ_NEXT(overlap, rl_link);
 			TAILQ_REMOVE(rangelist, overlap, rl_link);
-			hfs_free(overlap, sizeof(*overlap));
+			hfs_free_type(overlap, struct rl_entry);
 			if (next_range) {
 				range = next_range;
 				continue;
@@ -348,7 +348,7 @@ rl_collapse_forwards(struct rl_head *rangelist, struct rl_entry *range) {
 
 		/* Remove the now covered range from the list: */
 		TAILQ_REMOVE(rangelist, next_range, rl_link);
-		hfs_free(next_range, sizeof(*next_range));
+		hfs_free_type(next_range, struct rl_entry);
 
 #ifdef RL_DIAGNOSTIC
 		rl_verify(rangelist);
@@ -375,7 +375,7 @@ rl_collapse_backwards(struct rl_head *rangelist, struct rl_entry *range) {
     
         /* Remove the now covered range from the list: */
         TAILQ_REMOVE(rangelist, prev_range, rl_link);
-        hfs_free(prev_range, sizeof(*prev_range));
+        hfs_free_type(prev_range, struct rl_entry);
     };
 }
 
@@ -392,7 +392,7 @@ void rl_remove_all(struct rl_head *rangelist)
 {
 	struct rl_entry *r, *nextr;
 	TAILQ_FOREACH_SAFE(r, rangelist, rl_link, nextr)
-		hfs_free(r, sizeof(*r));
+		hfs_free_type(r, struct rl_entry);
 	TAILQ_INIT(rangelist);
 }
 

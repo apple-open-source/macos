@@ -224,6 +224,14 @@ hi{
             }
         }
         minimalPairs{
+            case{
+                nominative{"{0} का समय लगेगा"}
+                oblique{"{0} लगेगा/लगेंगे"}
+            }
+            gender{
+                feminine{"{0} बड़ी है."}
+                masculine{"{0} बड़ा है."}
+            }
             ordinal{
                 few{"{0} दाहिना मोड़ लें."}
                 many{"{0}ठा दाहिना मोड़ लें."}
@@ -289,6 +297,16 @@ hi{
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GyMd",
             }
             availableFormats{
                 Bh{"B h"}
@@ -505,6 +523,16 @@ hi{
                 "{1}, {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yyMd",
+            }
             appendItems{
                 Timezone{"{0} {1}"}
             }
@@ -524,6 +552,7 @@ hi{
                 GyMMM{"MMM y G"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"GGGGG d/M/y"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -1004,6 +1033,16 @@ hi{
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMd",
             }
             availableFormats{
                 Gy{"y G"}

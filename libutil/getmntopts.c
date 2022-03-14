@@ -155,8 +155,9 @@ getmntopts(const char *options, const struct mntopt *m0, int *flagp,
 		if (opt[0] == 'n' && opt[1] == 'o') {
 			negative = 1;
 			opt += 2;
-		} else
+		} else {
 			negative = 0;
+		}
 
 		/*
 		 * for options with assignments in them (ie. quotas)

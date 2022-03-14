@@ -286,9 +286,22 @@
               serialQueue:(dispatch_queue_t)queue
                    states:(NSSet<OctagonState*>*)states
 {
+    return [self initNamed:name
+               serialQueue:queue
+                    states:states
+                failStates:@{}];
+}
+
+- (instancetype)initNamed:(NSString*)name
+              serialQueue:(dispatch_queue_t)queue
+                   states:(NSSet<OctagonState*>*)states
+               failStates:(NSDictionary<OctagonState*, NSError*>*)failStates
+{
     if((self = [super init])) {
         _name = name;
-        _states = states;
+
+        _states = [states setByAddingObjectsFromArray:[failStates allKeys]];
+        _failStates = failStates;
 
         _result = [CKKSResultOperation named:[NSString stringWithFormat:@"watcher-%@", name] withBlock:^{}];
         _operationQueue = [[NSOperationQueue alloc] init];
@@ -301,6 +314,14 @@
     return self;
 }
 
+- (NSString*)description {
+    return [NSString stringWithFormat:@"<OctagonStateMultiStateArrivalWatcher(%@): states: %@, result: %@>",
+            self.name,
+            self.states,
+            self.result];
+}
+
+
 - (void)onqueueHandleTransition:(CKKSResultOperation<OctagonStateTransitionOperationProtocol>*)attempt
 {
     dispatch_assert_queue(self.queue);
@@ -311,7 +332,8 @@
 {
     if(!self.completed) {
         if([self.states containsObject:state]) {
-            [self onqueueStartFinishOperation];
+            NSError* possibleError = self.failStates[state];
+            [self onqueueStartFinishOperation:possibleError];
         }
     }
 }
@@ -327,10 +349,9 @@
                                  self.name,
                                  self.states];
 
-        self.result.error = [NSError errorWithDomain:CKKSResultErrorDomain
-                                                code:CKKSResultTimedOut
-                                         description:description];
-        [self onqueueStartFinishOperation];
+        [self onqueueStartFinishOperation:[NSError errorWithDomain:CKKSResultErrorDomain
+                                                              code:CKKSResultTimedOut
+                                                       description:description]];
     }
 }
 
@@ -345,12 +366,23 @@
     return self;
 }
 
-- (void)onqueueStartFinishOperation {
+- (void)onqueueStartFinishOperation:(NSError* _Nullable)resultError
+{
     dispatch_assert_queue(self.queue);
 
     self.timeoutCanOccur = false;
+    self.result.error = resultError;
     [self.operationQueue addOperation:self.result];
     self.completed = TRUE;
+}
+
+- (void)completeWithErrorIfPending:(NSError*)error
+{
+    dispatch_sync(self.queue, ^{
+        if(!self.completed) {
+            [self onqueueStartFinishOperation:error];
+        }
+    });
 }
 @end
 

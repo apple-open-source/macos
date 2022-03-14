@@ -244,7 +244,8 @@ ipc_task_init(
 			task->exc_actions[i].privileged =
 			    parent->exc_actions[i].privileged;
 #if CONFIG_MACF
-			mac_exc_inherit_action_label(parent->exc_actions + i, task->exc_actions + i);
+			mac_exc_inherit_action_label(parent->exc_actions + i,
+			    task->exc_actions + i);
 #endif
 		}/* for */
 		task->itk_host =
@@ -748,19 +749,13 @@ ipc_thread_init(
 	ipc_port_t      pport;
 	ipc_kobject_alloc_options_t alloc_options = IPC_KOBJECT_ALLOC_NONE;
 
-	/*
-	 * Having task_is_immovable() true does not guarantee thread control port
-	 * should be made immovable/pinned, also check options.
-	 *
-	 * Raw mach threads created via thread_create() have neither of INIT_PINNED
-	 * or INIT_IMMOVABLE option set.
-	 */
-	if (task_is_immovable(task) && (options & IPC_THREAD_INIT_IMMOVABLE)) {
+	if (task_is_immovable(task) && !(options & IPC_THREAD_INIT_MAINTHREAD)) {
+		/*
+		 * pthreads and raw threads both have immovable port upon creation.
+		 * pthreads are subsequently pinned via ipc_port_copyout_send_pinned() whereas
+		 * raw threads are left unpinned.
+		 */
 		alloc_options |= IPC_KOBJECT_ALLOC_IMMOVABLE_SEND;
-
-		if (task_is_pinned(task) && (options & IPC_THREAD_INIT_PINNED)) {
-			alloc_options |= IPC_KOBJECT_ALLOC_PINNED;
-		}
 
 		pport = ipc_kobject_alloc_port((ipc_kobject_t)thread,
 		    IKOT_THREAD_CONTROL, alloc_options);
@@ -769,6 +764,11 @@ ipc_thread_init(
 		    IKOT_THREAD_CONTROL, IPC_LABEL_SUBST_THREAD, IPC_KOBJECT_ALLOC_NONE);
 		kport->ip_kolabel->ikol_alt_port = pport;
 	} else {
+		/*
+		 * Main thread is created movable but may be set immovable and pinned in
+		 * main_thread_set_immovable_pinned(). It needs to be handled separately
+		 * because task_control_port_options is not available at main thread creation time.
+		 */
 		kport = ipc_kobject_alloc_port((ipc_kobject_t)thread,
 		    IKOT_THREAD_CONTROL, IPC_KOBJECT_ALLOC_NONE);
 
@@ -807,7 +807,7 @@ ipc_main_thread_set_immovable_pinned(thread_t thread)
 
 	/*
 	 * Main thread port is immovable/pinned depending on whether owner task has
-	 * immovable/pinned task control port.
+	 * immovable/pinned task control port. task_control_port_options is now set.
 	 */
 	if (task_is_immovable(task)) {
 		ipc_kobject_alloc_options_t options = IPC_KOBJECT_ALLOC_IMMOVABLE_SEND;
@@ -866,7 +866,9 @@ ipc_thread_destroy_exc_actions(thread_ro_t tro)
 #endif
 
 		zalloc_ro_clear_field(ZONE_ID_THREAD_RO, tro, tro_exc_actions);
-		kfree_type(struct thread_init_exc_actions, actions);
+		struct thread_init_exc_actions *tr_actions =
+		    (struct thread_init_exc_actions *)actions;
+		kfree_type(struct thread_init_exc_actions, tr_actions);
 	}
 }
 
@@ -1265,6 +1267,21 @@ retrieve_thread_self_fast(
 	if (tro->tro_settable_self_port == tro->tro_ports[THREAD_FLAVOR_CONTROL]) {
 		/* no interposing, return IMMOVABLE_PORT */
 		port = ipc_port_make_send(tro->tro_self_port);
+#if (DEBUG || DEVELOPMENT)
+		if (task_is_immovable(tro->tro_task)) {
+			assert(ip_is_immovable_send(port));
+			uint16_t tag = thread_get_tag(thread);
+			/* terminated threads are unpinned */
+			if (thread->active && (tag & (THREAD_TAG_PTHREAD | THREAD_TAG_MAINTHREAD))) {
+				assert(ip_is_pinned(port));
+			} else {
+				assert(!ip_is_pinned(port));
+			}
+		} else {
+			assert(!ip_is_immovable_send(port));
+			assert(!ip_is_pinned(port));
+		}
+#endif
 	} else {
 		port = ipc_port_copy_send(tro->tro_settable_self_port);
 	}
@@ -1749,7 +1766,7 @@ thread_set_special_port(
 	ipc_port_t              port)
 {
 	kern_return_t   result = KERN_SUCCESS;
-	thread_ro_t     tro;
+	thread_ro_t     tro = NULL;
 	ipc_port_t      old = IP_NULL;
 
 	if (thread == THREAD_NULL) {
@@ -1760,35 +1777,39 @@ thread_set_special_port(
 		return KERN_INVALID_RIGHT;
 	}
 
-	tro = get_thread_ro(thread);
-
 	switch (which) {
 	case THREAD_KERNEL_PORT:
 #if CONFIG_CSR
-		if (csr_check(CSR_ALLOW_KERNEL_DEBUGGER) != 0) {
+		if (csr_check(CSR_ALLOW_KERNEL_DEBUGGER) == 0) {
 			/*
 			 * Only allow setting of thread-self
 			 * special port from user-space when SIP is
 			 * disabled (for Mach-on-Mach emulation).
 			 */
-			return KERN_NO_ACCESS;
+			tro = get_thread_ro(thread);
+
+			thread_mtx_lock(thread);
+			if (thread->active) {
+				old = tro->tro_settable_self_port;
+				zalloc_ro_update_field(ZONE_ID_THREAD_RO,
+				    tro, tro_settable_self_port, &port);
+			} else {
+				result = KERN_FAILURE;
+			}
+			thread_mtx_unlock(thread);
+
+			if (IP_VALID(old)) {
+				ipc_port_release_send(old);
+			}
+
+			return result;
 		}
+#else
+		(void)old;
+		(void)result;
+		(void)tro;
 #endif
-		thread_mtx_lock(thread);
-		if (thread->active) {
-			old = tro->tro_settable_self_port;
-			zalloc_ro_update_field(ZONE_ID_THREAD_RO,
-			    tro, tro_settable_self_port, &port);
-		} else {
-			result = KERN_FAILURE;
-		}
-		thread_mtx_unlock(thread);
-
-		if (IP_VALID(old)) {
-			ipc_port_release_send(old);
-		}
-
-		return result;
+		return KERN_NO_ACCESS;
 
 	default:
 		return KERN_INVALID_ARGUMENT;
@@ -2422,95 +2443,24 @@ task_port_kotype_valid_for_flavor(
 }
 
 /*
- *	Routine: convert_port_to_locked_task_with_flavor
+ *	Routine: convert_port_to_task_with_flavor_locked_noref
  *	Purpose:
- *		Internal helper routine to convert from a port to a locked
- *		task. Used by several routines that try to convert from a
- *		task port to a reference on some task related object (space and map).
- *  Args:
- *      port    - target port
- *      flavor  - requested task port flavor
- *      options - port translation options
+ *		Internal helper routine to convert from a locked port to a task.
+ *	Args:
+ *		port   - target port
+ *		flavor - requested task port flavor
+ *		options - port translation options
  *	Conditions:
- *		Nothing locked, blocking OK.
+ *		Port is locked and active.
  */
 static task_t
-convert_port_to_locked_task_with_flavor(
+convert_port_to_task_with_flavor_locked_noref(
 	ipc_port_t              port,
 	mach_task_flavor_t      flavor,
 	port_intrans_options_t  options)
 {
-	int try_failed_count = 0;
-
-	while (IP_VALID(port)) {
-		ipc_kobject_type_t type = ip_kotype(port);
-		task_t task;
-
-		if (!task_port_kotype_valid_for_flavor(type, flavor)) {
-			return TASK_NULL;
-		}
-
-		ip_mq_lock(port);
-		task = ipc_kobject_get_locked(port, type);
-		if (task == TASK_NULL) {
-			ip_mq_unlock(port);
-			return TASK_NULL;
-		}
-
-		if (!(options & PORT_INTRANS_ALLOW_CORPSE_TASK) && task_is_a_corpse(task)) {
-			assert(flavor == TASK_FLAVOR_CONTROL);
-			ip_mq_unlock(port);
-			return TASK_NULL;
-		}
-
-		if (flavor == TASK_FLAVOR_NAME || flavor == TASK_FLAVOR_INSPECT) {
-			assert(options & PORT_INTRANS_SKIP_TASK_EVAL);
-		}
-
-		if (!(options & PORT_INTRANS_SKIP_TASK_EVAL)
-		    && task_conversion_eval(current_task(), task)) {
-			ip_mq_unlock(port);
-			return TASK_NULL;
-		}
-
-		/*
-		 * Normal lock ordering puts task_lock() before ip_mq_lock().
-		 * Attempt out-of-order locking here.
-		 */
-		if (task_lock_try(task)) {
-			ip_mq_unlock(port);
-			return task;
-		}
-		try_failed_count++;
-
-		ip_mq_unlock(port);
-		mutex_pause(try_failed_count);
-	}
-	return TASK_NULL;
-}
-
-/*
- *	Routine: convert_port_to_task_with_flavor_locked
- *	Purpose:
- *		Internal helper routine to convert from a locked port to a task.
- *      Used by convert_port_to_task_with_flavor() and port name -> task conversions.
- *  Args:
- *      port   - target port
- *      flavor - requested task port flavor
- *      options - port translation options
- *      grp    - task reference group
- *	Conditions:
- *		Port is locked and active. Produces task ref or TASK_NULL.
- */
-static task_t
-convert_port_to_task_with_flavor_locked(
-	ipc_port_t              port,
-	mach_task_flavor_t      flavor,
-	port_intrans_options_t  options,
-	task_grp_t              grp)
-{
-	task_t          task = TASK_NULL;
 	ipc_kobject_type_t type = ip_kotype(port);
+	task_t task;
 
 	ip_mq_lock_held(port);
 	require_ip_active(port);
@@ -2520,22 +2470,54 @@ convert_port_to_task_with_flavor_locked(
 	}
 
 	task = ipc_kobject_get_locked(port, type);
+	if (task == TASK_NULL) {
+		return TASK_NULL;
+	}
+
+	if (!(options & PORT_INTRANS_ALLOW_CORPSE_TASK) && task_is_a_corpse(task)) {
+		assert(flavor == TASK_FLAVOR_CONTROL);
+		return TASK_NULL;
+	}
+
+	/* TODO: rdar://42389187 */
+	if (flavor == TASK_FLAVOR_NAME || flavor == TASK_FLAVOR_INSPECT) {
+		assert(options & PORT_INTRANS_SKIP_TASK_EVAL);
+	}
+
+	if (!(options & PORT_INTRANS_SKIP_TASK_EVAL) &&
+	    task_conversion_eval(current_task(), task)) {
+		return TASK_NULL;
+	}
+
+	return task;
+}
+
+/*
+ *	Routine: convert_port_to_task_with_flavor_locked
+ *	Purpose:
+ *		Internal helper routine to convert from a locked port to a task.
+ *	Args:
+ *		port   - target port
+ *		flavor - requested task port flavor
+ *		options - port translation options
+ *		grp    - task reference group
+ *	Conditions:
+ *		Port is locked and active.
+ *		Produces task ref or TASK_NULL.
+ */
+static task_t
+convert_port_to_task_with_flavor_locked(
+	ipc_port_t              port,
+	mach_task_flavor_t      flavor,
+	port_intrans_options_t  options,
+	task_grp_t              grp)
+{
+	task_t task;
+
+	task = convert_port_to_task_with_flavor_locked_noref(port, flavor,
+	    options);
+
 	if (task != TASK_NULL) {
-		if (!(options & PORT_INTRANS_ALLOW_CORPSE_TASK) && task_is_a_corpse(task)) {
-			assert(flavor == TASK_FLAVOR_CONTROL);
-			return TASK_NULL;
-		}
-
-		/* TODO: rdar://42389187 */
-		if (flavor == TASK_FLAVOR_NAME || flavor == TASK_FLAVOR_INSPECT) {
-			assert(options & PORT_INTRANS_SKIP_TASK_EVAL);
-		}
-
-		if (!(options & PORT_INTRANS_SKIP_TASK_EVAL)
-		    && task_conversion_eval(current_task(), task)) {
-			return TASK_NULL;
-		}
-
 		task_reference_grp(task, grp);
 	}
 
@@ -2577,8 +2559,9 @@ convert_port_to_task_with_exec_token(
 
 		ip_mq_lock(port);
 		if (ip_active(port)) {
-			task = convert_port_to_task_with_flavor_locked(port, TASK_FLAVOR_CONTROL,
-			    PORT_INTRANS_OPTIONS_NONE, TASK_GRP_KERNEL);
+			task = convert_port_to_task_with_flavor_locked(port,
+			    TASK_FLAVOR_CONTROL, PORT_INTRANS_OPTIONS_NONE,
+			    TASK_GRP_KERNEL);
 		}
 		ip_mq_unlock(port);
 	}
@@ -2596,11 +2579,11 @@ convert_port_to_task_with_exec_token(
  *		Internal helper for converting from a port to a task.
  *		Doesn't consume the port ref; produces a task ref,
  *		which may be null.
- *  Args:
- *      port   - target port
- *      flavor - requested task port flavor
- *      options - port translation options
- *      grp    - task reference group
+ *	Args:
+ *		port   - target port
+ *		flavor - requested task port flavor
+ *		options - port translation options
+ *		grp    - task reference group
  *	Conditions:
  *		Nothing locked.
  */
@@ -2622,7 +2605,8 @@ convert_port_to_task_with_flavor(
 
 		ip_mq_lock(port);
 		if (ip_active(port)) {
-			task = convert_port_to_task_with_flavor_locked(port, flavor, options, grp);
+			task = convert_port_to_task_with_flavor_locked(port,
+			    flavor, options, grp);
 		}
 		ip_mq_unlock(port);
 	}
@@ -2817,10 +2801,10 @@ convert_port_to_task_suspension_token_kernel(
  *		Internal helper for converting from a port to a space.
  *		Doesn't consume the port ref; produces a space ref,
  *		which may be null.
- *  Args:
- *      port   - target port
- *      flavor - requested ipc space flavor
- *      options - port translation options
+ *	Args:
+ *		port   - target port
+ *		flavor - requested ipc space flavor
+ *		options - port translation options
  *	Conditions:
  *		Nothing locked.
  */
@@ -2830,24 +2814,36 @@ convert_port_to_space_with_flavor(
 	mach_task_flavor_t flavor,
 	port_intrans_options_t options)
 {
-	ipc_space_t space;
-	task_t task;
+	ipc_space_t space = IPC_SPACE_NULL;
+	task_t task = TASK_NULL;
 
 	assert(flavor != TASK_FLAVOR_NAME);
-	task = convert_port_to_locked_task_with_flavor(port, flavor, options);
 
-	if (task == TASK_NULL) {
-		return IPC_SPACE_NULL;
+	if (IP_VALID(port)) {
+		ip_mq_lock(port);
+		if (ip_active(port)) {
+			task = convert_port_to_task_with_flavor_locked_noref(port,
+			    flavor, options);
+		}
+
+		/*
+		 * Because we hold the port lock and we could resolve a task,
+		 * even if we're racing with task termination, we know that
+		 * ipc_task_disable() hasn't been called yet.
+		 *
+		 * We try to sniff if `task->active` flipped to accelerate
+		 * resolving the race, but this isn't load bearing.
+		 *
+		 * The space will be torn down _after_ ipc_task_disable() returns,
+		 * so it is valid to take a reference on it now.
+		 */
+		if (task && task->active) {
+			space = task->itk_space;
+			is_reference(space);
+		}
+		ip_mq_unlock(port);
 	}
 
-	if (!task->active) {
-		task_unlock(task);
-		return IPC_SPACE_NULL;
-	}
-
-	space = task->itk_space;
-	is_reference(space);
-	task_unlock(task);
 	return space;
 }
 
@@ -2889,10 +2885,10 @@ convert_port_to_space_inspect(
  *		Internal helper for converting from a port to a map.
  *		Doesn't consume the port ref; produces a map ref,
  *		which may be null.
- *  Args:
- *      port   - target port
- *      flavor - requested vm map flavor
- *      options - port translation options
+ *	Args:
+ *		port   - target port
+ *		flavor - requested vm map flavor
+ *		options - port translation options
  *	Conditions:
  *		Nothing locked.
  */
@@ -2902,38 +2898,47 @@ convert_port_to_map_with_flavor(
 	mach_task_flavor_t flavor,
 	port_intrans_options_t options)
 {
-	task_t task;
-	vm_map_t map;
+	task_t task = TASK_NULL;
+	vm_map_t map = VM_MAP_NULL;
 
 	/* there is no vm_map_inspect_t routines at the moment. */
 	assert(flavor != TASK_FLAVOR_NAME && flavor != TASK_FLAVOR_INSPECT);
-	task = convert_port_to_locked_task_with_flavor(port, flavor, options);
+	assert((options & PORT_INTRANS_SKIP_TASK_EVAL) == 0);
 
-	if (task == TASK_NULL) {
-		return VM_MAP_NULL;
-	}
+	if (IP_VALID(port)) {
+		ip_mq_lock(port);
 
-	if (!task->active) {
-		task_unlock(task);
-		return VM_MAP_NULL;
-	}
-
-	map = task->map;
-	if (map->pmap == kernel_pmap) {
-		if (flavor == TASK_FLAVOR_CONTROL) {
-			panic("userspace has control access to a "
-			    "kernel map %p through task %p", map, task);
+		if (ip_active(port)) {
+			task = convert_port_to_task_with_flavor_locked_noref(port,
+			    flavor, options);
 		}
-		if (task != kernel_task) {
-			panic("userspace has access to a "
-			    "kernel map %p through task %p", map, task);
+
+		/*
+		 * Because we hold the port lock and we could resolve a task,
+		 * even if we're racing with task termination, we know that
+		 * ipc_task_disable() hasn't been called yet.
+		 *
+		 * We try to sniff if `task->active` flipped to accelerate
+		 * resolving the race, but this isn't load bearing.
+		 *
+		 * The vm map will be torn down _after_ ipc_task_disable() returns,
+		 * so it is valid to take a reference on it now.
+		 */
+		if (task && task->active) {
+			map = task->map;
+
+			if (map->pmap == kernel_pmap) {
+				panic("userspace has control access to a "
+				    "kernel map %p through task %p", map, task);
+			}
+
+			pmap_require(map->pmap);
+			vm_map_reference(map);
 		}
-	} else {
-		pmap_require(map->pmap);
+
+		ip_mq_unlock(port);
 	}
 
-	vm_map_reference(map);
-	task_unlock(task);
 	return map;
 }
 
@@ -3000,13 +3005,13 @@ thread_port_kotype_valid_for_flavor(
  *	Routine: convert_port_to_thread_with_flavor_locked
  *	Purpose:
  *		Internal helper routine to convert from a locked port to a thread.
- *      Used by convert_port_to_thread_with_flavor() and port name -> thread conversions.
- *  Args:
- *      port    - target port
- *      flavor  - requested thread port flavor
- *      options - port translation options
+ *	Args:
+ *		port   - target port
+ *		flavor - requested thread port flavor
+ *		options - port translation options
  *	Conditions:
- *		Port is locked and active. Produces thread ref or THREAD_NULL.
+ *		Port is locked and active.
+ *		Produces a thread ref or THREAD_NULL.
  */
 static thread_t
 convert_port_to_thread_with_flavor_locked(
@@ -3069,10 +3074,10 @@ convert_port_to_thread_with_flavor_locked(
  *		Internal helper for converting from a port to a thread.
  *		Doesn't consume the port ref; produces a thread ref,
  *		which may be null.
- *  Args:
- *      port   - target port
- *      flavor - requested thread port flavor
- *      options - port translation options
+ *	Args:
+ *		port   - target port
+ *		flavor - requested thread port flavor
+ *		options - port translation options
  *	Conditions:
  *		Nothing locked.
  */
@@ -3087,7 +3092,8 @@ convert_port_to_thread_with_flavor(
 	if (IP_VALID(port)) {
 		ip_mq_lock(port);
 		if (ip_active(port)) {
-			thread = convert_port_to_thread_with_flavor_locked(port, flavor, options);
+			thread = convert_port_to_thread_with_flavor_locked(port,
+			    flavor, options);
 		}
 		ip_mq_unlock(port);
 	}
@@ -3380,8 +3386,8 @@ port_name_to_task_grp(
 		kr = ipc_port_translate_send(self->itk_space, name, &kport);
 		if (kr == KERN_SUCCESS) {
 			/* port is locked and active */
-			task = convert_port_to_task_with_flavor_locked(kport, TASK_FLAVOR_CONTROL,
-			    PORT_INTRANS_OPTIONS_NONE, grp);
+			task = convert_port_to_task_with_flavor_locked(kport,
+			    TASK_FLAVOR_CONTROL, PORT_INTRANS_OPTIONS_NONE, grp);
 			ip_mq_unlock(kport);
 		}
 	}
@@ -3428,8 +3434,9 @@ port_name_to_task_read(
 		kr = ipc_port_translate_send(self->itk_space, name, &kport);
 		if (kr == KERN_SUCCESS) {
 			/* port is locked and active */
-			tr = convert_port_to_task_with_flavor_locked(kport, TASK_FLAVOR_READ,
-			    PORT_INTRANS_ALLOW_CORPSE_TASK, TASK_GRP_KERNEL);
+			tr = convert_port_to_task_with_flavor_locked(kport,
+			    TASK_FLAVOR_READ, PORT_INTRANS_ALLOW_CORPSE_TASK,
+			    TASK_GRP_KERNEL);
 			ip_mq_unlock(kport);
 		}
 	}
@@ -3460,11 +3467,14 @@ port_name_to_task_read_no_eval(
 	}
 
 	if (MACH_PORT_VALID(name)) {
+		port_intrans_options_t options = PORT_INTRANS_SKIP_TASK_EVAL |
+		    PORT_INTRANS_ALLOW_CORPSE_TASK;
+
 		kr = ipc_port_translate_send(self->itk_space, name, &kport);
 		if (kr == KERN_SUCCESS) {
 			/* port is locked and active */
-			tr = convert_port_to_task_with_flavor_locked(kport, TASK_FLAVOR_READ,
-			    PORT_INTRANS_SKIP_TASK_EVAL | PORT_INTRANS_ALLOW_CORPSE_TASK, TASK_GRP_KERNEL);
+			tr = convert_port_to_task_with_flavor_locked(kport,
+			    TASK_FLAVOR_READ, options, TASK_GRP_KERNEL);
 			ip_mq_unlock(kport);
 		}
 	}
@@ -3494,11 +3504,14 @@ port_name_to_task_name(
 	}
 
 	if (MACH_PORT_VALID(name)) {
+		port_intrans_options_t options = PORT_INTRANS_SKIP_TASK_EVAL |
+		    PORT_INTRANS_ALLOW_CORPSE_TASK;
+
 		kr = ipc_port_translate_send(current_space(), name, &kport);
 		if (kr == KERN_SUCCESS) {
 			/* port is locked and active */
-			tn = convert_port_to_task_with_flavor_locked(kport, TASK_FLAVOR_NAME,
-			    PORT_INTRANS_SKIP_TASK_EVAL | PORT_INTRANS_ALLOW_CORPSE_TASK, TASK_GRP_KERNEL);
+			tn = convert_port_to_task_with_flavor_locked(kport,
+			    TASK_FLAVOR_NAME, options, TASK_GRP_KERNEL);
 			ip_mq_unlock(kport);
 		}
 	}
@@ -3690,6 +3703,11 @@ convert_task_to_port_pinned(
 		port = ipc_port_make_send(task->itk_self);
 	}
 
+	if (port && task_is_immovable(task)) {
+		assert(ip_is_pinned(port));
+		assert(ip_is_immovable_send(port));
+	}
+
 	itk_unlock(task);
 	task_deallocate(task);
 	return port;
@@ -3761,6 +3779,10 @@ convert_thread_to_port_pinned(
 
 	if (thread->ipc_active && tro->tro_self_port != IP_NULL) {
 		port = ipc_port_make_send(tro->tro_self_port);
+	}
+
+	if (port && task_is_immovable(tro->tro_task)) {
+		assert(ip_is_immovable_send(port));
 	}
 
 	thread_mtx_unlock(thread);
@@ -4690,8 +4712,8 @@ task_get_exception_ports_from_user(
  *	Routine:	ipc_thread_port_unpin
  *	Purpose:
  *
- *		Called on the thread when it's terminating so that the last ref can be
- *		deallocated without a guard exception.
+ *		Called on the thread when it's terminating so that the last ref
+ *		can be deallocated without a guard exception.
  *	Conditions:
  *		Thread mutex lock is held.
  */

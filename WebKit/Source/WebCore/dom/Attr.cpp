@@ -24,7 +24,10 @@
 #include "Attr.h"
 
 #include "AttributeChangeInvalidation.h"
+#include "Document.h"
+#include "ElementInlines.h"
 #include "Event.h"
+#include "HTMLNames.h"
 #include "ScopedEventQueue.h"
 #include "StyleProperties.h"
 #include "StyledElement.h"

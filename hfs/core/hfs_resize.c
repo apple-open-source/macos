@@ -972,7 +972,7 @@ hfs_copy_extent(
 	 */
 	vfs_ioattr(hfsmp->hfs_mp, &ioattr);
 	bufferSize = MIN(ioattr.io_maxreadcnt, ioattr.io_maxwritecnt);
-	buffer = hfs_malloc(bufferSize);
+	buffer = hfs_malloc_data(bufferSize);
 	
 	/* Get a buffer for doing the I/O */
 	bp = buf_alloc(hfsmp->hfs_devvp);
@@ -1071,7 +1071,7 @@ hfs_copy_extent(
 	}
 	if (bp)
 		buf_free(bp);
-	hfs_free(buffer, bufferSize);
+	hfs_free_data(buffer, bufferSize);
 	
 	/* Make sure all writes have been flushed to disk. */
 	if (vnode_issystem(vp) && !journal_uses_fua(hfsmp->jnl)) {
@@ -1372,7 +1372,7 @@ hfs_split_extent(struct hfs_reclaim_extent_info *extent_info, uint32_t newBlockC
 		bcopy((HFSPlusAttrKey *)&(extent_info->iterator->key), xattr_key, sizeof(HFSPlusAttrKey));
 		/* Note: xattr_key->startBlock will be initialized later in the iteration loop */
         
-		xattr_rec = hfs_malloc(sizeof(*xattr_rec));
+		xattr_rec = hfs_malloc_type(HFSPlusAttrRecord);
 
 		btdata.bufferAddress = xattr_rec;
 		btdata.itemSize = sizeof(HFSPlusAttrRecord);
@@ -1386,7 +1386,7 @@ hfs_split_extent(struct hfs_reclaim_extent_info *extent_info, uint32_t newBlockC
 		extents_key->fileID = extent_info->fileID;
 		/* Note: extents_key->startBlock will be initialized later in the iteration loop */
 		
-		extents_rec = hfs_malloc(sizeof(*extents_rec));
+		extents_rec = hfs_malloc_type(HFSPlusExtentRecord);
 
 		btdata.bufferAddress = extents_rec;
 		btdata.itemSize = sizeof(HFSPlusExtentRecord);
@@ -1581,8 +1581,8 @@ out:
 	 */
 	BTFlushPath(extent_info->fcb);
     
-	hfs_free(extents_rec, sizeof(*extents_rec));
-	hfs_free(xattr_rec, sizeof(*xattr_rec));
+	hfs_free_type(extents_rec, HFSPlusExtentRecord);
+	hfs_free_type(xattr_rec, HFSPlusAttrRecord);
 	return error;
 }
 
@@ -1980,7 +1980,7 @@ hfs_reclaim_file(struct hfsmount *hfsmp, struct vnode *vp, u_int32_t fileID,
 		printf("hfs_reclaim_file: reclaiming '%.*s'\n", namelen, filename);
 	}
     
-	extent_info = hfs_mallocz(sizeof(struct hfs_reclaim_extent_info));
+	extent_info = hfs_malloc_type(struct hfs_reclaim_extent_info);
 
 	extent_info->vp = vp;
 	extent_info->fileID = fileID;
@@ -2060,9 +2060,9 @@ hfs_reclaim_file(struct hfsmount *hfsmp, struct vnode *vp, u_int32_t fileID,
 	}
     
 	if (extent_info->is_dirlink) {
-		extent_info->dirlink_desc = hfs_malloc(sizeof(struct cat_desc));
-		extent_info->dirlink_attr = hfs_malloc(sizeof(struct cat_attr));
-		extent_info->dirlink_fork = hfs_mallocz(sizeof(struct filefork));
+		extent_info->dirlink_desc = hfs_malloc_type(struct cat_desc);
+		extent_info->dirlink_attr = hfs_malloc_type(struct cat_attr);
+		extent_info->dirlink_fork = hfs_malloc_type(struct filefork);
 
 		/* Lookup catalog record for directory hard link and
 		 * create a fake filefork for the value looked up from
@@ -2115,7 +2115,7 @@ hfs_reclaim_file(struct hfsmount *hfsmp, struct vnode *vp, u_int32_t fileID,
 		printf ("hfs_reclaim_file: Will check overflow records, offset=%d, ff_blocks=%u, cur_blockCount=%u\n", i, fp->ff_blocks, extent_info->cur_blockCount);
 	}
     
-	extent_info->iterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	extent_info->iterator = hfs_malloc_type(struct BTreeIterator);
 	key = (HFSPlusExtentKey *) &(extent_info->iterator->key);
 	key->keyLength = kHFSPlusExtentKeyMaximumLength;
 	key->forkType = forktype;
@@ -2179,19 +2179,19 @@ out:
 		}
 	}
 	if (extent_info->iterator) {
-		hfs_free(extent_info->iterator, sizeof(*extent_info->iterator));
+		hfs_free_type(extent_info->iterator, struct BTreeIterator);
 	}
 	if (release_desc == true) {
 		cat_releasedesc(extent_info->dirlink_desc);
 	}
 	if (extent_info->dirlink_desc) {
-		hfs_free(extent_info->dirlink_desc, sizeof(*extent_info->dirlink_desc));
+		hfs_free_type(extent_info->dirlink_desc, struct cat_desc);
 	}
 	if (extent_info->dirlink_attr) {
-		hfs_free(extent_info->dirlink_attr, sizeof(*extent_info->dirlink_attr));
+		hfs_free_type(extent_info->dirlink_attr, struct cat_attr);
 	}
 	if (extent_info->dirlink_fork) {
-		hfs_free(extent_info->dirlink_fork, sizeof(*extent_info->dirlink_fork));
+		hfs_free_type(extent_info->dirlink_fork, struct filefork);
 	}
 	if ((extent_info->blocks_relocated != 0) && (extent_info->is_sysfile == false)) {
 		hfs_update(vp, 0);
@@ -2200,7 +2200,7 @@ out:
 		hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
 	}
 	if (extent_info) {
-		hfs_free(extent_info, sizeof(*extent_info));
+		hfs_free_type(extent_info, struct hfs_reclaim_extent_info);
 	}
 	if (hfs_resize_debug) {
 		printf("hfs_reclaim_file: === Finished relocating %sfork for fileid=%u (error=%d) ===\n", (forktype ? "rsrc" : "data"), fileID, error);
@@ -2723,7 +2723,7 @@ hfs_reclaim_xattr(struct hfsmount *hfsmp, struct vnode *vp, u_int32_t fileID, u_
 		printf("hfs_reclaim_xattr: === Start reclaiming xattr for id=%u ===\n", fileID);
 	}
     
-	extent_info = hfs_mallocz(sizeof(struct hfs_reclaim_extent_info));
+	extent_info = hfs_malloc_type(struct hfs_reclaim_extent_info);
 	extent_info->vp = vp;
 	extent_info->fileID = fileID;
 	extent_info->is_xattr = true;
@@ -2733,7 +2733,7 @@ hfs_reclaim_xattr(struct hfsmount *hfsmp, struct vnode *vp, u_int32_t fileID, u_
 	*lockflags = SFL_ATTRIBUTE | SFL_BITMAP;
     
 	/* Initialize iterator from the extent_info structure */
-	extent_info->iterator = hfs_mallocz(sizeof(struct BTreeIterator));
+	extent_info->iterator = hfs_malloc_type(struct BTreeIterator);
     
 	/* Build attribute key */
 	key = (HFSPlusAttrKey *)&(extent_info->iterator->key);
@@ -2832,10 +2832,10 @@ out:
 		hfs_truncatefs_progress(hfsmp);
 	}
 	if (extent_info->iterator) {
-		hfs_free(extent_info->iterator, sizeof(*extent_info->iterator));
+		hfs_free_type(extent_info->iterator, BTreeIterator);
 	}
 	if (extent_info) {
-		hfs_free(extent_info, sizeof(*extent_info));
+		hfs_free_type(extent_info, struct hfs_reclaim_extent_info);
 	}
 	if (hfs_resize_debug) {
 		printf("hfs_reclaim_xattr: === Finished relocating xattr for fileid=%u (error=%d) ===\n", fileID, error);
@@ -2882,7 +2882,7 @@ hfs_reclaim_xattrspace(struct hfsmount *hfsmp, u_int32_t allocLimit, vfs_context
 	/* Store the value to print total blocks moved by this function in end */
 	prev_blocksmoved = hfsmp->hfs_resize_blocksmoved;
 	
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	key = (HFSPlusAttrKey *)&iterator->key;
 	btdata.bufferAddress = &rec;
 	btdata.itemSize = sizeof(rec);
@@ -2971,7 +2971,7 @@ hfs_reclaim_xattrspace(struct hfsmount *hfsmp, u_int32_t allocLimit, vfs_context
                files_moved, hfsmp->vcbVN);
 	}
 	
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	return error;
 }
 
@@ -3032,7 +3032,7 @@ hfs_reclaim_filespace(struct hfsmount *hfsmp, u_int32_t allocLimit, vfs_context_
     
 #endif
     
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	btdata.bufferAddress = &filerec;
 	btdata.itemSize = sizeof(filerec);
@@ -3137,7 +3137,7 @@ reclaim_filespace_done:
 	}
 #endif
 
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	return error;
 }
@@ -3343,7 +3343,7 @@ hfs_file_extent_overlaps(struct hfsmount *hfsmp, u_int32_t allocLimit,
 		goto out;
 	}
     
-	iterator = hfs_malloc(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	bzero(iterator, sizeof(*iterator));
 	extkeyptr = (HFSPlusExtentKey *)&iterator->key;
@@ -3406,7 +3406,7 @@ out:
 		hfs_systemfile_unlock(hfsmp, lockflags);
 	}
 
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 
 	return ret;
 }

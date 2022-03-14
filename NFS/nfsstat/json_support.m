@@ -27,24 +27,24 @@
 #pragma mark -
 
 /*
-* Helper functions
-*/
+ * Helper functions
+ */
 
 static CFMutableStringRef
 create_cfstr(const char *string)
 {
-    CFMutableStringRef cf_str = CFStringCreateMutable(NULL, 0);
-    if (cf_str == NULL) {
-        fprintf(stderr, "*** %s: CFStringCreateMutable failed \n", __FUNCTION__);
-        return NULL;
-    }
-    CFStringAppendCString(cf_str, string, kCFStringEncodingUTF8);
+	CFMutableStringRef cf_str = CFStringCreateMutable(NULL, 0);
+	if (cf_str == NULL) {
+		fprintf(stderr, "*** %s: CFStringCreateMutable failed \n", __FUNCTION__);
+		return NULL;
+	}
+	CFStringAppendCString(cf_str, string, kCFStringEncodingUTF8);
 
-    /* Replace any "\n" in the strings with " " */
-    CFStringFindAndReplace(cf_str, CFSTR("\n"), CFSTR(" "),
-                           CFRangeMake(0, CFStringGetLength(cf_str)), 0);
+	/* Replace any "\n" in the strings with " " */
+	CFStringFindAndReplace(cf_str, CFSTR("\n"), CFSTR(" "),
+	    CFRangeMake(0, CFStringGetLength(cf_str)), 0);
 
-    return(cf_str);
+	return cf_str;
 }
 
 
@@ -56,161 +56,161 @@ create_cfstr(const char *string)
 
 int
 json_dict_add_dict(CFMutableDictionaryRef dict, const char *key,
-              const CFMutableDictionaryRef value)
+    const CFMutableDictionaryRef value)
 {
-    if ((dict == NULL) || (key == NULL) || (value == NULL)) {
-        fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
-        return(EINVAL);
-    }
+	if ((dict == NULL) || (key == NULL) || (value == NULL)) {
+		fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
+		return EINVAL;
+	}
 
-    CFMutableStringRef cf_key = create_cfstr(key);
-    if (cf_key == NULL) {
-        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
-                __FUNCTION__, key);
-        return(ENOMEM);
-    }
+	CFMutableStringRef cf_key = create_cfstr(key);
+	if (cf_key == NULL) {
+		fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+		    __FUNCTION__, key);
+		return ENOMEM;
+	}
 
-    CFDictionarySetValue(dict, cf_key, value);
+	CFDictionarySetValue(dict, cf_key, value);
 
-    CFRelease(cf_key);
-    return(0);
+	CFRelease(cf_key);
+	return 0;
 }
 
 int
 json_dict_add_array(CFMutableDictionaryRef dict, const char *key,
-              const CFMutableArrayRef value)
+    const CFMutableArrayRef value)
 {
-    if ((dict == NULL) || (key == NULL) || (value == NULL)) {
-        fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
-        return(EINVAL);
-    }
+	if ((dict == NULL) || (key == NULL) || (value == NULL)) {
+		fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
+		return EINVAL;
+	}
 
-    CFMutableStringRef cf_key = create_cfstr(key);
-    if (cf_key == NULL) {
-        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
-                __FUNCTION__, key);
-        return(ENOMEM);
-    }
+	CFMutableStringRef cf_key = create_cfstr(key);
+	if (cf_key == NULL) {
+		fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+		    __FUNCTION__, key);
+		return ENOMEM;
+	}
 
-    CFDictionarySetValue(dict, cf_key, value);
+	CFDictionarySetValue(dict, cf_key, value);
 
-    CFRelease(cf_key);
-    return(0);
+	CFRelease(cf_key);
+	return 0;
 }
 
 int
 json_dict_add_num(CFMutableDictionaryRef dict, const char *key,
-             const void *value, size_t size)
+    const void *value, size_t size)
 {
-    CFNumberRef cf_num = NULL;
+	CFNumberRef cf_num = NULL;
 
-    if ((dict == NULL) || (key == NULL) || (value == NULL)) {
-        fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
-        return(EINVAL);
-    }
+	if ((dict == NULL) || (key == NULL) || (value == NULL)) {
+		fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
+		return EINVAL;
+	}
 
-    CFMutableStringRef cf_key = create_cfstr(key);
-    if (cf_key == NULL) {
-        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
-                __FUNCTION__, key);
-        return(ENOMEM);
-    }
+	CFMutableStringRef cf_key = create_cfstr(key);
+	if (cf_key == NULL) {
+		fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+		    __FUNCTION__, key);
+		return ENOMEM;
+	}
 
-    switch(size) {
-        case sizeof(uint8_t):
-            cf_num = CFNumberCreate(NULL, kCFNumberSInt8Type, value);
-            break;
-        case sizeof(uint16_t):
-            cf_num = CFNumberCreate(NULL, kCFNumberSInt16Type, value);
-            break;
-        case sizeof(uint32_t):
-            cf_num = CFNumberCreate(NULL, kCFNumberSInt32Type, value);
-            break;
-        case sizeof(uint64_t):
-            cf_num = CFNumberCreate(NULL, kCFNumberSInt64Type, value);
-            break;
-        default:
-            fprintf(stderr, "*** %s: Unsupported size %zu \n", __FUNCTION__, size);
-            CFRelease(cf_key);
-            return(EINVAL);
-    }
+	switch (size) {
+	case sizeof(uint8_t):
+		cf_num = CFNumberCreate(NULL, kCFNumberSInt8Type, value);
+		break;
+	case sizeof(uint16_t):
+		cf_num = CFNumberCreate(NULL, kCFNumberSInt16Type, value);
+		break;
+	case sizeof(uint32_t):
+		cf_num = CFNumberCreate(NULL, kCFNumberSInt32Type, value);
+		break;
+	case sizeof(uint64_t):
+		cf_num = CFNumberCreate(NULL, kCFNumberSInt64Type, value);
+		break;
+	default:
+		fprintf(stderr, "*** %s: Unsupported size %zu \n", __FUNCTION__, size);
+		CFRelease(cf_key);
+		return EINVAL;
+	}
 
-    if (cf_num == NULL) {
-        fprintf(stderr, "*** %s: CFNumberCreate failed \n", __FUNCTION__);
-        CFRelease(cf_key);
-        return(ENOMEM);
-    }
+	if (cf_num == NULL) {
+		fprintf(stderr, "*** %s: CFNumberCreate failed \n", __FUNCTION__);
+		CFRelease(cf_key);
+		return ENOMEM;
+	}
 
-    CFDictionarySetValue(dict, cf_key, cf_num);
+	CFDictionarySetValue(dict, cf_key, cf_num);
 
-    CFRelease(cf_key);
-    CFRelease(cf_num);
-    return(0);
+	CFRelease(cf_key);
+	CFRelease(cf_num);
+	return 0;
 }
 
 int
 json_dict_add_str(CFMutableDictionaryRef dict, const char *key,
-             const char *value)
+    const char *value)
 {
-    if ((dict == NULL) || (key == NULL) || (value == NULL)) {
-        fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
-        return(EINVAL);
-    }
+	if ((dict == NULL) || (key == NULL) || (value == NULL)) {
+		fprintf(stderr, "*** %s: dict, key or value is null \n", __FUNCTION__);
+		return EINVAL;
+	}
 
-    CFMutableStringRef cf_key = create_cfstr(key);
-    if (cf_key == NULL) {
-        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
-                __FUNCTION__, key);
-        return(ENOMEM);
-    }
+	CFMutableStringRef cf_key = create_cfstr(key);
+	if (cf_key == NULL) {
+		fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+		    __FUNCTION__, key);
+		return ENOMEM;
+	}
 
-    CFMutableStringRef cf_val = create_cfstr(value);
-    if (cf_val == NULL) {
-        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
-                __FUNCTION__, value);
-        CFRelease(cf_key);
-        return(ENOMEM);
-    }
+	CFMutableStringRef cf_val = create_cfstr(value);
+	if (cf_val == NULL) {
+		fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+		    __FUNCTION__, value);
+		CFRelease(cf_key);
+		return ENOMEM;
+	}
 
-    CFDictionarySetValue(dict, cf_key, cf_val);
+	CFDictionarySetValue(dict, cf_key, cf_val);
 
-    CFRelease(cf_key);
-    CFRelease(cf_val);
-    return(0);
+	CFRelease(cf_key);
+	CFRelease(cf_val);
+	return 0;
 }
 
 int
 json_arr_add_str(CFMutableArrayRef arr, const char *value)
 {
-    if ((arr == NULL) || (value == NULL)) {
-        fprintf(stderr, "*** %s: arr or value is null \n", __FUNCTION__);
-        return(EINVAL);
-    }
+	if ((arr == NULL) || (value == NULL)) {
+		fprintf(stderr, "*** %s: arr or value is null \n", __FUNCTION__);
+		return EINVAL;
+	}
 
-    CFMutableStringRef cf_val = create_cfstr(value);
-    if (cf_val == NULL) {
-        fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
-                __FUNCTION__, value);
-        return(ENOMEM);
-    }
+	CFMutableStringRef cf_val = create_cfstr(value);
+	if (cf_val == NULL) {
+		fprintf(stderr, "*** %s: create_cfstr failed for \"%s\" \n",
+		    __FUNCTION__, value);
+		return ENOMEM;
+	}
 
-    CFArrayAppendValue(arr, cf_val);
+	CFArrayAppendValue(arr, cf_val);
 
-    CFRelease(cf_val);
-    return(0);
+	CFRelease(cf_val);
+	return 0;
 }
 
 int
 json_arr_add_dict(CFMutableArrayRef arr, const CFMutableDictionaryRef value)
 {
-    if ((arr == NULL) || (value == NULL)) {
-        fprintf(stderr, "*** %s: arr or value is null \n", __FUNCTION__);
-        return(EINVAL);
-    }
+	if ((arr == NULL) || (value == NULL)) {
+		fprintf(stderr, "*** %s: arr or value is null \n", __FUNCTION__);
+		return EINVAL;
+	}
 
-    CFArrayAppendValue(arr, value);
+	CFArrayAppendValue(arr, value);
 
-    return(0);
+	return 0;
 }
 
 #pragma mark -
@@ -222,72 +222,70 @@ json_arr_add_dict(CFMutableArrayRef arr, const CFMutableDictionaryRef value)
 int
 json_print_cf_object(CFTypeRef cf_object, char *output_file_path)
 {
-    @autoreleasepool {
-        NSError * error = nil;
-        NSObject *ns_object = CFBridgingRelease(cf_object);
-        NSOutputStream *outputStream = NULL;
-        NSString *pathStr = NULL;
-        NSData *data = NULL;
+	@autoreleasepool {
+		NSError * error = nil;
+		NSObject *ns_object = CFBridgingRelease(cf_object);
+		NSOutputStream *outputStream = NULL;
+		NSString *pathStr = NULL;
+		NSData *data = NULL;
 
-        if (![NSJSONSerialization isValidJSONObject:ns_object]) {
-            fprintf(stderr, "*** %s: Invalid JSON object \n", __FUNCTION__);
-            NSLog(@"%@", ns_object);
-            return(EINVAL);
-        }
+		if (![NSJSONSerialization isValidJSONObject:ns_object]) {
+			fprintf(stderr, "*** %s: Invalid JSON object \n", __FUNCTION__);
+			NSLog(@"%@", ns_object);
+			return EINVAL;
+		}
 
-        if (output_file_path == NULL) {
-            /*
-             * Write JSON output to stdout
-             *
-             * It would be so much easier to just use
-             * NSOutputStream *outputStream = [NSOutputStream outputStreamToFileAtPath:@"/dev/stdout" append:NO];
-             * Unfortunately, I randomly get an error from writeJSONOBject about
-             * "The file couldn't be saved because there isn't enough space".
-             *
-             * To work around this, write to NSData, then write it out
-             */
-            data = [NSJSONSerialization dataWithJSONObject:ns_object
-                                                   options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
-                                                     error:&error];
-            if (error) {
-                /* NSLog goes to stderr always */
-                NSLog(@"*** %s: dataWithJSONObject failed %@",
-                      __FUNCTION__, error);
-                return(EINVAL);
-            }
+		if (output_file_path == NULL) {
+			/*
+			 * Write JSON output to stdout
+			 *
+			 * It would be so much easier to just use
+			 * NSOutputStream *outputStream = [NSOutputStream outputStreamToFileAtPath:@"/dev/stdout" append:NO];
+			 * Unfortunately, I randomly get an error from writeJSONOBject about
+			 * "The file couldn't be saved because there isn't enough space".
+			 *
+			 * To work around this, write to NSData, then write it out
+			 */
+			data = [NSJSONSerialization dataWithJSONObject:ns_object
+			    options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
+			    error:&error];
+			if (error) {
+				/* NSLog goes to stderr always */
+				NSLog(@"*** %s: dataWithJSONObject failed %@",
+				    __FUNCTION__, error);
+				return EINVAL;
+			}
 
-            [[NSFileHandle fileHandleWithStandardOutput] writeData:data
-                                                             error:&error];
-            if (error) {
-                /* NSLog goes to stderr always */
-                NSLog(@"*** %s: fileHandleWithStandardOutput failed %@",
-                      __FUNCTION__, error);
-                return(EINVAL);
-            }
-        }
-        else {
-            /* Write JSON output to a file */
-            pathStr = [[NSString alloc]initWithCString:output_file_path
-                                              encoding:NSUTF8StringEncoding];
+			[[NSFileHandle fileHandleWithStandardOutput] writeData:data
+			error:&error];
+			if (error) {
+				/* NSLog goes to stderr always */
+				NSLog(@"*** %s: fileHandleWithStandardOutput failed %@",
+				    __FUNCTION__, error);
+				return EINVAL;
+			}
+		} else {
+			/* Write JSON output to a file */
+			pathStr = [[NSString alloc]initWithCString:output_file_path
+			    encoding:NSUTF8StringEncoding];
 
-            outputStream = [NSOutputStream outputStreamToFileAtPath:pathStr
-                                                             append:NO];
+			outputStream = [NSOutputStream outputStreamToFileAtPath:pathStr
+			    append:NO];
 
-            [outputStream open];
+			[outputStream open];
 
-            [NSJSONSerialization writeJSONObject:ns_object
-                                        toStream:outputStream
-                                         options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
-                                           error:&error];
-            if (error) {
-                /* NSLog goes to stderr always */
-                NSLog(@"*** %s: writeJSONObject failed %@", __FUNCTION__, error);
-                return(EINVAL);
-            }
+			[NSJSONSerialization writeJSONObject:ns_object
+			toStream:outputStream
+			options:(NSJSONWritingPrettyPrinted | NSJSONWritingSortedKeys)
+			error:&error];
+			if (error) {
+				/* NSLog goes to stderr always */
+				NSLog(@"*** %s: writeJSONObject failed %@", __FUNCTION__, error);
+				return EINVAL;
+			}
 
-           [outputStream close];
-       }
-
-    }
-    return(0);
+			[outputStream close];
+		}
+	}
+	return 0;
 }

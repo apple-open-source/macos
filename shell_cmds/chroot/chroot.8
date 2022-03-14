@@ -9,11 +9,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -29,52 +25,58 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\"     from: @(#)chroot.8	8.1 (Berkeley) 6/9/93
-.\"	$NetBSD: chroot.8,v 1.7 1998/10/06 03:47:50 mrg Exp $
+.\"     @(#)chroot.8	8.1 (Berkeley) 6/9/93
+.\" $FreeBSD$
 .\"
-.Dd October 6, 1998
+.Dd July 20, 2021
 .Dt CHROOT 8
-.Os BSD 4.3
+.Os
 .Sh NAME
 .Nm chroot
 .Nd change root directory
 .Sh SYNOPSIS
 .Nm
-.Op Fl u user
-.Op Fl g group
-.Op Fl G group,group,...
+.Op Fl G Ar group Ns Op Cm \&, Ns Ar group  ...
+.Op Fl g Ar group
+.Op Fl u Ar user
+.\" .Op Fl n
 .Ar newroot
-.Op Ar command
+.Op Ar command Op Ar arg ...
 .Sh DESCRIPTION
 The
 .Nm
-command changes its root directory to the supplied directory
+utility changes its current and root directories to the supplied directory
 .Ar newroot
-and exec's
-.Ar command ,
-if supplied, or an interactive copy of your shell.
-.Pp
-If the
-.Fl u ,
-.Fl g
-or
-.Fl G
-options are given, the user, group and group list of the process are
-set to these values after the chroot has taken place.  See
-.Xr setgid 2 ,
-.Xr setgroups 2 ,
-.Xr setuid 2 ,
-.Xr getgrnam 3
-and
-.Xr getpwnam 3 .
-.Pp
-Note,
+and then exec's
 .Ar command
-or the shell are run as your real-user-id.
+with provided arguments, if supplied,
+or an interactive copy of the user's login shell.
+.Pp
+The options are as follows:
+.Bl -tag -width "-G group[,group ...]"
+.It Fl G Ar group Ns Op Cm \&, Ns Ar group  ...
+Run the command with the permissions of the specified groups.
+.It Fl g Ar group
+Run the command with the permissions of the specified
+.Ar group .
+.It Fl u Ar user
+Run the command as the
+.Ar user .
+.\" .It Fl n
+.\" Use the
+.\" .Dv PROC_NO_NEW_PRIVS_CTL
+.\" .Xr procctl 2
+.\" command before chrooting, effectively disabling SUID/SGID bits
+.\" for the calling process and its descendants.
+.\" If
+.\" .Dv security.bsd.unprivileged_chroot
+.\" sysctl is set to 1, it will make it possible to chroot without
+.\" superuser privileges.
+.El
 .Sh ENVIRONMENT
 The following environment variable is referenced by
 .Nm :
-.Bl -tag -width SHELL
+.Bl -tag -width "SHELL"
 .It Ev SHELL
 If set,
 the string specified by
@@ -87,16 +89,42 @@ is not set,
 .Pa /bin/sh
 is used.
 .El
+.Sh EXAMPLES
+.Bl -tag -width 0n
+.It Sy Example 1\&: No Chrooting into a New Root Directory
+.Pp
+The following command opens the
+.Xr csh 1
+shell after chrooting to the standard root directory.
+.Bd -literal -offset 2n
+.Li # Ic chroot / /bin/csh
+.Ed
+.It Sy Example 2\&: No Execution of a Command with a Changed Root Directory
+.Pp
+The following command changes a root directory with
+.Nm
+and then runs
+.Xr ls 1
+to list the contents of
+.Pa /sbin .
+.Bd -literal -offset 2n
+.Li # Ic chroot /tmp/testroot ls /sbin
+.Ed
+.El
 .Sh SEE ALSO
 .Xr chdir 2 ,
 .Xr chroot 2 ,
+.Xr setgid 2 ,
+.Xr setgroups 2 ,
+.Xr setuid 2 ,
+.Xr getgrnam 3 ,
 .Xr environ 7
+.\" .Xr environ 7 ,
+.\" .Xr jail 8
 .Sh HISTORY
 The
 .Nm
 utility first appeared in
-.Bx 4.4 .
-.Sh SECURITY CONSIDERATIONS
-.Nm
-should never be installed setuid root, as it would then be possible
-to exploit the program to gain root privileges.
+.At III
+and
+.Bx 4.3 Reno .

@@ -152,7 +152,7 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 	upl_t upl = NULL;
 	upl_page_info_array_t pl;
 	u8 *b, *byte;
-	int rlpos, rlsize, bsize;
+	int rlpos, rlcount, bsize;
 	errno_t err;
 	u8 pass, done_zones, search_zone, bit;
 	BOOL need_writeback = FALSE;
@@ -179,11 +179,11 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 		panic("%s(): zone > LAST_ZONE\n", __FUNCTION__);
 	/* Return NULL if @count is zero. */
 	if (!count) {
-		if (runlist->alloc)
-			IOFreeData(runlist->rl, runlist->alloc);
+		if (runlist->alloc_count)
+			IODeleteData(runlist->rl, ntfs_rl_element, runlist->alloc_count);
 		runlist->rl = NULL;
 		runlist->elements = 0;
-		runlist->alloc = 0;
+		runlist->alloc_count = 0;
 		return 0;
 	}
 	/* Take the lcnbmp lock for writing. */
@@ -266,7 +266,7 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 	bmp_pos = bmp_initial_pos = zone_start;
 	/* Loop until all clusters are allocated, i.e. clusters == 0. */
 	clusters = count;
-	rlpos = rlsize = 0;
+	rlpos = rlcount = 0;
 	lck_spin_lock(&lcnbmp_ni->size_lock);
 	data_size = ubc_getsize(lcnbmp_ni->vn);
 	if (data_size != lcnbmp_ni->data_size)
@@ -277,12 +277,12 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 		ntfs_debug("Start of outer while loop: done_zones 0x%x, "
 				"search_zone %d, pass %d, zone_start 0x%llx, "
 				"zone_end 0x%llx, bmp_initial_pos 0x%llx, "
-				"bmp_pos 0x%llx, rlpos %d, rlsize %d.",
+				"bmp_pos 0x%llx, rlpos %d, rlcount %d.",
 				done_zones, search_zone, pass,
 				(unsigned long long)zone_start,
 				(unsigned long long)zone_end,
 				(unsigned long long)bmp_initial_pos,
-				(unsigned long long)bmp_pos, rlpos, rlsize);
+				(unsigned long long)bmp_pos, rlpos, rlcount);
 		/* Loop until we run out of free clusters. */
 		last_read_pos = bmp_pos >> 3;
 		ntfs_debug("last_read_pos 0x%llx.",
@@ -346,32 +346,28 @@ errno_t ntfs_cluster_alloc(ntfs_volume *vol, const VCN start_vcn,
 			/*
 			 * Allocate more memory if needed, including space for
 			 * the terminator element.
-			 * ntfs_malloc_nofs() operates on whole pages only.
 			 */
-			if ((rlpos + 2) * (int)sizeof(*rl) > rlsize) {
+			if (rlpos + 2 > rlcount) {
 				ntfs_rl_element *rl2;
 
 				ntfs_debug("Reallocating memory.");
-				rl2 = IOMallocData(rlsize + NTFS_ALLOC_BLOCK);
+				rl2 = IONewData(ntfs_rl_element, rlcount + NTFS_ALLOC_BLOCK / sizeof (ntfs_rl_element));
 				if (!rl2) {
 					err = ENOMEM;
-					ntfs_error(vol->mp, "Failed to "
-							"allocate memory.");
+					ntfs_error(vol->mp, "Failed to allocate memory.");
 					goto out;
 				}
 				if (!rl)
-					ntfs_debug("First free bit is at LCN "
-							"0x%llx.",
+					ntfs_debug("First free bit is at LCN 0x%llx.",
 							(unsigned long long)
 							(lcn + bmp_pos));
 				else {
-					memcpy(rl2, rl, rlsize);
-					IOFreeData(rl, rlsize);
+					memcpy(rl2, rl, rlcount * sizeof (ntfs_rl_element));
+					IODeleteData(rl, ntfs_rl_element, rlcount);
 				}
 				rl = rl2;
-				rlsize += NTFS_ALLOC_BLOCK;
-				ntfs_debug("Reallocated memory, rlsize 0x%x.",
-						rlsize);
+				rlcount += NTFS_ALLOC_BLOCK / sizeof (ntfs_rl_element);
+				ntfs_debug("Reallocated memory, rlcount %u.", rlcount);
 			}
 			/* Allocate the bitmap bit. */
 			*byte |= bit;
@@ -822,11 +818,11 @@ out:
 		lck_rw_unlock_shared(&lcnbmp_ni->lock);
 		(void)vnode_put(lcnbmp_ni->vn);
 		lck_rw_unlock_exclusive(&vol->lcnbmp_lock);
-		if (runlist->alloc)
-			IOFreeData(runlist->rl, runlist->alloc);
+		if (runlist->alloc_count)
+			IODeleteData(runlist->rl, ntfs_rl_element, runlist->alloc_count);
 		runlist->rl = rl;
 		runlist->elements = rlpos + 1;
-		runlist->alloc = rlsize;
+		runlist->alloc_count = rlcount;
 		ntfs_debug("Done.");
 		return 0;
 	}
@@ -852,7 +848,7 @@ out:
 			NVolSetErrors(vol);
 		}
 		/* Free the runlist. */
-		IOFreeData(rl, rlsize);
+		IODeleteData(rl, ntfs_rl_element, rlcount);
 	} else if (err == ENOSPC)
 		ntfs_debug("No space left at all, err ENOSPC, first free lcn "
 				"0x%llx.", (long long)vol->data1_zone_pos);

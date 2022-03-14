@@ -71,6 +71,7 @@ CFSetRef SOSViewsGetV0SubviewSet(void);
 CFSetRef SOSViewsGetV0BackupViewSet(void);
 CFSetRef SOSViewsGetV0BackupBagViewSet(void);
 
+CFSetRef SOSViewsGetUserVisibleSet(void);
 bool SOSViewsIsV0Subview(CFStringRef viewName);
 
 bool SOSViewInSOSSystem(CFStringRef view);
@@ -95,6 +96,7 @@ void SOSViewsSetTestViewsSet(CFSetRef testViewNames);
 
 bool SOSViewSetIntersectsV0(CFSetRef theSet);
 bool SOSPeerInfoV0ViewsEnabled(SOSPeerInfoRef pi);
+bool SOSPeerInfoHasUserVisibleViewsEnabled(SOSPeerInfoRef pi);
 
 bool SOSPeerInfoIsViewPermitted(SOSPeerInfoRef peerInfo, CFStringRef viewName);
 

@@ -226,9 +226,14 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                         name = _DAFileSystemCopyName( DADiskGetFileSystem( disk ), path );
                         if ( name )
                         {
-                            if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
+                            struct statfs fs     = { 0 };
+                            int sts = ___statfs( mountList[mountListIndex].f_mntonname, &fs, MNT_NOWAIT );
+                            
+                            if ( ( sts == 0 ) &&
+                                ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) ) &&
+                                ( strcmp( _DAVolumeGetID( &fs ), DADiskGetID( disk ) ) == 0 ) )
                             {
-                                DALogDebug( " volume name changed for %@ ", disk );
+                                DALogInfo( "mounted volume name changed for %@ to name %@.", disk, name);
                                 DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
                                 CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
                                 CFRelease( name );
@@ -249,7 +254,7 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
                             {
                                 if ( DADiskCompareDescription( disk, kDADiskDescriptionVolumeNameKey, name ) )
                                 {
-                                    DALogDebug( " volume name changed for %@ ", disk);
+                                    DALogInfo( "IOReg volume name changed for %@ to name %@.", disk, name);
                                     DADiskSetDescription( disk, kDADiskDescriptionVolumeNameKey, name );
                                     CFArrayAppendValue( keys, kDADiskDescriptionVolumeNameKey );
                                     DADiskSetDescription( disk, kDADiskDescriptionMediaNameKey, name );
@@ -412,9 +417,8 @@ static void __DAMediaPropertyChangedCallback( void * context, io_service_t servi
 
                 if ( CFArrayGetCount( keys ) )
                 {
-                    DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
 
-                    DALogDebug( "  updated disk, id = %@.", disk );
+                    DALogInfo( "updated disk, id = %@.", disk );
 
                     if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
                     {
@@ -468,7 +472,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
     uid_t       userUID;
     CFArrayRef  userList;
 
-    DALogDebugHeader( "configd [0] -> %s", gDAProcessNameID );
+    DALogInfo( "configd [0] -> %s", gDAProcessNameID );
 
     previousUser     = gDAConsoleUser;
     previousUserGID  = gDAConsoleUserGID;
@@ -542,7 +546,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
          * A console user has logged in.
          */
 
-        DALogDebug( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
+        DALogInfo( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
     }
     else
     {
@@ -553,7 +557,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
          * A console user has logged out.
          */
 
-        DALogDebug( "  console user = none." );
+        DALogInfo( "  console user = none." );
 
         count = 0;
 
@@ -894,7 +898,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
              * Create a disk object for this media object.
              */
 
-            DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
 
             disk = DADiskCreateFromIOMedia( kCFAllocatorDefault, media );
 
@@ -1021,7 +1024,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
 
                     if ( status )
                     {
-                        DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
 
                         DALogError( "unable to link %@ to %s.", disk, DADiskGetBSDLink( disk, TRUE ) );
 
@@ -1059,9 +1061,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                  * Add the disk object to our tables.
                  */
 
-                DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
-
-                DALogDebug( "  created disk, id = %@.", disk );
+                DALogInfo( "created disk, id = %@.", disk );
 
                 DAUnitSetState( disk, kDAUnitStateStagedUnreadable, FALSE );
 
@@ -1147,9 +1147,7 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
              * Remove the disk object from our tables.
              */
 
-            DALogDebugHeader( "iokit [0] -> %s", gDAProcessNameID );
-
-            DALogDebug( "  removed disk, id = %@.", disk );
+            DALogInfo( "removed disk, id = %@.", disk );
 
             if ( DADiskGetBSDLink( disk, TRUE ) )
             {
@@ -2600,9 +2598,8 @@ void _DAVolumeMountedCallback( CFMachPortRef port, void * parameter, CFIndex mes
 
                     if ( disk )
                     {
-                        DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
 
-                        DALogDebug( "  created disk, id = %@.", disk );
+                        DALogInfo( "created disk, id = %@.", disk );
 
                         CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
 

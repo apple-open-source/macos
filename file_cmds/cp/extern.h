@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -27,7 +29,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)extern.h	8.2 (Berkeley) 4/1/94
- * $FreeBSD: src/bin/cp/extern.h,v 1.20 2005/09/05 04:36:08 csjp Exp $
+ * $FreeBSD$
  */
 
 #ifndef _CP_EXTERN_H_
@@ -40,11 +42,12 @@ typedef struct {
 } PATH_T;
 
 extern PATH_T to;
-extern int fflag, iflag, nflag, pflag, vflag;
+extern int fflag, iflag, lflag, nflag, pflag, sflag, vflag;
+extern int unix2003_compat;
 #ifdef __APPLE__
+extern int cflag;
 extern int Xflag;
 #endif /* __APPLE__ */
-extern int cflag;
 extern volatile sig_atomic_t info;
 
 __BEGIN_DECLS

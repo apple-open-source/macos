@@ -23,7 +23,7 @@
 # Agency (DARPA) and Air Force Research Laboratory, Air Force
 # Materiel Command, USAF, under agreement number F39502-99-1-0512.
 #
-# $FreeBSD: head/usr.bin/gzip/zmore 273507 2014-10-23 01:22:29Z delphij $
+# $FreeBSD$
 
 # Pull out any command line flags so we can pass them to more/less
 flags=

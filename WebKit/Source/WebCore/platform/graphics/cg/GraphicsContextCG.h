@@ -82,7 +82,7 @@ public:
 
     ~GraphicsContextCG();
 
-    bool hasPlatformContext() const;
+    bool hasPlatformContext() const final;
     CGContextRef platformContext() const final;
 
     void save() final;
@@ -143,9 +143,9 @@ public:
     void translate(float x, float y) final;
 
     void concatCTM(const AffineTransform&) final;
-    void setCTM(const AffineTransform&) final;
+    void setCTM(const AffineTransform&) override;
 
-    AffineTransform getCTM(IncludeDeviceScale = PossiblyIncludeDeviceScale) const final;
+    AffineTransform getCTM(IncludeDeviceScale = PossiblyIncludeDeviceScale) const override;
 
     FloatRect roundToDevicePixels(const FloatRect&, RoundingMode = RoundAllSides) final;
 
@@ -167,7 +167,7 @@ public:
 
     bool supportsInternalLinks() const final;
 
-    void updateState(const GraphicsContextState&, GraphicsContextState::StateChangeFlags) final;
+    void didUpdateState(const GraphicsContextState&, GraphicsContextState::StateChangeFlags) final;
 
 #if OS(WINDOWS)
     GraphicsContextPlatformPrivate* deprecatedPrivateContext() const final;

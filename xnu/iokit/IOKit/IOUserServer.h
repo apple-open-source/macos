@@ -283,6 +283,7 @@ public:
 
 	/*
 	 * Set handler to be invoked when launch is cancelled. Returns an wrapper object for the handler to be released by the caller.
+	 * The handler always runs under the lock for this IOUserServerCheckInToken.
 	 * The returned object can be used with removeCancellationHandler().
 	 */
 	_IOUserServerCheckInCancellationHandler * setCancellationHandler(IOUserServerCheckInCancellationHandler handler, void *handlerArgs);

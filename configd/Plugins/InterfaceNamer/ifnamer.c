@@ -1953,6 +1953,9 @@ blockNewInterfaces()
     static dispatch_once_t  once;
 
     dispatch_once(&once, ^{
+	if (os_variant_is_darwinos(IFNAMER_SUBSYSTEM)) {
+	    return;
+	}
 	allow = InterfaceNamerControlPrefsAllowNewInterfaces();
     });
 
@@ -3709,12 +3712,13 @@ updateInterfaces(void)
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
 
 #if TARGET_OS_OSX
-	if (os_variant_is_basesystem(IFNAMER_SUBSYSTEM)) {
-	    /*
-	     * We're booted in a BaseSystem variant of the OS. In that environment,
-	     * the UserEventAgent "SCMonitor" is not launched. Configure new network
-	     * interfaces here.
-	     */
+	/*
+	 * On a basesystem or darwinos variant of the OS, the per-user session
+	 * UserEventAgent daemon that would normally load "SCMonitor" is not
+	 * running. Configure new interfaces as soon as they appear here.
+	 */
+	if (os_variant_is_basesystem(IFNAMER_SUBSYSTEM)
+	    || os_variant_is_darwinos(IFNAMER_SUBSYSTEM)) {
 	    updateNetworkConfiguration(S_iflist);
 	}
 #endif /* TARGET_OS_OSX */

@@ -195,7 +195,7 @@ protected:
     void clearLinesToFragmentMap();
     void willBeDestroyed() override;
 
-    void mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState&, MapCoordinatesFlags, bool* wasFixed) const override;
+    void mapLocalToContainer(const RenderLayerModelObject* ancestorContainer, TransformState&, OptionSet<MapCoordinatesMode>, bool* wasFixed) const override;
 
     void updateFragmentsFragmentedFlowPortionRect();
     bool shouldRepaint(const LayoutRect&) const;
@@ -215,8 +215,8 @@ protected:
         
         void setRange(RenderFragmentContainer* start, RenderFragmentContainer* end)
         {
-            m_startFragment = makeWeakPtr(start);
-            m_endFragment = makeWeakPtr(end);
+            m_startFragment = start;
+            m_endFragment = end;
             m_rangeInvalidated = true;
         }
 

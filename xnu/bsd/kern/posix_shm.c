@@ -739,7 +739,7 @@ pshm_mmap(
 {
 	vm_map_offset_t    user_addr = (vm_map_offset_t)uap->addr;
 	vm_map_size_t      user_size = (vm_map_size_t)uap->len;
-	vm_map_offset_t    user_start_addr;
+	vm_map_offset_t    user_start_addr = 0;
 	vm_map_size_t      map_size, mapped_size, pshm_size;
 	int                prot = uap->prot;
 	int                max_prot = VM_PROT_DEFAULT;

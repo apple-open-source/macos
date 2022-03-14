@@ -29,6 +29,7 @@
 #if PLATFORM(IOS_FAMILY) && ENABLE(DRAG_SUPPORT)
 
 #import "Logging.h"
+#import <WebCore/ColorCocoa.h>
 #import <WebCore/DragItem.h>
 #import <WebCore/Image.h>
 #import <wtf/cocoa/VectorCocoa.h>
@@ -100,6 +101,11 @@ static bool shouldUseDragImageToCreatePreviewForDragSource(const DragSourceState
 
 #if ENABLE(INPUT_TYPE_COLOR)
     if (source.action.contains(DragSourceAction::Color))
+        return true;
+#endif
+
+#if ENABLE(MODEL_ELEMENT)
+    if (source.action.contains(DragSourceAction::Model))
         return true;
 #endif
 
@@ -221,7 +227,7 @@ void DragDropInteractionState::deliverDelayedDropPreview(UIView *contentView, UI
         return;
 
     auto textIndicatorImage = uiImageForImage(indicator.contentImage.get());
-    auto preview = createTargetedDragPreview(textIndicatorImage.get(), contentView, previewContainer, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, [UIColor colorWithCGColor:cachedCGColor(indicator.estimatedBackgroundColor).get()], nil);
+    auto preview = createTargetedDragPreview(textIndicatorImage.get(), contentView, previewContainer, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, cocoaColor(indicator.estimatedBackgroundColor).get(), nil);
     for (auto& itemAndPreviewProvider : m_delayedItemPreviewProviders)
         itemAndPreviewProvider.provider(preview.get());
     m_delayedItemPreviewProviders.clear();
@@ -308,7 +314,7 @@ UITargetedDragPreview *DragDropInteractionState::previewForDragItem(UIDragItem *
     if (shouldUseTextIndicatorToCreatePreviewForDragSource(source)) {
         auto indicator = source.indicatorData.value();
         auto textIndicatorImage = uiImageForImage(indicator.contentImage.get());
-        return createTargetedDragPreview(textIndicatorImage.get(), contentView, previewContainer, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, [UIColor colorWithCGColor:cachedCGColor(indicator.estimatedBackgroundColor).get()], nil).autorelease();
+        return createTargetedDragPreview(textIndicatorImage.get(), contentView, previewContainer, indicator.textBoundingRectInRootViewCoordinates, indicator.textRectsInBoundingRectCoordinates, cocoaColor(indicator.estimatedBackgroundColor).get(), nil).autorelease();
     }
 
     return nil;

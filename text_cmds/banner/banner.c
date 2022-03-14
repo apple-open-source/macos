@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1980, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,10 +29,11 @@
  * SUCH DAMAGE.
  */
 
+#include <sys/cdefs.h>
 #ifndef lint
-static const char copyright[] =
+__COPYRIGHT(
 "@(#) Copyright (c) 1980, 1993, 1994\n\
-	The Regents of the University of California.  All rights reserved.\n";
+	The Regents of the University of California.  All rights reserved.\n");
 #endif
 
 #if 0
@@ -43,8 +42,7 @@ static char sccsid[] = "@(#)banner.c	8.4 (Berkeley) 4/29/95";
 #endif
 #endif
 
-#include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/banner/banner.c,v 1.15 2002/03/22 01:19:22 imp Exp $");
+__FBSDID("$FreeBSD$");
 
 /*
  * banner - prints large signs
@@ -64,7 +62,7 @@ __FBSDID("$FreeBSD: src/usr.bin/banner/banner.c,v 1.15 2002/03/22 01:19:22 imp E
 #define NBYTES 9271
 
 /* Pointers into data_table for each ASCII char */
-const int asc_ptr[NCHARS] = {
+static const int asc_ptr[NCHARS] = {
 /* ^@ */   0,      0,      0,      0,      0,      0,      0,      0,
 /* ^H */   0,      0,      0,      0,      0,      0,      0,      0,
 /* ^P */   0,      0,      0,      0,      0,      0,      0,      0,
@@ -91,7 +89,7 @@ const int asc_ptr[NCHARS] = {
  * is the next elt in array) and goto second
  * next element in array.
  */
-const unsigned char data_table[NBYTES] = {
+static const unsigned char data_table[NBYTES] = {
 /*             0     1     2     3     4     5     6     7     8     9 */
 /*    0 */   129,  227,  130,   34,    6,   90,   19,  129,   32,   10,
 /*   10 */    74,   40,  129,   31,   12,   64,   53,  129,   30,   14,
@@ -1023,11 +1021,12 @@ const unsigned char data_table[NBYTES] = {
 /* 9270 */   193
 };
 
-char	line[DWIDTH];
-char	*message;
-char	print[DWIDTH];
-int	debug, i, j, linen, max, nchars, pc, term, trace, x, y;
-int	width = DWIDTH;	/* -w option: scrunch letters to 80 columns */
+static char	line[DWIDTH];
+static char	*message;
+static char	print[DWIDTH];
+static int	debug, i, j, linen, max, pc, term, trace, x, y;
+static size_t	nchars;
+static int	width = DWIDTH;	/* -w option: scrunch letters to 80 columns */
 
 static void usage(void);
 
@@ -1046,7 +1045,7 @@ main(int argc, char *argv[])
 			break;
 		case 'w':
 			width = atoi(optarg);
-			if (width <= 0)
+			if (width <= 0 || width > DWIDTH)
 				errx(1, "illegal argument for -w option");
 			break;
 		case '?':
@@ -1057,7 +1056,7 @@ main(int argc, char *argv[])
 	argv += optind;
 
 	for (i = 0; i < width; i++) {
-		j = i * 132 / width;
+		j = i * DWIDTH / width;
 		print[j] = 1;
 	}
 
@@ -1067,10 +1066,10 @@ main(int argc, char *argv[])
 			j += strlen(argv[i]) + 1;
 		if ((message = malloc((size_t)j)) == NULL) 
 			err(1, "malloc");
-		strcpy(message, *argv);
+		strlcpy(message, *argv, j);
 		while (*++argv) {
-			strcat(message, " ");
-			strcat(message, *argv);
+			strlcat(message, " ", j);
+			strlcat(message, *argv, j);
 		}
 		nchars = strlen(message);
 	} else {
@@ -1179,7 +1178,7 @@ main(int argc, char *argv[])
 }
 
 static void
-usage()
+usage(void)
 {
 	fprintf(stderr, "usage: banner [-d] [-t] [-w width] message ...\n");
 	exit(1);

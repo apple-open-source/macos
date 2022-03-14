@@ -154,24 +154,23 @@ autofs_zone_init(void)
 	static const char fnnode_name[] = "root_fnnode";
 	struct timeval now;
 
-	MALLOC(fngp, struct autofs_globals *, sizeof (*fngp), M_AUTOFS,
-	    M_WAITOK);
+	fngp = kalloc_type(struct autofs_globals, Z_WAITOK | Z_ZERO);
 	if (fngp == NULL) {
 		IOLog("autofs_zone_init: Couldn't create autofs globals structure\n");
 		goto fail;
 	}
-	bzero(fngp, sizeof (*fngp));
+
 	/*
 	 * Allocate a "dummy" fnnode, not associated with any vnode.
 	 */
-	MALLOC(fnp, fnnode_t *, sizeof(fnnode_t), M_AUTOFS, M_WAITOK);
+	fnp = kalloc_type(struct fnnode, Z_WAITOK | Z_ZERO);
 	if (fnp == NULL) {
 		IOLog("autofs_zone_init: Couldn't create autofs global fnnode\n");
 		goto fail;
 	}
-	bzero(fnp, sizeof(*fnp));
+
 	fnp->fn_namelen = sizeof fnnode_name;
-	MALLOC(fnp->fn_name, char *, fnp->fn_namelen + 1, M_AUTOFS, M_WAITOK);
+	fnp->fn_name = kalloc_data(fnp->fn_namelen + 1, Z_WAITOK | Z_ZERO);
 	if (fnp->fn_name == NULL) {
 		IOLog("autofs_zone_init: Couldn't create autofs global fnnode name\n");
 		goto fail;
@@ -181,7 +180,7 @@ autofs_zone_init(void)
 	fnp->fn_mode = AUTOFS_MODE;
 	microtime(&now);
 	fnp->fn_crtime = fnp->fn_atime = fnp->fn_mtime = fnp->fn_ctime = now;
-	fnp->fn_nodeid = 1;	/* XXX - could just be zero? */
+	fnp->fn_nodeid = 1;	/* XXX - could just be zero?  XXXab: should be 2 actually */
 	fnp->fn_globals = fngp;
 	fnp->fn_lock = lck_mtx_alloc_init(autofs_lck_grp, NULL);
 	if (fnp->fn_lock == NULL) {
@@ -199,16 +198,16 @@ autofs_zone_init(void)
 		IOLog("autofs_zone_init: Couldn't create autofs global fnnode mnt mutex\n");
 		goto fail;
 	}
-        
+
 	fngp->fng_rootfnnodep = fnp;
 	fngp->fng_fnnode_count = 1;
 	fngp->fng_printed_not_running_msg = 0;
-	fngp->fng_flush_notification_lock = lck_mtx_alloc_init(autofs_lck_grp,
-	    LCK_ATTR_NULL);
+	fngp->fng_flush_notification_lock = lck_mtx_alloc_init(autofs_lck_grp, LCK_ATTR_NULL);
 	if (fngp->fng_flush_notification_lock == NULL) {
 		IOLog("autofs_zone_init: Couldn't create autofs global flush notification lock\n");
 		goto fail;
 	}
+
 	return (fngp);
 
 fail:
@@ -220,15 +219,16 @@ fail:
 		if (fnp->fn_lock != NULL)
 			lck_mtx_free(fnp->fn_lock, autofs_lck_grp);
 		if (fnp->fn_name != NULL)
-			FREE(fnp->fn_name, M_AUTOFS);
-		FREE(fnp, M_AUTOFS);
+			kfree_data(fnp->fn_name, fnp->fn_namelen + 1);
+		kfree_type(struct fnnode, fnp);
 	}
+
 	if (fngp != NULL) {
 		if (fngp->fng_flush_notification_lock != NULL)
-			lck_mtx_free(fngp->fng_flush_notification_lock,
-			    autofs_lck_grp);
-		FREE(fngp, M_AUTOFS);
+			lck_mtx_free(fngp->fng_flush_notification_lock, autofs_lck_grp);
+		kfree_type(struct autofs_globals, fngp);
 	}
+
 	return (NULL);
 }
 
@@ -410,10 +410,9 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	/*
 	 * Allocate fninfo struct and attach it to vfs
 	 */
-	MALLOC(fnip, fninfo_t *, sizeof(*fnip), M_AUTOFS, M_WAITOK);
+	fnip = kalloc_type(struct fninfo, Z_WAITOK | Z_ZERO);
 	if (fnip == NULL)
 		return (ENOMEM);
-	bzero(fnip, sizeof(*fnip));
 
 	/*
 	 * Assign a unique fsid to the mount
@@ -429,7 +428,7 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 		error = EFAULT;
 		goto errout;
 	}
-	MALLOC(fnip->fi_path, char *, len, M_AUTOFS, M_WAITOK);
+	fnip->fi_path = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_path == NULL) {
 		error = ENOMEM;
 		goto errout;
@@ -441,15 +440,14 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	 * Get default options
 	 */
 	error = copyinstr(args.opts, strbuff, sizeof (strbuff), &len);
-
 	if (error != 0)
 		goto errout;
-		
+
 	if (autofs_restrict_opts(mp, strbuff, sizeof (strbuff), &len) != 0) {
 		error = EFAULT;
 		goto errout;
 	}
-	MALLOC(fnip->fi_opts, char *, len, M_AUTOFS, M_WAITOK);
+	fnip->fi_opts = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_opts == NULL) {
 		error = ENOMEM;
 		goto errout;
@@ -463,7 +461,8 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	error = copyinstr(args.map, strbuff, sizeof (strbuff), &len);
 	if (error)
 		goto errout;
-	MALLOC(fnip->fi_map, char *, len, M_AUTOFS, M_WAITOK);
+
+	fnip->fi_map = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_map == NULL) {
 		error = ENOMEM;
 		goto errout;
@@ -520,7 +519,7 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	error = copyinstr(args.subdir, strbuff, sizeof (strbuff), &len);
 	if (error)
 		goto errout;
-	MALLOC(fnip->fi_subdir, char *, len, M_AUTOFS, M_WAITOK);
+	fnip->fi_subdir = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_subdir == NULL) {
 		error = ENOMEM;
 		goto errout;
@@ -534,7 +533,7 @@ auto_mount(mount_t mp, __unused vnode_t devvp, user_addr_t data,
 	error = copyinstr(args.key, strbuff, sizeof (strbuff), &len);
 	if (error)
 		goto errout;
-	MALLOC(fnip->fi_key, char *, len, M_AUTOFS, M_WAITOK);
+	fnip->fi_key = kalloc_data(len, Z_WAITOK);
 	if (fnip->fi_key == NULL) {
 		error = ENOMEM;
 		goto errout;
@@ -664,16 +663,16 @@ errout:
 	if (fnip->fi_rwlock != NULL)
 		lck_rw_free(fnip->fi_rwlock, autofs_lck_grp);
 	if (fnip->fi_path != NULL)
-		FREE(fnip->fi_path, M_AUTOFS);
+		kfree_data(fnip->fi_path, fnip->fi_pathlen);
 	if (fnip->fi_opts != NULL)
-		FREE(fnip->fi_opts, M_AUTOFS);
+		kfree_data(fnip->fi_opts, fnip->fi_optslen);
 	if (fnip->fi_map != NULL)
-		FREE(fnip->fi_map, M_AUTOFS);
+		kfree_data(fnip->fi_map, fnip->fi_maplen);
 	if (fnip->fi_subdir != NULL)
-		FREE(fnip->fi_subdir, M_AUTOFS);
+		kfree_data(fnip->fi_subdir, fnip->fi_subdirlen);
 	if (fnip->fi_key != NULL)
-		FREE(fnip->fi_key, M_AUTOFS);
-	FREE(fnip, sizeof M_AUTOFS);
+		kfree_data(fnip->fi_key, fnip->fi_keylen);
+	kfree_type(struct fninfo, fnip);
 
 	AUTOFS_DPRINT((5, "auto_mount: vfs %p root %p fnip %p return %d\n",
 	    (void *)mp, (void *)myrootvp, (void *)fnip, error));
@@ -736,7 +735,7 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	if (autofs_restrict_opts(mp, strbuff, sizeof (strbuff), &optslen) != 0)
 		return (EFAULT);
 
-	MALLOC(opts, char *, optslen, M_AUTOFS, M_WAITOK);
+	opts = kalloc_data(optslen, Z_WAITOK);
 	bcopy(strbuff, opts, optslen);
 
 	/*
@@ -745,10 +744,10 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	error = copyinstr(update_argsp->map, strbuff, sizeof (strbuff),
 	    &maplen);
 	if (error) {
-		FREE(opts, M_AUTOFS);
+		kfree_data(opts, optslen);
 		return (error);
 	}
-	MALLOC(map, char *, maplen, M_AUTOFS, M_WAITOK);
+	map = kalloc_data(maplen, Z_WAITOK);
 	bcopy(strbuff, map, maplen);
 
 	/*
@@ -757,10 +756,10 @@ auto_update_options(struct autofs_update_args_64 *update_argsp)
 	 */
 	lck_rw_lock_exclusive(fnip->fi_rwlock);
 	was_nobrowse = auto_nobrowse(fnip->fi_rootvp);
-	FREE(fnip->fi_opts, M_AUTOFS);
+	kfree_data(fnip->fi_opts, fnip->fi_optslen);
 	fnip->fi_opts = opts;
 	fnip->fi_optslen = (int)optslen;
-	FREE(fnip->fi_map, M_AUTOFS);
+	kfree_data(fnip->fi_map, fnip->fi_maplen);
 	fnip->fi_map = map;
 	fnip->fi_maplen = (int)maplen;
 	if (update_argsp->direct == 1)
@@ -993,12 +992,12 @@ auto_unmount(mount_t mp, int mntflags, __unused vfs_context_t context)
 	vflush(mp, NULLVP, 0);
 
 	lck_rw_free(fnip->fi_rwlock, autofs_lck_grp);
-	FREE(fnip->fi_path, M_AUTOFS);
-	FREE(fnip->fi_map, M_AUTOFS);
-	FREE(fnip->fi_subdir, M_AUTOFS);
-	FREE(fnip->fi_key, M_AUTOFS);
-	FREE(fnip->fi_opts, M_AUTOFS);
-	FREE(fnip, M_AUTOFS);
+	kfree_data(fnip->fi_path, fnip->fi_pathlen);
+	kfree_data(fnip->fi_map, fnip->fi_maplen);
+	kfree_data(fnip->fi_subdir, fnip->fi_subdirlen);
+	kfree_data(fnip->fi_key, fnip->fi_keylen);
+	kfree_data(fnip->fi_opts, fnip->fi_optslen);
+	kfree_type(struct fninfo, fnip);
 	
 	/*
 	 * One fewer mounted file system.
@@ -1397,7 +1396,7 @@ tracked_process_alloc(size_t size, int pid, int minor)
 {
 	struct tracked_process *tp;
 
-	MALLOC(tp, struct tracked_process *, size, M_AUTOFS, M_WAITOK);
+	tp = kalloc_type(struct tracked_process, Z_WAITOK | Z_ZERO);
 	if (tp != NULL) {
 		tp->pid = pid;
 		tp->minor = minor;
@@ -1409,7 +1408,7 @@ static void
 tracked_process_free(struct tracked_process *tp)
 {
 
-	FREE(tp, M_AUTOFS);
+	kfree_type(struct tracked_process, tp);
 }
 
 static int

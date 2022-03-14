@@ -50,10 +50,20 @@
             ReferencedContainer = "container:ICU.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+         <CommandLineArgument
+            argument = "utility/LocaleMatcherTest/testDataDriven"
+            isEnabled = "NO">
+         </CommandLineArgument>
+         <CommandLineArgument
+            argument = "utility/LocaleMatcherTest/testDirection"
+            isEnabled = "NO">
+         </CommandLineArgument>
+      </CommandLineArguments>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "ICU_DATA"
-            value = "$(CONFIGURATION_BUILD_DIR)/icudt68l.dat:$(CONFIGURATION_BUILD_DIR)/testdata.dat"
+            value = "$(CONFIGURATION_BUILD_DIR)/icudt70l.dat:$(CONFIGURATION_BUILD_DIR)/testdata.dat"
             isEnabled = "YES">
          </EnvironmentVariable>
       </EnvironmentVariables>

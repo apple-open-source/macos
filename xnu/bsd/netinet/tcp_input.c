@@ -794,16 +794,7 @@ present:
 		if (so->so_state & SS_CANTRCVMORE) {
 			m_freem(q->tqe_m);
 		} else {
-			/*
-			 * The mbuf may be freed after it has been added to the
-			 * receive socket buffer so we reinitialize th to point
-			 * to a safe copy of the TCP header
-			 */
-			struct tcphdr saved_tcphdr = {};
-
 			so_recv_data_stat(so, q->tqe_m, 0); /* XXXX */
-			memcpy(&saved_tcphdr, th, sizeof(struct tcphdr));
-
 			if (q->tqe_th->th_flags & TH_PUSH) {
 				tp->t_flagsext |= TF_LAST_IS_PSH;
 			} else {
@@ -813,7 +804,6 @@ present:
 			if (sbappendstream_rcvdemux(so, q->tqe_m)) {
 				*dowakeup = 1;
 			}
-			th = &saved_tcphdr;
 		}
 		zfree(tcp_reass_zone, q);
 		tp->t_reassqlen--;
@@ -2673,7 +2663,7 @@ findpcb:
 			if (sotoinpcb(oso)->inp_sp) {
 				int error = 0;
 				/* Is it a security hole here to silently fail to copy the policy? */
-				if (inp->inp_sp != NULL) {
+				if (inp->inp_sp == NULL) {
 					error = ipsec_init_policy(so, &inp->inp_sp);
 				}
 				if (error != 0 || ipsec_copy_policy(sotoinpcb(oso)->inp_sp, inp->inp_sp)) {

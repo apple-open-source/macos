@@ -28,6 +28,7 @@
 
 #if PLATFORM(MAC)
 
+#import "APIAttachment.h"
 #import "APIContextMenuClient.h"
 #import "MenuUtilities.h"
 #import "PageClientImplMac.h"
@@ -238,6 +239,12 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setPicker:picker.get()];
     [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setFiltersEditingServices:!includeEditorServices];
     [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setHandlesEditingReplacement:includeEditorServices];
+    
+    NSRect imageRect = m_context.controlledImageBounds();
+    imageRect = [m_webView convertRect:imageRect toView:nil];
+    imageRect = [[m_webView window] convertRectToScreen:imageRect];
+    [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setSourceFrame:imageRect];
+    [[WKSharingServicePickerDelegate sharedSharingServicePickerDelegate] setAttachmentID:m_context.controlledImageAttachmentID()];
 
     m_menu = adoptNS([[picker menu] copy]);
 
@@ -309,7 +316,8 @@ static void getStandardShareMenuItem(NSArray *items, void (^completionHandler)(N
 
 void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem *)>&& completionHandler)
 {
-    const WebHitTestResultData& hitTestData = m_context.webHitTestResultData();
+    ASSERT(m_context.webHitTestResultData());
+    auto hitTestData = m_context.webHitTestResultData().value();
 
     auto items = adoptNS([[NSMutableArray alloc] init]);
 
@@ -338,7 +346,7 @@ void WebContextMenuProxyMac::getShareMenuItem(CompletionHandler<void(NSMenuItem 
         return;
     }
 
-    getStandardShareMenuItem(items.get(), makeBlockPtr([completionHandler = WTFMove(completionHandler), protectedThis = makeRef(*this), this](NSMenuItem *item) mutable {
+    getStandardShareMenuItem(items.get(), makeBlockPtr([completionHandler = WTFMove(completionHandler), protectedThis = Ref { *this }, this](NSMenuItem *item) mutable {
         if (!item) {
             completionHandler(nil);
             return;
@@ -533,11 +541,14 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
     }
 #endif
 
-    auto imageURL = URL { URL { }, m_context.webHitTestResultData().absoluteImageURL };
-    auto imageBitmap = m_context.webHitTestResultData().imageBitmap;
+    ASSERT(m_context.webHitTestResultData());
+    auto hitTestData = m_context.webHitTestResultData().value();
+    
+    auto imageURL = URL { URL { }, hitTestData.absoluteImageURL };
+    auto imageBitmap = hitTestData.imageBitmap;
 
     auto sparseMenuItems = retainPtr([NSPointerArray strongObjectsPointerArray]);
-    auto insertMenuItem = makeBlockPtr([protectedThis = makeRef(*this), weakPage = makeWeakPtr(page()), imageURL = WTFMove(imageURL), imageBitmap = WTFMove(imageBitmap), shouldUpdateQuickLookItemTitle, quickLookItemToInsertIfNeeded = WTFMove(quickLookItemToInsertIfNeeded), completionHandler = WTFMove(completionHandler), itemsRemaining = filteredItems.size(), menu = WTFMove(menu), sparseMenuItems](NSMenuItem *item, NSUInteger index) mutable {
+    auto insertMenuItem = makeBlockPtr([protectedThis = Ref { *this }, weakPage = WeakPtr { page() }, imageURL = WTFMove(imageURL), imageBitmap = WTFMove(imageBitmap), shouldUpdateQuickLookItemTitle, quickLookItemToInsertIfNeeded = WTFMove(quickLookItemToInsertIfNeeded), completionHandler = WTFMove(completionHandler), itemsRemaining = filteredItems.size(), menu = WTFMove(menu), sparseMenuItems](NSMenuItem *item, NSUInteger index) mutable {
         ASSERT(index < [sparseMenuItems count]);
         ASSERT(![sparseMenuItems pointerAtIndex:index]);
         [sparseMenuItems replacePointerAtIndex:index withPointer:item];
@@ -546,7 +557,7 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
 
         [menu setItemArray:[sparseMenuItems allObjects]];
 
-        auto page = makeRefPtr(weakPage.get());
+        RefPtr page { weakPage.get() };
         if (page && imageBitmap) {
 #if ENABLE(IMAGE_ANALYSIS)
             protectedThis->insertOrUpdateQuickLookImageItem(imageURL, imageBitmap.releaseNonNull(), WTFMove(quickLookItemToInsertIfNeeded), shouldUpdateQuickLookItemTitle);
@@ -572,10 +583,10 @@ void WebContextMenuProxyMac::getContextMenuFromItems(const Vector<WebContextMenu
 
 void WebContextMenuProxyMac::insertOrUpdateQuickLookImageItem(const URL& imageURL, Ref<ShareableBitmap>&& imageBitmap, std::optional<WebContextMenuItemData>&& quickLookItemToInsertIfNeeded, bool shouldUpdateQuickLookItemTitle)
 {
-    auto page = makeRef(*this->page());
+    Ref page = *this->page();
     if (quickLookItemToInsertIfNeeded) {
-        page->computeHasImageAnalysisResults(imageURL, imageBitmap.get(), ImageAnalysisType::VisualSearch, [weakThis = makeWeakPtr(*this), quickLookItemToInsertIfNeeded = WTFMove(*quickLookItemToInsertIfNeeded)] (bool hasVisualSearchResults) mutable {
-            if (auto protectedThis = makeRefPtr(weakThis.get()); protectedThis && hasVisualSearchResults) {
+        page->computeHasImageAnalysisResults(imageURL, imageBitmap.get(), ImageAnalysisType::VisualSearch, [weakThis = WeakPtr { *this }, quickLookItemToInsertIfNeeded = WTFMove(*quickLookItemToInsertIfNeeded)] (bool hasVisualSearchResults) mutable {
+            if (RefPtr protectedThis = weakThis.get(); protectedThis && hasVisualSearchResults) {
                 protectedThis->m_quickLookPreviewActivity = QuickLookPreviewActivity::VisualSearch;
                 [protectedThis->m_menu addItem:NSMenuItem.separatorItem];
                 [protectedThis->m_menu addItem:createMenuActionItem(quickLookItemToInsertIfNeeded).get()];
@@ -585,12 +596,12 @@ void WebContextMenuProxyMac::insertOrUpdateQuickLookImageItem(const URL& imageUR
     }
 
     if (shouldUpdateQuickLookItemTitle) {
-        page->computeHasImageAnalysisResults(imageURL, imageBitmap.get(), ImageAnalysisType::VisualSearch, [weakThis = makeWeakPtr(*this), weakPage = makeWeakPtr(page.get()), imageURL, imageBitmap = WTFMove(imageBitmap)] (bool hasVisualSearchResults) mutable {
-            auto protectedThis = makeRefPtr(weakThis.get());
+        page->computeHasImageAnalysisResults(imageURL, imageBitmap.get(), ImageAnalysisType::VisualSearch, [weakThis = WeakPtr { *this }, weakPage = WeakPtr { page }, imageURL, imageBitmap = WTFMove(imageBitmap)] (bool hasVisualSearchResults) mutable {
+            RefPtr protectedThis { weakThis.get() };
             if (!protectedThis)
                 return;
 
-            auto page = makeRefPtr(weakPage.get());
+            RefPtr page { weakPage.get() };
             if (!page)
                 return;
 
@@ -601,11 +612,11 @@ void WebContextMenuProxyMac::insertOrUpdateQuickLookImageItem(const URL& imageUR
             }
 
             page->computeHasImageAnalysisResults(imageURL, imageBitmap.get(), ImageAnalysisType::Text, [weakThis = WTFMove(weakThis), weakPage] (bool hasText) mutable {
-                auto protectedThis = makeRefPtr(weakThis.get());
+                RefPtr protectedThis { weakThis.get() };
                 if (!protectedThis)
                     return;
 
-                if (auto page = makeRefPtr(weakPage.get()); page && hasText)
+                if (RefPtr page = weakPage.get(); page && hasText)
                     protectedThis->updateQuickLookContextMenuItemTitle(contextMenuItemTagQuickLookImageForTextSelection());
             });
         });
@@ -694,7 +705,7 @@ void WebContextMenuProxyMac::useContextMenuItems(Vector<Ref<WebContextMenuItem>>
         return item->data();
     });
 
-    getContextMenuFromItems(data, [this, protectedThis = makeRef(*this)](NSMenu *menu) mutable {
+    getContextMenuFromItems(data, [this, protectedThis = Ref { *this }](NSMenu *menu) mutable {
         if (!page()) {
             WebContextMenuProxy::useContextMenuItems({ });
             return;
@@ -715,8 +726,9 @@ void WebContextMenuProxyMac::useContextMenuItems(Vector<Ref<WebContextMenuItem>>
             menuFromProposedMenu(menu);
             return;
         }
-
-        page()->contextMenuClient().menuFromProposedMenu(*page(), menu, m_context.webHitTestResultData(), m_userData.object(), WTFMove(menuFromProposedMenu));
+        
+        ASSERT(m_context.webHitTestResultData());
+        page()->contextMenuClient().menuFromProposedMenu(*page(), menu, m_context.webHitTestResultData().value(), m_userData.object(), WTFMove(menuFromProposedMenu));
     });
 }
 

@@ -49,8 +49,9 @@ struct option longopts[] = {
 void
 free_acl(acl_t *objp)
 {
-	if (*objp)
+	if (*objp) {
 		acl_free(*objp);
+	}
 	*objp = NULL;
 }
 
@@ -63,11 +64,12 @@ struct opdesc {
 	{ /*quiet*/ "", "Only fatal errors are printed, sucess/failure is determine for exit status" },
 	{ /*help*/ "", "Print this help and exit" },
 	{ /*keep*/ "", "Don't remove temporary files or directories use to verify inheritance from directories" },
-	{ /*acl*/  "acl*", "Acl to set or merge on each path specified" },
+	{ /*acl*/ "acl*", "Acl to set or merge on each path specified" },
 	{ /*set*/ "", "Don't merge, just set the acl" }
 };
 
-void usage()
+void
+usage(void)
 {
 	struct option *op;
 	struct opdesc *opdp;
@@ -77,15 +79,14 @@ void usage()
 		printf("-%c, --%-8s %-8s %s\n", op->val, op->name, opdp->arg, opdp->descp);
 	}
 	fprintf(stderr, "* acls are specified as in chmod execpt multiple entries and be spedified by \n"
-		"using multiple acl options or separating them with semicolons with no spaces.\n");
+	    "using multiple acl options or separating them with semicolons with no spaces.\n");
 	exit(1);
 }
 
 acl_t
 get_acl_from_path(const char *path)
 {
-
-	return (acl_get_file(path, ACL_TYPE_EXTENDED));
+	return acl_get_file(path, ACL_TYPE_EXTENDED);
 }
 
 int
@@ -101,19 +102,19 @@ compare_acl_to_path(acl_t acl, const char *path, int is_dir, int inherited, int 
 		printf("acl supplied:\n");
 		printacl(acl, is_dir);
 	}
-	if (!acl_matches(temp_acl, acl, inherited))
+	if (!acl_matches(temp_acl, acl, inherited)) {
 		status = 1;
+	}
 
 	free_acl(&temp_acl);
 
-	return (status);
+	return status;
 }
 
 int
 set_acl_on_path(acl_t acl, const char *path)
 {
-
-	return (acl_set_file(path, ACL_TYPE_EXTENDED, acl));
+	return acl_set_file(path, ACL_TYPE_EXTENDED, acl);
 }
 
 acl_t
@@ -126,23 +127,27 @@ get_inheritable_acl(acl_t aacl, acl_flag_t flag)
 	acl_flagset_t eflags;
 
 	acl = acl_dup(aacl);
-	if (acl == NULL)
+	if (acl == NULL) {
 		err(1, "get_inheritable_acl");
+	}
 	i_acl = acl_init(1);
-	if (i_acl == NULL)
+	if (i_acl == NULL) {
 		err(1, "get_inheritable_acl");
+	}
 
 	for (next_entry = ACL_FIRST_ENTRY;
-	     acl_get_entry(acl, next_entry, &entry) == 0;
-	     next_entry = ACL_NEXT_ENTRY) {
+	    acl_get_entry(acl, next_entry, &entry) == 0;
+	    next_entry = ACL_NEXT_ENTRY) {
 		if (acl_get_flagset_np(entry, &eflags) != 0) {
 			err(1, "Unable to obtain entry flagset");
 		}
 		if (acl_get_flag_np(eflags, flag)) {
-			if (acl_create_entry(&i_acl, &i_entry))
+			if (acl_create_entry(&i_acl, &i_entry)) {
 				err(1, "acl_create_entry() failed");
-			if (acl_copy_entry(i_entry, entry))
+			}
+			if (acl_copy_entry(i_entry, entry)) {
 				err(1, "acl_copy_entry() failed");
+			}
 		}
 	}
 
@@ -153,7 +158,7 @@ get_inheritable_acl(acl_t aacl, acl_flag_t flag)
 
 	acl_free(acl);
 
-	return (i_acl);
+	return i_acl;
 }
 
 acl_t
@@ -168,27 +173,27 @@ merge_acls(acl_t oacl, acl_t modifier, const char *path)
 		return oacl;
 	}
 	if (!oacl) {
-		return (modifier);
+		return modifier;
 	}
 
 	new_acl = acl_dup(oacl);
-	if (new_acl == NULL)
-		return (NULL);
+	if (new_acl == NULL) {
+		return NULL;
+	}
 
 	for (aindex = 0; !retval &&
-		     acl_get_entry(modifier,
-				   (entry == NULL ? ACL_FIRST_ENTRY :
-				    ACL_NEXT_ENTRY), &entry) == 0;
-	     aindex++) {
-
+	    acl_get_entry(modifier,
+	    (entry == NULL ? ACL_FIRST_ENTRY :
+	    ACL_NEXT_ENTRY), &entry) == 0;
+	    aindex++) {
 		retval += modify_acl(&new_acl, entry, ACL_SET_FLAG, -1, 0, 0, path);
 	}
 	if (retval) {
 		acl_free(new_acl);
-		return (NULL);
+		return NULL;
 	}
 
-	return (new_acl);
+	return new_acl;
 }
 
 
@@ -198,14 +203,16 @@ parse_acl_argument(acl_t acl, char *acl_rep)
 	acl_t new_acl = parse_acl_entries(acl_rep);
 	acl_t ret_acl;
 
-	if (new_acl == NULL)
-		return (acl);
+	if (new_acl == NULL) {
+		return acl;
+	}
 
 	ret_acl = merge_acls(acl, new_acl, "command line argument");
-	if (ret_acl)
+	if (ret_acl) {
 		acl_free(acl);
+	}
 
-	return (ret_acl);
+	return ret_acl;
 }
 
 void
@@ -215,8 +222,9 @@ print_acl_from_path(const char *path, int isdir)
 
 	acl =  acl_get_file(path, ACL_TYPE_EXTENDED);
 	if (acl == NULL) {
-		if (verbose > 1)
+		if (verbose > 1) {
 			warn("%s: acl_get_file", path);
+		}
 		return;
 	}
 
@@ -267,8 +275,9 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	if (!list && (set_acl == NULL && set_only))
+	if (!list && (set_acl == NULL && set_only)) {
 		errx(1, "No acl to use");
+	}
 
 	/* Get a file object path */
 	for (path = *argv; path; argv++, argc--, path = *argv) {
@@ -303,8 +312,9 @@ main(int argc, char *argv[])
 			if (merge_acl == NULL) {
 				errx(1, "Could not merge acls");
 			}
-			if (merge_acl != orig_acl)
+			if (merge_acl != orig_acl) {
 				free_acl(&orig_acl);
+			}
 		} else {
 			merge_acl = set_acl;
 		}
@@ -332,44 +342,55 @@ main(int argc, char *argv[])
 				int fd;
 
 				asprintf(&objname, "%s/temp.XXXXXX", path);
-				if (objname == NULL)
+				if (objname == NULL) {
 					err(1, "asprintf");
+				}
 				mkstemp(objname);
-				if (verbose)
+				if (verbose) {
 					printf("Creating file %s\n", objname);
-				fd = open(objname, O_WRONLY|O_CREAT, 0644);
-				if (fd == -1)
+				}
+				fd = open(objname, O_WRONLY | O_CREAT, 0644);
+				if (fd == -1) {
 					err(1, "Could not create %s", objname);
+				}
 				close(fd);
 				status = compare_acl_to_path(file_acl, objname, 0, 1, 1);
-				if (!keep)
+				if (!keep) {
 					unlink(objname);
+				}
 				free_acl(&file_acl);
 				free(objname);
-				if (status)
+				if (status) {
 					errx(1, "Acls don't compare");
+				}
 			}
 
 			dir_acl = get_inheritable_acl(merge_acl, ACL_ENTRY_DIRECTORY_INHERIT);
 			if (dir_acl) {
 				asprintf(&objname, "%s/temp_d.XXXXXX", path);
-				if (objname == NULL)
+				if (objname == NULL) {
 					err(1, "asprintf");
+				}
 				mkstemp(objname);
-				if (verbose)
+				if (verbose) {
 					printf("Creating directory %s\n", objname);
-				if (mkdir(objname, 0777))
+				}
+				if (mkdir(objname, 0777)) {
 					err(1, "mkdir %s", objname);
+				}
 				status = compare_acl_to_path(dir_acl, objname, 1, 1, 1);
-				if (!keep)
+				if (!keep) {
 					rmdir(objname);
-				if (status)
+				}
+				if (status) {
 					errx(1, "Acls did not compare");
+				}
 				free_acl(&dir_acl);
 				free(objname);
 			}
 		}
-		if (merge_acl != set_acl)
+		if (merge_acl != set_acl) {
 			free_acl(&merge_acl);
+		}
 	}
 }

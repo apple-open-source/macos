@@ -1,3 +1,4 @@
+.\"-
 .\" Copyright (c) 1990, 1993
 .\"	The Regents of the University of California.  All rights reserved.
 .\"
@@ -12,11 +13,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -33,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)dd.1	8.2 (Berkeley) 1/13/94
-.\" $FreeBSD: src/bin/dd/dd.1,v 1.19 2002/03/31 20:49:37 keramida Exp $
+.\" $FreeBSD$
 .\"
-.Dd January 13, 1994
+.Dd May 19, 2021
 .Dt DD 1
 .Os
 .Sh NAME
@@ -57,8 +54,7 @@ displays the number of complete and partial input and output blocks
 and truncated input records to the standard error output.
 .Pp
 The following operands are available:
-.\" XXX
-.Bl -tag -width of=file
+.Bl -tag -width "of=file"
 .It Cm bs Ns = Ns Ar n
 Set both input and output block size to
 .Ar n
@@ -89,6 +85,15 @@ Copy
 .Ar n
 input files before terminating.
 This operand is only applicable when the input device is a tape.
+.It Cm fillchar Ns = Ns Ar c
+When padding a block in conversion mode or due to use of
+.Cm noerror
+and
+.Cm sync
+modes, fill with the specified
+.Tn ASCII
+character, rather than using a space or
+.Dv NUL .
 .It Cm ibs Ns = Ns Ar n
 Set the input block size to
 .Ar n
@@ -97,6 +102,24 @@ bytes instead of the default 512.
 Read input from
 .Ar file
 instead of the standard input.
+.It Cm iflag Ns = Ns Ar value Ns Op , Ns Ar value ...
+Where
+.Cm value
+is one of the symbols from the following list.
+.Bl -tag -width "fullblock"
+.It Cm fullblock
+Reading from the input file may not obtain a full block.
+When a read returns short, continue reading to fill the block.
+Without this flag,
+.Cm count
+limits the number of times
+.Xr read 2
+is called on the input rather than the number of blocks copied in full.
+May not be combined with
+.Cm conv=sync .
+.\".It Cm direct
+.\"Set the O_DIRECT flag on the input file to make reads bypass any local caching.
+.El
 .It Cm iseek Ns = Ns Ar n
 Seek on the input file
 .Ar n
@@ -118,6 +141,21 @@ If an initial portion of the output file is seeked past (see the
 .Cm oseek
 operand),
 the output file is truncated at that point.
+.It Cm oflag Ns = Ns Ar value Ns Op , Ns Ar value ...
+Where
+.Cm value
+is one of the symbols from the following list.
+.Bl -tag -width "direct"
+.It Cm fsync
+Set the O_FSYNC flag on the output file to make writes synchronous.
+.It Cm sync
+Set the O_SYNC flag on the output file to make writes synchronous.
+This is synonymous with the
+.Cm fsync
+value.
+.\".It Cm direct
+.\"Set the O_DIRECT flag on the output file to make writes bypass any local caching.
+.El
 .It Cm oseek Ns = Ns Ar n
 Seek on the output file
 .Ar n
@@ -151,11 +189,28 @@ Otherwise, input data is read and discarded.
 For pipes, the correct number of bytes is read.
 For all other devices, the correct number of blocks is read without
 distinguishing between a partial or complete block being read.
+.It Cm speed Ns = Ns Ar n
+Limit the copying speed to
+.Ar n
+bytes per second.
+.It Cm status Ns = Ns Ar value
+Where
+.Cm value
+is one of the symbols from the following list.
+.Bl -tag -width "progress"
+.It Cm noxfer
+Do not print the transfer statistics as the last line of status output.
+.It Cm none
+Do not print the status output.
+Error messages are shown; informational messages are not.
+.It Cm progress
+Print basic transfer statistics once per second.
+.El
 .It Cm conv Ns = Ns Ar value Ns Op , Ns Ar value ...
 Where
 .Cm value
 is one of the symbols from the following list.
-.Bl -tag -width ".Cm unblock"
+.Bl -tag -width "unblock"
 .It Cm ascii , oldascii
 The same as the
 .Cm unblock
@@ -230,8 +285,23 @@ are maps used in historic
 and
 .No pre- Ns Bx 4.3 reno
 systems.
+.\".It Cm fdatasync
+.\"Perform an
+.\".Xr fdatasync 2
+.\"on the output file before closing it.
+.It Cm fsync
+Perform an
+.Xr fsync 2
+on the output file before closing it.
 .It Cm lcase
 Transform uppercase characters into lowercase characters.
+.It Cm pareven , parnone , parodd , parset
+Output data with the specified parity.
+The parity bit on input is stripped unless
+.Tn EBCDIC
+to
+.Tn ASCII
+conversions is also specified.
 .It Cm noerror
 Do not stop processing on an input error.
 When an input error occurs, a diagnostic message followed by the current
@@ -244,6 +314,11 @@ with
 .Dv NUL
 bytes (or with spaces if a block oriented conversion value was
 specified) and processed as a normal input buffer.
+If the
+.Cm fillchar
+option is specified, the fill character provided on the command line
+will override
+the automatic selection of the fill character.
 If the
 .Cm sync
 conversion is not specified, the input block is omitted from the output.
@@ -297,17 +372,20 @@ appended.
 .El
 .El
 .Pp
-Where sizes are specified, a decimal, octal, or hexadecimal number of
+Where sizes or speed are specified, a decimal, octal, or hexadecimal number of
 bytes is expected.
 If the number ends with a
 .Dq Li b ,
 .Dq Li k ,
 .Dq Li m ,
 .Dq Li g ,
+.Dq Li t ,
+.Dq Li p ,
 or
 .Dq Li w ,
 the
-number is multiplied by 512, 1024 (1K), 1048576 (1M), 1073741824 (1G)
+number is multiplied by 512, 1024 (1K), 1048576 (1M), 1073741824 (1G),
+1099511627776 (1T), 1125899906842624 (1P)
 or the number of bytes in an integer, respectively.
 Two or more numbers may be separated by an
 .Dq Li x
@@ -356,8 +434,35 @@ be written to the standard error output
 in the same format as the standard completion message and
 .Nm
 will exit.
-.Sh DIAGNOSTICS
+.Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+Check that a disk drive contains no bad blocks:
+.Pp
+.Dl "dd if=/dev/ada0 of=/dev/null bs=1m"
+.Pp
+Do a refresh of a disk drive, in order to prevent presently
+recoverable read errors from progressing into unrecoverable read errors:
+.Pp
+.Dl "dd if=/dev/ada0 of=/dev/ada0 bs=1m"
+.Pp
+Remove parity bit from a file:
+.Pp
+.Dl "dd if=file conv=parnone of=file.txt"
+.Pp
+Check for (even) parity errors on a file:
+.Pp
+.Dl "dd if=file conv=pareven | cmp -x - file"
+.Pp
+To create an image of a Mode-1 CD-ROM, which is a commonly used format
+for data CD-ROM disks, use a block size of 2048 bytes:
+.Pp
+.Dl "dd if=/dev/cd0 of=filename.iso bs=2048"
+.Pp
+Write a filesystem image to a memory stick, padding the end with zeros,
+if necessary, to a 1MiB boundary:
+.Pp
+.Dl "dd if=memstick.img of=/dev/da0 bs=1m conv=noerror,sync"
 .Sh SEE ALSO
 .Xr cp 1 ,
 .Xr tr 1
@@ -369,7 +474,9 @@ utility is expected to be a superset of the
 standard.
 The
 .Cm files
-operand and the
+and
+.Cm status
+operands and the
 .Cm ascii ,
 .Cm ebcdic ,
 .Cm ibm ,
@@ -378,5 +485,10 @@ operand and the
 and
 .Cm oldibm
 values are extensions to the
-\*[Px]
+.Tn POSIX
 standard.
+.Sh HISTORY
+A
+.Nm
+command appeared in
+.At v5 .

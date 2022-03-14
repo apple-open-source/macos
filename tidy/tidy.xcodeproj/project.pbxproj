@@ -24,7 +24,6 @@
 /* Begin PBXBuildFile section */
 		44254DF724551CFF0095040E /* tidy.txt in Install License File */ = {isa = PBXBuildFile; fileRef = 448274112454CFEF00A95493 /* tidy.txt */; };
 		44254DF924551D350095040E /* tidy.plist in Install Open Source Property List */ = {isa = PBXBuildFile; fileRef = 448274102454CFEF00A95493 /* tidy.plist */; };
-		44254DFB24551F6B0095040E /* module.modulemap in Install Module Map */ = {isa = PBXBuildFile; fileRef = 448274122454CFEF00A95493 /* module.modulemap */; };
 		448273B32454C6BE00A95493 /* tidy.c in Sources */ = {isa = PBXBuildFile; fileRef = 448273612454C67B00A95493 /* tidy.c */; };
 		448273BD2454C6D300A95493 /* tab2space.c in Sources */ = {isa = PBXBuildFile; fileRef = 448273602454C67B00A95493 /* tab2space.c */; };
 		448273D32454CE0900A95493 /* access.c in Sources */ = {isa = PBXBuildFile; fileRef = 448273712454C69D00A95493 /* access.c */; };
@@ -75,6 +74,7 @@
 		448274232454D08400A95493 /* tidy.h in Headers */ = {isa = PBXBuildFile; fileRef = 448273682454C68800A95493 /* tidy.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		448274242454D08400A95493 /* tidyenum.h in Headers */ = {isa = PBXBuildFile; fileRef = 448273652454C68800A95493 /* tidyenum.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		448274292454D39C00A95493 /* libtidy.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 448274172454D04700A95493 /* libtidy.A.dylib */; };
+		4488729E2722617200D882B4 /* module.modulemap in Headers */ = {isa = PBXBuildFile; fileRef = 448274122454CFEF00A95493 /* module.modulemap */; settings = {ATTRIBUTES = (Public, ); }; };
 		44F829BC24553416002EBA2C /* tab2space.1 in Install Man Page */ = {isa = PBXBuildFile; fileRef = 44F829BA245533DC002EBA2C /* tab2space.1 */; };
 		44F829BD2455341B002EBA2C /* tidy.1 in Install Man Page */ = {isa = PBXBuildFile; fileRef = 44F829BB245533DC002EBA2C /* tidy.1 */; };
 /* End PBXBuildFile section */
@@ -131,17 +131,6 @@
 				44254DF924551D350095040E /* tidy.plist in Install Open Source Property List */,
 			);
 			name = "Install Open Source Property List";
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		44254DFA24551F420095040E /* Install Module Map */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/include/tidy;
-			dstSubfolderSpec = 0;
-			files = (
-				44254DFB24551F6B0095040E /* module.modulemap in Install Module Map */,
-			);
-			name = "Install Module Map";
 			runOnlyForDeploymentPostprocessing = 1;
 		};
 		448273502454C26000A95493 /* Install Man Page */ = {
@@ -432,6 +421,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				448274212454D08400A95493 /* buffio.h in Headers */,
+				4488729E2722617200D882B4 /* module.modulemap in Headers */,
 				448274222454D08400A95493 /* platform.h in Headers */,
 				448274232454D08400A95493 /* tidy.h in Headers */,
 				448274242454D08400A95493 /* tidyenum.h in Headers */,
@@ -505,7 +495,6 @@
 				44254DF424551C150095040E /* Create libtidy.dylib Symlink */,
 				44254DF624551CE20095040E /* Install License File */,
 				44254DF824551D240095040E /* Install Open Source Property List */,
-				44254DFA24551F420095040E /* Install Module Map */,
 			);
 			buildRules = (
 			);
@@ -581,7 +570,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/ln -sf libtidy.A.dylib \"${BUILT_PRODUCTS_DIR}/libtidy.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    /bin/ln -sf libtidy.A.dylib \"${DSTROOT}${INSTALL_PATH}/libtidy.dylib\";\nfi;\n";
+			shellScript = "set -e\n/bin/ln -sf libtidy.A.dylib \"${BUILT_PRODUCTS_DIR}/libtidy.dylib\"\n\nif [[ \"${ACTION}\" == \"install\" ]]; then\n    /bin/ln -sf libtidy.A.dylib \"${DSTROOT}${INSTALL_PATH}/libtidy.dylib\";\nfi;\n";
 		};
 		44F829B82455327A002EBA2C /* Rename Man Page */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -601,7 +590,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/cp tidy/htmldoc/tab2space_man_page.txt \"${BUILT_PRODUCTS_DIR}/tab2space.1\"\n";
+			shellScript = "set -e\n/bin/cp tidy/htmldoc/tab2space_man_page.txt \"${BUILT_PRODUCTS_DIR}/tab2space.1\"\n";
 		};
 		44F829B924553286002EBA2C /* Rename Man Page */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -621,7 +610,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "/bin/cp tidy/htmldoc/man_page.txt \"${BUILT_PRODUCTS_DIR}/tidy.1\"\n";
+			shellScript = "set -e\n/bin/cp tidy/htmldoc/man_page.txt \"${BUILT_PRODUCTS_DIR}/tidy.1\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

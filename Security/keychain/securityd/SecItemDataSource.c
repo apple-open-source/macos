@@ -85,7 +85,7 @@ static const SecDbClass *dsSyncedClassesPtrs[] = {
     NULL,
     NULL,
 };
-static const size_t dsSyncedClassesSize = array_size(dsSyncedClassesPtrs);
+#define dsSyncedClassesSize (array_size(dsSyncedClassesPtrs))
 
 static const SecDbClass** dsSyncedClasses() {
     static dispatch_once_t onceToken;

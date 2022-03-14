@@ -46,6 +46,7 @@ my $windowConstructorsFile;
 my $workerGlobalScopeConstructorsFile;
 my $dedicatedWorkerGlobalScopeConstructorsFile;
 my $serviceWorkerGlobalScopeConstructorsFile;
+my $sharedWorkerGlobalScopeConstructorsFile;
 my $workletGlobalScopeConstructorsFile;
 my $paintWorkletGlobalScopeConstructorsFile;
 my $audioWorkletGlobalScopeConstructorsFile;
@@ -53,6 +54,19 @@ my $testGlobalScopeConstructorsFile;
 my $supplementalMakefileDeps;
 my $idlAttributesFile;
 my $verbose = 0;
+
+# List of contexts with the [Global] extended attribute.
+#
+# Must not contain partial interfaces used by other interfaces in the list,
+# in order to prevent the same attributes/interfaces being installed multiple
+# times when [Exposed=*] is used.
+my @supportedGlobalContexts = (
+    "Window",
+    "DedicatedWorker",
+    "ServiceWorker",
+    "PaintWorklet",
+    "AudioWorklet"
+);
 
 # Toggle this to validate that the fast regular expression based "parsing" used
 # in this file produces the same results as the slower results produced by the
@@ -70,6 +84,7 @@ GetOptions('defines=s' => \$defines,
            'workerGlobalScopeConstructorsFile=s' => \$workerGlobalScopeConstructorsFile,
            'dedicatedWorkerGlobalScopeConstructorsFile=s' => \$dedicatedWorkerGlobalScopeConstructorsFile,
            'serviceWorkerGlobalScopeConstructorsFile=s' => \$serviceWorkerGlobalScopeConstructorsFile,
+           'sharedWorkerGlobalScopeConstructorsFile=s' => \$sharedWorkerGlobalScopeConstructorsFile,
            'workletGlobalScopeConstructorsFile=s' => \$workletGlobalScopeConstructorsFile,
            'paintWorkletGlobalScopeConstructorsFile=s' => \$paintWorkletGlobalScopeConstructorsFile,
            'audioWorkletGlobalScopeConstructorsFile=s' => \$audioWorkletGlobalScopeConstructorsFile,
@@ -85,6 +100,7 @@ die('Must specify an output file using --windowConstructorsFile.') unless define
 die('Must specify an output file using --workerGlobalScopeConstructorsFile.') unless defined($workerGlobalScopeConstructorsFile);
 die('Must specify an output file using --dedicatedWorkerGlobalScopeConstructorsFile.') unless defined($dedicatedWorkerGlobalScopeConstructorsFile);
 die('Must specify an output file using --serviceWorkerGlobalScopeConstructorsFile.') unless defined($serviceWorkerGlobalScopeConstructorsFile);
+die('Must specify an output file using --sharedWorkerGlobalScopeConstructorsFile.') unless defined($sharedWorkerGlobalScopeConstructorsFile);
 die('Must specify an output file using --workletGlobalScopeConstructorsFile.') unless defined($workletGlobalScopeConstructorsFile);
 die('Must specify an output file using --paintWorkletGlobalScopeConstructorsFile.') unless defined($paintWorkletGlobalScopeConstructorsFile);
 die('Must specify an output file using --audioWorkletGlobalScopeConstructorsFile.') unless defined($audioWorkletGlobalScopeConstructorsFile);
@@ -140,6 +156,7 @@ my $windowConstructorsCode = "";
 my $workerGlobalScopeConstructorsCode = "";
 my $dedicatedWorkerGlobalScopeConstructorsCode = "";
 my $serviceWorkerGlobalScopeConstructorsCode = "";
+my $sharedWorkerGlobalScopeConstructorsCode = "";
 my $workletGlobalScopeConstructorsCode = "";
 my $paintWorkletGlobalScopeConstructorsCode = "";
 my $audioWorkletGlobalScopeConstructorsCode = "";
@@ -235,14 +252,18 @@ foreach my $idlFileName (sort keys %idlFileNameHash) {
     # - is a callback interface that has constants declared on it, or
     # - is a non-callback interface that is not declared with the [LegacyNoInterfaceObject] extended attribute, a corresponding
     #   property must exist on the ECMAScript environment's global object.
-    # See https://heycam.github.io/webidl/#es-interfaces
+    # See https://webidl.spec.whatwg.org/#es-interfaces
     my $extendedAttributes = getInterfaceExtendedAttributesFromIDL($idlFile);
     if (!$extendedAttributes->{"LegacyNoInterfaceObject"} && (!$isCallbackInterface || containsInterfaceWithConstantsFromIDL($idlFile))) {
         my $exposedAttribute = $extendedAttributes->{"Exposed"};
         if (!$exposedAttribute) {
             die "ERROR: No [Exposed] extended attribute specified for interface in $idlFileName";
         }
+        if ($exposedAttribute eq "*") {
+            $exposedAttribute = "(" . join(',', @supportedGlobalContexts) . ")";
+        }
         $exposedAttribute = substr($exposedAttribute, 1, -1) if substr($exposedAttribute, 0, 1) eq "(";
+
         my @globalContexts = split(",", $exposedAttribute);
         foreach my $globalContext (@globalContexts) {
             my ($attributeCode, $windowAliases) = GenerateConstructorAttributes($interfaceName, $extendedAttributes, $globalContext);
@@ -255,6 +276,8 @@ foreach my $idlFileName (sort keys %idlFileNameHash) {
                 $dedicatedWorkerGlobalScopeConstructorsCode .= $attributeCode;
             } elsif ($globalContext eq "ServiceWorker") {
                 $serviceWorkerGlobalScopeConstructorsCode .= $attributeCode;
+            } elsif ($globalContext eq "SharedWorker") {
+                $sharedWorkerGlobalScopeConstructorsCode .= $attributeCode;
             } elsif ($globalContext eq "Worklet") {
                 $workletGlobalScopeConstructorsCode .= $attributeCode;
             } elsif ($globalContext eq "PaintWorklet") {
@@ -282,6 +305,7 @@ GeneratePartialInterface("DOMWindow", $windowConstructorsCode, $windowConstructo
 GeneratePartialInterface("WorkerGlobalScope", $workerGlobalScopeConstructorsCode, $workerGlobalScopeConstructorsFile);
 GeneratePartialInterface("DedicatedWorkerGlobalScope", $dedicatedWorkerGlobalScopeConstructorsCode, $dedicatedWorkerGlobalScopeConstructorsFile);
 GeneratePartialInterface("ServiceWorkerGlobalScope", $serviceWorkerGlobalScopeConstructorsCode, $serviceWorkerGlobalScopeConstructorsFile);
+GeneratePartialInterface("SharedWorkerGlobalScope", $sharedWorkerGlobalScopeConstructorsCode, $sharedWorkerGlobalScopeConstructorsFile);
 GeneratePartialInterface("WorkletGlobalScope", $workletGlobalScopeConstructorsCode, $workletGlobalScopeConstructorsFile);
 GeneratePartialInterface("PaintWorkletGlobalScope", $paintWorkletGlobalScopeConstructorsCode, $paintWorkletGlobalScopeConstructorsFile);
 GeneratePartialInterface("AudioWorkletGlobalScope", $audioWorkletGlobalScopeConstructorsCode, $audioWorkletGlobalScopeConstructorsFile);
@@ -587,7 +611,7 @@ sub getPartialNamesFromIDL
 }
 
 # identifier-A includes identifier-B;
-# https://heycam.github.io/webidl/#includes-statement
+# https://webidl.spec.whatwg.org/#includes-statement
 sub getIncludedInterfacesFromIDL
 {
     my $idlFile = shift;

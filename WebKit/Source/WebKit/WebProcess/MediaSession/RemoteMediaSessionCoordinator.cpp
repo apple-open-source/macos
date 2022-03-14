@@ -28,6 +28,7 @@
 
 #if ENABLE(MEDIA_SESSION_COORDINATOR)
 
+#include "Logging.h"
 #include "RemoteMediaSessionCoordinatorMessages.h"
 #include "RemoteMediaSessionCoordinatorProxyMessages.h"
 #include "WebPage.h"
@@ -65,7 +66,7 @@ RemoteMediaSessionCoordinator::~RemoteMediaSessionCoordinator()
 void RemoteMediaSessionCoordinator::join(CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& callback)
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::Join { }, [weakThis = makeWeakPtr(this), callback = WTFMove(callback)](auto&& exception) mutable {
+    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::Join { }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& exception) mutable {
         if (!weakThis) {
             callback(Exception { InvalidStateError });
             return;
@@ -88,7 +89,7 @@ void RemoteMediaSessionCoordinator::leave()
 void RemoteMediaSessionCoordinator::seekTo(double time, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& callback)
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER, time);
-    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinateSeekTo { time }, [weakThis = makeWeakPtr(this), callback = WTFMove(callback)](auto&& exception) mutable {
+    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinateSeekTo { time }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& exception) mutable {
         if (!weakThis) {
             callback(Exception { InvalidStateError });
             return;
@@ -106,7 +107,7 @@ void RemoteMediaSessionCoordinator::seekTo(double time, CompletionHandler<void(s
 void RemoteMediaSessionCoordinator::play(CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& callback)
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinatePlay { }, [weakThis = makeWeakPtr(this), callback = WTFMove(callback)](auto&& exception) mutable {
+    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinatePlay { }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& exception) mutable {
         if (!weakThis) {
             callback(Exception { InvalidStateError });
             return;
@@ -124,7 +125,7 @@ void RemoteMediaSessionCoordinator::play(CompletionHandler<void(std::optional<We
 void RemoteMediaSessionCoordinator::pause(CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& callback)
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinatePause { }, [weakThis = makeWeakPtr(this), callback = WTFMove(callback)](auto&& exception) mutable {
+    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinatePause { }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& exception) mutable {
         if (!weakThis) {
             callback(Exception { InvalidStateError });
             return;
@@ -142,7 +143,7 @@ void RemoteMediaSessionCoordinator::pause(CompletionHandler<void(std::optional<W
 void RemoteMediaSessionCoordinator::setTrack(const String& trackIdentifier, CompletionHandler<void(std::optional<WebCore::Exception>&&)>&& callback)
 {
     ALWAYS_LOG_IF_POSSIBLE(LOGIDENTIFIER);
-    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinateSetTrack { trackIdentifier }, [weakThis = makeWeakPtr(this), callback = WTFMove(callback)](auto&& exception) mutable {
+    m_page.sendWithAsyncReply(Messages::RemoteMediaSessionCoordinatorProxy::CoordinateSetTrack { trackIdentifier }, [weakThis = WeakPtr { *this }, callback = WTFMove(callback)](auto&& exception) mutable {
         if (!weakThis) {
             callback(Exception { InvalidStateError });
             return;
@@ -226,7 +227,7 @@ void RemoteMediaSessionCoordinator::coordinatorStateChanged(WebCore::MediaSessio
 
 WTFLogChannel& RemoteMediaSessionCoordinator::logChannel() const
 {
-    return LogMedia;
+    return JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, Media);
 }
 
 

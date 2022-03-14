@@ -255,28 +255,6 @@ static void _repair_broken_kofn_right(authdb_connection_t dbconn, const char *ri
     }
 }
 
-static void _repair_all_kofns(authdb_connection_t dbconn, auth_items_t config)
-{
-    // we want plist to be returned always and not only when never
-    CFDictionaryRef plist = _copy_plist(NULL, NULL);
-    
-    if (!plist) {
-        os_log_error(AUTHD_LOG, "authdb: unable to repair kofns");
-        return;
-    }
-    
-    authdb_step(dbconn, "SELECT name FROM rules WHERE (rules.kofn > 0) AND (id NOT IN (SELECT r_id FROM delegates_map WHERE r_id = id))",
-                NULL, ^bool(auth_items_t data) {
-                    const char *name = auth_items_get_string(data, "name");
-                    if (name) {
-                        _repair_broken_kofn_right(dbconn, name, plist);
-                    }
-                    return false;
-                });
-    
-    CFRelease(plist);
-}
-
 static bool _check_for_db_update(authdb_connection_t dbconn)
 {
     // these are the most reliable indicators of a database corruption made during update/migration
@@ -441,6 +419,41 @@ static void _db_load_data(authdb_connection_t dbconn, auth_items_t config)
 //    dispatch_release(semaphore);
 //    return rc;
 //}
+
+static void _repair_all_kofns(authdb_connection_t dbconn, auth_items_t config)
+{
+    // we want plist to be returned always and not only when never
+    CFDictionaryRef plist = _copy_plist(NULL, NULL);
+    
+    if (!plist) {
+        os_log_error(AUTHD_LOG, "authdb: unable to repair kofns");
+        return;
+    }
+    
+    authdb_step(dbconn, "SELECT name FROM rules WHERE (rules.kofn > 0) AND (id NOT IN (SELECT r_id FROM delegates_map WHERE r_id = id))",
+                NULL, ^bool(auth_items_t data) {
+                    const char *name = auth_items_get_string(data, "name");
+                    if (name) {
+                        _repair_broken_kofn_right(dbconn, name, plist);
+                    }
+                    return true;
+                });
+    
+    __block bool brokenDb = false;
+    authdb_step(dbconn, "SELECT name FROM rules WHERE (class = 2) AND (id NOT IN (SELECT r_id FROM delegates_map WHERE r_id = id))",
+                NULL, ^bool(auth_items_t data) {
+                    brokenDb = true;
+                    return false;
+                });
+    CFRelease(plist);
+
+    if (brokenDb) {
+        os_log_error(AUTHD_LOG, "authdb: broken delegates, marking db as corrupt");
+        _handle_corrupt_db(dbconn);
+        authdb_maintenance(dbconn);
+    }
+    
+}
 
 static bool _is_busy(int32_t rc)
 {
@@ -1082,8 +1095,10 @@ authdb_import_plist(authdb_connection_t dbconn, CFDictionaryRef plist, bool vers
         rules = _copy_rules_dict(RT_RULE, rulesDict, dbconn);
     }
 
-    os_log_debug(AUTHD_LOG, "authdb: rights = %li", CFArrayGetCount(rights));
-    os_log_debug(AUTHD_LOG, "authdb: rules = %li", CFArrayGetCount(rules));
+    if (!name) {
+        os_log_debug(AUTHD_LOG, "authdb: rights = %li", CFArrayGetCount(rights));
+        os_log_debug(AUTHD_LOG, "authdb: rules = %li", CFArrayGetCount(rules));
+    }
     
     CFIndex count;
     // first pass import base rules without delegations

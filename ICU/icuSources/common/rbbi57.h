@@ -300,7 +300,7 @@ public:
      * same class, have the same behavior, and iterate over the same text.
      *  @internal
      */
-    virtual UBool operator==(const BreakIterator& that) const;
+    virtual bool operator==(const BreakIterator& that) const;
 
     /**
      * Not-equal operator.  If operator== returns TRUE, this returns FALSE,
@@ -309,7 +309,7 @@ public:
      * @return TRUE if both BreakIterators are not same.
      *  @internal
      */
-    UBool operator!=(const BreakIterator& that) const;
+    bool operator!=(const BreakIterator& that) const;
 
     /**
      * Returns a newly-constructed RuleBasedBreakIterator57 with the same
@@ -751,7 +751,7 @@ private:
 //
 //------------------------------------------------------------------------------
 
-inline UBool RuleBasedBreakIterator57::operator!=(const BreakIterator& that) const {
+inline bool RuleBasedBreakIterator57::operator!=(const BreakIterator& that) const {
     return !operator==(that);
 }
 

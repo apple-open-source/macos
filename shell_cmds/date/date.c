@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1985, 1987, 1988, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,7 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -49,6 +51,7 @@ __FBSDID("$FreeBSD$");
 #include <ctype.h>
 #include <err.h>
 #include <locale.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -62,7 +65,6 @@ __FBSDID("$FreeBSD$");
 #define COMPAT_MODE(a,b) (1)
 #endif /* __APPLE__ */
 
-#include "extern.h"
 #include "vary.h"
 
 #ifndef	TM_YEAR_BASE
@@ -71,61 +73,84 @@ __FBSDID("$FreeBSD$");
 
 #ifdef __APPLE__
 #define st_mtim st_mtimespec
+#define nitems(x)       (sizeof((x)) / sizeof((x)[0]))
 #endif
 
 static time_t tval;
-int retval;
 static int unix2003_std;	/* to determine legacy vs std mode */
 
-static void setthetime(const char *, const char *, int, int);
 static void badformat(void);
+static void iso8601_usage(const char *);
+static void multipleformats(void);
+static void printdate(const char *);
+static void printisodate(struct tm *);
+static void setthetime(const char *, const char *, int);
 static void usage(void);
+
+static const struct iso8601_fmt {
+	const char *refname;
+	const char *format_string;
+} iso8601_fmts[] = {
+	{ "date", "%Y-%m-%d" },
+	{ "hours", "T%H" },
+	{ "minutes", ":%M" },
+	{ "seconds", ":%S" },
+};
+static const struct iso8601_fmt *iso8601_selected;
 
 static const char *rfc2822_format = "%a, %d %b %Y %T %z";
 
 int
 main(int argc, char *argv[])
 {
-	struct timezone tz;
 	int ch, rflag;
-	int jflag, nflag, Rflag;
+	bool Iflag, jflag, Rflag;
 	const char *format;
 	char buf[1024];
-	char *endptr, *fmt;
+	char *fmt;
 	char *tmp;
-	int set_timezone;
 	struct vary *v;
 	const struct vary *badv;
-	struct tm lt;
+	struct tm *lt;
 	struct stat sb;
+	size_t i;
 
 	unix2003_std = COMPAT_MODE("bin/date", "unix2003");	/* Determine the STD */
 
 	v = NULL;
 	fmt = NULL;
 	(void) setlocale(LC_TIME, "");
-	tz.tz_dsttime = tz.tz_minuteswest = 0;
 	rflag = 0;
-	jflag = nflag = Rflag = 0;
-	set_timezone = 0;
-	while ((ch = getopt(argc, argv, "d:f:jnRr:t:uv:")) != -1)
+	Iflag = jflag = Rflag = 0;
+	while ((ch = getopt(argc, argv, "f:I::jnRr:uv:")) != -1)
 		switch((char)ch) {
-		case 'd':		/* daylight savings time */
-			tz.tz_dsttime = strtol(optarg, &endptr, 10) ? 1 : 0;
-			if (endptr == optarg || *endptr != '\0')
-				usage();
-			set_timezone = 1;
-			break;
 		case 'f':
 			fmt = optarg;
+			break;
+		case 'I':
+			if (Rflag)
+				multipleformats();
+			Iflag = 1;
+			if (optarg == NULL) {
+				iso8601_selected = iso8601_fmts;
+				break;
+			}
+			for (i = 0; i < nitems(iso8601_fmts); i++)
+				if (strcmp(optarg, iso8601_fmts[i].refname) == 0)
+					break;
+			if (i == nitems(iso8601_fmts))
+				iso8601_usage(optarg);
+
+			iso8601_selected = &iso8601_fmts[i];
 			break;
 		case 'j':
 			jflag = 1;	/* don't set time */
 			break;
-		case 'n':		/* don't set network */
-			nflag = 1;
+		case 'n':
 			break;
 		case 'R':		/* RFC 2822 datetime format */
+			if (Iflag)
+				multipleformats();
 			Rflag = 1;
 			break;
 		case 'r':		/* user specified seconds */
@@ -137,13 +162,6 @@ main(int argc, char *argv[])
 				else
 					usage();
 			}
-			break;
-		case 't':		/* minutes west of UTC */
-					/* error check; don't allow "PST" */
-			tz.tz_minuteswest = strtol(optarg, &endptr, 10);
-			if (endptr == optarg || *endptr != '\0')
-				usage();
-			set_timezone = 1;
 			break;
 		case 'u':		/* do everything in UTC */
 			(void)setenv("TZ", "UTC0", 1);
@@ -157,13 +175,6 @@ main(int argc, char *argv[])
 	argc -= optind;
 	argv += optind;
 
-	/*
-	 * If -d or -t, set the timezone or daylight savings time; this
-	 * doesn't belong here; the kernel should not know about either.
-	 */
-	if (set_timezone && settimeofday(NULL, &tz) != 0)
-		err(1, "settimeofday (timezone)");
-
 	if (!rflag && time(&tval) == -1)
 		err(1, "time");
 
@@ -174,30 +185,28 @@ main(int argc, char *argv[])
 
 	/* allow the operands in any order */
 	if (*argv && **argv == '+') {
+		if (Iflag)
+			multipleformats();
 		format = *argv + 1;
 		++argv;
 	}
 
 	if (*argv) {
-		setthetime(fmt, *argv, jflag, nflag);
+		setthetime(fmt, *argv, jflag);
 		++argv;
 	} else if (fmt != NULL)
 		usage();
 
-	if (*argv && **argv == '+')
+	if (*argv && **argv == '+') {
+		if (Iflag)
+			multipleformats();
 		format = *argv + 1;
-
-#ifdef __APPLE__
-	/* 7999711 */
-	struct tm *ltp = localtime(&tval);
-	if (ltp == NULL) {
-		err(1, "localtime");
 	}
-	lt = *ltp;
-#else
-	lt = *localtime(&tval);
-#endif
-	badv = vary_apply(v, &lt);
+
+	lt = localtime(&tval);
+	if (lt == NULL)
+		errx(1, "invalid time");
+	badv = vary_apply(v, lt);
 	if (badv) {
 		fprintf(stderr, "%s: Cannot apply date adjustment\n",
 			badv->arg);
@@ -206,6 +215,9 @@ main(int argc, char *argv[])
 	}
 	vary_destroy(v);
 
+	if (Iflag)
+		printisodate(lt);
+
 	if (format == rfc2822_format)
 		/*
 		 * When using RFC 2822 datetime format, don't honor the
@@ -213,25 +225,46 @@ main(int argc, char *argv[])
 		 */
 		setlocale(LC_TIME, "C");
 
-	(void)strftime(buf, sizeof(buf), format, &lt);
+	(void)strftime(buf, sizeof(buf), format, lt);
+	printdate(buf);
+}
+
+static void
+printdate(const char *buf)
+{
 	(void)printf("%s\n", buf);
 	if (fflush(stdout))
 		err(1, "stdout");
-	/*
-	 * If date/time could not be set/notified in the other hosts as
-	 * determined by netsetval(), a return value 2 is set, which is
-	 * only propagated back to shell in legacy mode.
-	 */
-	if (unix2003_std)
-		exit(0);
-	exit(retval);
+	exit(EXIT_SUCCESS);
+}
+
+static void
+printisodate(struct tm *lt)
+{
+	const struct iso8601_fmt *it;
+	char fmtbuf[32], buf[32], tzbuf[8];
+
+	fmtbuf[0] = 0;
+	for (it = iso8601_fmts; it <= iso8601_selected; it++)
+		strlcat(fmtbuf, it->format_string, sizeof(fmtbuf));
+
+	(void)strftime(buf, sizeof(buf), fmtbuf, lt);
+
+	if (iso8601_selected > iso8601_fmts) {
+		(void)strftime(tzbuf, sizeof(tzbuf), "%z", lt);
+		memmove(&tzbuf[4], &tzbuf[3], 3);
+		tzbuf[3] = ':';
+		strlcat(buf, tzbuf, sizeof(buf));
+	}
+
+	printdate(buf);
 }
 
 #define	ATOI2(s)	((s) += 2, ((s)[-2] - '0') * 10 + ((s)[-1] - '0'))
 #define	ATOI2_OFFSET(s, o)	(((s)[o] - '0') * 10 + ((s)[o + 1] - '0'))
 
 static void
-setthetime(const char *fmt, const char *p, int jflag, int nflag)
+setthetime(const char *fmt, const char *p, int jflag)
 {
 	struct utmpx utx;
 	struct tm *lt;
@@ -241,6 +274,8 @@ setthetime(const char *fmt, const char *p, int jflag, int nflag)
 	size_t length;
 
 	lt = localtime(&tval);
+	if (lt == NULL)
+		errx(1, "invalid time");
 	lt->tm_isdst = -1;		/* divine correct DST */
 
 	if (fmt != NULL) {
@@ -323,19 +358,17 @@ setthetime(const char *fmt, const char *p, int jflag, int nflag)
 		errx(1, "nonexistent time");
 
 	if (!jflag) {
-		/* set the time */
-		if (nflag || netsettime(tval)) {
-			utx.ut_type = OLD_TIME;
-			(void)gettimeofday(&utx.ut_tv, NULL);
-			pututxline(&utx);
-			tv.tv_sec = tval;
-			tv.tv_usec = 0;
-			if (settimeofday(&tv, NULL) != 0)
-				err(1, "settimeofday (timeval)");
-			utx.ut_type = NEW_TIME;
-			(void)gettimeofday(&utx.ut_tv, NULL);
-			pututxline(&utx);
-		}
+		utx.ut_type = OLD_TIME;
+		memset(utx.ut_id, 0, sizeof(utx.ut_id));
+		(void)gettimeofday(&utx.ut_tv, NULL);
+		pututxline(&utx);
+		tv.tv_sec = tval;
+		tv.tv_usec = 0;
+		if (settimeofday(&tv, NULL) != 0)
+			err(1, "settimeofday (timeval)");
+		utx.ut_type = NEW_TIME;
+		(void)gettimeofday(&utx.ut_tv, NULL);
+		pututxline(&utx);
 
 		if ((p = getlogin()) == NULL)
 			p = "???";
@@ -351,15 +384,29 @@ badformat(void)
 }
 
 static void
+iso8601_usage(const char *badarg)
+{
+	errx(1, "invalid argument '%s' for -I", badarg);
+}
+
+static void
+multipleformats(void)
+{
+	errx(1, "multiple output formats specified");
+}
+
+static void
 usage(void)
 {
-	(void)fprintf(stderr, "%s\n%s\n",
-	    "usage: date [-jnRu] [-d dst] [-r seconds] [-t west] "
-	    "[-v[+|-]val[ymwdHMS]] ... ",
+	(void)fprintf(stderr, "%s\n%s\n%s\n",
+	    "usage: date [-jnRu] [-r seconds|file] [-v[+|-]val[ymwdHMS]]",
+	    "            "
+	    "[-I[date | hours | minutes | seconds]]",
 	    unix2003_std ?
 	    "            "
 	    "[-f fmt date | [[[mm]dd]HH]MM[[cc]yy][.ss]] [+format]" :
 	    "            "
-	    "[-f fmt date | [[[[[cc]yy]mm]dd]HH]MM[.ss]] [+format]");
+	    "[-f fmt date | [[[[[cc]yy]mm]dd]HH]MM[.ss]] [+format]"
+	    );
 	exit(1);
 }

@@ -56,6 +56,10 @@ OBJC_CLASS WebAVSampleBufferErrorListener;
 typedef struct opaqueCMSampleBuffer *CMSampleBufferRef;
 typedef const struct opaqueCMFormatDescription *CMFormatDescriptionRef;
 
+namespace WTF {
+class WorkQueue;
+}
+
 namespace WebCore {
 
 class CDMInstance;
@@ -69,7 +73,7 @@ class VideoTrackPrivate;
 class AudioTrackPrivateMediaSourceAVFObjC;
 class VideoTrackPrivateMediaSourceAVFObjC;
 class WebCoreDecompressionSession;
-class SharedBuffer;
+class FragmentedSharedBuffer;
 
 class SourceBufferPrivateAVFObjCErrorClient {
 public:
@@ -192,6 +196,7 @@ private:
     Ref<SourceBufferParser> m_parser;
     bool m_processingInitializationSegment { false };
     bool m_hasPendingAppendCompletedCallback { false };
+    Vector<Function<void()>> m_pendingTrackChangeCallbacks;
     Vector<std::pair<uint64_t, Ref<MediaSample>>> m_mediaSamples;
 
     RetainPtr<AVSampleBufferDisplayLayer> m_displayLayer;
@@ -205,7 +210,7 @@ private:
     RetainPtr<NSError> m_hdcpError;
     Box<BinarySemaphore> m_hasSessionSemaphore;
     Box<Semaphore> m_abortSemaphore;
-    OSObjectPtr<dispatch_group_t> m_isAppendingGroup;
+    const Ref<WTF::WorkQueue> m_appendQueue;
     RefPtr<WebCoreDecompressionSession> m_decompressionSession;
 
     MediaSourcePrivateAVFObjC* m_mediaSource;
@@ -216,7 +221,7 @@ private:
 #endif
 #if ENABLE(ENCRYPTED_MEDIA) && HAVE(AVCONTENTKEYSESSION)
     RefPtr<CDMInstanceFairPlayStreamingAVFObjC> m_cdmInstance;
-    Vector<Ref<SharedBuffer>> m_keyIDs;
+    Vector<Ref<FragmentedSharedBuffer>> m_keyIDs;
 #endif
 
     std::optional<FloatSize> m_cachedSize;

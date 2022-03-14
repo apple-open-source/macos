@@ -100,7 +100,7 @@ char		*tgetstr(char *, char **);
     // Change this to "if 1" to debug what happens with termresponse.
 #  if 0
 #   define DEBUG_TERMRESPONSE
-static void log_tr(const char *fmt, ...);
+static void log_tr(const char *fmt, ...) ATTRIBUTE_FORMAT_PRINTF(1, 2);
 #   define LOG_TR(msg) log_tr msg
 #  else
 #   define LOG_TR(msg) do { /**/ } while (0)
@@ -1353,7 +1353,7 @@ termgui_get_color(char_u *name)
     t = termgui_mch_get_color(name);
 
     if (t == INVALCOLOR)
-	semsg(_(e_alloc_color), name);
+	semsg(_(e_cannot_allocate_color_str), name);
     return t;
 }
 
@@ -1786,7 +1786,8 @@ report_term_error(char *error_msg, char_u *term)
     mch_errmsg("\r\n");
     for (termp = &(builtin_termcaps[0]); termp->bt_string != NULL; ++termp)
     {
-	if (termp->bt_entry == (int)KS_NAME)
+	if (termp->bt_entry == (int)KS_NAME
+		&& STRCMP(termp->bt_string, "gui") != 0)
 	{
 #ifdef HAVE_TGETENT
 	    mch_errmsg("    builtin_");
@@ -2122,9 +2123,7 @@ set_termname(char_u *term)
     {
 	starttermcap();		// may change terminal mode
 	setmouse();		// may start using the mouse
-#ifdef FEAT_TITLE
 	maketitle();		// may display window title
-#endif
     }
 
 	// display initial screen after ttest() checking. jw.
@@ -2175,6 +2174,28 @@ set_termname(char_u *term)
     return OK;
 }
 
+#if defined(EXITFREE) || defined(PROTO)
+
+# ifdef HAVE_DEL_CURTERM
+#  undef TERMINAL	    // name clash in term.h
+#  include <term.h>	    // declares cur_term
+# endif
+
+/*
+ * If supported, delete "cur_term", which caches terminal related entries.
+ * Avoids that valgrind reports possibly lost memory.
+ */
+    void
+free_cur_term()
+{
+# ifdef HAVE_DEL_CURTERM
+    if (cur_term)
+	del_curterm(cur_term);
+# endif
+}
+
+#endif
+
 #ifdef HAVE_TGETENT
 /*
  * Call tgetent()
@@ -2201,13 +2222,13 @@ tgetent_error(char_u *tbuf, char_u *term)
 
 	if (i < 0)
 # ifdef TGETENT_ZERO_ERR
-	    return _("E557: Cannot open termcap file");
+	    return _(e_cannot_open_termcap_file);
 	if (i == 0)
 # endif
 #ifdef TERMINFO
-	    return _("E558: Terminal entry not found in terminfo");
+	    return _(e_terminal_entry_not_found_in_terminfo);
 #else
-	    return _("E559: Terminal entry not found in termcap");
+	    return _(e_terminal_entry_not_found_in_termcap);
 #endif
     }
     return NULL;
@@ -2363,7 +2384,7 @@ add_termcap_entry(char_u *name, int force)
 	    emsg(error_msg);
 	else
 #endif
-	    semsg(_("E436: No \"%s\" entry in termcap"), name);
+	    semsg(_(e_no_str_entry_in_termcap), name);
     }
     return FAIL;
 }
@@ -3068,8 +3089,7 @@ term_ul_rgb_color(guicolor_T rgb)
 }
 #endif
 
-#if (defined(FEAT_TITLE) && (defined(UNIX) || defined(VMS) \
-	|| defined(MACOS_X))) || defined(PROTO)
+#if (defined(UNIX) || defined(VMS) || defined(MACOS_X)) || defined(PROTO)
 /*
  * Generic function to set window title, using t_ts and t_fs.
  */
@@ -3141,7 +3161,7 @@ ttest(int pairs)
      * MUST have "cm": cursor motion.
      */
     if (*T_CM == NUL)
-	emsg(_("E437: terminal capability \"cm\" required"));
+	emsg(_(e_terminal_capability_cm_required));
 
     /*
      * if "cs" defined, use a scroll region, it's faster.
@@ -3482,9 +3502,8 @@ set_shellsize(int width, int height, int mustset)
 
     if (starting != NO_SCREEN)
     {
-#ifdef FEAT_TITLE
 	maketitle();
-#endif
+
 	changed_line_abv_curs();
 	invalidate_botline();
 
@@ -3782,7 +3801,7 @@ check_terminal_behavior(void)
 	line_was_clobbered(1);
     }
 
-    if (xcc_status.tr_progress == STATUS_GET)
+    if (xcc_status.tr_progress == STATUS_GET && Rows > 2)
     {
 	// 2. Check compatibility with xterm.
 	// We move the cursor to (2, 0), print a test sequence and then query
@@ -3932,7 +3951,11 @@ scroll_start(void)
     }
 }
 
+// True if cursor is not visible
 static int cursor_is_off = FALSE;
+
+// True if cursor is not visible due to an ongoing cursor-less sleep
+static int cursor_is_asleep = FALSE;
 
 /*
  * Enable the cursor without checking if it's already enabled.
@@ -3942,6 +3965,7 @@ cursor_on_force(void)
 {
     out_str(T_VE);
     cursor_is_off = FALSE;
+    cursor_is_asleep = FALSE;
 }
 
 /*
@@ -3950,7 +3974,7 @@ cursor_on_force(void)
     void
 cursor_on(void)
 {
-    if (cursor_is_off)
+    if (cursor_is_off && !cursor_is_asleep)
 	cursor_on_force();
 }
 
@@ -3965,6 +3989,37 @@ cursor_off(void)
 	out_str(T_VI);	    // disable cursor
 	cursor_is_off = TRUE;
     }
+}
+
+#ifdef FEAT_GUI
+/*
+ * Check whether the cursor is invisible due to an ongoing cursor-less sleep
+ */
+    int
+cursor_is_sleeping(void)
+{
+    return cursor_is_asleep;
+}
+#endif
+
+/*
+ * Disable the cursor and mark it disabled by cursor-less sleep
+ */
+    void
+cursor_sleep(void)
+{
+    cursor_is_asleep = TRUE;
+    cursor_off();
+}
+
+/*
+ * Enable the cursor and mark it not disabled by cursor-less sleep
+ */
+    void
+cursor_unsleep(void)
+{
+    cursor_is_asleep = FALSE;
+    cursor_on();
 }
 
 #if defined(CURSOR_SHAPE) || defined(PROTO)
@@ -4214,6 +4269,7 @@ add_termcode(char_u *name, char_u *string, int flags)
 	if (new_tc == NULL)
 	{
 	    tc_max_len -= 20;
+	    vim_free(s);
 	    return;
 	}
 	for (i = 0; i < tc_len; ++i)
@@ -4406,7 +4462,7 @@ static int orig_topfill = 0;
 #endif
 #if defined(CHECK_DOUBLE_CLICK) || defined(PROTO)
 /*
- * Checking for double clicks ourselves.
+ * Checking for double-clicks ourselves.
  * "orig_topline" is used to avoid detecting a double-click when the window
  * contents scrolled (e.g., when 'scrolloff' is non-zero).
  */
@@ -4640,7 +4696,7 @@ handle_version_response(int first, int *arg, int argc, char_u *tp)
 
 	// If xterm version >= 141 try to get termcap codes.  For other
 	// terminals the request should be ignored.
-	if (version >= 141)
+	if (version >= 141 && p_xtermcodes)
 	{
 	    LOG_TR(("Enable checking for XT codes"));
 	    check_for_codes = TRUE;
@@ -5358,6 +5414,8 @@ check_termcode(
 		if (STRNCMP(termcodes[idx].code, tp,
 				     (size_t)(slen > len ? len : slen)) == 0)
 		{
+		    int	    looks_like_mouse_start = FALSE;
+
 		    if (len < slen)		// got a partial sequence
 			return -1;		// need to get more chars
 
@@ -5380,15 +5438,48 @@ check_termcode(
 			    }
 		    }
 
-		    // The mouse termcode "ESC [" is also the prefix of
-		    // "ESC [ I" (focus gained).  Only use it when there is
-		    // no other match.  Do use it when a digit is following to
-		    // avoid waiting for more bytes.
 		    if (slen == 2 && len > 2
 			    && termcodes[idx].code[0] == ESC
-			    && termcodes[idx].code[1] == '['
-			    && !isdigit(tp[2]))
+			    && termcodes[idx].code[1] == '[')
 		    {
+			// The mouse termcode "ESC [" is also the prefix of
+			// "ESC [ I" (focus gained) and other keys.  Check some
+			// more bytes to find out.
+			if (!isdigit(tp[2]))
+			{
+			    // ESC [ without number following: Only use it when
+			    // there is no other match.
+			    looks_like_mouse_start = TRUE;
+			}
+			else if (termcodes[idx].name[0] == KS_DEC_MOUSE)
+			{
+			    char_u  *nr = tp + 2;
+			    int	    count = 0;
+
+			    // If a digit is following it could be a key with
+			    // modifier, e.g., ESC [ 1;2P.  Can be confused
+			    // with DEC_MOUSE, which requires four numbers
+			    // following.  If not then it can't be a DEC_MOUSE
+			    // code.
+			    for (;;)
+			    {
+				++count;
+				(void)getdigits(&nr);
+				if (nr >= tp + len)
+				    return -1;	// partial sequence
+				if (*nr != ';')
+				    break;
+				++nr;
+				if (nr >= tp + len)
+				    return -1;	// partial sequence
+			    }
+			    if (count < 4)
+				continue;	// no match
+			}
+		    }
+		    if (looks_like_mouse_start)
+		    {
+			// Only use it when there is no other match.
 			if (mouse_index_found < 0)
 			    mouse_index_found = idx;
 		    }
@@ -5553,6 +5644,7 @@ check_termcode(
 		&& key_name[0] == (int)KS_EXTRA
 		&& (key_name[1] == (int)KE_X1MOUSE
 		    || key_name[1] == (int)KE_X2MOUSE
+		    || key_name[1] == (int)KE_MOUSEMOVE_XY
 		    || key_name[1] == (int)KE_MOUSELEFT
 		    || key_name[1] == (int)KE_MOUSERIGHT
 		    || key_name[1] == (int)KE_MOUSEDOWN
@@ -5566,6 +5658,9 @@ check_termcode(
 	    mouse_col = 128 * (bytes[0] - ' ' - 1) + bytes[1] - ' ' - 1;
 	    mouse_row = 128 * (bytes[2] - ' ' - 1) + bytes[3] - ' ' - 1;
 	    slen += num_bytes;
+	    // equal to K_MOUSEMOVE
+	    if (key_name[1] == (int)KE_MOUSEMOVE_XY)
+		key_name[1] = (int)KE_MOUSEMOVE;
 	}
 	else
 #endif
@@ -5928,7 +6023,7 @@ replace_termcodes(
 	    if (STRNICMP(src, "<SID>", 5) == 0)
 	    {
 		if (current_sctx.sc_sid <= 0)
-		    emsg(_(e_usingsid));
+		    emsg(_(e_using_sid_not_in_script_context));
 		else
 		{
 		    src += 5;
@@ -6124,9 +6219,10 @@ gather_termleader(void)
 /*
  * Show all termcodes (for ":set termcap")
  * This code looks a lot like showoptions(), but is different.
+ * "flags" can have OPT_ONECOLUMN.
  */
     void
-show_termcodes(void)
+show_termcodes(int flags)
 {
     int		col;
     int		*items;
@@ -6151,12 +6247,13 @@ show_termcodes(void)
     msg_puts_title(_("\n--- Terminal keys ---"));
 
     /*
-     * do the loop two times:
+     * Do the loop three times:
      * 1. display the short items (non-strings and short strings)
      * 2. display the medium items (medium length strings)
      * 3. display the long items (remaining strings)
+     * When "flags" has OPT_ONECOLUMN do everything in 3.
      */
-    for (run = 1; run <= 3 && !got_int; ++run)
+    for (run = (flags & OPT_ONECOLUMN) ? 3 : 1; run <= 3 && !got_int; ++run)
     {
 	/*
 	 * collect the items in items[]
@@ -6166,9 +6263,10 @@ show_termcodes(void)
 	{
 	    len = show_one_termcode(termcodes[i].name,
 						    termcodes[i].code, FALSE);
-	    if (len <= INC3 - GAP ? run == 1
+	    if ((flags & OPT_ONECOLUMN) ||
+		    (len <= INC3 - GAP ? run == 1
 			: len <= INC2 - GAP ? run == 2
-			: run == 3)
+			: run == 3))
 		items[item_count++] = i;
 	}
 
@@ -6350,8 +6448,7 @@ got_code_from_term(char_u *code, int len)
 	    if (name[0] == 'C' && name[1] == 'o')
 	    {
 		// Color count is not a key code.
-		i = atoi((char *)str);
-		may_adjust_color_count(i);
+		may_adjust_color_count(atoi((char *)str));
 	    }
 	    else
 	    {
@@ -6590,203 +6687,6 @@ swap_tcap(void)
 
 #endif
 
-#if defined(FEAT_GUI) || defined(FEAT_TERMGUICOLORS) || defined(PROTO)
-    static int
-hex_digit(int c)
-{
-    if (isdigit(c))
-	return c - '0';
-    c = TOLOWER_ASC(c);
-    if (c >= 'a' && c <= 'f')
-	return c - 'a' + 10;
-    return 0x1ffffff;
-}
-
-# ifdef VIMDLL
-    static guicolor_T
-gui_adjust_rgb(guicolor_T c)
-{
-    if (gui.in_use)
-	return c;
-    else
-	return ((c & 0xff) << 16) | (c & 0x00ff00) | ((c >> 16) & 0xff);
-}
-# else
-#  define gui_adjust_rgb(c) (c)
-# endif
-
-    guicolor_T
-gui_get_color_cmn(char_u *name)
-{
-    // On MS-Windows an RGB macro is available and it produces 0x00bbggrr color
-    // values as used by the MS-Windows GDI api.  It should be used only for
-    // MS-Windows GDI builds.
-# if defined(RGB) && defined(MSWIN) && !defined(FEAT_GUI)
-#  undef RGB
-# endif
-# ifndef RGB
-#  define RGB(r, g, b)	((r<<16) | (g<<8) | (b))
-# endif
-# define LINE_LEN 100
-    FILE	*fd;
-    char	line[LINE_LEN];
-    char_u	*fname;
-    int		r, g, b, i;
-    guicolor_T  color;
-
-    struct rgbcolor_table_S {
-	char_u	    *color_name;
-	guicolor_T  color;
-    };
-
-    // Only non X11 colors (not present in rgb.txt) and colors in
-    // color_names[], useful when $VIMRUNTIME is not found,.
-    static struct rgbcolor_table_S rgb_table[] = {
-	    {(char_u *)"black",		RGB(0x00, 0x00, 0x00)},
-	    {(char_u *)"blue",		RGB(0x00, 0x00, 0xFF)},
-	    {(char_u *)"brown",		RGB(0xA5, 0x2A, 0x2A)},
-	    {(char_u *)"cyan",		RGB(0x00, 0xFF, 0xFF)},
-	    {(char_u *)"darkblue",	RGB(0x00, 0x00, 0x8B)},
-	    {(char_u *)"darkcyan",	RGB(0x00, 0x8B, 0x8B)},
-	    {(char_u *)"darkgray",	RGB(0xA9, 0xA9, 0xA9)},
-	    {(char_u *)"darkgreen",	RGB(0x00, 0x64, 0x00)},
-	    {(char_u *)"darkgrey",	RGB(0xA9, 0xA9, 0xA9)},
-	    {(char_u *)"darkmagenta",	RGB(0x8B, 0x00, 0x8B)},
-	    {(char_u *)"darkred",	RGB(0x8B, 0x00, 0x00)},
-	    {(char_u *)"darkyellow",	RGB(0x8B, 0x8B, 0x00)}, // No X11
-	    {(char_u *)"gray",		RGB(0xBE, 0xBE, 0xBE)},
-	    {(char_u *)"green",		RGB(0x00, 0xFF, 0x00)},
-	    {(char_u *)"grey",		RGB(0xBE, 0xBE, 0xBE)},
-	    {(char_u *)"grey40",	RGB(0x66, 0x66, 0x66)},
-	    {(char_u *)"grey50",	RGB(0x7F, 0x7F, 0x7F)},
-	    {(char_u *)"grey90",	RGB(0xE5, 0xE5, 0xE5)},
-	    {(char_u *)"lightblue",	RGB(0xAD, 0xD8, 0xE6)},
-	    {(char_u *)"lightcyan",	RGB(0xE0, 0xFF, 0xFF)},
-	    {(char_u *)"lightgray",	RGB(0xD3, 0xD3, 0xD3)},
-	    {(char_u *)"lightgreen",	RGB(0x90, 0xEE, 0x90)},
-	    {(char_u *)"lightgrey",	RGB(0xD3, 0xD3, 0xD3)},
-	    {(char_u *)"lightmagenta",	RGB(0xFF, 0x8B, 0xFF)}, // No X11
-	    {(char_u *)"lightred",	RGB(0xFF, 0x8B, 0x8B)}, // No X11
-	    {(char_u *)"lightyellow",	RGB(0xFF, 0xFF, 0xE0)},
-	    {(char_u *)"magenta",	RGB(0xFF, 0x00, 0xFF)},
-	    {(char_u *)"red",		RGB(0xFF, 0x00, 0x00)},
-	    {(char_u *)"seagreen",	RGB(0x2E, 0x8B, 0x57)},
-	    {(char_u *)"white",		RGB(0xFF, 0xFF, 0xFF)},
-	    {(char_u *)"yellow",	RGB(0xFF, 0xFF, 0x00)},
-    };
-
-    static struct rgbcolor_table_S *colornames_table;
-    static int size = 0;
-
-    if (name[0] == '#' && STRLEN(name) == 7)
-    {
-	// Name is in "#rrggbb" format
-	color = RGB(((hex_digit(name[1]) << 4) + hex_digit(name[2])),
-		    ((hex_digit(name[3]) << 4) + hex_digit(name[4])),
-		    ((hex_digit(name[5]) << 4) + hex_digit(name[6])));
-	if (color > 0xffffff)
-	    return INVALCOLOR;
-	return gui_adjust_rgb(color);
-    }
-
-    // Check if the name is one of the colors we know
-    for (i = 0; i < (int)(sizeof(rgb_table) / sizeof(rgb_table[0])); i++)
-	if (STRICMP(name, rgb_table[i].color_name) == 0)
-	    return gui_adjust_rgb(rgb_table[i].color);
-
-    /*
-     * Last attempt. Look in the file "$VIMRUNTIME/rgb.txt".
-     */
-    if (size == 0)
-    {
-	int counting;
-
-	// colornames_table not yet initialized
-	fname = expand_env_save((char_u *)"$VIMRUNTIME/rgb.txt");
-	if (fname == NULL)
-	    return INVALCOLOR;
-
-	fd = fopen((char *)fname, "rt");
-	vim_free(fname);
-	if (fd == NULL)
-	{
-	    if (p_verbose > 1)
-		verb_msg(_("Cannot open $VIMRUNTIME/rgb.txt"));
-	    size = -1;  // don't try again
-	    return INVALCOLOR;
-	}
-
-	for (counting = 1; counting >= 0; --counting)
-	{
-	    if (!counting)
-	    {
-		colornames_table = ALLOC_MULT(struct rgbcolor_table_S, size);
-		if (colornames_table == NULL)
-		{
-		    fclose(fd);
-		    return INVALCOLOR;
-		}
-		rewind(fd);
-	    }
-	    size = 0;
-
-	    while (!feof(fd))
-	    {
-		size_t	len;
-		int	pos;
-
-		vim_ignoredp = fgets(line, LINE_LEN, fd);
-		len = strlen(line);
-
-		if (len <= 1 || line[len - 1] != '\n')
-		    continue;
-
-		line[len - 1] = '\0';
-
-		i = sscanf(line, "%d %d %d %n", &r, &g, &b, &pos);
-		if (i != 3)
-		    continue;
-
-		if (!counting)
-		{
-		    char_u *s = vim_strsave((char_u *)line + pos);
-
-		    if (s == NULL)
-		    {
-			fclose(fd);
-			return INVALCOLOR;
-		    }
-		    colornames_table[size].color_name = s;
-		    colornames_table[size].color = (guicolor_T)RGB(r, g, b);
-		}
-		size++;
-
-		// The distributed rgb.txt has less than 1000 entries. Limit to
-		// 10000, just in case the file was messed up.
-		if (size == 10000)
-		    break;
-	    }
-	}
-	fclose(fd);
-    }
-
-    for (i = 0; i < size; i++)
-	if (STRICMP(name, colornames_table[i].color_name) == 0)
-	    return gui_adjust_rgb(colornames_table[i].color);
-
-    return INVALCOLOR;
-}
-
-    guicolor_T
-gui_get_rgb_color_cmn(int r, int g, int b)
-{
-    guicolor_T  color = RGB(r, g, b);
-
-    if (color > 0xffffff)
-	return INVALCOLOR;
-    return gui_adjust_rgb(color);
-}
-#endif
 
 #if (defined(MSWIN) && (!defined(FEAT_GUI_MSWIN) || defined(VIMDLL))) || defined(FEAT_TERMINAL) \
 	|| defined(PROTO)

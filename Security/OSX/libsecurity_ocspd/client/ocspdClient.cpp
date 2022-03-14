@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000,2002,2011-2014 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000,2002,2011-2014,2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,6 +23,15 @@
 
 /* 
  * ocspdClient.cpp - Client interface to OCSP helper daemon
+ */
+
+/* ****************************************************************************
+ * IMPORTANT: The functionality provided by the OCSP helper daemon (ocspd)
+ * has been subsumed by trustd as of macOS 12.0 (Monterey). SecTrust APIs
+ * no longer rely on this library code or the ocspd daemon, and CDSA APIs
+ * have been deprecated for the past decade. The client interface functions
+ * in this file have been disabled as a first step toward removal.
+ * ****************************************************************************
  */
  
 #include "ocspdClient.h"
@@ -60,6 +69,7 @@ ocspdGlobals::~ocspdGlobals()
 
 mach_port_t ocspdGlobals::serverPort()
 {
+#if OCSPD_ENABLED
 	StLock<Mutex> _(mLock);
 	
 	// Guard against fork-without-exec. If we are the child of a fork
@@ -87,15 +97,18 @@ mach_port_t ocspdGlobals::serverPort()
 		ocspdErrorLog("ocspdGlobals: error contacting server\n");
 		throw;
 	}
+#endif
 	return mServerPort;
 }
 
 void ocspdGlobals::resetServerPort()
 {
+#if OCSPD_ENABLED
     try {
         mServerPort.deallocate();
     } catch(...) {
     }
+#endif
 }
 
 
@@ -110,6 +123,7 @@ CSSM_RETURN ocspdFetch(
 	const CSSM_DATA		&ocspdReq,		// DER-encoded SecAsn1OCSPDRequests
 	CSSM_DATA			&ocspdResp)		// DER-encoded kSecAsn1OCSPDReplies
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	unsigned char *rtnData = NULL;
@@ -138,6 +152,10 @@ CSSM_RETURN ocspdFetch(
 	memmove(ocspdResp.Data, rtnData, rtnLen);
 	mig_deallocate((vm_address_t)rtnData, rtnLen);
 	return CSSM_OK;
+#else
+	secerror("ocspdFetch is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /* 
@@ -146,6 +164,7 @@ CSSM_RETURN ocspdFetch(
 CSSM_RETURN ocspdCacheFlush(
 	const CSSM_DATA		&certID)
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	
@@ -162,6 +181,10 @@ CSSM_RETURN ocspdCacheFlush(
 		return CSSMERR_APPLETP_OCSP_UNAVAILABLE;
 	}
 	return CSSM_OK;
+#else
+	secerror("ocspdCacheFlush is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /* 
@@ -169,6 +192,7 @@ CSSM_RETURN ocspdCacheFlush(
  */
 CSSM_RETURN ocspdCacheFlushStale()
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	
@@ -187,6 +211,10 @@ CSSM_RETURN ocspdCacheFlushStale()
 		return (CSSM_RETURN)krtn;
 	}
 	return CSSM_OK;
+#else
+	secerror("ocspdCacheFlushStale is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /* 
@@ -197,6 +225,7 @@ CSSM_RETURN ocspdCertFetch(
 	const CSSM_DATA		&certURL,
 	CSSM_DATA			&certData)		// mallocd via alloc and RETURNED
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	unsigned char *rtnData = NULL;
@@ -228,6 +257,10 @@ CSSM_RETURN ocspdCertFetch(
 	memmove(certData.Data, rtnData, rtnLen);
 	mig_deallocate((vm_address_t)rtnData, rtnLen);
 	return CSSM_OK;
+#else
+	secerror("ocspdCertFetch is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /*
@@ -243,6 +276,7 @@ CSSM_RETURN ocspdCRLFetch(
 	CSSM_TIMESTRING 	verifyTime,
 	CSSM_DATA			&crlData)		// mallocd via alloc and RETURNED
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	unsigned char *rtnData = NULL;
@@ -281,6 +315,10 @@ CSSM_RETURN ocspdCRLFetch(
 	memmove(crlData.Data, rtnData, rtnLen);
 	mig_deallocate((vm_address_t)rtnData, rtnLen);
 	return CSSM_OK;
+#else
+	secerror("ocspdCRLFetch is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 
@@ -293,6 +331,7 @@ CSSM_RETURN ocspdCRLStatus(
 	const CSSM_DATA		*crlIssuer,		// optional if URL is supplied
 	const CSSM_DATA		*crlURL)		// optional if issuer is supplied
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 
@@ -318,6 +357,10 @@ CSSM_RETURN ocspdCRLStatus(
     }
 
     return krtn;
+#else
+    secerror("ocspdCRLStatus is disabled and should no longer be called.");
+    return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /*
@@ -329,6 +372,7 @@ CSSM_RETURN ocspdCRLRefresh(
 	bool		purgeAll,
 	bool		fullCryptoVerify)
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	try {
@@ -349,6 +393,10 @@ CSSM_RETURN ocspdCRLRefresh(
 	}
 	
 	return CSSM_OK;
+#else
+	secerror("ocspdCRLRefresh is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /*
@@ -358,7 +406,8 @@ CSSM_RETURN ocspdCRLRefresh(
 CSSM_RETURN ocspdCRLFlush(
 	const CSSM_DATA		&crlURL)
 {
-	mach_port_t serverPort = 0;
+#if OCSPD_ENABLED
+    mach_port_t serverPort = 0;
 	kern_return_t krtn;
 
 	try {
@@ -377,6 +426,10 @@ CSSM_RETURN ocspdCRLFlush(
 		return CSSMERR_APPLETP_NETWORK_FAILURE;
 	}
 	return CSSM_OK;
+#else
+	secerror("ocspdCRLFlush is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /*
@@ -387,6 +440,7 @@ OSStatus ocspdTrustSettingsRead(
 	SecTrustSettingsDomain 	domain,
 	CSSM_DATA				&trustSettings)		// mallocd via alloc and RETURNED
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	kern_return_t krtn;
 	unsigned char *rtnData = NULL;
@@ -422,6 +476,10 @@ OSStatus ocspdTrustSettingsRead(
 	memmove(trustSettings.Data, rtnData, rtnLen);
 	mig_deallocate((vm_address_t)rtnData, rtnLen);
 	return errSecSuccess;
+#else
+	secerror("ocspdTrustSettingsRead is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }
 
 /*
@@ -432,6 +490,7 @@ OSStatus ocspdTrustSettingsWrite(
 	const CSSM_DATA			&authBlob,
 	const CSSM_DATA			&trustSettings)
 {
+#if OCSPD_ENABLED
 	mach_port_t serverPort = 0;
 	mach_port_t clientPort = 0;
 	kern_return_t krtn;
@@ -457,4 +516,8 @@ OSStatus ocspdTrustSettingsWrite(
 		return errSecInternalComponent;
 	}
 	return ortn;
+#else
+	secerror("ocspdTrustSettingsWrite is disabled and should no longer be called.");
+	return CSSMERR_TP_INTERNAL_ERROR;
+#endif
 }

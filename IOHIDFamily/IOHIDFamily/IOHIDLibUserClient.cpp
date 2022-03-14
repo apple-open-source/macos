@@ -1583,7 +1583,7 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
         if ( arguments->structureOutputDescriptor ) {
             IOBufferMemoryDescriptor *  mem;
             
-            mem = IOBufferMemoryDescriptor::withCapacity(arguments->structureOutputDescriptorSize, kIODirectionIn);
+            mem = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, arguments->structureOutputDescriptorSize);
             if(mem) {
                 ret = target->getReport(mem, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1], (uint32_t)arguments->scalarInput[2], &(((AsyncParam*)asyncData->getBytesNoCopy())->fCompletion));
                 if (ret == kIOReturnSuccess) {
@@ -1617,7 +1617,7 @@ IOReturn IOHIDLibUserClient::_getReport(IOHIDLibUserClient * target, void * refe
         IOReturn ret;
         IOBufferMemoryDescriptor *  mem;
 
-        mem = IOBufferMemoryDescriptor::withCapacity(arguments->structureOutputDescriptorSize, kIODirectionIn);
+        mem = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, arguments->structureOutputDescriptorSize);
         if(mem) {
             ret = target->getReport(mem, &(arguments->structureOutputDescriptorSize), (IOHIDReportType)arguments->scalarInput[0], (uint32_t)arguments->scalarInput[1]);
             if (ret == kIOReturnSuccess) {
@@ -1652,7 +1652,7 @@ IOReturn IOHIDLibUserClient::getReport(void *reportBuffer, uint32_t *pOutsize, I
         HIDLibUserClientLogError("called with an irrationally large output size: %lu", (long unsigned) *pOutsize);
     }
     else {
-        mem = IOBufferMemoryDescriptor::withCapacity(*pOutsize, kIODirectionInOut);
+        mem = IOBufferMemoryDescriptor::withOptions(kIODirectionOutIn | kIOMemoryKernelUserShared, *pOutsize);
         if(mem) {
             mem->prepare(kIODirectionInOut); 
             ret = getReport(mem, pOutsize, reportType, reportID, timeout, completion);

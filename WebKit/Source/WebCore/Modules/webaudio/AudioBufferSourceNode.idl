@@ -26,10 +26,11 @@
 // A cached (non-streamed), memory-resident audio source
 [
     Conditional=WEB_AUDIO,
+    JSCustomMarkFunction,
     JSGenerateToJSObject,
     Exposed=Window
 ] interface AudioBufferSourceNode : AudioScheduledSourceNode {
-    [EnabledBySetting=WebAudio] constructor (BaseAudioContext context, optional AudioBufferSourceOptions options);
+    [EnabledBySetting=WebAudioEnabled] constructor (BaseAudioContext context, optional AudioBufferSourceOptions options);
 
     [ImplementedAs=bufferForBindings] attribute AudioBuffer? buffer;
 

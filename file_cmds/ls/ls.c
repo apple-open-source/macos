@@ -815,10 +815,19 @@ traverse(int argc, char *argv[], int options)
 				}
 			}
 			break;
+		case FTS_DP:
+			/* If we have fts_errno set from the preorder run, just bail out */
+			if (p->fts_errno) {
+				errno = p->fts_errno;
+				goto out;
+			}
+			break;
 		default:
 			break;
 		}
-	error = errno;
+out:
+	/* Map ENEEDAUTH to EPERM which is a well-known error code */
+	error = (errno == ENEEDAUTH) ? EPERM : errno;
 	fts_close(ftsp);
 	errno = error;
 

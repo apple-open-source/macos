@@ -173,7 +173,7 @@ IOATABusCommand::getRegMask( void )
  *
  *
  *-----------------------------------------------------------------------------*/
-	// return the unit id (0 master, 1 slave)
+	// return the unit id (0 primary, 1 secondary)
 ataUnitID 
 IOATABusCommand::getUnit( void )
 {

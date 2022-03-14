@@ -1205,6 +1205,7 @@ struct pf_ruleset {
 			struct pf_rulequeue     *ptr;
 			struct pf_rule          **ptr_array;
 			u_int32_t                rcount;
+			u_int32_t                rsize;
 			u_int32_t                ticket;
 			int                      open;
 		}                        active, inactive;
@@ -2330,7 +2331,7 @@ __private_extern__ int pfi_set_flags(const char *, int);
 __private_extern__ int pfi_clear_flags(const char *, int);
 
 __private_extern__ u_int16_t pf_tagname2tag(char *);
-__private_extern__ void pf_tag2tagname(u_int16_t, char *);
+__private_extern__ u_int16_t pf_tagname2tag_ext(char *);
 __private_extern__ void pf_tag_ref(u_int16_t);
 __private_extern__ void pf_tag_unref(u_int16_t);
 __private_extern__ int pf_tag_packet(pbuf_t *, struct pf_mtag *,

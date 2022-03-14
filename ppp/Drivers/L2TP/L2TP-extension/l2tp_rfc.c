@@ -72,7 +72,6 @@ struct l2tp_elem {
     u_int8_t			addr[INET6_ADDRSTRLEN]; /* use the largest address between v4 and v6 */
 };
 
-
 struct l2tp_rfc {
 
     // administrative info
@@ -116,6 +115,23 @@ struct l2tp_rfc {
     if (rfc->flags & L2TP_FLAG_DEBUG)   \
         IOLog(str, args)
 
+static struct l2tp_elem *
+l2tp_elem_alloc(void)
+{
+	return kalloc_type(struct l2tp_elem, Z_WAITOK | Z_ZERO | Z_NOFAIL);
+}
+
+static struct l2tp_elem *
+l2tp_elem_alloc_noblock(void)
+{
+	return kalloc_type(struct l2tp_elem, Z_NOWAIT | Z_ZERO);
+}
+
+static void
+l2tp_elem_free(struct l2tp_elem *elem)
+{
+	return kfree_type(struct l2tp_elem, elem);
+}
 
 
 /* -----------------------------------------------------------------------------
@@ -191,13 +207,7 @@ u_int16_t l2tp_rfc_new_client(void *host, void **data,
     if (input == 0 || event == 0)
         return EINVAL;
     
-    rfc = (struct l2tp_rfc *)_MALLOC(sizeof (struct l2tp_rfc), M_TEMP, M_WAITOK);
-    if (rfc == 0)
-        return 1;
-
-    //IOLog("L2TP new_client rfc = %p\n", rfc);
-
-    bzero(rfc, sizeof(struct l2tp_rfc));
+    rfc = kalloc_type(struct l2tp_rfc, Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
     rfc->host = host;
     rfc->inputcb = input;
@@ -286,21 +296,21 @@ void l2tp_rfc_free_now(struct l2tp_rfc *rfc)
     }
 
     if (rfc->peer_address)
-        _FREE(rfc->peer_address, M_SONAME);
+        kfree_data_addr(rfc->peer_address);
                             
     while((send_elem = TAILQ_FIRST(&rfc->send_queue))) {
         TAILQ_REMOVE(&rfc->send_queue, send_elem, next);
         mbuf_freem(send_elem->packet);
-        _FREE(send_elem, M_TEMP);
+        l2tp_elem_free(send_elem);
     }
     while((recv_elem = TAILQ_FIRST(&rfc->recv_queue))) {
         TAILQ_REMOVE(&rfc->recv_queue, recv_elem, next);
         mbuf_freem(recv_elem->packet);
-        _FREE(recv_elem, M_TEMP);
+        l2tp_elem_free(recv_elem);
     }
 
     TAILQ_REMOVE(&l2tp_rfc_hash[rfc->our_tunnel_id % L2TP_RFC_MAX_HASH], rfc, next);
-    _FREE(rfc, M_TEMP);
+    kfree_type(struct l2tp_rfc, rfc);
 }
 
 /* -----------------------------------------------------------------------------
@@ -433,7 +443,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
         case L2TP_CMD_SETPEERADDR:	
 			had_peer_addr = rfc->peer_address != NULL;
             if (rfc->peer_address) {
-                _FREE(rfc->peer_address, M_SONAME);
+		kfree_data_addr(rfc->peer_address);
                 rfc->peer_address = 0;
             }
             p = (u_int8_t*)cmddata;
@@ -449,7 +459,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
                 error = EINVAL; 
                 break;
             }
-            rfc->peer_address = _MALLOC(len, M_SONAME, M_WAITOK);
+            rfc->peer_address = kalloc_data(len, Z_WAITOK);
             if (rfc->peer_address == 0)
                 error = ENOMEM;
             else {
@@ -501,7 +511,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
             
         case L2TP_CMD_SETOURADDR:	
             if (rfc->our_address) {
-                _FREE(rfc->our_address, M_SONAME);
+                kfree_data_addr(rfc->our_address);
                 rfc->our_address = 0;
             }
             if (rfc->socket) {
@@ -535,7 +545,7 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
                 error = EINVAL; 
                 break;
             }
-            rfc->our_address = _MALLOC(len, M_SONAME, M_WAITOK);
+            rfc->our_address = kalloc_data(len, Z_WAITOK);
             if (rfc->our_address == 0)
                 error = ENOMEM;
             else {
@@ -696,7 +706,7 @@ void l2tp_rfc_accept(struct l2tp_rfc* rfc)
             if ((*rfc->inputcb)(rfc->host, elem->packet, (struct sockaddr *)elem->addr, 1)) {	/* up to the socket */
 				/* mbuf has been freed by upcall */ 
 			}
-            _FREE(elem, M_TEMP);
+            l2tp_elem_free(elem);
 
             return;
         }
@@ -775,7 +785,7 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
 
 	rfc->our_ns++;
 	
-    elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_NOWAIT);
+    elem = l2tp_elem_alloc_noblock();
     if (elem == 0) {
         mbuf_freem(m);
         return ENOMEM;
@@ -1012,12 +1022,12 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
 					}
 				}
 				
-                new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_NOWAIT);
+                new_elem = l2tp_elem_alloc();
                 if (new_elem == 0)
                     goto dropit;
                     
                 if (mbuf_copym(m, 0, MBUF_COPYALL, MBUF_DONTWAIT, &new_elem->packet) != 0) {
-                    _FREE(new_elem, M_TEMP);
+                    l2tp_elem_free(new_elem);
                     goto dropit;
                 }
                 new_elem->seqno = 0;
@@ -1027,9 +1037,9 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                 if ((*rfc->inputcb)(rfc->host, m, (struct sockaddr *)from, 0)) {		/* send up to call socket */                        
                     TAILQ_REMOVE(&rfc->recv_queue, new_elem, next);	/* remove the packet from the queue */
                     mbuf_freem(new_elem->packet);
-                    _FREE(new_elem, M_TEMP);
-					/* mbuf has been freed by upcall */ 
-					return 1;
+                    l2tp_elem_free(new_elem);
+                    /* mbuf has been freed by upcall */
+                    return 1;
                 }
                 
                 return 1;
@@ -1056,7 +1066,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                         break;
                 }
                 //IOLog("L2TP queing out of order message\n");
-                new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_NOWAIT);
+                new_elem = l2tp_elem_alloc_noblock();
                 if (new_elem == 0)
                     goto dropit;
                 new_elem->packet = m;
@@ -1094,7 +1104,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                     if (buf_full) {						/* host buffer is full - empty the queue */
                         mbuf_freem(elem->packet);
                         TAILQ_REMOVE(&rfc->recv_queue, elem, next);
-                        _FREE(elem, M_TEMP);
+	                l2tp_elem_free(elem);
                     } else if (elem->seqno == rfc->our_nr) {		/* another packet to send up */
 
                         if (rfc->state & L2TP_STATE_FREEING) {
@@ -1108,7 +1118,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                         else 
                             rfc->our_nr++;
                         TAILQ_REMOVE(&rfc->recv_queue, elem, next);
-                        _FREE(elem, M_TEMP);
+                        l2tp_elem_free(elem);
                     } else
                         break;
                 }
@@ -1175,7 +1185,7 @@ void l2tp_rfc_handle_ack(struct l2tp_rfc *rfc, u_int16_t nr)
             rfc->retry_count = 0;
             TAILQ_REMOVE(&rfc->send_queue, elem, next);
             mbuf_freem(elem->packet);
-            _FREE(elem, M_TEMP);
+            l2tp_elem_free(elem);
         } else
             break;
             

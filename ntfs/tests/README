@@ -1,11 +1,10 @@
 ### Test Plan
 
 test_ntfs is a CLI test program for NTFS unit testing.
+Test plan: https://confluence.sd.apple.com/pages/viewpage.action?spaceKey=STORAGEQA&title=NTFS+Test+Plan
 
-See the test plan: https://confluence.sd.apple.com/pages/viewpage.action?spaceKey=STORAGEQA&title=NTFS+Test+Plan
 
-
-### Install for unit testing and BATS run:
+### Install for unit testing and BATS/ATP run:
 
 test_ntfs is installed to /AppleInternal/CoreOS/tests/ntfs/test_ntfs
 lib/ is installed to /AppleInternal/CoreOS/tests/ntfs/lib/
@@ -29,22 +28,16 @@ OR
 ### Run test_ntfs program:
 
 # Help message
-% /AppleInternal/CoreOS/tests/ntfs/test_ntfs -h
+% ./ntfs/test_ntfs -h
 
 # List test names
-% /AppleInternal/CoreOS/tests/ntfs/test_ntfs -l
+% ./test_ntfs -l
 
 # Run all tests
-% /AppleInternal/CoreOS/tests/ntfs/test_ntfs
+% ./test_ntfs
 
 # Run one test
-% /AppleInternal/CoreOS/tests/ntfs/test_ntfs -t mtree
+% ./test_ntfs -t mtree
 
-# Debugging a failed test using -v, default diskimage (.dmg) file in /tmp
-# will not be removed, for debugging purpose.
-% /AppleInternal/CoreOS/tests/ntfs/test_ntfs -t mtree -v
-
-
-### NOTES
-
-# Need to get Fusion Mac, e.g. j139, into testing matrix, thru ATP auto test?
+# Debugging a failed test using -d for more stdout messages
+% ./test_ntfs -t mtree -d

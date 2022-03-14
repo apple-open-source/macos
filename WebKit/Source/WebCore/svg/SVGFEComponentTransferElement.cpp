@@ -24,6 +24,7 @@
 
 #include "ElementIterator.h"
 #include "FilterEffect.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGFEFuncAElement.h"
 #include "SVGFEFuncBElement.h"
 #include "SVGFEFuncGElement.h"
@@ -62,9 +63,9 @@ void SVGFEComponentTransferElement::parseAttribute(const QualifiedName& name, co
     SVGFilterPrimitiveStandardAttributes::parseAttribute(name, value);
 }
 
-RefPtr<FilterEffect> SVGFEComponentTransferElement::build(SVGFilterBuilder* filterBuilder, Filter& filter) const
+RefPtr<FilterEffect> SVGFEComponentTransferElement::build(SVGFilterBuilder& filterBuilder) const
 {
-    auto input1 = filterBuilder->getEffectById(in1());
+    auto input1 = filterBuilder.getEffectById(in1());
     
     if (!input1)
         return nullptr;
@@ -84,9 +85,9 @@ RefPtr<FilterEffect> SVGFEComponentTransferElement::build(SVGFilterBuilder* filt
         else if (is<SVGFEFuncAElement>(child))
             alpha = downcast<SVGFEFuncAElement>(child).transferFunction();
     }
-    
-    auto effect = FEComponentTransfer::create(filter, red, green, blue, alpha);
-    effect->inputEffects() = { input1 };
+
+    auto effect = FEComponentTransfer::create(red, green, blue, alpha);
+    effect->inputEffects() = { input1.releaseNonNull() };
     return effect;
 }
 

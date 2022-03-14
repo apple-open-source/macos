@@ -1,0 +1,16 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>users</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-09-11</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/users?id=ecebb3cc1d2d074defc302d8ae6820bb6b20d4fe</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-24</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		    <string>users.cc: ifndef capsicum (83314858)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

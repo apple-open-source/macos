@@ -3673,6 +3673,13 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	 * recycle all remaining vnodes so that they will all be reclaimed as
 	 * soon as their last references are dropped.
 	 */
+
+	if ((!force) && (vnode_isinuse(vol->root_ni->vn, vol->root_ni->nr_refs + 1))) {
+		err = EBUSY;
+		ntfs_warning(mp, "root vnode is busy\n");
+		goto abort;
+	}
+
 	(void)vnode_iterate(mp, 0, ntfs_unmount_callback_recycle, NULL);
 	/*
 	 * If a read-write mount and no volume errors have been detected, mark

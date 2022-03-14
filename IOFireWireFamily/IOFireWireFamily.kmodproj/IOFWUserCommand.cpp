@@ -45,8 +45,7 @@ IOFWUserCommand::free()
 
 	if( fOutputArgs )
 	{
-		IOFree( fOutputArgs, fOutputArgsSize );
-		fOutputArgs = NULL;
+		IODeleteData( fOutputArgs, UInt32, (fOutputArgsSize/sizeof(UInt32)) );
 		fQuads = NULL ;
 		fNumQuads = 0 ;
 	}
@@ -243,8 +242,7 @@ IOFWUserReadCommand::submit(
 			if( ( fQuads && (fNumQuads != params->newBufferSize ) ) || syncFlag)	// if we're executing synchronously,
 																			// don't need quadlet buffer
 			{
-				IOFree( fOutputArgs, fOutputArgsSize );
-				fOutputArgs = NULL;
+				IODeleteData( fOutputArgs, UInt32, (fOutputArgsSize/sizeof(UInt32)) );
 				fQuads = NULL ;
 				fNumQuads = 0 ;
 			}
@@ -253,7 +251,7 @@ IOFWUserReadCommand::submit(
 			{
 				fNumQuads = params->newBufferSize ;
 				fOutputArgsSize = (params->newBufferSize + 2) * sizeof(UInt32);
-				fOutputArgs = (UInt32*)IOMalloc( fOutputArgsSize );
+				fOutputArgs = IONewData( UInt32, (params->newBufferSize + 2) );
 				fQuads = fOutputArgs + 2;
 			}
 				
@@ -263,8 +261,7 @@ IOFWUserReadCommand::submit(
 		{
 			if (fQuads)
 			{
-				IOFree( fOutputArgs, fOutputArgsSize );
-				fOutputArgs = NULL;
+				IODeleteData( fOutputArgs, UInt32, (fOutputArgsSize/sizeof(UInt32)) );
 				fQuads = NULL ;
 				fNumQuads = 0 ;
 			}

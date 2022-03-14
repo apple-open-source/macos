@@ -62,7 +62,10 @@ libffi.complex/return_complex1.inc libffi.complex/complex.exp \
 libffi.complex/cls_complex_struct.inc \
 libffi.complex/return_complex_float.c libffi.go/closure1.c \
 libffi.go/aa-direct.c libffi.go/ffitest.h libffi.go/go.exp \
-libffi.go/static-chain.h config/default.exp \
+libffi.go/static-chain.h libffi.bhaible/bhaible.exp \
+libffi.bhaible/test-call.c libffi.bhaible/alignof.h \
+libffi.bhaible/testcases.c libffi.bhaible/test-callback.c \
+libffi.bhaible/Makefile libffi.bhaible/README config/default.exp \
 libffi.closures/cls_multi_sshort.c \
 libffi.closures/cls_align_longdouble_split2.c \
 libffi.closures/cls_1_1byte.c libffi.closures/cls_uint_va.c \
@@ -78,9 +81,8 @@ libffi.closures/cls_ulonglong.c libffi.closures/cls_struct_va1.c \
 libffi.closures/cls_9byte2.c libffi.closures/closure_fn5.c \
 libffi.closures/cls_5byte.c libffi.closures/cls_3float.c \
 libffi.closures/closure.exp libffi.closures/cls_schar.c \
-libffi.closures/closure_fn4.c libffi.closures/cls_uchar_va.c \
+libffi.closures/closure_fn4.c \
 libffi.closures/closure_fn0.c libffi.closures/huge_struct.c \
-libffi.closures/cls_ushort_va.c \
 libffi.closures/cls_64byte.c libffi.closures/cls_longdouble.c \
 libffi.closures/cls_ulong_va.c libffi.closures/cls_6_1_byte.c \
 libffi.closures/cls_align_uint16.c libffi.closures/closure_fn2.c \

@@ -2198,6 +2198,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -2253,6 +2254,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2304,6 +2306,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 			};
@@ -2372,6 +2375,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
@@ -2422,6 +2426,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = NO;
@@ -2470,6 +2475,7 @@
 					"-Wall",
 					"-Wno-four-char-constants",
 					"-Wno-unknown-pragmas",
+					"-Wxnu-typed-allocators",
 				);
 				WRAPPER_EXTENSION = kext;
 			};

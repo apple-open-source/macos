@@ -179,7 +179,7 @@ bool RenderSVGResourceGradient::applyResource(RenderElement& renderer, const Ren
     return true;
 }
 
-void RenderSVGResourceGradient::postApplyResource(RenderElement& renderer, GraphicsContext*& context, OptionSet<RenderSVGResourceMode> resourceMode, const Path* path, const RenderSVGShape* shape)
+void RenderSVGResourceGradient::postApplyResource(RenderElement& renderer, GraphicsContext*& context, OptionSet<RenderSVGResourceMode> resourceMode, const Path* path, const RenderElement* shape)
 {
     ASSERT(context);
     ASSERT(!resourceMode.isEmpty());
@@ -207,28 +207,18 @@ void RenderSVGResourceGradient::postApplyResource(RenderElement& renderer, Graph
 #else
         UNUSED_PARAM(renderer);
 #endif
-    } else {
-        if (resourceMode.contains(RenderSVGResourceMode::ApplyToFill)) {
-            if (path)
-                context->fillPath(*path);
-            else if (shape)
-                shape->fillShape(*context);
-        }
-        if (resourceMode.contains(RenderSVGResourceMode::ApplyToStroke)) {
-            if (path)
-                context->strokePath(*path);
-            else if (shape)
-                shape->strokeShape(*context);
-        }
-    }
+    } else
+        fillAndStrokePathOrShape(*context, resourceMode, path, shape);
 
     context->restore();
 }
 
-void RenderSVGResourceGradient::addStops(Gradient& gradient, const Gradient::ColorStopVector& stops, const RenderStyle& style)
+GradientColorStops RenderSVGResourceGradient::stopsByApplyingColorFilter(const GradientColorStops& stops, const RenderStyle& style)
 {
-    for (auto& stop : stops)
-        gradient.addColorStop({ stop.offset, style.colorByApplyingColorFilter(stop.color) });
+    if (!style.hasAppleColorFilter())
+        return stops;
+
+    return stops.mapColors([&] (auto& color) { return style.colorByApplyingColorFilter(color); });
 }
 
 GradientSpreadMethod RenderSVGResourceGradient::platformSpreadMethodFromSVGType(SVGSpreadMethodType method)

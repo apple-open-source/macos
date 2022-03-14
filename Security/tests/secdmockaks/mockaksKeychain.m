@@ -94,6 +94,7 @@
     clearLastRowIDHandledForTests();
     clearRowIDAndErrorDictionary();
     SecKeychainSetOverrideStaticPersistentRefsIsEnabled(true);
+    reset_current_schema_index();
 }
 
 - (void)testAddDeleteItem
@@ -496,6 +497,133 @@
     [self findManyItems:50];
     
     [self checkIncremental];
+}
+
+- (void)testUpgradeFromPreviousVersion
+{
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to previous schema version, in fresh location");
+        set_current_schema_index(1);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    [self createManyItems];
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to current schema version");
+        reset_current_schema_index();
+    });
+
+    // force a no-op write operation, to upgrade the db
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+
+    NSLog(@"find items from old database");
+    [self findManyItems:50];
+}
+
+#if KEYCHAIN_SUPPORTS_SINGLE_DATABASE_MULTIUSER
+
+- (void)testUpgradeFromPreviousVersionWithPersonaRecord
+{
+    SecSecuritySetPersonaMusr(NULL);
+
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to previous schema version, in fresh location");
+        set_current_schema_index(1);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    [self createManyItems];
+
+    SecSecuritySetPersonaMusr(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
+
+    NSDictionary *personaItem = @{
+        (__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassInternetPassword,
+        (__bridge NSString *)kSecAttrServer : @"servername",
+        (__bridge NSString *)kSecAttrAccount : @"edsuser",
+        (__bridge NSString *)kSecAttrPort : @80,
+        (__bridge NSString *)kSecAttrProtocol : @"http",
+        (__bridge NSString *)kSecValueData : [@"swordfish" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    OSStatus status;
+    status = SecItemAdd((__bridge CFDictionaryRef)personaItem, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to add edsItem item to keychain");
+
+    SecSecuritySetPersonaMusr(NULL);
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to current schema version");
+        reset_current_schema_index();
+    });
+
+    id mock = OCMClassMock([SecMockAKS class]);
+    OCMStub([mock forceInvalidPersona]).andReturn(true);
+
+    // force a no-op write operation, to upgrade the db
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+
+    [mock stopMocking];
+
+    SecSecuritySetPersonaMusr(CFSTR("99C5D3CC-2C2D-47C4-9A1C-976EC047BF3C"));
+
+    NSMutableDictionary* query = personaItem.mutableCopy;
+    [query removeObjectForKey:(id)kSecValueData];
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
+    XCTAssertEqual(status, errSecItemNotFound, @"unexpectedly found edsItem");
+
+    SecSecuritySetPersonaMusr(NULL);
+
+    // ensure non-persona items still remain
+    [self findManyItems:50];
+}
+
+#endif
+
+- (void)testUpgradeFromPreviousVersionWithUndecodableItem
+{
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to previous schema version, in fresh location");
+        set_current_schema_index(1);
+        // We need a fresh directory for the older version DB
+        SecSetCustomHomeURLString((__bridge CFStringRef)[self createKeychainDirectoryWithSubPath:@"subdir"]);
+    });
+
+    NSDictionary *item = @{
+        (__bridge NSString *)kSecClass : (__bridge NSString *)kSecClassInternetPassword,
+        (__bridge NSString *)kSecAttrServer : @"servername",
+        (__bridge NSString *)kSecAttrAccount : @"user",
+        (__bridge NSString *)kSecAttrPort : @80,
+        (__bridge NSString *)kSecAttrProtocol : @"http",
+        (__bridge NSString *)kSecValueData : [@"swordfish" dataUsingEncoding:NSUTF8StringEncoding],
+    };
+
+    OSStatus status;
+    status = SecItemAdd((__bridge CFDictionaryRef)item, NULL);
+    XCTAssertEqual(status, errSecSuccess, "failed to add item item to keychain");
+
+    SecKeychainDbForceClose();
+    SecKeychainDbReset(^{
+        NSLog(@"resetting database to current schema version");
+        reset_current_schema_index();
+    });
+
+    id mock = OCMClassMock([SecMockAKS class]);
+    OCMStub([mock forceUnwrapKeyDecodeFailure]).andReturn(true);
+
+    // force a no-op write operation, to upgrade the db
+    kc_with_dbt(true, NULL, ^bool (SecDbConnectionRef dbt) { return false; });
+
+    [mock stopMocking];
+
+    NSMutableDictionary* query = item.mutableCopy;
+    [query removeObjectForKey:(id)kSecValueData];
+    status = SecItemCopyMatching((__bridge CFDictionaryRef)query, NULL);
+    XCTAssertEqual(status, errSecItemNotFound, @"unexpectedly found item");
 }
 
 #if TARGET_OS_IOS

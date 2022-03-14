@@ -178,7 +178,7 @@ ResourceError WorkerScriptLoader::validateWorkerResponse(const ResourceResponse&
     return { };
 }
 
-void WorkerScriptLoader::didReceiveResponse(unsigned long identifier, const ResourceResponse& response)
+void WorkerScriptLoader::didReceiveResponse(ResourceLoaderIdentifier identifier, const ResourceResponse& response)
 {
     m_error = validateWorkerResponse(response, m_destination);
     if (!m_error.isNull()) {
@@ -200,7 +200,7 @@ void WorkerScriptLoader::didReceiveResponse(unsigned long identifier, const Reso
         m_client->didReceiveResponse(identifier, response);
 }
 
-void WorkerScriptLoader::didReceiveData(const uint8_t* data, int len)
+void WorkerScriptLoader::didReceiveData(const SharedBuffer& buffer)
 {
     if (m_failed)
         return;
@@ -212,16 +212,13 @@ void WorkerScriptLoader::didReceiveData(const uint8_t* data, int len)
             m_decoder = TextResourceDecoder::create("text/javascript"_s, "UTF-8");
     }
 
-    if (!len)
+    if (buffer.isEmpty())
         return;
-    
-    if (len == -1)
-        len = strlen(reinterpret_cast<const char*>(data));
 
-    m_script.append(m_decoder->decode(data, len));
+    m_script.append(m_decoder->decode(buffer.data(), buffer.size()));
 }
 
-void WorkerScriptLoader::didFinishLoading(unsigned long identifier)
+void WorkerScriptLoader::didFinishLoading(ResourceLoaderIdentifier identifier)
 {
     if (m_failed) {
         notifyError();

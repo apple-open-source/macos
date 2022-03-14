@@ -178,8 +178,8 @@ errno_t ntfs_attr_list_delete(ntfs_inode *ni, ntfs_attr_search_ctx *ctx)
 			NVolSetErrors(ni->vol);
 		}
 		/* Free the runlist of the attribute list attribute. */
-		IOFreeData(ni->attr_list_rl.rl, ni->attr_list_rl.alloc);
-		ni->attr_list_rl.alloc = 0;
+		IODeleteData(ni->attr_list_rl.rl, ntfs_rl_element, ni->attr_list_rl.alloc_count);
+		ni->attr_list_rl.alloc_count = 0;
 	}
 	/* Delete the attribute list attribute record. */
 	ntfs_attr_record_delete_internal(ctx->m, ctx->a);
@@ -253,8 +253,8 @@ errno_t ntfs_attr_list_add(ntfs_inode *base_ni, MFT_RECORD *m,
 		panic("%s(): ctx && m != ctx->m\n", __FUNCTION__);
 	if (base_ni->attr_list_alloc)
 		panic("%s(): base_ni->attr_list_alloc\n", __FUNCTION__);
-	if (base_ni->attr_list_rl.alloc)
-		panic("%s(): base_ni->attr_list_rl.alloc\n", __FUNCTION__);
+	if (base_ni->attr_list_rl.alloc_count)
+		panic("%s(): base_ni->attr_list_rl.alloc_count\n", __FUNCTION__);
 	if (base_ni->attr_list_rl.elements)
 		panic("%s(): base_ni->attr_list_rl.elements\n", __FUNCTION__);
 	have_idx_root = have_std_info = FALSE;
@@ -556,9 +556,9 @@ insert:
 							"cluster(s).", err);
 					NVolSetErrors(vol);
 				}
-				IOFreeData(base_ni->attr_list_rl.rl, base_ni->attr_list_rl.alloc);
+				IODeleteData(base_ni->attr_list_rl.rl, ntfs_rl_element, base_ni->attr_list_rl.alloc_count);
 				base_ni->attr_list_rl.elements = 0;
-				base_ni->attr_list_rl.alloc = 0;
+				base_ni->attr_list_rl.alloc_count = 0;
 			}
 			goto done;
 		}
@@ -910,9 +910,9 @@ undo:
 					"cluster(s).", err2);
 			NVolSetErrors(vol);
 		}
-		IOFreeData(base_ni->attr_list_rl.rl, base_ni->attr_list_rl.alloc);
+		IODeleteData(base_ni->attr_list_rl.rl, ntfs_rl_element, base_ni->attr_list_rl.alloc_count);
 		base_ni->attr_list_rl.elements = 0;
-		base_ni->attr_list_rl.alloc = 0;
+		base_ni->attr_list_rl.alloc_count = 0;
 	}
 	/*
 	 * Move any attribute records that we moved out of the base mft record
@@ -1766,7 +1766,7 @@ non_resident:
 	 * value.
 	 */
 	runlist.rl = NULL;
-	runlist.alloc = runlist.elements = 0;
+	runlist.alloc_count = runlist.elements = 0;
 	err = ntfs_cluster_alloc(vol, sle64_to_cpu(al_a->allocated_size) >>
 			vol->cluster_size_shift, (alloc_size -
 			sle64_to_cpu(al_a->allocated_size)) >>
@@ -1796,7 +1796,7 @@ non_resident:
 					"cluster(s).", err2);
 			NVolSetErrors(vol);
 		}
-		IOFreeData(runlist.rl, runlist.alloc);
+		IODeleteData(runlist.rl, ntfs_rl_element, runlist.alloc_count);
 		goto unl_done;
 	}
 	/* Determine the size of the mapping pairs array. */

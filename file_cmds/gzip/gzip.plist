@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2012-10-25</string>
+	<string>2021-07-31</string>
 	<key>OpenSourceLicense</key>
 	<string>bsd</string>
 	<key>OpenSourceLicenseFile</key>
@@ -19,11 +19,9 @@
 	</array>
 	<key>OpenSourceProject</key>
 	<string>gzip</string>
-	<key>OpenSourceSCM</key>
-	<string>cvs -d :pserver:anoncvs@anoncvs.fr.FreeBSD.org:/home/ncvs co src/usr.bin/gzip</string>
 	<key>OpenSourceVersion</key>
-	<string>2012-10-19</string>
+	<string>2020-12-08</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://svnweb.freebsd.org/base/head/usr.bin/gzip/</string>
+	<string>https://cgit.freebsd.org/src/tree/usr.bin/gzip?id=2dfa4b66b3d0caaaae6ce2df476b5615f8415a19</string>
 </dict>
 </plist>

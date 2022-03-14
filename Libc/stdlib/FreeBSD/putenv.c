@@ -38,7 +38,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/putenv.c,v 1.6 2007/05/01 16:02:41 ache 
 #include <sys/types.h>
 #include <db.h>
 #include <crt_externs.h>
-#include <errno.h> 
+#include <errno.h>
+
+#include "libc_private.h"
 
 extern struct owned_ptr *__env_owned;
 
@@ -48,8 +50,6 @@ extern char **_saved_environ;
 
 __private_extern__ int __init__env_owned_locked(int);
 __private_extern__ int __setenv_locked(const char *, const char *, int, int, char ***, struct owned_ptr *);
-__private_extern__ void __environ_lock(void);
-__private_extern__ void __environ_unlock(void);
 
 #ifndef BUILDING_VARIANT
 /*
@@ -60,14 +60,14 @@ __private_extern__ void __environ_unlock(void);
 int
 _putenvp(char *str, char ***envp, void *state)
 {
-	__environ_lock();
+	environ_lock_np();
 	if (__init__env_owned_locked(1)) {
-		__environ_unlock();
+		environ_unlock_np();
 		return (-1);
 	}
 	int ret = __setenv_locked(str, NULL, 1, 0, envp,
 			(state ? (struct owned_ptr *)state : __env_owned));
-	__environ_unlock();
+	environ_unlock_np();
 	return ret;
 }
 #endif /* BUILDING_VARIANT */
@@ -95,15 +95,15 @@ putenv(str)
 	copy = -1;
 #endif /* __DARWIN_UNIX03 */
 
-	__environ_lock();
+	environ_lock_np();
 	if (__init__env_owned_locked(1)) {
-		__environ_unlock();
+		environ_unlock_np();
 		return (-1);
 	}
 	ret = __setenv_locked(str, NULL, 1, copy, _NSGetEnviron(), __env_owned);
 #ifdef LEGACY_CRT1_ENVIRON
 	_saved_environ = *_NSGetEnviron();
 #endif /* LEGACY_CRT1_ENVIRON */
-	__environ_unlock();
+	environ_unlock_np();
 	return ret;
 }

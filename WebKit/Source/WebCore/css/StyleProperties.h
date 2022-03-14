@@ -138,7 +138,7 @@ public:
     bool hasCSSOMWrapper() const;
     bool isMutable() const { return type() == MutablePropertiesType; }
 
-    bool traverseSubresources(const WTF::Function<bool (const CachedResource&)>& handler) const;
+    bool traverseSubresources(const Function<bool(const CachedResource&)>& handler) const;
 
     static unsigned averageSizeInBytes();
 
@@ -173,7 +173,9 @@ private:
     String borderSpacingValue(const StylePropertyShorthand&) const;
     String fontValue() const;
     String fontVariantValue() const;
+    String textDecorationSkipValue() const;
     void appendFontLonghandValueIfExplicit(CSSPropertyID, StringBuilder& result, String& value) const;
+    bool shorthandHasVariableReference(CSSPropertyID, String&) const;
 
     friend class PropertySetCSSStyleDeclaration;
 };

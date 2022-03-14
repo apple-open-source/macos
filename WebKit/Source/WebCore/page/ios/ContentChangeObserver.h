@@ -25,7 +25,7 @@
 
 #pragma once
 
-#if PLATFORM(IOS_FAMILY)
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
 
 #include "CSSPropertyNames.h"
 #include "Document.h"
@@ -74,7 +74,7 @@ public:
 
     void willNotProceedWithFixedObservationTimeWindow();
 
-    void setHiddenTouchTarget(Element& targetElement) { m_hiddenTouchTargetElement = makeWeakPtr(targetElement); }
+    void setHiddenTouchTarget(Element& targetElement) { m_hiddenTouchTargetElement = targetElement; }
     void resetHiddenTouchTarget() { m_hiddenTouchTargetElement = { }; }
     Element* hiddenTouchTarget() const { return m_hiddenTouchTargetElement.get(); }
 
@@ -244,4 +244,4 @@ inline void ContentChangeObserver::setShouldObserveDOMTimerSchedulingAndTransiti
 }
 
 }
-#endif
+#endif // ENABLE(CONTENT_CHANGE_OBSERVER)

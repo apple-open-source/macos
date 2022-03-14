@@ -27,18 +27,20 @@
 #import "MediaPermissionUtilities.h"
 
 #import "SandboxUtilities.h"
-#import "TCCSoftLink.h"
 #import "WKWebViewInternal.h"
 #import "WebPageProxy.h"
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/SecurityOriginData.h>
 #import <mutex>
-#import <pal/cocoa/AVFoundationSoftLink.h>
-#import <pal/cocoa/SpeechSoftLink.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/URLHelpers.h>
+#import <wtf/cocoa/TypeCastsCocoa.h>
 #import <wtf/spi/cf/CFBundleSPI.h>
 #import <wtf/spi/darwin/SandboxSPI.h>
+
+#import "TCCSoftLink.h"
+#import <pal/cocoa/AVFoundationSoftLink.h>
+#import <pal/cocoa/SpeechSoftLink.h>
 
 namespace WebKit {
 
@@ -139,6 +141,8 @@ static NSString *alertMessageText(MediaPermissionReason reason, const WebCore::S
         return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your camera and microphone?", @"Message for user media prompt"), visibleOrigin];
     case MediaPermissionReason::Microphone:
         return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to use your microphone?", @"Message for user microphone access prompt"), visibleOrigin];
+    case MediaPermissionReason::ScreenCapture:
+        return [NSString stringWithFormat:WEB_UI_NSSTRING(@"Allow “%@” to observe your screen?", @"Message for screen sharing prompt"), visibleOrigin];
     case MediaPermissionReason::DeviceOrientation:
         return [NSString stringWithFormat:WEB_UI_NSSTRING(@"“%@” Would Like to Access Motion and Orientation", @"Message for requesting access to the device motion and orientation"), visibleOrigin];
     case MediaPermissionReason::Geolocation:
@@ -155,6 +159,8 @@ static NSString *allowButtonText(MediaPermissionReason reason)
     case MediaPermissionReason::CameraAndMicrophone:
     case MediaPermissionReason::Microphone:
         return WEB_UI_STRING_KEY(@"Allow", "Allow (usermedia)", @"Allow button title in user media prompt");
+    case MediaPermissionReason::ScreenCapture:
+        return WEB_UI_STRING_KEY(@"Allow", "Allow (screensharing)", @"Allow button title in screen sharing prompt");
     case MediaPermissionReason::DeviceOrientation:
         return WEB_UI_STRING_KEY(@"Allow", "Allow (device motion and orientation access)", @"Button title in Device Orientation Permission API prompt");
     case MediaPermissionReason::Geolocation:
@@ -171,6 +177,8 @@ static NSString *doNotAllowButtonText(MediaPermissionReason reason)
     case MediaPermissionReason::CameraAndMicrophone:
     case MediaPermissionReason::Microphone:
         return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (usermedia)", @"Disallow button title in user media prompt");
+    case MediaPermissionReason::ScreenCapture:
+        return WEB_UI_STRING_KEY(@"Don’t Allow", "Don’t Allow (screensharing)", @"Disallow button title in screen sharing prompt");
     case MediaPermissionReason::DeviceOrientation:
         return WEB_UI_STRING_KEY(@"Cancel", "Cancel (device motion and orientation access)", @"Button title in Device Orientation Permission API prompt");
     case MediaPermissionReason::Geolocation:

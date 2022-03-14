@@ -56,6 +56,12 @@
 #include <wtf/glib/GSocketMonitor.h>
 #endif
 
+namespace WebKit {
+namespace IPCTestingAPI {
+class JSIPC;
+}
+}
+
 namespace IPC {
 
 enum class SendOption {
@@ -507,6 +513,7 @@ private:
     HANDLE m_connectionPipe { INVALID_HANDLE_VALUE };
 #endif
     friend class StreamClientConnection;
+    friend class WebKit::IPCTestingAPI::JSIPC;
 };
 
 template<typename T>
@@ -538,6 +545,13 @@ template<typename T, typename C>
 uint64_t Connection::sendWithAsyncReply(T&& message, C&& completionHandler, uint64_t destinationID, OptionSet<SendOption> sendOptions)
 {
     COMPILE_ASSERT(!T::isSync, AsyncMessageExpected);
+
+    if (!isValid()) {
+        RunLoop::main().dispatch([completionHandler = WTFMove(completionHandler)]() mutable {
+            T::cancelReply(WTFMove(completionHandler));
+        });
+        return 0;
+    }
 
     auto encoder = makeUniqueRef<Encoder>(T::name(), destinationID);
     uint64_t listenerID = nextAsyncReplyHandlerID();

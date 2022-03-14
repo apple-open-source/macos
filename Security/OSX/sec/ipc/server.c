@@ -413,7 +413,7 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
         }
 
 #if TARGET_OS_IOS
-        if (operation == sec_add_shared_web_credential_id || operation == sec_copy_shared_web_credential_id) {
+        if (operation == sec_add_shared_web_credential_id) {
             domains = SecTaskCopySharedWebCredentialDomains(client.task);
         }
 #endif
@@ -800,25 +800,6 @@ static void securityd_xpc_dictionary_handler(const xpc_connection_t connection, 
 
                     CFStringRef appID = (client.task) ? SecTaskCopyApplicationIdentifier(client.task) : NULL;
                     if (_SecAddSharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
-                        SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
-                        CFReleaseNull(result);
-                    }
-                    CFReleaseSafe(appID);
-                    CFReleaseNull(query);
-                }
-#else
-                SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, kCFBooleanFalse, &error);
-#endif
-                break;
-            }
-            case sec_copy_shared_web_credential_id:
-            {
-#if SHAREDWEBCREDENTIALS
-                CFDictionaryRef query = SecXPCDictionaryCopyDictionary(event, kSecXPCKeyQuery, &error);
-                if (query) {
-                    CFTypeRef result = NULL;
-                    CFStringRef appID = (client.task) ? SecTaskCopyApplicationIdentifier(client.task) : NULL;
-                    if (_SecCopySharedWebCredential(query, &client, &auditToken, appID, domains, &result, &error) && result) {
                         SecXPCDictionarySetPList(replyMessage, kSecXPCKeyResult, result, &error);
                         CFReleaseNull(result);
                     }

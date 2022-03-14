@@ -87,6 +87,8 @@ enum {
     kSOSErrorNotInCircle        = 1046,
     kSOSErrorKeysNeedAttention  = 1047,
     kSOSErrorNoAccount          = 1048,
+    
+    kSOSErrorNoOTMHandle        = 1049,
 };
 
 extern const CFStringRef SOSTransportMessageTypeIDSV2;

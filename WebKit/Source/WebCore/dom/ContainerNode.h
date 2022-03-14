@@ -60,6 +60,8 @@ public:
     void stringReplaceAll(const String&);
     void replaceAll(Node*);
 
+    ContainerNode& rootNode() const { return downcast<ContainerNode>(Node::rootNode()); }
+
     // These methods are only used during parsing.
     // They don't send DOM mutation events or handle reparenting.
     // However, arbitrary code may be run by beforeload handlers.
@@ -127,10 +129,10 @@ public:
     WEBCORE_EXPORT Element* firstElementChild() const;
     WEBCORE_EXPORT Element* lastElementChild() const;
     WEBCORE_EXPORT unsigned childElementCount() const;
-    ExceptionOr<void> append(Vector<NodeOrString>&&);
-    ExceptionOr<void> prepend(Vector<NodeOrString>&&);
+    ExceptionOr<void> append(FixedVector<NodeOrString>&&);
+    ExceptionOr<void> prepend(FixedVector<NodeOrString>&&);
 
-    ExceptionOr<void> replaceChildren(Vector<NodeOrString>&&);
+    ExceptionOr<void> replaceChildren(FixedVector<NodeOrString>&&);
 
     ExceptionOr<void> ensurePreInsertionValidity(Node& newChild, Node* refChild);
 

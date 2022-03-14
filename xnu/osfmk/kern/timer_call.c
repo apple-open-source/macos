@@ -1290,7 +1290,7 @@ timer_longterm_scan(timer_longterm_t    *tlp,
     uint64_t            time_start)
 {
 	timer_call_t    call;
-	uint64_t        threshold;
+	uint64_t        threshold = TIMER_LONGTERM_NONE;
 	uint64_t        deadline;
 	uint64_t        time_limit = time_start + tlp->scan_limit;
 	mpqueue_head_t  *timer_master_queue;

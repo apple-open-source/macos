@@ -4817,7 +4817,7 @@ merge_dns_servers(CFMutableDictionaryRef	new_dict,
 
 	ordered_servers = order_dns_servers(state_servers, active_protos);
 	accumulate_dns_servers(ordered_servers, active_protos,
-			       dns_servers, NULL);
+			       dns_servers, interface);
 	CFRelease(ordered_servers);
     }
 
@@ -9221,6 +9221,17 @@ StartIPMonitorControlServer(void)
 
 #endif	/* !TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST) && !defined(TEST_DNS) && !defined(TEST_DNS_ORDER) */
 
+static void
+HandleDNSConfigurationChanged(void)
+{
+    static const CFStringRef	key	= CFSTR(_PATH_RESOLVER_DIR);
+    CFArrayRef			keys;
+
+    keys = CFArrayCreate(NULL, (const void **)&key, 1, &kCFTypeArrayCallBacks);
+    IPMonitorProcessChanges(S_session, keys, NULL);
+    CFRelease(keys);
+}
+
 __private_extern__
 void
 load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
@@ -9286,7 +9297,7 @@ load_IPMonitor(CFBundleRef bundle, Boolean bundleVerbose)
     ip_plugin_init();
 
     if (S_session != NULL) {
-	dns_configuration_monitor(S_session, IPMonitorNotify);
+	dns_configuration_monitor(HandleDNSConfigurationChanged);
     }
 
 #if	!TARGET_OS_SIMULATOR && !defined(TEST_IPV4_ROUTELIST) && !defined(TEST_IPV6_ROUTELIST)

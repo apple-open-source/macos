@@ -87,6 +87,7 @@ _driverkit:*:270:_driverkit
 _diskimagesiod:*:271:
 _logd:*:272:
 _iconservices:*:276:
+_rmd:*:277:_rmd
 _accessoryupdater:*:278:
 _knowledgegraphd:*:279:
 _coreml:*:280:
@@ -95,5 +96,6 @@ _trustd:*:282:_trustd
 _mmaintenanced:*:283:_mmaintenanced
 _darwindaemon:*:284:_darwindaemon
 _notification_proxy:*:285:_notification_proxy
+_accessory_mobile_share:*:286:mobile,_accessoryupdater
 systemusers:*:299:mobile,_ifccd,_networkd,_wireless,_installd,_securityd,_reportmemoryexception,_analyticsd,_timed,_iconservices,_trustd,_darwindaemon,_accessoryupdater
 mobile:*:501:mobile

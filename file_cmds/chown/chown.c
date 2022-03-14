@@ -1,4 +1,6 @@
-/*
+/*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1988, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -31,35 +29,38 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
+#if 0
 #ifndef lint
-__used static const char copyright[] =
+static const char copyright[] =
 "@(#) Copyright (c) 1988, 1993, 1994\n\
 	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
 #ifndef lint
-#if 0
 static char sccsid[] = "@(#)chown.c	8.8 (Berkeley) 4/4/94";
-#endif
 #endif /* not lint */
+#endif
 
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.sbin/chown/chown.c,v 1.24 2002/07/17 16:22:24 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
 #include <sys/param.h>
 #include <sys/stat.h>
 
 #include <err.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <fts.h>
 #include <grp.h>
+#include <libgen.h>
 #include <pwd.h>
+#include <signal.h>
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/time.h>
 
 #ifdef __APPLE__
 #include <get_compat.h>
@@ -67,42 +68,48 @@ __RCSID("$FreeBSD: src/usr.sbin/chown/chown.c,v 1.24 2002/07/17 16:22:24 dwmalon
 #define COMPAT_MODE(a,b) (1)
 #endif /* __APPLE__ */
 
-void	a_gid(const char *);
-void	a_uid(const char *);
-void	chownerr(const char *);
+static void	a_gid(const char *);
+static void	a_uid(const char *);
+static void	chownerr(const char *);
 static uid_t	id(const char *, const char *);
-void	usage(void);
+static void	usage(void);
+static void	print_info(const FTSENT *, int);
 
-uid_t uid;
-gid_t gid;
-int ischown;
+static uid_t uid;
+static gid_t gid;
+static int ischown;
 #ifdef __APPLE__
-int isnumeric = 0;
+static int isnumeric = 0;
 #endif
-const char *gname;
+static const char *gname;
+static volatile sig_atomic_t siginfo;
+
+static void
+siginfo_handler(int sig __unused)
+{
+
+	siginfo = 1;
+}
 
 int
 main(int argc, char **argv)
 {
 	FTS *ftsp;
 	FTSENT *p;
-	int Hflag, Lflag, Pflag, Rflag, fflag, hflag, vflag;
+	int Hflag, Lflag, Pflag, Rflag, fflag, hflag, vflag, xflag;
 	int ch, fts_options, rval;
 	char *cp;
 	int unix2003_compat = 0;
-	int symlink_found = 0;
 
 	if (argc < 1)
 		usage();
-	cp = strrchr(argv[0], '/');
-	cp = (cp != NULL) ? cp + 1 : argv[0];
-	ischown = (strcmp(cp, "chown") == 0);
+	ischown = (strcmp(basename(argv[0]), "chown") == 0);
 
-	Hflag = Lflag = Pflag = Rflag = fflag = hflag = vflag = 0;
+	Hflag = Lflag = Pflag = Rflag = fflag = hflag = vflag = xflag = 0;
 #ifdef __APPLE__
-	while ((ch = getopt(argc, argv, "HLPRfhnv")) != -1)
+	while ((ch = getopt(argc, argv, "HLPRfhnvx")) != -1)
 #else
-	while ((ch = getopt(argc, argv, "HLPRfhv")) != -1)
+	while ((ch = getopt(argc, argv, "HLPRfhvx")) != -1)
 #endif
 		switch (ch) {
 		case 'H':
@@ -132,7 +139,10 @@ main(int argc, char **argv)
 			break;
 #endif
 		case 'v':
-			vflag = 1;
+			vflag++;
+			break;
+		case 'x':
+			xflag = 1;
 			break;
 		case '?':
 		default:
@@ -146,19 +156,29 @@ main(int argc, char **argv)
 	if (!Rflag && (Hflag || Lflag || Pflag))
 		warnx("options -H, -L, -P only useful with -R");
 
+	(void)signal(SIGINFO, siginfo_handler);
+
 	if (Rflag) {
-		fts_options = FTS_PHYSICAL;
 		if (hflag && (Hflag || Lflag))
 			errx(1, "the -R%c and -h options may not be "
 			    "specified together", Hflag ? 'H' : 'L');
-		if (Hflag)
-			fts_options |= FTS_COMFOLLOW;
-		else if (Lflag) {
-			fts_options &= ~FTS_PHYSICAL;
-			fts_options |= FTS_LOGICAL;
+		if (Lflag) {
+			fts_options = FTS_LOGICAL;
+		} else {
+			fts_options = FTS_PHYSICAL;
+
+			if (Hflag) {
+				fts_options |= FTS_COMFOLLOW;
+			}
 		}
-	} else
-		fts_options = hflag ? FTS_PHYSICAL : FTS_LOGICAL;
+	} else if (hflag) {
+		fts_options = FTS_PHYSICAL;
+	} else {
+		fts_options = FTS_LOGICAL;
+	}
+
+	if (xflag)
+		fts_options |= FTS_XDEV;
 
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
@@ -181,11 +201,19 @@ main(int argc, char **argv)
 		a_gid(*argv);
 	}
 
-	if ((ftsp = fts_open(++argv, fts_options, 0)) == NULL)
+	if ((ftsp = fts_open(++argv, fts_options, NULL)) == NULL)
 		err(1, NULL);
 
-	for (rval = 0; (p = fts_read(ftsp)) != NULL;) {
-		symlink_found = 0;
+	for (rval = 0; (void)(errno = 0), (p = fts_read(ftsp)) != NULL;) {
+		int atflag;
+
+		if ((fts_options & FTS_LOGICAL) ||
+		    ((fts_options & FTS_COMFOLLOW) &&
+		    p->fts_level == FTS_ROOTLEVEL))
+			atflag = 0;
+		else
+			atflag = AT_SYMLINK_NOFOLLOW;
+
 		switch (p->fts_info) {
 		case FTS_D:			/* Change it at FTS_DP. */
 			if (!Rflag)
@@ -200,6 +228,7 @@ main(int argc, char **argv)
 			warnx("%s: %s", p->fts_path, strerror(p->fts_errno));
 			rval = 1;
 			continue;
+#ifdef __APPLE__
 		case FTS_SL:
 		case FTS_SLNONE:
 			/*
@@ -207,24 +236,25 @@ main(int argc, char **argv)
 			 * don't point to anything and ones that we found
 			 * doing a physical walk.
 			 */
-			if (hflag)
-				break;
-			else {
-				symlink_found = 1;
-				if (unix2003_compat) {
-					if (Hflag || Lflag) {       /* -H or -L was specified */
-						if (p->fts_errno) {
-							warnx("%s: %s", p->fts_name, strerror(p->fts_errno));
-							rval = 1;
-							continue;
-						}
+			atflag = AT_SYMLINK_NOFOLLOW;
+			if (unix2003_compat) {
+				if (Hflag || Lflag) {       /* -H or -L was specified */
+					if (p->fts_errno) {
+						warnx("%s: %s", p->fts_name, strerror(p->fts_errno));
+						rval = 1;
+						continue;
 					}
-					break; /* Otherwise symlinks keep going */
 				}
-				continue;
 			}
+
+			break;
+#endif
 		default:
 			break;
+		}
+		if (siginfo) {
+			print_info(p, 2);
+			siginfo = 0;
 		}
 		if (unix2003_compat) {
 			/* Can only avoid updating times if both uid and gid are -1 */
@@ -235,22 +265,19 @@ main(int argc, char **argv)
 			    (gid == (gid_t)-1 || gid == p->fts_statp->st_gid))
 				continue;
 		}
-		if (((hflag || symlink_found) ? lchown : chown)(p->fts_accpath, uid, gid) == -1) {
-			if (!fflag) {
-				chownerr(p->fts_path);
-				rval = 1;
-			}
-		} else {
-			if (vflag)
-				printf("%s\n", p->fts_path);
-		}
+		if (fchownat(AT_FDCWD, p->fts_accpath, uid, gid, atflag)
+		    == -1 && !fflag) {
+			chownerr(p->fts_path);
+			rval = 1;
+		} else if (vflag)
+			print_info(p, vflag);
 	}
 	if (errno)
 		err(1, "fts_read");
 	exit(rval);
 }
 
-void
+static void
 a_gid(const char *s)
 {
 	struct group *gr;
@@ -265,7 +292,7 @@ a_gid(const char *s)
 #endif
 }
 
-void
+static void
 a_uid(const char *s)
 {
 	struct passwd *pw;
@@ -287,17 +314,19 @@ id(const char *name, const char *type)
 
 	errno = 0;
 	val = strtoul(name, &ep, 10);
+	_Static_assert(UID_MAX >= GID_MAX, "UID MAX less than GID MAX");
 	if (errno || *ep != '\0' || val > UID_MAX)
 		errx(1, "%s: illegal %s name", name, type);
 	return (uid_t)val;
 }
 
-void
+static void
 chownerr(const char *file)
 {
 	static uid_t euid = -1;
 	static int ngroups = -1;
-	gid_t groups[NGROUPS_MAX];
+	static long ngroups_max;
+	gid_t *groups;
 
 	/* Check for chown without being root. */
 	if (errno != EPERM || (uid != (uid_t)-1 &&
@@ -309,8 +338,12 @@ chownerr(const char *file)
 	/* Check group membership; kernel just returns EPERM. */
 	if (gid != (gid_t)-1 && ngroups == -1 &&
 	    euid == (uid_t)-1 && (euid = geteuid()) != 0) {
-		ngroups = getgroups(NGROUPS_MAX, groups);
+		ngroups_max = sysconf(_SC_NGROUPS_MAX) + 1;
+		if ((groups = malloc(sizeof(gid_t) * ngroups_max)) == NULL)
+			err(1, "malloc");
+		ngroups = getgroups(ngroups_max, groups);
 		while (--ngroups >= 0 && gid != groups[ngroups]);
+		free(groups);
 		if (ngroups < 0) {
 			warnx("you are not a member of group %s", gname);
 			return;
@@ -319,27 +352,50 @@ chownerr(const char *file)
 	warn("%s", file);
 }
 
-void
+static void
 usage(void)
 {
 
 	if (ischown)
 		(void)fprintf(stderr, "%s\n%s\n",
 #ifdef __APPLE__
-		    "usage: chown [-fhnv] [-R [-H | -L | -P]] owner[:group]"
+		    "usage: chown [-fhnvx] [-R [-H | -L | -P]] owner[:group]"
 		    " file ...",
-		    "       chown [-fhnv] [-R [-H | -L | -P]] :group file ...");
+		    "       chown [-fhnvx] [-R [-H | -L | -P]] :group file ...");
 #else
-		    "usage: chown [-fhv] [-R [-H | -L | -P]] owner[:group]"
+		    "usage: chown [-fhvx] [-R [-H | -L | -P]] owner[:group]"
 		    " file ...",
-		    "       chown [-fhv] [-R [-H | -L | -P]] :group file ...");
+		    "       chown [-fhvx] [-R [-H | -L | -P]] :group file ...");
 #endif
 	else
 		(void)fprintf(stderr, "%s\n",
 #ifdef __APPLE__
-		    "usage: chgrp [-fhnv] [-R [-H | -L | -P]] group file ...");
+		    "usage: chgrp [-fhnvx] [-R [-H | -L | -P]] group file ...");
 #else
-		    "usage: chgrp [-fhv] [-R [-H | -L | -P]] group file ...");
+		    "usage: chgrp [-fhvx] [-R [-H | -L | -P]] group file ...");
 #endif
 	exit(1);
+}
+
+static void
+print_info(const FTSENT *p, int vflag)
+{
+
+	printf("%s", p->fts_path);
+	if (vflag > 1) {
+		if (ischown) {
+			printf(": %ju:%ju -> %ju:%ju",
+			    (uintmax_t)p->fts_statp->st_uid, 
+			    (uintmax_t)p->fts_statp->st_gid,
+			    (uid == (uid_t)-1) ? 
+			    (uintmax_t)p->fts_statp->st_uid : (uintmax_t)uid,
+			    (gid == (gid_t)-1) ? 
+			    (uintmax_t)p->fts_statp->st_gid : (uintmax_t)gid);
+		} else {
+			printf(": %ju -> %ju", (uintmax_t)p->fts_statp->st_gid,
+			    (gid == (gid_t)-1) ? 
+			    (uintmax_t)p->fts_statp->st_gid : (uintmax_t)gid);
+		}
+	}
+	printf("\n");
 }

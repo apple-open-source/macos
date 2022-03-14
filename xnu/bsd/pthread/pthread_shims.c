@@ -51,6 +51,7 @@
 #include <sys/proc_internal.h>
 #include <sys/sysproto.h>
 #include <sys/systm.h>
+#include <sys/ulock.h>
 #include <vm/vm_map.h>
 #include <vm/vm_protos.h>
 #include <kern/kcdata.h>
@@ -369,10 +370,33 @@ int
 bsdthread_terminate(struct proc *p, struct bsdthread_terminate_args *uap, int32_t *retval)
 {
 	thread_t th = current_thread();
+	uthread_t uth = current_uthread();
+	struct _bsdthread_terminate *bts = &uth->uu_save.uus_bsdthread_terminate;
+	mach_port_name_t sem = (mach_port_name_t)uap->sema_or_ulock;
+	mach_port_name_t thp = uap->port;
+
 	if (thread_get_tag(th) & THREAD_TAG_WORKQUEUE) {
 		workq_thread_terminate(p, get_bsdthread_info(th));
 	}
-	return pthread_functions->bsdthread_terminate(p, uap->stackaddr, uap->freesize, uap->port, uap->sem, retval);
+
+	/*
+	 * Gross compatibility hack: ports end in 0x3 and ulocks are aligned.
+	 * If the `semaphore` value doesn't look like a port, then it is
+	 * a ulock address that will be woken by uthread_joiner_wake()
+	 *
+	 * We also need to delay destroying the thread port so that
+	 * pthread_join()'s ulock_wait() can resolve the thread until
+	 * uthread_joiner_wake() has run.
+	 */
+	if (uap->sema_or_ulock && uap->sema_or_ulock != ipc_entry_name_mask(sem)) {
+		thread_set_tag(th, THREAD_TAG_USER_JOIN);
+		bts->ulock_addr = uap->sema_or_ulock;
+		bts->kport = thp;
+
+		sem = thp = MACH_PORT_NULL;
+	}
+
+	return pthread_functions->bsdthread_terminate(p, uap->stackaddr, uap->freesize, thp, sem, retval);
 }
 
 int
@@ -524,7 +548,6 @@ static const struct pthread_callbacks_s pthread_callbacks = {
 	.proc_get_pthread_jit_allowlist2 = proc_get_pthread_jit_allowlist,
 
 	/* kernel IPI interfaces */
-	.ipc_port_copyout_send = ipc_port_copyout_send,
 	.task_get_ipcspace = get_task_ipcspace,
 	.vm_map_page_info = vm_map_page_info,
 	.ipc_port_copyout_send_pinned = ipc_port_copyout_send_pinned,
@@ -550,14 +573,13 @@ static const struct pthread_callbacks_s pthread_callbacks = {
 	.mach_port_deallocate = mach_port_deallocate,
 	.semaphore_signal_internal_trap = semaphore_signal_internal_trap,
 	.current_map = _current_map,
-	.thread_create = thread_create,
+
 	.thread_create_immovable = thread_create_immovable,
 	.thread_terminate_pinned = thread_terminate_pinned,
 	.thread_resume = thread_resume,
 
 	.kevent_workq_internal = kevent_workq_internal,
 
-	.convert_thread_to_port = convert_thread_to_port,
 	.convert_thread_to_port_pinned = convert_thread_to_port_pinned,
 
 	.proc_get_stack_addr_hint = proc_get_stack_addr_hint,

@@ -90,6 +90,7 @@ static char* wrappingKeyArg = NULL;
 static char* wrappedKeyArg = NULL;
 static char* custodianUUIDArg = NULL;
 static char* inheritanceUUIDArg = NULL;
+static char* timeoutInS = NULL;
 
 int main(int argc, char** argv)
 {
@@ -117,6 +118,7 @@ int main(int argc, char** argv)
         {.longname = "wrapped-key", .argument = &wrappedKeyArg, .description = "Wrapped key (for joinWithCustodianRecoveryKey)", .internal_only = true},
         {.longname = "custodianUUID", .argument = &custodianUUIDArg, .description = "UUID for joinWithCustodianRecoveryKey", .internal_only = true},
         {.longname = "inheritanceUUID", .argument = &inheritanceUUIDArg, .description = "UUID for joinWithInheritanceKey", .internal_only = true},
+        {.longname = "timeout", .argument = &timeoutInS, .description = "timeout for command (in s)"},
 
         {.command = "start", .flag = &start, .flagval = true, .description = "Start Octagon state machine", .internal_only = true},
         {.command = "sign-in", .flag = &signIn, .flagval = true, .description = "Inform Cuttlefish container of sign in", .internal_only = true},
@@ -201,6 +203,7 @@ int main(int argc, char** argv)
         NSString* wrappedKey = wrappedKeyArg ? [NSString stringWithCString:wrappedKeyArg encoding:NSUTF8StringEncoding] : nil;
         NSString* custodianUUIDString = custodianUUIDArg ? [NSString stringWithCString:custodianUUIDArg encoding:NSUTF8StringEncoding] : nil;
         NSString* inheritanceUUIDString = inheritanceUUIDArg ? [NSString stringWithCString:inheritanceUUIDArg encoding:NSUTF8StringEncoding] : nil;
+        NSTimeInterval timeout = timeoutInS ? [[NSString stringWithCString:timeoutInS encoding:NSUTF8StringEncoding] integerValue] : 600;
 
         OTControlCLI* ctl = [[OTControlCLI alloc] initWithOTControl:rpc];
 
@@ -210,7 +213,7 @@ int main(int argc, char** argv)
             errx(1, "SecEscrowRequest failed: %s", [[escrowRequestError description] UTF8String]);
         }
         if(resetoctagon) {
-            return [ctl resetOctagon:container context:context altDSID:altDSID];
+            return [ctl resetOctagon:container context:context altDSID:altDSID timeout:timeout];
         }
         if(resetProtectedData) {
             return [ctl resetProtectedData:container context:context altDSID:altDSID appleID:appleID dsid:dsid];
@@ -321,7 +324,7 @@ int main(int argc, char** argv)
             return [ctl resetAccountCDPContentsWithContainerName:container contextID:context];
         }
         if(createCustodianRecoveryKey) {
-            return [ctl createCustodianRecoveryKeyWithContainerName:container contextID:context json:json];
+            return [ctl createCustodianRecoveryKeyWithContainerName:container contextID:context json:json timeout:timeout];
         }
         if(joinWithCustodianRecoveryKey) {
             if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
@@ -332,7 +335,8 @@ int main(int argc, char** argv)
                                                             contextID:context
                                                           wrappingKey:wrappingKey
                                                            wrappedKey:wrappedKey
-                                                           uuidString:custodianUUIDString];
+                                                           uuidString:custodianUUIDString
+                                                              timeout:timeout];
         }
         if(preflightJoinWithCustodianRecoveryKey) {
             if (!wrappingKey || !wrappedKey || !custodianUUIDString) {
@@ -343,7 +347,8 @@ int main(int argc, char** argv)
                                                                      contextID:context
                                                                    wrappingKey:wrappingKey
                                                                     wrappedKey:wrappedKey
-                                                                    uuidString:custodianUUIDString];
+                                                                    uuidString:custodianUUIDString
+                                                                       timeout:timeout];
         }
         if(removeCustodianRecoveryKey) {
             if (!custodianUUIDString) {
@@ -352,14 +357,15 @@ int main(int argc, char** argv)
             }
             return [ctl removeCustodianRecoveryKeyWithContainerName:container
                                                           contextID:context
-                                                         uuidString:custodianUUIDString];
+                                                         uuidString:custodianUUIDString
+                                                            timeout:timeout];
         }
 
         if(createInheritanceKey) {
-            return [ctl createInheritanceKeyWithContainerName:container contextID:context json:json];
+            return [ctl createInheritanceKeyWithContainerName:container contextID:context json:json timeout:timeout];
         }
         if(generateInheritanceKey) {
-            return [ctl generateInheritanceKeyWithContainerName:container contextID:context json:json];
+            return [ctl generateInheritanceKeyWithContainerName:container contextID:context json:json timeout:timeout];
         }
         if(storeInheritanceKey) {
             if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
@@ -370,7 +376,8 @@ int main(int argc, char** argv)
                                                    contextID:context
                                                  wrappingKey:wrappingKey
                                                   wrappedKey:wrappedKey
-                                                  uuidString:inheritanceUUIDString];
+                                                  uuidString:inheritanceUUIDString
+                                                     timeout:timeout];
         }
         if(joinWithInheritanceKey) {
             if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
@@ -381,7 +388,8 @@ int main(int argc, char** argv)
                                                       contextID:context
                                                     wrappingKey:wrappingKey
                                                      wrappedKey:wrappedKey
-                                                     uuidString:inheritanceUUIDString];
+                                                     uuidString:inheritanceUUIDString
+                                                        timeout:timeout];
         }
         if(preflightJoinWithInheritanceKey) {
             if (!wrappingKey || !wrappedKey || !inheritanceUUIDString) {
@@ -392,7 +400,8 @@ int main(int argc, char** argv)
                                                                contextID:context
                                                              wrappingKey:wrappingKey
                                                               wrappedKey:wrappedKey
-                                                              uuidString:inheritanceUUIDString];
+                                                              uuidString:inheritanceUUIDString
+                                                                 timeout:timeout];
         }
         if(removeInheritanceKey) {
             if (!inheritanceUUIDString) {
@@ -401,7 +410,8 @@ int main(int argc, char** argv)
             }
             return [ctl removeInheritanceKeyWithContainerName:container
                                                     contextID:context
-                                                   uuidString:inheritanceUUIDString];
+                                                   uuidString:inheritanceUUIDString
+                                                      timeout:timeout];
         }
 
 

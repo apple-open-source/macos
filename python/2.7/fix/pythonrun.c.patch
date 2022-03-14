@@ -1,5 +1,5 @@
---- pythonrun.c.orig	2021-06-07 12:32:57.000000000 -0700
-+++ pythonrun.c	2021-06-07 14:26:22.000000000 -0700
+--- pythonrun.c.orig	2021-10-28 14:26:24.000000000 -0700
++++ pythonrun.c	2021-10-28 14:28:09.000000000 -0700
 @@ -1,3 +1,6 @@
 +#define PYTHON_WRAPPER_PATH "/System/Library/Frameworks/Python.framework/Versions/2.7/bin/pythonwrapper"
 +#define PYTHONWRAPPER "pythonwrapper"
@@ -27,11 +27,11 @@
 +    if (initialized)
 +        return;
 +
-+    if (!fork()) {
-+        char *const args[] = { PYTHONWRAPPER, PYTHON_NO_EXEC_ARG, NULL };
-+        execv(PYTHON_WRAPPER_PATH, args);
-+        exit(1);
-+    }
++    //if (!fork()) {
++    //    char *const args[] = { PYTHONWRAPPER, PYTHON_NO_EXEC_ARG, NULL };
++    //    execv(PYTHON_WRAPPER_PATH, args);
++    //    exit(1);
++    //}
 +
 +    Py_InitializeExWithoutMetrics(install_sigs);
 +}

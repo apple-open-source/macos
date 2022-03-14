@@ -1104,24 +1104,28 @@ struct protoctl_event {
 	uint8_t protocol;
 };
 
-static void
-protoctl_event_callback(void *arg)
-{
-	struct protoctl_event *p_protoctl_ev = (struct protoctl_event *)arg;
-
-	/* Call this before we walk the tree */
-	EVENTHANDLER_INVOKE(&protoctl_evhdlr_ctxt, protoctl_event, p_protoctl_ev->ifp,
-	    (struct sockaddr *)&(p_protoctl_ev->laddr),
-	    (struct sockaddr *)&(p_protoctl_ev->raddr),
-	    p_protoctl_ev->lport, p_protoctl_ev->rport,
-	    p_protoctl_ev->protocol, p_protoctl_ev->protoctl_event_code,
-	    &p_protoctl_ev->val);
-}
-
 struct protoctl_event_nwk_wq_entry {
 	struct nwk_wq_entry nwk_wqe;
 	struct protoctl_event protoctl_ev_arg;
 };
+
+static void
+protoctl_event_callback(struct nwk_wq_entry *nwk_item)
+{
+	struct protoctl_event_nwk_wq_entry *p_ev = NULL;
+
+	p_ev = __container_of(nwk_item, struct protoctl_event_nwk_wq_entry, nwk_wqe);
+
+	/* Call this before we walk the tree */
+	EVENTHANDLER_INVOKE(&protoctl_evhdlr_ctxt, protoctl_event,
+	    p_ev->protoctl_ev_arg.ifp, (struct sockaddr *)&(p_ev->protoctl_ev_arg.laddr),
+	    (struct sockaddr *)&(p_ev->protoctl_ev_arg.raddr),
+	    p_ev->protoctl_ev_arg.lport, p_ev->protoctl_ev_arg.rport,
+	    p_ev->protoctl_ev_arg.protocol, p_ev->protoctl_ev_arg.protoctl_event_code,
+	    &p_ev->protoctl_ev_arg.val);
+
+	kfree_type(struct protoctl_event_nwk_wq_entry, p_ev);
+}
 
 /* XXX Some PRC events needs extra verification like sequence number checking */
 void
@@ -1131,9 +1135,8 @@ protoctl_event_enqueue_nwk_wq_entry(struct ifnet *ifp, struct sockaddr *p_laddr,
 {
 	struct protoctl_event_nwk_wq_entry *p_protoctl_ev = NULL;
 
-	MALLOC(p_protoctl_ev, struct protoctl_event_nwk_wq_entry *,
-	    sizeof(struct protoctl_event_nwk_wq_entry),
-	    M_NWKWQ, M_WAITOK | M_ZERO);
+	p_protoctl_ev = kalloc_type(struct protoctl_event_nwk_wq_entry,
+	    Z_WAITOK | Z_ZERO | Z_NOFAIL);
 
 	p_protoctl_ev->protoctl_ev_arg.ifp = ifp;
 	if (p_laddr != NULL) {
@@ -1155,10 +1158,8 @@ protoctl_event_enqueue_nwk_wq_entry(struct ifnet *ifp, struct sockaddr *p_laddr,
 		    sizeof(*p_protoctl_ev_val));
 	}
 	p_protoctl_ev->nwk_wqe.func = protoctl_event_callback;
-	p_protoctl_ev->nwk_wqe.is_arg_managed = TRUE;
-	p_protoctl_ev->nwk_wqe.arg = &p_protoctl_ev->protoctl_ev_arg;
 
-	nwk_wq_enqueue((struct nwk_wq_entry*)p_protoctl_ev);
+	nwk_wq_enqueue(&p_protoctl_ev->nwk_wqe);
 }
 #endif /* SKYWALK */
 

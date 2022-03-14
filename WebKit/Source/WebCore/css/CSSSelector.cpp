@@ -56,6 +56,7 @@ CSSSelector::CSSSelector(const QualifiedName& tagQName, bool tagIsForNamespaceRu
     , m_match(Tag)
     , m_pseudoType(0)
     , m_isLastInSelectorList(false)
+    , m_isFirstInTagHistory(true)
     , m_isLastInTagHistory(true)
     , m_hasRareData(false)
     , m_hasNameWithCase(false)
@@ -123,6 +124,7 @@ static unsigned simpleSelectorSpecificityInternal(const CSSSelector& simpleSelec
         case CSSSelector::PseudoClassIs:
         case CSSSelector::PseudoClassMatches:
         case CSSSelector::PseudoClassNot:
+        case CSSSelector::PseudoClassHas:
             return maxSpecificity(*simpleSelector.selectorList());
         case CSSSelector::PseudoClassWhere:
             return 0;
@@ -146,6 +148,10 @@ static unsigned simpleSelectorSpecificityInternal(const CSSSelector& simpleSelec
     case CSSSelector::Tag:
         return (simpleSelector.tagQName().localName() != starAtom()) ? static_cast<unsigned>(SelectorSpecificityIncrement::ClassC) : 0;
     case CSSSelector::PseudoElement:
+        // Slotted only competes with other slotted selectors for specificity,
+        // so whether we add the ClassC specificity shouldn't be observable.
+        if (simpleSelector.pseudoElementType() == CSSSelector::PseudoElementSlotted)
+            return maxSpecificity(*simpleSelector.selectorList());
         return static_cast<unsigned>(SelectorSpecificityIncrement::ClassC);
     case CSSSelector::Unknown:
         return 0;
@@ -232,6 +238,8 @@ PseudoId CSSSelector::pseudoId(PseudoElementType type)
         return PseudoId::Highlight;
     case PseudoElementMarker:
         return PseudoId::Marker;
+    case PseudoElementBackdrop:
+        return PseudoId::Backdrop;
     case PseudoElementBefore:
         return PseudoId::Before;
     case PseudoElementAfter:
@@ -280,6 +288,18 @@ CSSSelector::PseudoElementType CSSSelector::parsePseudoElementType(StringView na
         return PseudoElementUnknown;
 
     return type;
+}
+
+const CSSSelector* CSSSelector::firstInCompound() const
+{
+    auto* selector = this;
+    while (!selector->isFirstInTagHistory()) {
+        auto* previousSelector = selector - 1;
+        if (previousSelector->relation() != Subselector)
+            break;
+        selector = previousSelector;
+    }
+    return selector;
 }
 
 bool CSSSelector::operator==(const CSSSelector& other) const
@@ -416,14 +436,14 @@ String CSSSelector::selectorText(const String& rightSide) const
             case CSSSelector::PseudoClassAutofill:
                 builder.append(":autofill");
                 break;
+            case CSSSelector::PseudoClassAutofillAndObscured:
+                builder.append(":-webkit-autofill-and-obscured");
+                break;
             case CSSSelector::PseudoClassAutofillStrongPassword:
                 builder.append(":-webkit-autofill-strong-password");
                 break;
             case CSSSelector::PseudoClassAutofillStrongPasswordViewable:
                 builder.append(":-webkit-autofill-strong-password-viewable");
-                break;
-            case CSSSelector::PseudoClassDirectFocus:
-                builder.append(":-internal-direct-focus");
                 break;
             case CSSSelector::PseudoClassDrag:
                 builder.append(":-webkit-drag");
@@ -505,7 +525,33 @@ String CSSSelector::selectorText(const String& rightSide) const
             case CSSSelector::PseudoClassFuture:
                 builder.append(":future");
                 break;
+            case CSSSelector::PseudoClassPlaying:
+                builder.append(":playing");
+                break;
+            case CSSSelector::PseudoClassPaused:
+                builder.append(":paused");
+                break;
+            case CSSSelector::PseudoClassSeeking:
+                builder.append(":seeking");
+                break;
+            case CSSSelector::PseudoClassBuffering:
+                builder.append(":buffering");
+                break;
+            case CSSSelector::PseudoClassStalled:
+                builder.append(":stalled");
+                break;
+            case CSSSelector::PseudoClassMuted:
+                builder.append(":muted");
+                break;
+            case CSSSelector::PseudoClassVolumeLocked:
+                builder.append(":volume-locked");
+                break;
 #endif
+            case CSSSelector::PseudoClassHas:
+                builder.append(":has(");
+                cs->selectorList()->buildSelectorsText(builder);
+                builder.append(')');
+                break;
 #if ENABLE(ATTACHMENT_ELEMENT)
             case CSSSelector::PseudoClassHasAttachment:
                 builder.append(":has-attachment");
@@ -640,6 +686,9 @@ String CSSSelector::selectorText(const String& rightSide) const
             case CSSSelector::PseudoClassScope:
                 builder.append(":scope");
                 break;
+            case CSSSelector::PseudoClassRelativeScope:
+                // Just remove the space from the start to generate a relative selector string like in ":has(> foo)".
+                return rightSide.substring(1);
             case CSSSelector::PseudoClassSingleButton:
                 builder.append(":single-button");
                 break;
@@ -689,7 +738,7 @@ String CSSSelector::selectorText(const String& rightSide) const
                     if (!isFirst)
                         builder.append(' ');
                     isFirst = false;
-                    builder.append(partName);
+                    serializeIdentifier(partName, builder);
                 }
                 builder.append(')');
                 break;
@@ -787,6 +836,8 @@ String CSSSelector::selectorText(const String& rightSide) const
             FALLTHROUGH;
 #endif
         case CSSSelector::ShadowDescendant:
+        case CSSSelector::ShadowPartDescendant:
+        case CSSSelector::ShadowSlotted:
             builder.append(rightSide);
             return tagHistory->selectorText(builder.toString());
         }

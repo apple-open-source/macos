@@ -58,7 +58,7 @@ WebHitTestResultData::WebHitTestResultData(const WebCore::HitTestResult& hitTest
     , imageSize(0)
 {
     if (auto* scrollbar = hitTestResult.scrollbar())
-        isScrollbar = scrollbar->orientation() == HorizontalScrollbar ? IsScrollbar::Horizontal : IsScrollbar::Vertical;
+        isScrollbar = scrollbar->orientation() == ScrollbarOrientation::Horizontal ? IsScrollbar::Horizontal : IsScrollbar::Vertical;
 }
 
 WebHitTestResultData::WebHitTestResultData(const WebCore::HitTestResult& hitTestResult, bool includeImage)
@@ -79,21 +79,20 @@ WebHitTestResultData::WebHitTestResultData(const WebCore::HitTestResult& hitTest
     , imageSize(0)
 {
     if (auto* scrollbar = hitTestResult.scrollbar())
-        isScrollbar = scrollbar->orientation() == HorizontalScrollbar ? IsScrollbar::Horizontal : IsScrollbar::Vertical;
+        isScrollbar = scrollbar->orientation() == ScrollbarOrientation::Horizontal ? IsScrollbar::Horizontal : IsScrollbar::Vertical;
 
     if (!includeImage)
         return;
 
     if (Image* image = hitTestResult.image()) {
-        RefPtr<SharedBuffer> buffer = image->data();
+        RefPtr<FragmentedSharedBuffer> buffer = image->data();
         if (buffer) {
-            imageSharedMemory = WebKit::SharedMemory::allocate(buffer->size());
-            memcpy(imageSharedMemory->data(), buffer->data(), buffer->size());
+            imageSharedMemory = WebKit::SharedMemory::copyBuffer(*buffer);
             imageSize = buffer->size();
         }
     }
 
-    if (auto target = makeRefPtr(hitTestResult.innerNonSharedNode()); target && is<RenderImage>(target->renderer()))
+    if (auto target = RefPtr { hitTestResult.innerNonSharedNode() }; target && is<RenderImage>(target->renderer()))
         imageBitmap = createShareableBitmap(*downcast<RenderImage>(target->renderer()));
 }
 

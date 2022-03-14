@@ -40,8 +40,6 @@
 #include "Settings.h"
 #include "StyleScope.h"
 #if ENABLE(LAYOUT_FORMATTING_CONTEXT)
-#include "InvalidationContext.h"
-#include "InvalidationState.h"
 #include "LayoutBoxGeometry.h"
 #include "LayoutContext.h"
 #include "LayoutState.h"
@@ -64,13 +62,14 @@ void FrameViewLayoutContext::layoutUsingFormattingContext()
     if (m_disableSetNeedsLayoutCount)
         return;
 
+    m_layoutState = nullptr;
+    m_layoutTree = nullptr;
+
     auto& renderView = *this->renderView();
     m_layoutTree = Layout::TreeBuilder::buildLayoutTree(renderView);
     m_layoutState = makeUnique<Layout::LayoutState>(*document(), m_layoutTree->root());
-    // FIXME: This is not the real invalidation yet.
-    auto invalidationState = Layout::InvalidationState { };
     auto layoutContext = Layout::LayoutContext { *m_layoutState };
-    layoutContext.layout(view().layoutSize(), invalidationState);
+    layoutContext.layout(view().layoutSize());
 
     // Clean up the render tree state when we don't run RenderView::layout.
     if (renderView.needsLayout()) {
@@ -217,8 +216,8 @@ void FrameViewLayoutContext::layout()
         if (!renderView())
             return;
 
-        layoutRoot = makeWeakPtr(subtreeLayoutRoot() ? subtreeLayoutRoot() : renderView());
-        m_needsFullRepaint = is<RenderView>(layoutRoot.get()) && (m_firstLayout || renderView()->printing());
+        layoutRoot = subtreeLayoutRoot() ? subtreeLayoutRoot() : renderView();
+        m_needsFullRepaint = is<RenderView>(layoutRoot) && (m_firstLayout || renderView()->printing());
         view().willDoLayout(layoutRoot);
         m_firstLayout = false;
     }
@@ -242,7 +241,7 @@ void FrameViewLayoutContext::layout()
     }
     {
         SetForScope<LayoutPhase> layoutPhase(m_layoutPhase, LayoutPhase::InViewSizeAdjust);
-        if (is<RenderView>(layoutRoot.get()) && !renderView()->printing()) {
+        if (is<RenderView>(layoutRoot) && !renderView()->printing()) {
             // This is to protect m_needsFullRepaint's value when layout() is getting re-entered through adjustViewSize().
             SetForScope<bool> needsFullRepaint(m_needsFullRepaint);
             view().adjustViewSize();
@@ -483,7 +482,7 @@ void FrameViewLayoutContext::convertSubtreeLayoutToFullLayout()
 
 void FrameViewLayoutContext::setSubtreeLayoutRoot(RenderElement& layoutRoot)
 {
-    m_subtreeLayoutRoot = makeWeakPtr(layoutRoot);
+    m_subtreeLayoutRoot = layoutRoot;
 }
 
 bool FrameViewLayoutContext::canPerformLayout() const

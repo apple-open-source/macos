@@ -518,8 +518,8 @@ CCRSAGetKeyComponents(CCRSACryptorRef rsaKey, uint8_t *modulus, size_t *modulusL
 //CRT functions assume that dp, dq and qinv are initilized in the ccrsa_full_ctx structure.
 //Functions that create a CCRSACryptorRef object, must make sure dp, dq and qinv are initilized.
 
-#define PP_N(rsa)   ccn_n(cczp_n(ccrsa_ctx_private_zp(rsa->fk)), PP(rsa))
-#define QQ_N(rsa)   ccn_n(cczp_n(ccrsa_ctx_private_zq(rsa->fk)), QQ(rsa))
+#define PP_N(rsa)   cczp_n(ccrsa_ctx_private_zp(rsa->fk))
+#define QQ_N(rsa)   cczp_n(ccrsa_ctx_private_zq(rsa->fk))
 #define PP(rsa)     cczp_prime(ccrsa_ctx_private_zp(rsa->fk))
 #define QQ(rsa)     cczp_prime(ccrsa_ctx_private_zq(rsa->fk))
 

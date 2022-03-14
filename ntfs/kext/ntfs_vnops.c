@@ -7175,7 +7175,7 @@ static void ntfs_mft_record_free_all(ntfs_inode *base_ni, ntfs_inode *ni,
 		if (!a->lowest_vcn && !a->allocated_size)
 			continue;
 		rl.rl = NULL;
-		rl.alloc = rl.elements = 0;
+		rl.alloc_count = rl.elements = 0;
 		err = ntfs_mapping_pairs_decompress(vol, a, &rl);
 		if (!err) {
 			VCN lowest_vcn;
@@ -7200,7 +7200,7 @@ static void ntfs_mft_record_free_all(ntfs_inode *base_ni, ntfs_inode *ni,
 						err);
 				NVolSetErrors(vol);
 			}
-			IOFreeData(rl.rl, rl.alloc);
+			IODeleteData(rl.rl, ntfs_rl_element, rl.alloc_count);
 		} else {
 			ntfs_error(vol->mp, "Cannot free some allocated space "
 					"belonging to mft_no 0x%llx because "

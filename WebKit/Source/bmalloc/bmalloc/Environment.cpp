@@ -34,6 +34,10 @@
 #include <dlfcn.h>
 #endif
 
+#if BOS(UNIX)
+#include "valgrind.h"
+#endif
+
 #if BPLATFORM(IOS_FAMILY) && !BPLATFORM(MACCATALYST) && !BPLATFORM(IOS_FAMILY_SIMULATOR)
 #define BUSE_CHECK_NANO_MALLOC 1
 #else
@@ -47,6 +51,10 @@ extern "C" {
 #endif
 int malloc_engaged_nano(void);
 }
+#endif
+
+#if BUSE(LIBPAS)
+#include "pas_status_reporter.h"
 #endif
 
 namespace bmalloc {
@@ -123,6 +131,15 @@ static bool isSanitizerEnabled()
 #endif
 }
 
+static bool isRunningOnValgrind()
+{
+#if BOS(UNIX)
+    if (RUNNING_ON_VALGRIND)
+        return true;
+#endif
+    return false;
+}
+
 #if BUSE(CHECK_NANO_MALLOC)
 static bool isNanoMallocEnabled()
 {
@@ -136,6 +153,14 @@ DEFINE_STATIC_PER_PROCESS_STORAGE(Environment);
 Environment::Environment(const LockHolder&)
     : m_isDebugHeapEnabled(computeIsDebugHeapEnabled())
 {
+#if BUSE(LIBPAS)
+    const char* statusReporter = getenv("WebKitPasStatusReporter");
+    if (statusReporter) {
+        unsigned enabled;
+        if (sscanf(statusReporter, "%u", &enabled) == 1)
+            pas_status_reporter_enabled = enabled;
+    }
+#endif
 }
 
 bool Environment::computeIsDebugHeapEnabled()
@@ -145,6 +170,8 @@ bool Environment::computeIsDebugHeapEnabled()
     if (isLibgmallocEnabled())
         return true;
     if (isSanitizerEnabled())
+        return true;
+    if (isRunningOnValgrind())
         return true;
 
 #if BUSE(CHECK_NANO_MALLOC)

@@ -26,7 +26,7 @@
 
 /*! @class IOFireWireAVCCommand
 */
-class IOFireWireAVCCommand : public IOFWCommand
+class __exported IOFireWireAVCCommand : public IOFWCommand
 {
     OSDeclareDefaultStructors(IOFireWireAVCCommand)
     

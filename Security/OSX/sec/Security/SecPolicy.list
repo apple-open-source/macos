@@ -96,7 +96,6 @@ POLICYMACRO(DeveloperIDPlusTicket,                  90, E, DeveloperIDPlusTicket
 POLICYMACRO(FDRProvisioning,                        91,  , FDRProvisioning,                       , Y, AppleFDRProvisioning)
 POLICYMACRO(ComponentCertificate,                   92, E, Component,                             ,  , AppleComponentCertificate)
 POLICYMACRO(KeyTransparency,                        93, E, KT,                                   N, Y, AppleKeyTransparency)
-POLICYMACRO(LegacySSL,                              94, E, legacySSL,                             ,  , LegacySSL)
 POLICYMACRO(Alisha,                                 95, E, Alisha,                                , Y, Alisha)
 POLICYMACRO(MeasuredBootPolicySigning,              96, E, MeasuredBootPolicySigning,             , Y, MeasuredBootPolicySigning)
 POLICYMACRO(PayQRCodeEncryption,                    97, E, ApplePayQRCodeEncryption,              , Y, ApplePayQRCodeEncryption)

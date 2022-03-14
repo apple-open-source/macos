@@ -73,6 +73,7 @@
 #import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLPlugInImageElement.h>
 #import <WebCore/HitTestResult.h>
+#import <WebCore/ImageOverlay.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MIMETypeRegistry.h>
 #import <WebCore/NetworkStorageSession.h>
@@ -108,7 +109,7 @@
 namespace WebKit {
 using namespace WebCore;
 
-void WebPage::platformInitialize()
+void WebPage::platformInitializeAccessibility()
 {
     auto mockAccessibilityElement = adoptNS([[WKAccessibilityWebPageObject alloc] init]);
 
@@ -320,14 +321,6 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
     return eventWasHandled;
 }
 
-void WebPage::sendComplexTextInputToPlugin(uint64_t pluginComplexTextInputIdentifier, const String& textInput)
-{
-    for (auto* pluginView : m_pluginViews) {
-        if (pluginView->sendComplexTextInput(pluginComplexTextInputIdentifier, textInput))
-            break;
-    }
-}
-
 void WebPage::attributedSubstringForCharacterRangeAsync(const EditingRange& editingRange, CompletionHandler<void(const WebCore::AttributedString&, const EditingRange&)>&& completionHandler)
 {
     Frame& frame = m_page->focusController().focusedOrMainFrame();
@@ -467,27 +460,27 @@ bool WebPage::performNonEditingBehaviorForSelector(const String& selector, Keybo
     
     if (!frame->settings().eventHandlerDrivenSmoothKeyboardScrollingEnabled()) {
         if (selector == "moveUp:")
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Line);
         else if (selector == "moveToBeginningOfParagraph:")
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Page);
         else if (selector == "moveToBeginningOfDocument:") {
-            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollByDocument);
-            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollByDocument);
+            didPerformAction = scroll(m_page.get(), ScrollUp, ScrollGranularity::Document);
+            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveDown:")
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Line);
         else if (selector == "moveToEndOfParagraph:")
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Page);
         else if (selector == "moveToEndOfDocument:") {
-            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollByDocument);
-            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollByDocument);
+            didPerformAction = scroll(m_page.get(), ScrollDown, ScrollGranularity::Document);
+            didPerformAction |= scroll(m_page.get(), ScrollLeft, ScrollGranularity::Document);
         } else if (selector == "moveLeft:")
-            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollGranularity::Line);
         else if (selector == "moveWordLeft:")
-            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollLeft, ScrollGranularity::Page);
         else if (selector == "moveRight:")
-            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollByLine);
+            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollGranularity::Line);
         else if (selector == "moveWordRight:")
-            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollByPage);
+            didPerformAction = scroll(m_page.get(), ScrollRight, ScrollGranularity::Page);
     }
 
     if (selector == "moveToLeftEndOfLine:")
@@ -508,7 +501,7 @@ static String& replaceSelectionPasteboardName()
 void WebPage::replaceSelectionWithPasteboardData(const Vector<String>& types, const IPC::DataReference& data)
 {
     for (auto& type : types)
-        WebPasteboardOverrides::sharedPasteboardOverrides().addOverride(replaceSelectionPasteboardName(), type, data.vector());
+        WebPasteboardOverrides::sharedPasteboardOverrides().addOverride(replaceSelectionPasteboardName(), type, { data });
 
     readSelectionFromPasteboard(replaceSelectionPasteboardName(), [](bool) { });
 
@@ -565,15 +558,15 @@ void WebPage::getDataSelectionForPasteboard(const String pasteboardType, Complet
     if (frame.selection().isNone())
         return completionHandler({ });
 
-    RefPtr<SharedBuffer> buffer = frame.editor().dataSelectionForPasteboard(pasteboardType);
+    auto buffer = frame.editor().dataSelectionForPasteboard(pasteboardType);
     if (!buffer)
         return completionHandler({ });
-    uint64_t size = buffer->size();
-    RefPtr<SharedMemory> sharedMemoryBuffer = SharedMemory::allocate(size);
-    memcpy(sharedMemoryBuffer->data(), buffer->data(), size);
+    auto sharedMemoryBuffer = SharedMemory::copyBuffer(*buffer);
+    if (!sharedMemoryBuffer)
+        return completionHandler({ });
     SharedMemory::Handle handle;
     sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
-    completionHandler(SharedMemory::IPCHandle { WTFMove(handle), size });
+    completionHandler(SharedMemory::IPCHandle { WTFMove(handle), buffer->size() });
 }
 
 WKAccessibilityWebPageObject* WebPage::accessibilityRemoteObject()
@@ -800,9 +793,9 @@ WebCore::WebGLLoadPolicy WebPage::resolveWebGLPolicyForURL(WebFrame*, const URL&
 #endif // ENABLE(WEBGL)
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
-void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& point)
+void WebPage::handleTelephoneNumberClick(const String& number, const IntPoint& point, const IntRect& rect)
 {
-    send(Messages::WebPageProxy::ShowTelephoneNumberMenu(number, point));
+    send(Messages::WebPageProxy::ShowTelephoneNumberMenu(number, point, rect));
 }
 #endif
 
@@ -825,6 +818,11 @@ void WebPage::handleSelectionServiceClick(FrameSelection& selection, const Vecto
 
     flushPendingEditorStateUpdate();
     send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, selectionDataVector, phoneNumbers, selection.selection().isContentEditable()), UserData()));
+}
+
+void WebPage::handleImageServiceClick(const IntPoint& point, Image& image, bool isEditable, const IntRect& imageRect, const String& attachmentID)
+{
+    send(Messages::WebPageProxy::ShowContextMenu(ContextMenuContextData(point, image, isEditable, imageRect, attachmentID), UserData()));
 }
 
 #endif
@@ -885,13 +883,13 @@ void WebPage::performImmediateActionHitTestAtLocation(WebCore::FloatPoint locati
 
     auto indicatorOptions = [&](const SimpleRange& range) {
         OptionSet<TextIndicatorOption> options { TextIndicatorOption::UseBoundingRectAndPaintAllContentForComplexRanges };
-        if (HTMLElement::isInsideImageOverlay(range))
+        if (ImageOverlay::isInsideOverlay(range))
             options.add({ TextIndicatorOption::PaintAllContent, TextIndicatorOption::PaintBackgrounds });
         return options;
     };
 
     URL absoluteLinkURL = hitTestResult.absoluteLinkURL();
-    if (auto urlElement = makeRefPtr(hitTestResult.URLElement()); !absoluteLinkURL.isEmpty() && urlElement) {
+    if (auto urlElement = RefPtr { hitTestResult.URLElement() }; !absoluteLinkURL.isEmpty() && urlElement) {
         auto elementRange = makeRangeSelectingNodeContents(*urlElement);
         immediateActionResult.linkTextIndicator = TextIndicator::createWithRange(elementRange, indicatorOptions(elementRange), TextIndicatorPresentationTransition::FadeIn);
     }
@@ -1103,7 +1101,7 @@ bool WebPage::shouldAvoidComputingPostLayoutDataForEditorState() const
 
 void WebPage::setAccentColor(WebCore::Color color)
 {
-    [NSApp _setAccentColor:color.isValid() ? WebCore::nsColor(color).get() : nil];
+    [NSApp _setAccentColor:cocoaColorOrNil(color).get()];
 }
 
 #endif // HAVE(APP_ACCENT_COLORS)
@@ -1144,7 +1142,7 @@ void WebPage::openPDFWithPreview(PDFPluginIdentifier identifier, CompletionHandl
 
 void WebPage::createPDFHUD(PDFPlugin& plugin, const IntRect& boundingBox)
 {
-    auto addResult = m_pdfPlugInsWithHUD.add(plugin.identifier(), makeWeakPtr(plugin));
+    auto addResult = m_pdfPlugInsWithHUD.add(plugin.identifier(), plugin);
     if (addResult.isNewEntry)
         send(Messages::WebPageProxy::CreatePDFHUD(plugin.identifier(), boundingBox));
 }

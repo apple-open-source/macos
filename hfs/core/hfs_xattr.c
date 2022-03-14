@@ -555,13 +555,14 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 	/* Initialize the B-Tree iterator for searching for the proper EA */
 	btfile = VTOF(hfsmp->hfs_attribute_vp);
 	
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	/* Allocate memory for reading in the attribute record.  This buffer is 
 	 * big enough to read in all types of attribute records.  It is not big 
 	 * enough to read inline attribute data which is read in later.
 	 */
-	recp = hfs_malloc(recp_size = sizeof(HFSPlusAttrRecord));
+	recp_size = sizeof(HFSPlusAttrRecord);
+	recp = hfs_malloc_data(recp_size);
 	btdata.bufferAddress = recp;
 	btdata.itemSize = sizeof(HFSPlusAttrRecord);
 	btdata.itemCount = 1;
@@ -614,8 +615,9 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 					 * both attribute record and data, and read the attribute record again. 
 					 */
 					bufsize = sizeof(HFSPlusAttrData) - 2 + recp->attrData.attrSize;
-					hfs_free(recp, recp_size);
-					recp = hfs_malloc(recp_size = bufsize);
+					hfs_free_data(recp, recp_size);
+					recp_size = bufsize;
+					recp = hfs_malloc_data(recp_size);
 
 					btdata.bufferAddress = recp;
 					btdata.itemSize = bufsize;
@@ -682,7 +684,7 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 				/* Get a buffer to hold the worst case amount of extents. */
 				extentbufsize = totalblocks * sizeof(HFSPlusExtentDescriptor);
 				extentbufsize = roundup(extentbufsize, sizeof(HFSPlusExtentRecord));
-				extentbuf = hfs_mallocz(extentbufsize);
+				extentbuf = hfs_malloc_zero_data(extentbufsize);
 				extentptr = extentbuf;
 				
 				/* Grab the first 8 extents. */
@@ -717,7 +719,7 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 				} else {
 					result = read_attr_data(hfsmp, uio, attrlen, extentbuf);
 				}
-				hfs_free(extentbuf, extentbufsize);
+				hfs_free_data(extentbuf, extentbufsize);
 				
 			} else { /* No overflow extents. */
 				result = read_attr_data(hfsmp, uio, recp->forkData.theFork.logicalSize, recp->forkData.theFork.extents);
@@ -732,8 +734,8 @@ int hfs_getxattr_internal (struct cnode *cp, struct vnop_getxattr_args *ap,
 	}
 	
 exit:	
-	hfs_free(iterator, sizeof(*iterator));
-	hfs_free(recp, recp_size);
+	hfs_free_type(iterator, struct BTreeIterator);
+	hfs_free_data(recp, recp_size);
 	
 	return result;
 	
@@ -1006,7 +1008,7 @@ hfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 	if (attrsize > 0 &&
 	    hfsmp->hfs_max_inline_attrsize != 0 &&
 	    attrsize < hfsmp->hfs_max_inline_attrsize) {
-		user_data_ptr = hfs_malloc(attrsize);
+		user_data_ptr = hfs_malloc_data(attrsize);
 
 		result = uiomove((caddr_t)user_data_ptr, attrsize, uio);
 		if (result) {
@@ -1031,7 +1033,7 @@ hfs_vnop_setxattr(struct vnop_setxattr_args *ap)
 		hfs_unlock(cp);
 	}
 	if (user_data_ptr) {
-		hfs_free(user_data_ptr, attrsize);
+		hfs_free_data(user_data_ptr, attrsize);
 	}
 
 	return (result == btNotFound ? ENOATTR : MacToVFSError(result));
@@ -1124,7 +1126,7 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 	lockflags = hfs_systemfile_lock(hfsmp, SFL_ATTRIBUTE, HFS_EXCLUSIVE_LOCK);
 
 	/* Build the b-tree key. */
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 	result = hfs_buildattrkey(target_id, ap->a_name, (HFSPlusAttrKey *)&iterator->key);
 	if (result) {
 		goto exit;
@@ -1169,7 +1171,7 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 		blkcnt = howmany(attrsize, hfsmp->blockSize);
 		extentbufsize = blkcnt * sizeof(HFSPlusExtentDescriptor);
 		extentbufsize = roundup(extentbufsize, sizeof(HFSPlusExtentRecord));
-		extentptr = hfs_mallocz(extentbufsize);
+		extentptr = hfs_malloc_zero_data(extentbufsize);
 		result = alloc_attr_blks(hfsmp, attrsize, extentbufsize, extentptr, &allocatedblks);
 		if (result) {
 			allocatedblks = 0;
@@ -1203,7 +1205,8 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 			}
 		}
 		/* Create attribute fork data record. */
-		recp = hfs_malloc(recp_size = sizeof(HFSPlusAttrRecord));
+		recp_size = sizeof(HFSPlusAttrRecord);
+		recp = hfs_malloc_data(recp_size);
 
 		btdata.bufferAddress = recp;
 		btdata.itemCount = 1;
@@ -1260,7 +1263,8 @@ int hfs_setxattr_internal (struct cnode *cp, const void *data_ptr, size_t attrsi
 		
 		/* Calculate size of record rounded up to multiple of 2 bytes. */
 		btdata.itemSize = sizeof(HFSPlusAttrData) - 2 + attrsize + ((attrsize & 1) ? 1 : 0);
-		recp = hfs_malloc(recp_size = btdata.itemSize);
+		recp_size = btdata.itemSize;
+		recp = hfs_malloc_data(recp_size);
 
 		recp->recordType = kHFSPlusAttrInlineData;
 		recp->attrData.reserved[0] = 0;
@@ -1322,9 +1326,9 @@ exit:
 		hfs_end_transaction(hfsmp);
 	}
 	
-	hfs_free(recp, recp_size);
-	hfs_free(extentptr, extentbufsize);
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_data(recp, recp_size);
+	hfs_free_data(extentptr, extentbufsize);
+	hfs_free_type(iterator, struct BTreeIterator);
 	
 	return result;	
 }
@@ -1516,7 +1520,7 @@ hfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 		return (ENOATTR);
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	if ((result = hfs_lock(cp, HFS_EXCLUSIVE_LOCK, HFS_LOCK_DEFAULT))) {
 		goto exit_nolock;
@@ -1566,7 +1570,7 @@ hfs_vnop_removexattr(struct vnop_removexattr_args *ap)
 exit:
 	hfs_unlock(cp);
 exit_nolock:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	return MacToVFSError(result);
 }
 
@@ -1652,7 +1656,7 @@ file_attribute_exist(struct hfsmount *hfsmp, uint32_t fileID)
 	    return false;
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	key = (HFSPlusAttrKey *)&iterator->key;
 
@@ -1678,7 +1682,7 @@ file_attribute_exist(struct hfsmount *hfsmp, uint32_t fileID)
 	}
 
 out:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	return result;
 }
 
@@ -1883,7 +1887,7 @@ hfs_vnop_listxattr(struct vnop_listxattr_args *ap)
 	}
 	btfile = VTOF(hfsmp->hfs_attribute_vp);
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	result = hfs_buildattrkey(cp->c_fileid, NULL, (HFSPlusAttrKey *)&iterator->key);
 	if (result)
@@ -1937,7 +1941,7 @@ exit:
 	if (user_start) {
 		vsunlock(user_start, user_len, TRUE);
 	}
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	hfs_unlock(cp);
 	hfs_unlock_truncate(cp, HFS_LOCK_DEFAULT);
 	
@@ -2032,7 +2036,7 @@ hfs_removeallattr(struct hfsmount *hfsmp, u_int32_t fileid,
 
 	btfile = VTOF(hfsmp->hfs_attribute_vp);
 
-	iterator = hfs_mallocz(sizeof(BTreeIterator));
+	iterator = hfs_malloc_type(BTreeIterator);
 
 	key = (HFSPlusAttrKey *)&iterator->key;
 
@@ -2073,7 +2077,7 @@ hfs_removeallattr(struct hfsmount *hfsmp, u_int32_t fileid,
 	} while (!result);
 
 exit:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, BTreeIterator);
 
 	if (lockflags)
 		hfs_systemfile_unlock(hfsmp, lockflags);
@@ -2132,7 +2136,7 @@ hfs_set_volxattr(struct hfsmount *hfsmp, unsigned int xattrtype, int state)
 		}
 	}
 
-	iterator = hfs_mallocz(sizeof(*iterator));
+	iterator = hfs_malloc_type(struct BTreeIterator);
 
 	/*
 	 * Build a b-tree key.
@@ -2193,7 +2197,7 @@ hfs_set_volxattr(struct hfsmount *hfsmp, unsigned int xattrtype, int state)
 	hfs_unlock_mount (hfsmp);
 
 exit:
-	hfs_free(iterator, sizeof(*iterator));
+	hfs_free_type(iterator, struct BTreeIterator);
 	return MacToVFSError(result);
 }
 

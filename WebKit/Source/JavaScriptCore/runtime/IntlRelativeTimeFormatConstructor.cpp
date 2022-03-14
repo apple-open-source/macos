@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2020 Sony Interactive Entertainment Inc.
+ * Copyright (C) 2021 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,7 +36,7 @@ namespace JSC {
 
 STATIC_ASSERT_IS_TRIVIALLY_DESTRUCTIBLE(IntlRelativeTimeFormatConstructor);
 
-static JSC_DECLARE_HOST_FUNCTION(IntlRelativeTimeFormatConstructorFuncSupportedLocalesOf);
+static JSC_DECLARE_HOST_FUNCTION(intlRelativeTimeFormatConstructorFuncSupportedLocalesOf);
 
 }
 
@@ -47,13 +48,13 @@ const ClassInfo IntlRelativeTimeFormatConstructor::s_info = { "Function", &Inter
 
 /* Source for IntlRelativeTimeFormatConstructor.lut.h
 @begin relativeTimeFormatConstructorTable
-  supportedLocalesOf             IntlRelativeTimeFormatConstructorFuncSupportedLocalesOf             DontEnum|Function 1
+  supportedLocalesOf             intlRelativeTimeFormatConstructorFuncSupportedLocalesOf             DontEnum|Function 1
 @end
 */
 
 IntlRelativeTimeFormatConstructor* IntlRelativeTimeFormatConstructor::create(VM& vm, Structure* structure, IntlRelativeTimeFormatPrototype* relativeTimeFormatPrototype)
 {
-    auto* constructor = new (NotNull, allocateCell<IntlRelativeTimeFormatConstructor>(vm.heap)) IntlRelativeTimeFormatConstructor(vm, structure);
+    auto* constructor = new (NotNull, allocateCell<IntlRelativeTimeFormatConstructor>(vm)) IntlRelativeTimeFormatConstructor(vm, structure);
     constructor->finishCreation(vm, relativeTimeFormatPrototype);
     return constructor;
 }
@@ -106,7 +107,7 @@ JSC_DEFINE_HOST_FUNCTION(callIntlRelativeTimeFormat, (JSGlobalObject* globalObje
 }
 
 // https://tc39.es/ecma402/#sec-Intl.RelativeTimeFormat.supportedLocalesOf
-JSC_DEFINE_HOST_FUNCTION(IntlRelativeTimeFormatConstructorFuncSupportedLocalesOf, (JSGlobalObject* globalObject, CallFrame* callFrame))
+JSC_DEFINE_HOST_FUNCTION(intlRelativeTimeFormatConstructorFuncSupportedLocalesOf, (JSGlobalObject* globalObject, CallFrame* callFrame))
 {
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);

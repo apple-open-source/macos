@@ -20,6 +20,16 @@ es_PA{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMdd",
+                "GGGGGyyMMdd",
+            }
             availableFormats{
                 Bh{"h B"}
                 Bhm{"h:mm B"}
@@ -98,7 +108,17 @@ es_PA{
                 "{1}, {0}",
                 "{1}, {0}",
                 "{1} {0}",
-                "{1} {0}",
+                "{1}, {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMdd",
+                "yyMMdd",
             }
             availableFormats{
                 Bh{"h B"}
@@ -125,8 +145,6 @@ es_PA{
                 ms{"mm:ss"}
                 yM{"MM/y"}
                 yMEd{"E MM/dd/y"}
-                yMMM{"MMM y"}
-                yMMMd{"d MMM y"}
                 yMd{"MM/dd/y"}
             }
             dayPeriod{

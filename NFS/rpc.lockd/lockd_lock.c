@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 /*	$NetBSD: lockd_lock.c,v 1.5 2000/11/21 03:47:41 enami Exp $	*/
@@ -91,7 +91,7 @@
 #define MAXOBJECTSIZE 64
 #define MAXBUFFERSIZE 1024
 
-#define AOK	(void *)	// assert alignment is OK
+#define AOK     (void *)        // assert alignment is OK
 
 /*
  * A set of utilities for managing file locking
@@ -111,7 +111,7 @@ struct file_lock {
 	int status; /* lock status, see below */
 	int flags; /* lock flags, see lockd_lock.h */
 	int blocking; /* blocking lock or not */
-	char client_name[SM_MAXSTRLEN];	/* client_name is really variable length and must be last! */
+	char client_name[SM_MAXSTRLEN]; /* client_name is really variable length and must be last! */
 };
 
 LIST_HEAD(nfslocklist_head, file_lock);
@@ -142,11 +142,11 @@ LIST_HEAD(nfssharefilelist_head, sharefile);
 struct nfssharefilelist_head nfssharefilelist_head = LIST_HEAD_INITIALIZER(nfssharefilelist_head);
 
 /* lock status */
-#define LKST_LOCKED	1 /* lock is locked */
+#define LKST_LOCKED     1 /* lock is locked */
 /* XXX: Is this flag file specific or lock specific? */
-#define LKST_WAITING	2 /* file is already locked by another host */
-#define LKST_PROCESSING	3 /* child is trying to aquire the lock */
-#define LKST_DYING	4 /* must dies when we get news from the child */
+#define LKST_WAITING    2 /* file is already locked by another host */
+#define LKST_PROCESSING 3 /* child is trying to aquire the lock */
+#define LKST_DYING      4 /* must dies when we get news from the child */
 
 /* struct describing a monitored host */
 struct host {
@@ -154,8 +154,8 @@ struct host {
 	int refcnt;
 	time_t lastuse;
 	struct sockaddr_storage addr;
-	char *name;	/* host name provided by client via caller_name */
-	char *revname;	/* host name mapped from addr */
+	char *name;     /* host name provided by client via caller_name */
+	char *revname;  /* host name mapped from addr */
 };
 /* list of hosts we monitor */
 TAILQ_HEAD(hostlst_head, host);
@@ -187,17 +187,17 @@ struct monfilelist_head monfilelist_head = LIST_HEAD_INITIALIZER(monfilelist_hea
 static int debugdelay = 0;
 
 enum nfslock_status { NFS_GRANTED = 0, NFS_GRANTED_DUPLICATE,
-		      NFS_DENIED, NFS_DENIED_NOLOCK,
-		      NFS_RESERR };
+	              NFS_DENIED, NFS_DENIED_NOLOCK,
+	              NFS_RESERR };
 
 enum hwlock_status { HW_GRANTED = 0, HW_GRANTED_DUPLICATE,
-		     HW_DENIED, HW_DENIED_NOLOCK, 
-		     HW_STALEFH, HW_READONLY, HW_RESERR };
+	             HW_DENIED, HW_DENIED_NOLOCK,
+	             HW_STALEFH, HW_READONLY, HW_RESERR };
 
 enum partialfilelock_status { PFL_GRANTED=0, PFL_GRANTED_DUPLICATE, PFL_DENIED,
-			      PFL_NFSDENIED, PFL_NFSBLOCKED, PFL_NFSDENIED_NOLOCK, PFL_NFSRESERR, 
-			      PFL_HWDENIED,  PFL_HWBLOCKED,  PFL_HWDENIED_NOLOCK, PFL_HWRESERR,
-			      PFL_HWDENIED_STALEFH, PFL_HWDENIED_READONLY };
+	                      PFL_NFSDENIED, PFL_NFSBLOCKED, PFL_NFSDENIED_NOLOCK, PFL_NFSRESERR,
+	                      PFL_HWDENIED, PFL_HWBLOCKED, PFL_HWDENIED_NOLOCK, PFL_HWRESERR,
+	                      PFL_HWDENIED_STALEFH, PFL_HWDENIED_READONLY };
 
 enum LFLAGS {LEDGE_LEFT, LEDGE_LBOUNDARY, LEDGE_INSIDE, LEDGE_RBOUNDARY, LEDGE_RIGHT};
 enum RFLAGS {REDGE_LEFT, REDGE_LBOUNDARY, REDGE_INSIDE, REDGE_RBOUNDARY, REDGE_RIGHT};
@@ -212,59 +212,59 @@ void sigunlock(void);
 void destroy_lock_host(struct host *ihp);
 static void monitor_lock_host(const char *hostname, const struct sockaddr *addr);
 
-void	copy_nlm4_lock_to_nlm4_holder(const struct nlm4_lock *src,
+void    copy_nlm4_lock_to_nlm4_holder(const struct nlm4_lock *src,
     const bool_t exclusive, struct nlm4_holder *dest);
-struct file_lock *	allocate_file_lock(const netobj *lockowner,
+struct file_lock *      allocate_file_lock(const netobj *lockowner,
     const netobj *filehandle, const struct sockaddr *addr,
     const char *caller_name);
-void	deallocate_file_lock(struct file_lock *fl);
-void	fill_file_lock(struct file_lock *fl,
+void    deallocate_file_lock(struct file_lock *fl);
+void    fill_file_lock(struct file_lock *fl,
     const bool_t exclusive, const int32_t svid,
     const u_int64_t offset, const u_int64_t len,
     const int state, const int status, const int flags, const int blocking);
-int	regions_overlap(const u_int64_t start1, const u_int64_t len1,
+int     regions_overlap(const u_int64_t start1, const u_int64_t len1,
     const u_int64_t start2, const u_int64_t len2);;
 enum split_status  region_compare(const u_int64_t starte, const u_int64_t lene,
     const u_int64_t startu, const u_int64_t lenu,
     u_int64_t *start1, u_int64_t *len1, u_int64_t *start2, u_int64_t *len2);
-int	same_netobj(const netobj *n0, const netobj *n1);
-int	same_filelock_identity(const struct file_lock *fl0,
+int     same_netobj(const netobj *n0, const netobj *n1);
+int     same_filelock_identity(const struct file_lock *fl0,
     const struct file_lock *fl2);
 
 static void debuglog(char const *fmt, ...);
 void dump_static_object(const unsigned char* object, const int sizeof_object,
-                        unsigned char* hbuff, const int sizeof_hbuff,
-                        unsigned char* cbuff, const int sizeof_cbuff);
+    unsigned char* hbuff, const int sizeof_hbuff,
+    unsigned char* cbuff, const int sizeof_cbuff);
 void dump_netobj(const struct netobj *nobj);
 void dump_filelock(const struct file_lock *fl);
-struct file_lock *	get_lock_matching_unlock(const struct file_lock *fl, int cleanup);
-enum nfslock_status	test_nfslock(const struct file_lock *fl,
+struct file_lock *      get_lock_matching_unlock(const struct file_lock *fl, int cleanup);
+enum nfslock_status     test_nfslock(const struct file_lock *fl,
     struct file_lock **conflicting_fl);
-enum nfslock_status	lock_nfslock(struct file_lock *fl);
-enum nfslock_status	delete_nfslock(struct file_lock *fl);
-enum nfslock_status	unlock_nfslock(const struct file_lock *fl,
+enum nfslock_status     lock_nfslock(struct file_lock *fl);
+enum nfslock_status     delete_nfslock(struct file_lock *fl);
+enum nfslock_status     unlock_nfslock(const struct file_lock *fl,
     struct file_lock **released_lock, struct file_lock **left_lock,
     struct file_lock **right_lock, int cleanup);
 enum hwlock_status lock_hwlock(struct file_lock *fl);
 enum split_status split_nfslock(const struct file_lock *exist_lock,
     const struct file_lock *unlock_lock, struct file_lock **left_lock,
     struct file_lock **right_lock);
-void	add_blockingfilelock(struct file_lock *fl);
-enum hwlock_status	unlock_hwlock(const struct file_lock *fl);
-enum hwlock_status	test_hwlock(const struct file_lock *fl,
-    struct file_lock **conflicting_fl); 
-void	remove_blockingfilelock(struct file_lock *fl);
-void	clear_blockingfilelock(const char *hostname);
-void	retry_blockingfilelocklist(netobj *fh);
-enum partialfilelock_status	unlock_partialfilelock(
-    const struct file_lock *fl, int cleanup);
-void	clear_partialfilelock(const char *hostname);
-enum partialfilelock_status	test_partialfilelock(
-    const struct file_lock *fl, struct file_lock **conflicting_fl);
-enum nlm4_stats	do_test(struct file_lock *fl, struct file_lock **conflicting_fl);
-enum nlm4_stats	do_unlock(struct file_lock *fl);
-enum nlm4_stats	do_lock(struct file_lock *fl);
-void	do_clear(const char *hostname);
+void    add_blockingfilelock(struct file_lock *fl);
+enum hwlock_status      unlock_hwlock(const struct file_lock *fl);
+enum hwlock_status      test_hwlock(const struct file_lock *fl,
+    struct file_lock **conflicting_fl);
+void    remove_blockingfilelock(struct file_lock *fl);
+void    clear_blockingfilelock(const char *hostname);
+void    retry_blockingfilelocklist(netobj *fh);
+enum partialfilelock_status     unlock_partialfilelock(
+	const struct file_lock *fl, int cleanup);
+void    clear_partialfilelock(const char *hostname);
+enum partialfilelock_status     test_partialfilelock(
+	const struct file_lock *fl, struct file_lock **conflicting_fl);
+enum nlm4_stats do_test(struct file_lock *fl, struct file_lock **conflicting_fl);
+enum nlm4_stats do_unlock(struct file_lock *fl);
+enum nlm4_stats do_lock(struct file_lock *fl);
+void    do_clear(const char *hostname);
 
 
 #pragma clang diagnostic push
@@ -289,13 +289,13 @@ debuglog(char const *fmt, ...)
 
 void
 dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
-	const unsigned char *object;
-	const int size_object;
-	unsigned char *hbuff;
-	const int size_hbuff;
-	unsigned char *cbuff;
-	const int size_cbuff;
-{ 
+const unsigned char *object;
+const int size_object;
+unsigned char *hbuff;
+const int size_hbuff;
+unsigned char *cbuff;
+const int size_cbuff;
+{
 	int i, objectsize;
 	char *tmp = (char*)hbuff;
 
@@ -313,33 +313,33 @@ dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
 			    "to size %d\n", objectsize, MAXOBJECTSIZE);
 			objectsize = MAXOBJECTSIZE;
 		}
-		
+
 		if (hbuff != NULL) {
-			if (size_hbuff < objectsize*2+1) {
+			if (size_hbuff < objectsize * 2 + 1) {
 				debuglog("Hbuff not large enough."
 				    "  Increase size\n");
 			} else {
-				for(i=0;i<objectsize;i++,tmp+=2) {
-					snprintf(tmp, size_hbuff - (2*i), "%02X", *(object+i));
+				for (i = 0; i < objectsize; i++, tmp += 2) {
+					snprintf(tmp, size_hbuff - (2 * i), "%02X", *(object + i));
 				}
 				*tmp = '\0';
 			}
 		}
-		
+
 		if (cbuff != NULL) {
-			if (size_cbuff < objectsize+1) {
+			if (size_cbuff < objectsize + 1) {
 				debuglog("Cbuff not large enough."
 				    "  Increase Size\n");
 			}
-			
-			for(i=0;i<objectsize;i++) {
-				if (*(object+i) >= 32 && *(object+i) <= 127) {
-					*(cbuff+i) = *(object+i);
+
+			for (i = 0; i < objectsize; i++) {
+				if (*(object + i) >= 32 && *(object + i) <= 127) {
+					*(cbuff + i) = *(object + i);
 				} else {
-					*(cbuff+i) = '.';
+					*(cbuff + i) = '.';
 				}
 			}
-			*(cbuff+i) = '\0';
+			*(cbuff + i) = '\0';
 		}
 	}
 }
@@ -347,7 +347,7 @@ dump_static_object(object, size_object, hbuff, size_hbuff, cbuff, size_cbuff)
 void
 dump_netobj(const struct netobj *nobj)
 {
-	char hbuff[MAXBUFFERSIZE*2];
+	char hbuff[MAXBUFFERSIZE * 2];
 	char cbuff[MAXBUFFERSIZE];
 
 	if (config.verbose < 2) {
@@ -356,8 +356,7 @@ dump_netobj(const struct netobj *nobj)
 
 	if (nobj == NULL) {
 		debuglog("Null netobj pointer\n");
-	}
-	else if (nobj->n_len == 0) {
+	} else if (nobj->n_len == 0) {
 		debuglog("Size zero netobj\n");
 	} else {
 		dump_static_object((const unsigned char *)nobj->n_bytes, nobj->n_len,
@@ -372,7 +371,7 @@ void
 dump_filelock(const struct file_lock *fl)
 {
 #ifdef DUMP_FILELOCK_VERBOSE
-	char hbuff[MAXBUFFERSIZE*2];
+	char hbuff[MAXBUFFERSIZE * 2];
 	char cbuff[MAXBUFFERSIZE];
 #endif
 
@@ -389,7 +388,7 @@ dump_filelock(const struct file_lock *fl)
 		    cbuff, sizeof(cbuff));
 		debuglog("Filehandle: %8s  :::  %8s\n", hbuff, cbuff);
 #endif
-		
+
 		debuglog("Dumping nlm4_holder:\n"
 		    "exc: %x  svid: %x  offset:len %llx:%llx\n",
 		    fl->client.exclusive, fl->client.svid,
@@ -398,7 +397,7 @@ dump_filelock(const struct file_lock *fl)
 #ifdef DUMP_FILELOCK_VERBOSE
 		debuglog("Dumping client identity:\n");
 		dump_netobj(&fl->client.oh);
-		
+
 		debuglog("nsm: %d  status: %d  flags: %d  locker: %d"
 		    "  fd:  %d\n", fl->nsm_status, fl->status,
 		    fl->flags, fl->locker, fl->fd);
@@ -410,11 +409,10 @@ dump_filelock(const struct file_lock *fl)
 
 void
 copy_nlm4_lock_to_nlm4_holder(src, exclusive, dest)
-	const struct nlm4_lock *src;
-	const bool_t exclusive;
-	struct nlm4_holder *dest;
+const struct nlm4_lock *src;
+const bool_t exclusive;
+struct nlm4_holder *dest;
 {
-
 	dest->exclusive = exclusive;
 	dest->oh.n_len = src->oh.n_len;
 	dest->oh.n_bytes = src->oh.n_bytes;
@@ -430,7 +428,7 @@ copy_nlm4_lock_to_nlm4_holder(src, exclusive, dest)
 
 struct file_lock *
 allocate_file_lock(const netobj *lockowner, const netobj *filehandle,
-		   const struct sockaddr *addr, const char *caller_name)
+    const struct sockaddr *addr, const char *caller_name)
 {
 	struct file_lock *newfl;
 	size_t n;
@@ -515,18 +513,18 @@ deallocate_file_lock(struct file_lock *fl)
  */
 int
 regions_overlap(start1, len1, start2, len2)
-	const u_int64_t start1, len1, start2, len2;
+const u_int64_t start1, len1, start2, len2;
 {
-	u_int64_t d1,d2,d3,d4;
+	u_int64_t d1, d2, d3, d4;
 	enum split_status result;
 
 	debuglog("Entering region overlap with vals: %llu:%llu--%llu:%llu\n",
-		 start1, len1, start2, len2);
+	    start1, len1, start2, len2);
 
 	result = region_compare(start1, len1, start2, len2,
 	    &d1, &d2, &d3, &d4);
 
-	debuglog("Exiting region overlap with val: %d\n",result);
+	debuglog("Exiting region overlap with val: %d\n", result);
 
 	if (result == SPL_DISJOINT) {
 		return 0;
@@ -534,21 +532,21 @@ regions_overlap(start1, len1, start2, len2)
 		return 1;
 	}
 
-	return (result);
+	return result;
 }
 
 /*
  * region_compare(): Examine lock regions and split appropriately
  *
  * XXX: Fix 64 bit overflow problems
- * XXX: Check to make sure I got *ALL* the cases. 
+ * XXX: Check to make sure I got *ALL* the cases.
  * XXX: This DESPERATELY needs a regression test.
  */
 enum split_status
 region_compare(starte, lene, startu, lenu,
     start1, len1, start2, len2)
-	const u_int64_t starte, lene, startu, lenu;
-	u_int64_t *start1, *len1, *start2, *len2;
+const u_int64_t starte, lene, startu, lenu;
+u_int64_t *start1, *len1, *start2, *len2;
 {
 	/*
 	 * Please pay attention to the sequential exclusions
@@ -615,7 +613,7 @@ region_compare(starte, lene, startu, lenu,
 
 		if (rflags == REDGE_INSIDE) {
 			/* Create right lock */
-			*start2 = startu+lenu;
+			*start2 = startu + lenu;
 			*len2 = 0;
 			retval |= SPL_LOCK2;
 		}
@@ -647,7 +645,6 @@ region_compare(starte, lene, startu, lenu,
 			retval |= SPL_LOCK1;
 			return retval;
 		}
-
 	} else {
 		/* Both locks are finite */
 
@@ -694,8 +691,8 @@ region_compare(starte, lene, startu, lenu,
 
 		if (rflags == REDGE_INSIDE) {
 			/* Create right lock */
-			*start2 = startu+lenu;
-			*len2 = starte+lene-(startu+lenu);
+			*start2 = startu + lenu;
+			*len2 = starte + lene - (startu + lenu);
 			retval |= SPL_LOCK2;
 		}
 
@@ -725,8 +722,8 @@ same_netobj(const netobj *n0, const netobj *n1)
 		retval = !bcmp(n0->n_bytes, n1->n_bytes, n0->n_len);
 		debuglog("netobj %smatch\n", retval ? "" : "mis");
 	}
-	
-	return (retval);
+
+	return retval;
 }
 
 /*
@@ -734,7 +731,7 @@ same_netobj(const netobj *n0, const netobj *n1)
  */
 int
 same_filelock_identity(fl0, fl1)
-	const struct file_lock *fl0, *fl1;
+const struct file_lock *fl0, *fl1;
 {
 	int retval;
 
@@ -746,9 +743,9 @@ same_filelock_identity(fl0, fl1)
 	retval = (fl0->client.svid == fl1->client.svid &&
 	    same_netobj(&(fl0->client.oh), &(fl1->client.oh)));
 
-	debuglog("Exiting checking filelock identity: retval: %d\n",retval);
+	debuglog("Exiting checking filelock identity: retval: %d\n", retval);
 
-	return (retval);
+	return retval;
 }
 
 /*
@@ -771,14 +768,15 @@ get_lock_matching_unlock(const struct file_lock *fl, int cleanup)
 	dump_filelock(fl);
 
 	LIST_FOREACH(ifl, &nfslocklist_head, nfslocklist) {
-		debuglog("Pointer to file lock: %p\n",ifl);
+		debuglog("Pointer to file lock: %p\n", ifl);
 
 		debuglog("****Dump of ifl****\n");
 		dump_filelock(ifl);
 		debuglog("*******************\n");
 
-		if (cleanup && (ifl == fl))  /* don't match the lock we're cleaning up under */
+		if (cleanup && (ifl == fl)) { /* don't match the lock we're cleaning up under */
 			continue;
+		}
 
 		/*
 		 * XXX: It is conceivable that someone could use the NLM RPC
@@ -786,36 +784,40 @@ get_lock_matching_unlock(const struct file_lock *fl, int cleanup)
 		 * security hazard as the filehandle code may bypass normal
 		 * file access controls
 		 */
-		if (fl->filehandle.n_len != ifl->filehandle.n_len)
+		if (fl->filehandle.n_len != ifl->filehandle.n_len) {
 			continue;
+		}
 		if (bcmp(fl->filehandle.n_bytes, ifl->filehandle.n_bytes,
-			fl->filehandle.n_len))
+		    fl->filehandle.n_len)) {
 			continue;
+		}
 
 		debuglog("matching_unlock: Filehandles match, "
 		    "checking regions\n");
 
 		/* Filehandles match, check for region overlap */
 		if (!regions_overlap(fl->client.l_offset, fl->client.l_len,
-			ifl->client.l_offset, ifl->client.l_len))
+		    ifl->client.l_offset, ifl->client.l_len)) {
 			continue;
-	       
+		}
+
 		debuglog("matching_unlock: Region overlap"
 		    " found %llu : %llu -- %llu : %llu\n",
-		    fl->client.l_offset,fl->client.l_len,
-		    ifl->client.l_offset,ifl->client.l_len);
+		    fl->client.l_offset, fl->client.l_len,
+		    ifl->client.l_offset, ifl->client.l_len);
 
 		/* Regions overlap, check the identity */
-		if (!same_filelock_identity(fl,ifl))
+		if (!same_filelock_identity(fl, ifl)) {
 			continue;
+		}
 
 		debuglog("matching_unlock: Duplicate lock id.  Granting\n");
-		return (ifl);
+		return ifl;
 	}
 
 	debuglog("Exiting lock_matching_unlock\n");
 
-	return (NULL);
+	return NULL;
 }
 
 /*
@@ -851,12 +853,13 @@ test_nfslock(const struct file_lock *fl, struct file_lock **conflicting_fl)
 	debuglog("***********************************\n");
 
 	LIST_FOREACH(ifl, &nfslocklist_head, nfslocklist) {
-		if (retval == NFS_DENIED)
+		if (retval == NFS_DENIED) {
 			break;
+		}
 
 		debuglog("Top of lock loop\n");
-		debuglog("Pointer to file lock: %p\n",ifl);
-		
+		debuglog("Pointer to file lock: %p\n", ifl);
+
 		debuglog("***********************************\n");
 		debuglog("Dumping test filelock\n");
 		debuglog("***********************************\n");
@@ -869,33 +872,37 @@ test_nfslock(const struct file_lock *fl, struct file_lock **conflicting_fl)
 		 * security hazard as the filehandle code may bypass normal
 		 * file access controls
 		 */
-		if (fl->filehandle.n_len != ifl->filehandle.n_len)
+		if (fl->filehandle.n_len != ifl->filehandle.n_len) {
 			continue;
+		}
 		if (bcmp(fl->filehandle.n_bytes, ifl->filehandle.n_bytes,
-			fl->filehandle.n_len))
+		    fl->filehandle.n_len)) {
 			continue;
+		}
 
 		debuglog("test_nfslock: filehandle match found\n");
 
 		/* Filehandles match, check for region overlap */
 		if (!regions_overlap(fl->client.l_offset, fl->client.l_len,
-			ifl->client.l_offset, ifl->client.l_len))
+		    ifl->client.l_offset, ifl->client.l_len)) {
 			continue;
+		}
 
 		debuglog("test_nfslock: Region overlap found"
 		    " %llu : %llu -- %llu : %llu\n",
-		    fl->client.l_offset,fl->client.l_len,
-		    ifl->client.l_offset,ifl->client.l_len);
+		    fl->client.l_offset, fl->client.l_len,
+		    ifl->client.l_offset, ifl->client.l_len);
 
 		/* Regions overlap, check the exclusivity */
-		if (!(fl->client.exclusive || ifl->client.exclusive))
+		if (!(fl->client.exclusive || ifl->client.exclusive)) {
 			continue;
-	       
+		}
+
 		debuglog("test_nfslock: Exclusivity failure: %d %d\n",
 		    fl->client.exclusive,
 		    ifl->client.exclusive);
 
-		if (same_filelock_identity(fl,ifl)) {
+		if (same_filelock_identity(fl, ifl)) {
 			debuglog("test_nfslock: Duplicate id.  Granting\n");
 			(*conflicting_fl) = ifl;
 			retval = NFS_GRANTED_DUPLICATE;
@@ -910,11 +917,11 @@ test_nfslock(const struct file_lock *fl, struct file_lock **conflicting_fl)
 			retval = NFS_DENIED;
 		}
 	}
-	
+
 	debuglog("Dumping file locks\n");
 	debuglog("Exiting test_nfslock\n");
-	
-	return (retval);
+
+	return retval;
 }
 
 /*
@@ -922,7 +929,7 @@ test_nfslock(const struct file_lock *fl, struct file_lock **conflicting_fl)
  *
  * This routine tests whether the lock will be granted and then adds
  * the entry to the lock list if so.
- * 
+ *
  * Argument fl gets modified as its list housekeeping entries get modified
  * upon insertion into the NFS lock list
  *
@@ -945,7 +952,7 @@ lock_nfslock(struct file_lock *fl)
 
 	debuglog("Entering lock_nfslock...\n");
 
-	retval = test_nfslock(fl,&dummy_fl);
+	retval = test_nfslock(fl, &dummy_fl);
 
 	if (retval == NFS_GRANTED || retval == NFS_GRANTED_DUPLICATE) {
 		debuglog("Inserting lock...\n");
@@ -955,7 +962,7 @@ lock_nfslock(struct file_lock *fl)
 
 	debuglog("Exiting lock_nfslock...\n");
 
-	return (retval);
+	return retval;
 }
 
 /*
@@ -972,16 +979,15 @@ lock_nfslock(struct file_lock *fl)
 enum nfslock_status
 delete_nfslock(struct file_lock *fl)
 {
-
 	LIST_REMOVE(fl, nfslocklist);
 
-	return (NFS_GRANTED);
+	return NFS_GRANTED;
 }
 
 enum split_status
 split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
-	const struct file_lock *exist_lock, *unlock_lock;
-	struct file_lock **left_lock, **right_lock;
+const struct file_lock *exist_lock, *unlock_lock;
+struct file_lock **left_lock, **right_lock;
 {
 	u_int64_t start1, len1, start2, len2;
 	enum split_status spstatus;
@@ -1027,11 +1033,11 @@ split_nfslock(exist_lock, unlock_lock, left_lock, right_lock)
 
 enum nfslock_status
 unlock_nfslock(fl, released_lock, left_lock, right_lock, cleanup)
-	const struct file_lock *fl;
-	struct file_lock **released_lock;
-	struct file_lock **left_lock;
-	struct file_lock **right_lock;
-	int cleanup;
+const struct file_lock *fl;
+struct file_lock **released_lock;
+struct file_lock **left_lock;
+struct file_lock **right_lock;
+int cleanup;
 {
 	struct file_lock *mfl; /* Matching file lock */
 	enum nfslock_status retval;
@@ -1053,7 +1059,7 @@ unlock_nfslock(fl, released_lock, left_lock, right_lock, cleanup)
 
 		spstatus = split_nfslock(mfl, fl, left_lock, right_lock);
 
-		debuglog("Split returned %d %p %p %p %p\n",spstatus,mfl,fl,*left_lock,*right_lock);
+		debuglog("Split returned %d %p %p %p %p\n", spstatus, mfl, fl, *left_lock, *right_lock);
 		debuglog("********Split dumps********");
 		dump_filelock(mfl);
 		dump_filelock(fl);
@@ -1104,7 +1110,7 @@ unlock_nfslock(fl, released_lock, left_lock, right_lock, cleanup)
 enum hwlock_status
 lock_hwlock(struct file_lock *fl)
 {
-	struct monfile *imf,*nmf;
+	struct monfile *imf, *nmf;
 	int lflags, flerror;
 	fhandle_t fh;
 
@@ -1112,7 +1118,7 @@ lock_hwlock(struct file_lock *fl)
 	LIST_FOREACH(imf, &monfilelist_head, monfilelist) {
 		if ((fl->filehandle.n_len == imf->filehandle.n_len) &&
 		    (bcmp(fl->filehandle.n_bytes, imf->filehandle.n_bytes,
-			fl->filehandle.n_len) == 0)) {
+		    fl->filehandle.n_len) == 0)) {
 			/* imf is the correct filehandle */
 			break;
 		}
@@ -1125,20 +1131,20 @@ lock_hwlock(struct file_lock *fl)
 	 */
 	if (imf != NULL) {
 		++(imf->refcount);
-		return (HW_GRANTED);
+		return HW_GRANTED;
 	}
 
 	/* No filehandle found, create and go */
 	nmf = malloc(sizeof(struct monfile));
 	if (nmf == NULL) {
 		debuglog("hwlock resource allocation failure\n");
-		return (HW_RESERR);
+		return HW_RESERR;
 	}
 	nmf->filehandle.n_bytes = malloc(fl->filehandle.n_len);
 	if (nmf->filehandle.n_bytes == NULL) {
 		debuglog("hwlock resource allocation failure\n");
 		free(nmf);
-		return (HW_RESERR);
+		return HW_RESERR;
 	}
 
 	if (fl->filehandle.n_len > NFSV3_MAX_FH_SIZE) {
@@ -1146,15 +1152,16 @@ lock_hwlock(struct file_lock *fl)
 		    fl->filehandle.n_len, fl->client_name, strerror(errno));
 		free(nmf->filehandle.n_bytes);
 		free(nmf);
-		return (HW_STALEFH);
+		return HW_STALEFH;
 	}
 	fh.fh_len = fl->filehandle.n_len;
 	bcopy(fl->filehandle.n_bytes, fh.fh_data, fh.fh_len);
 
 	/* O_RDWR may not work if file system is read-only */
 	nmf->fd = fhopen(&fh, O_RDWR);
-	if ((nmf->fd < 0) && (errno == EROFS) && !fl->client.exclusive)
+	if ((nmf->fd < 0) && (errno == EROFS) && !fl->client.exclusive) {
 		nmf->fd = fhopen(&fh, O_RDONLY);
+	}
 	if (nmf->fd < 0) {
 		debuglog("fhopen failed (from %16s): %32s\n",
 		    fl->client_name, strerror(errno));
@@ -1162,11 +1169,11 @@ lock_hwlock(struct file_lock *fl)
 		free(nmf);
 		switch (errno) {
 		case ESTALE:
-			return (HW_STALEFH);
+			return HW_STALEFH;
 		case EROFS:
-			return (HW_READONLY);
+			return HW_READONLY;
 		default:
-			return (HW_RESERR);
+			return HW_RESERR;
 		}
 	}
 
@@ -1189,13 +1196,13 @@ lock_hwlock(struct file_lock *fl)
 		free(nmf);
 		switch (errno) {
 		case EAGAIN:
-			return (HW_DENIED);
+			return HW_DENIED;
 		case ESTALE:
-			return (HW_STALEFH);
+			return HW_STALEFH;
 		case EROFS:
-			return (HW_READONLY);
+			return HW_READONLY;
 		default:
-			return (HW_RESERR);
+			return HW_RESERR;
 			break;
 		}
 	}
@@ -1204,9 +1211,9 @@ lock_hwlock(struct file_lock *fl)
 	LIST_INSERT_HEAD(&monfilelist_head, nmf, monfilelist);
 
 	debuglog("flock succeeded (from %16s)\n", fl->client_name);
-	return (HW_GRANTED);
+	return HW_GRANTED;
 }
-		
+
 enum hwlock_status
 unlock_hwlock(const struct file_lock *fl)
 {
@@ -1219,7 +1226,7 @@ unlock_hwlock(const struct file_lock *fl)
 	LIST_FOREACH(imf, &monfilelist_head, monfilelist) {
 		if ((fl->filehandle.n_len == imf->filehandle.n_len) &&
 		    (bcmp(fl->filehandle.n_bytes, imf->filehandle.n_bytes,
-			fl->filehandle.n_len) == 0)) {
+		    fl->filehandle.n_len) == 0)) {
 			/* imf is the correct filehandle */
 			break;
 		}
@@ -1230,7 +1237,7 @@ unlock_hwlock(const struct file_lock *fl)
 	if (imf == NULL) {
 		/* No lock found */
 		debuglog("Exiting unlock_hwlock (HW_DENIED_NOLOCK)\n");
-		return (HW_DENIED_NOLOCK);
+		return HW_DENIED_NOLOCK;
 	}
 
 	/* Lock found */
@@ -1247,20 +1254,19 @@ unlock_hwlock(const struct file_lock *fl)
 		free(imf);
 	}
 	debuglog("Exiting unlock_hwlock (HW_GRANTED)\n");
-	return (HW_GRANTED);
+	return HW_GRANTED;
 }
 
 enum hwlock_status
 test_hwlock(fl, conflicting_fl)
-	const struct file_lock *fl __unused;
-	struct file_lock **conflicting_fl __unused;
+const struct file_lock *fl __unused;
+struct file_lock **conflicting_fl __unused;
 {
-
 	/*
 	 * XXX: lock tests on hardware are not required until
 	 * true partial file testing is done on the underlying file
 	 */
-	return (HW_RESERR);
+	return HW_RESERR;
 }
 
 
@@ -1284,27 +1290,31 @@ add_blockingfilelock(struct file_lock *fl)
 	 */
 	ifl = LIST_FIRST(&blockedlocklist_head);
 	for (; ifl != NULL; ifl = nfl) {
-		debuglog("Pointer to file lock: %p\n",ifl);
+		debuglog("Pointer to file lock: %p\n", ifl);
 		debuglog("****Dump of ifl****\n");
 		dump_filelock(ifl);
 		debuglog("*******************\n");
 
 		nfl = LIST_NEXT(ifl, nfslocklist);
 
-		if (fl->filehandle.n_len != ifl->filehandle.n_len)
+		if (fl->filehandle.n_len != ifl->filehandle.n_len) {
 			continue;
+		}
 		if (bcmp(fl->filehandle.n_bytes, ifl->filehandle.n_bytes,
-			fl->filehandle.n_len))
+		    fl->filehandle.n_len)) {
 			continue;
+		}
 
 		/* Filehandles match, check region */
 		if ((fl->client.l_offset != ifl->client.l_offset) ||
-		    (fl->client.l_len != ifl->client.l_len))
+		    (fl->client.l_len != ifl->client.l_len)) {
 			continue;
+		}
 
 		/* Regions match, check the identity */
-		if (!same_filelock_identity(fl,ifl))
+		if (!same_filelock_identity(fl, ifl)) {
 			continue;
+		}
 
 		debuglog("add_blockingfilelock: removing duplicate lock request.\n");
 		remove_blockingfilelock(ifl);
@@ -1326,7 +1336,6 @@ add_blockingfilelock(struct file_lock *fl)
 void
 remove_blockingfilelock(struct file_lock *fl)
 {
-
 	debuglog("Entering remove_blockingfilelock\n");
 
 	LIST_REMOVE(fl, nfslocklist);
@@ -1337,7 +1346,7 @@ remove_blockingfilelock(struct file_lock *fl)
 void
 clear_blockingfilelock(const char *hostname)
 {
-	struct file_lock *ifl,*nfl;
+	struct file_lock *ifl, *nfl;
 
 	/*
 	 * Normally, LIST_FOREACH is called for, but since
@@ -1380,7 +1389,7 @@ retry_blockingfilelocklist(netobj *fh)
 
 	pfl = NULL;
 	ifl = LIST_FIRST(&blockedlocklist_head);
-	debuglog("Iterator choice %p\n",ifl);
+	debuglog("Iterator choice %p\n", ifl);
 
 	while (ifl != NULL) {
 		/*
@@ -1388,9 +1397,9 @@ retry_blockingfilelocklist(netobj *fh)
 		 * current element has been moved
 		 */
 		nfl = LIST_NEXT(ifl, nfslocklist);
-		debuglog("Iterator choice %p\n",ifl);
-		debuglog("Prev iterator choice %p\n",pfl);
-		debuglog("Next iterator choice %p\n",nfl);
+		debuglog("Iterator choice %p\n", ifl);
+		debuglog("Prev iterator choice %p\n", pfl);
+		debuglog("Next iterator choice %p\n", nfl);
 
 		/* if given a filehandle, only retry locks for the same filehandle */
 		if (fh && !same_netobj(fh, &ifl->filehandle)) {
@@ -1407,7 +1416,7 @@ retry_blockingfilelocklist(netobj *fh)
 
 		LIST_REMOVE(ifl, nfslocklist);
 		pflstatus = lock_partialfilelock(ifl);
-		
+
 		if (pflstatus == PFL_GRANTED || pflstatus == PFL_GRANTED_DUPLICATE) {
 			debuglog("Granted blocked lock\n");
 			/* lock granted and is now being used */
@@ -1452,11 +1461,12 @@ retry_blockingfilelocklist(netobj *fh)
 		} else {
 			/* Reinsert lock back into same place in blocked list */
 			debuglog("Replacing blocked lock\n");
-			if (pfl != NULL)
+			if (pfl != NULL) {
 				LIST_INSERT_AFTER(pfl, ifl, nfslocklist);
-			else
+			} else {
 				/* ifl is the only elem. in the list */
 				LIST_INSERT_HEAD(&blockedlocklist_head, ifl, nfslocklist);
+			}
 		}
 
 		if (pflstatus == PFL_GRANTED || pflstatus == PFL_GRANTED_DUPLICATE ||
@@ -1539,15 +1549,16 @@ lock_partialfilelock(struct file_lock *fl)
 			/*
 			 * XXX: Fixme: Check hwstatus for duplicate when
 			 * true partial file locking and accounting is
-			 * done on the hardware 
+			 * done on the hardware
 			 */
 			if (lnlstatus == NFS_GRANTED_DUPLICATE) {
 				retval = PFL_GRANTED_DUPLICATE;
 			} else {
 				retval = PFL_GRANTED;
 			}
-			if (fl->flags & LOCK_MON)
+			if (fl->flags & LOCK_MON) {
 				monitor_lock_host_by_name(fl->client_name, fl->addr);
+			}
 			break;
 		case HW_RESERR:
 			debuglog("HW RESERR\n");
@@ -1570,7 +1581,7 @@ lock_partialfilelock(struct file_lock *fl)
 			retval = PFL_HWDENIED_READONLY;
 			break;
 		default:
-			debuglog("Unmatched hwstatus %d\n",hwstatus);
+			debuglog("Unmatched hwstatus %d\n", hwstatus);
 			break;
 		}
 
@@ -1646,7 +1657,7 @@ lock_partialfilelock(struct file_lock *fl)
 enum partialfilelock_status
 unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 {
-	struct file_lock *lfl,*rfl,*releasedfl,*selffl;
+	struct file_lock *lfl, *rfl, *releasedfl, *selffl;
 	enum partialfilelock_status retval;
 	enum nfslock_status unlstatus;
 	enum hwlock_status unlhwstatus, lhwstatus;
@@ -1681,10 +1692,10 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 	 */
 
 	do {
-		debuglog("Value of releasedfl: %p\n",releasedfl);
+		debuglog("Value of releasedfl: %p\n", releasedfl);
 		/* lfl&rfl are created *AND* placed into the NFS lock list if required */
 		unlstatus = unlock_nfslock(fl, &releasedfl, &lfl, &rfl, cleanup);
-		debuglog("Value of releasedfl: %p\n",releasedfl);
+		debuglog("Value of releasedfl: %p\n", releasedfl);
 
 
 		/* XXX: This is grungy.  It should be refactored to be cleaner */
@@ -1694,8 +1705,9 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 			    lhwstatus != HW_GRANTED_DUPLICATE) {
 				debuglog("HW duplicate lock failure for left split\n");
 			}
-			if (lfl->flags & LOCK_MON)
+			if (lfl->flags & LOCK_MON) {
 				monitor_lock_host_by_name(lfl->client_name, lfl->addr);
+			}
 		}
 
 		if (rfl != NULL) {
@@ -1704,8 +1716,9 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 			    lhwstatus != HW_GRANTED_DUPLICATE) {
 				debuglog("HW duplicate lock failure for right split\n");
 			}
-			if (rfl->flags & LOCK_MON)
+			if (rfl->flags & LOCK_MON) {
 				monitor_lock_host_by_name(rfl->client_name, rfl->addr);
+			}
 		}
 
 		switch (unlstatus) {
@@ -1715,13 +1728,14 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 
 			/* This call *MUST NOT* unlock the two newly allocated locks */
 			unlhwstatus = unlock_hwlock(fl);
-			debuglog("HW unlock returned with code %d\n",unlhwstatus);
-			
+			debuglog("HW unlock returned with code %d\n", unlhwstatus);
+
 			switch (unlhwstatus) {
 			case HW_GRANTED:
 				debuglog("HW unlock granted\n");
-				if (releasedfl->flags & LOCK_MON)
+				if (releasedfl->flags & LOCK_MON) {
 					unmonitor_lock_host(releasedfl->client_name);
+				}
 				retval = PFL_GRANTED;
 				break;
 			case HW_DENIED_NOLOCK:
@@ -1738,9 +1752,9 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 				unlstatus = NFS_RESERR;
 				break;
 			}
-			
-			debuglog("Exiting with status retval: %d\n",retval);
-			
+
+			debuglog("Exiting with status retval: %d\n", retval);
+
 			// XXX sending granted messages before unlock response
 			// XXX causes unlock response to be corrupted?
 			// XXX Workaround is to move this to nlm_prot_svc.c
@@ -1777,12 +1791,11 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
 				 * code needs to migrate down (violation of "When you write
 				 * malloc you must write free")
 				 */
-			
+
 				deallocate_file_lock(releasedfl);
 				releasedfl = NULL;
 			}
 		}
-
 	} while (unlstatus == NFS_GRANTED);
 
 	if (!cleanup && (selffl != NULL)) {
@@ -1808,7 +1821,7 @@ unlock_partialfilelock(const struct file_lock *fl, int cleanup)
  * unmonitor the host.
  */
 
-void 
+void
 clear_partialfilelock(const char *hostname)
 {
 	struct file_lock *ifl, *nfl;
@@ -1824,10 +1837,10 @@ clear_partialfilelock(const char *hostname)
 	 */
 	TAILQ_FOREACH(ihp, &hostlst_head, hostlst) {
 		if (ihp->revname && strncmp(hostname, ihp->revname,
-			SM_MAXSTRLEN) == 0) {
+		    SM_MAXSTRLEN) == 0) {
 			hostname = ihp->name;
 			debuglog("Clearing locks for %s (%s)\n",
-				hostname, ihp->revname);
+			    hostname, ihp->revname);
 			break;
 		}
 	}
@@ -1859,7 +1872,7 @@ restart:
 				/* stuck here forever getting errors. */
 				/* So, let's just abort the whole scan. */
 				syslog(LOG_WARNING, "lock clearing for %s failed: %d",
-					hostname, pfsret);
+				    hostname, pfsret);
 				break;
 			}
 			/* ifl is NO LONGER VALID AT THIS POINT */
@@ -1885,7 +1898,7 @@ test_partialfilelock(const struct file_lock *fl,
 	debuglog("Entering testpartialfilelock...\n");
 
 	teststatus = test_nfslock(fl, conflicting_fl);
-	debuglog("test_partialfilelock: teststatus %d\n",teststatus);
+	debuglog("test_partialfilelock: teststatus %d\n", teststatus);
 
 	if (teststatus == NFS_GRANTED || teststatus == NFS_GRANTED_DUPLICATE) {
 		/* XXX: Add the underlying filesystem locking code */
@@ -1926,7 +1939,7 @@ do_test(struct file_lock *fl, struct file_lock **conflicting_fl)
 
 	debuglog("Entering do_test...\n");
 
-	pfsret = test_partialfilelock(fl,conflicting_fl);
+	pfsret = test_partialfilelock(fl, conflicting_fl);
 
 	switch (pfsret) {
 	case PFL_GRANTED:
@@ -2095,7 +2108,6 @@ do_unlock(struct file_lock *fl)
 void
 do_clear(const char *hostname)
 {
-
 	clear_partialfilelock(hostname);
 }
 
@@ -2116,16 +2128,19 @@ do_notify_mounts(const char *hostname)
 	debuglog("do_notify_mounts for %s", hostname);
 	bzero(&aihints, sizeof(aihints));
 	aihints.ai_socktype = SOCK_STREAM;
-	if (getaddrinfo(hostname, NULL, &aihints, &ailist))
+	if (getaddrinfo(hostname, NULL, &aihints, &ailist)) {
 		return;
-	for (addrcount=0, ai = ailist; ai; ai = ai->ai_next) {
-		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+	}
+	for (addrcount = 0, ai = ailist; ai; ai = ai->ai_next) {
+		if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) {
 			continue;
+		}
 		addrcount++;
 	}
 	debuglog("do_notify_mounts for %s, addrcount %d", hostname, addrcount);
-	if (addrcount > 1)
-		lnp = malloc(sizeof(*lnp) + ((addrcount-1) * sizeof(struct sockaddr_storage)));
+	if (addrcount > 1) {
+		lnp = malloc(sizeof(*lnp) + ((addrcount - 1) * sizeof(struct sockaddr_storage)));
+	}
 	if (lnp) { /* send all the addresses in one notification */
 		addrmax = addrcount;
 	} else { /* just send single-address notification(s) */
@@ -2139,21 +2154,23 @@ do_notify_mounts(const char *hostname)
 		lnp->ln_flags = 0;
 		lnp->ln_addrcount = 0;
 		for (; ai && (lnp->ln_addrcount < addrmax); ai = ai->ai_next) {
-			if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+			if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6)) {
 				continue;
+			}
 			if (config.verbose > 1) {
 				char addrbuf[NI_MAXHOST], *addr = NULL;
 				void *sinaddr = (ai->ai_family == AF_INET) ?
-					(void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
-					(void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
-				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
+				    (void*)&((struct sockaddr_in*)  AOK ai->ai_addr)->sin_addr :
+				    (void*)&((struct sockaddr_in6*) AOK ai->ai_addr)->sin6_addr;
+				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf))) {
 					addr = addrbuf;
+				}
 				debuglog("do_notify_mounts for %s, addr %d ai fam %d len %d %s",
-					hostname, lnp->ln_addrcount, ai->ai_family, ai->ai_addrlen,
-					addr ? addr : "???");
+				    hostname, lnp->ln_addrcount, ai->ai_family, ai->ai_addrlen,
+				    addr ? addr : "???");
 			}
 			bcopy(ai->ai_addr, &lnp->ln_addr[lnp->ln_addrcount],
-				MIN(sizeof(lnp->ln_addr[lnp->ln_addrcount]), ai->ai_addr->sa_len));
+			    MIN(sizeof(lnp->ln_addr[lnp->ln_addrcount]), ai->ai_addr->sa_len));
 			lnp->ln_addrcount++;
 			addrcount--;
 		}
@@ -2193,7 +2210,7 @@ testlock(struct nlm4_lock *lock, bool_t exclusive, int flags __unused)
 
 	siglock();
 	do_test(&test_fl, &conflicting_fl);
-	
+
 	if (conflicting_fl == NULL) {
 		debuglog("No conflicting lock found\n");
 		sigunlock();
@@ -2202,12 +2219,12 @@ testlock(struct nlm4_lock *lock, bool_t exclusive, int flags __unused)
 		debuglog("Found conflicting lock\n");
 		dump_filelock(conflicting_fl);
 		sigunlock();
-		return (&conflicting_fl->client);
+		return &conflicting_fl->client;
 	}
 }
 
 /*
- * getlock: try to aquire the lock. 
+ * getlock: try to aquire the lock.
  * If file is already locked and we can sleep, put the lock in the list with
  * status LKST_WAITING; it'll be processed later.
  * Otherwise try to lock. If we're allowed to block, fork a child which
@@ -2222,9 +2239,10 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 
 	debuglog("Entering getlock...\n");
 
-	if (grace_expired == 0 && lckarg->reclaim == 0)
+	if (grace_expired == 0 && lckarg->reclaim == 0) {
 		return (flags & LOCK_V4) ?
-		    nlm4_denied_grace_period : (nlm4_stats) nlm_denied_grace_period;
+		       nlm4_denied_grace_period : (nlm4_stats) nlm_denied_grace_period;
+	}
 
 	if (lckarg->alock.fh.n_len > NFSV3_MAX_FH_SIZE) {
 		debuglog("received fhandle size %d, max size %d",
@@ -2234,47 +2252,46 @@ getlock(nlm4_lockargs *lckarg, struct svc_req *rqstp, const int flags)
 
 	/* allocate new file_lock for this request */
 	newfl = allocate_file_lock(&lckarg->alock.oh, &lckarg->alock.fh,
-				   svc_getcaller_sa(rqstp->rq_xprt),
-				   lckarg->alock.caller_name);
+	    svc_getcaller_sa(rqstp->rq_xprt),
+	    lckarg->alock.caller_name);
 	if (newfl == NULL) {
 		syslog(LOG_NOTICE, "lock allocate failed: %s", strerror(errno));
 		/* failed */
 		return (flags & LOCK_V4) ?
-		    nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
+		       nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 	}
 
 	fill_file_lock(newfl,
 	    lckarg->exclusive, lckarg->alock.svid, lckarg->alock.l_offset,
 	    lckarg->alock.l_len,
 	    lckarg->state, 0, flags, lckarg->block);
-	
+
 	/*
 	 * newfl is now fully constructed and deallocate_file_lock
 	 * can now be used to delete it
 	 */
-	
+
 	siglock();
-	debuglog("Pointer to new lock is %p\n",newfl);
+	debuglog("Pointer to new lock is %p\n", newfl);
 
 	retval = do_lock(newfl);
 
-	debuglog("Pointer to new lock is %p\n",newfl);
+	debuglog("Pointer to new lock is %p\n", newfl);
 	sigunlock();
-	
-	switch (retval)
-		{
-		case nlm4_granted:
-			/* case nlm_granted: is the same as nlm4_granted */
-			/* do_mon(lckarg->alock.caller_name); */
-			break;
-		case nlm4_blocked:
-			/* case nlm_blocked: is the same as nlm4_blocked */
-			/* do_mon(lckarg->alock.caller_name); */
-			break;
-		default:
-			deallocate_file_lock(newfl);
-			break;
-		}
+
+	switch (retval) {
+	case nlm4_granted:
+		/* case nlm_granted: is the same as nlm4_granted */
+		/* do_mon(lckarg->alock.caller_name); */
+		break;
+	case nlm4_blocked:
+		/* case nlm_blocked: is the same as nlm4_blocked */
+		/* do_mon(lckarg->alock.caller_name); */
+		break;
+	default:
+		deallocate_file_lock(newfl);
+		break;
+	}
 
 	debuglog("Exiting getlock...\n");
 
@@ -2288,7 +2305,7 @@ unlock(nlm4_lock *lock, const int flags)
 {
 	struct file_lock fl;
 	enum nlm4_stats err;
-	
+
 	debuglog("Entering unlock...\n");
 
 	if (lock->fh.n_len > NFSV3_MAX_FH_SIZE) {
@@ -2296,21 +2313,21 @@ unlock(nlm4_lock *lock, const int flags)
 		    lock->fh.n_len, NFSV3_MAX_FH_SIZE);
 		return (flags & LOCK_V4) ? nlm4_failed : (nlm4_stats) nlm_denied;
 	}
-	
+
 	siglock();
-	
-	bzero(&fl,sizeof(struct file_lock));
+
+	bzero(&fl, sizeof(struct file_lock));
 	fl.filehandle.n_len = lock->fh.n_len;
 	fl.filehandle.n_bytes = lock->fh.n_bytes;
-	
+
 	copy_nlm4_lock_to_nlm4_holder(lock, 0, &fl.client);
-	
+
 	err = do_unlock(&fl);
-	
+
 	sigunlock();
-	
+
 	debuglog("Exiting unlock...\n");
-	
+
 	return err;
 }
 
@@ -2337,40 +2354,47 @@ cancellock(nlm4_cancargs *args, const int flags)
 	 * scan blocked lock list for matching request and remove/destroy
 	 */
 	ifl = LIST_FIRST(&blockedlocklist_head);
-	for ( ; ifl != NULL; ifl = nfl) {
+	for (; ifl != NULL; ifl = nfl) {
 		nfl = LIST_NEXT(ifl, nfslocklist);
 
 		/* compare lock fh - filehandle */
-		if (!same_netobj(&args->alock.fh, &ifl->filehandle))
+		if (!same_netobj(&args->alock.fh, &ifl->filehandle)) {
 			continue;
+		}
 
 		/* compare lock caller_name - client_name */
-		if (strncmp(args->alock.caller_name, ifl->client_name, SM_MAXSTRLEN))
+		if (strncmp(args->alock.caller_name, ifl->client_name, SM_MAXSTRLEN)) {
 			continue;
+		}
 
 		/* Note: done't compare cookie - client_cookie */
 		/* The cookie may be specific to the cancel request */
 		/* and not be the same as the one in the original lock request. */
 
 		/* compare lock oh - client.oh */
-		if (!same_netobj(&args->alock.oh, &ifl->client.oh))
+		if (!same_netobj(&args->alock.oh, &ifl->client.oh)) {
 			continue;
+		}
 
 		/* compare lock svid - client.svid */
-		if (args->alock.svid != ifl->client.svid)
+		if (args->alock.svid != ifl->client.svid) {
 			continue;
+		}
 
 		/* compare lock l_offset - client.l_offset */
-		if (args->alock.l_offset != ifl->client.l_offset)
+		if (args->alock.l_offset != ifl->client.l_offset) {
 			continue;
+		}
 
 		/* compare lock l_len - client.l_len */
-		if (args->alock.l_len != ifl->client.l_len)
+		if (args->alock.l_len != ifl->client.l_len) {
 			continue;
+		}
 
 		/* compare exclusive - client.exclusive */
-		if (args->exclusive != ifl->client.exclusive)
+		if (args->exclusive != ifl->client.exclusive) {
 			continue;
+		}
 
 		/* got it */
 		remove_blockingfilelock(ifl);
@@ -2388,7 +2412,7 @@ cancellock(nlm4_cancargs *args, const int flags)
 
 
 /*
- * XXX: The following monitor/unmonitor routines 
+ * XXX: The following monitor/unmonitor routines
  * have not been extensively tested (ie. no regression
  * script exists like for the locking sections)
  */
@@ -2405,15 +2429,18 @@ get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockad
 {
 	struct host *ihp;
 
-	if (!hostname && !saddr)
-		return (NULL);
+	if (!hostname && !saddr) {
+		return NULL;
+	}
 
 	debuglog("get_lock_host %s\n", hostname ? hostname : "addr");
 	TAILQ_FOREACH(ihp, hd, hostlst) {
-		if (hostname && (strncmp(hostname, ihp->name, SM_MAXSTRLEN) != 0))
+		if (hostname && (strncmp(hostname, ihp->name, SM_MAXSTRLEN) != 0)) {
 			continue;
-		if (saddr && addrcmp(saddr, (struct sockaddr*)&ihp->addr))
+		}
+		if (saddr && addrcmp(saddr, (struct sockaddr*)&ihp->addr)) {
 			continue;
+		}
 		TAILQ_REMOVE(hd, ihp, hostlst);
 		/*
 		 * Host is already monitored, so just bump the
@@ -2424,8 +2451,9 @@ get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockad
 		 * take one refcount.  Otherwise, repeated calls
 		 * could cause the refcount to wrap.
 		 */
-		if (!saddr || !ihp->addr.ss_len)
+		if (!saddr || !ihp->addr.ss_len) {
 			++ihp->refcnt;
+		}
 		ihp->lastuse = currsec;
 		/* Host should only be in the monitor list once */
 		TAILQ_INSERT_HEAD(&hostlst_head, ihp, hostlst);
@@ -2433,7 +2461,7 @@ get_lock_host(struct hostlst_head *hd, const char *hostname, const struct sockad
 	}
 	debuglog("get_lock_host %s %s\n",
 	    ihp == NULL ? "did not find" : "found", hostname ? hostname : "addr");
-	return (ihp);
+	return ihp;
 }
 
 /*
@@ -2447,14 +2475,16 @@ monitor_lock_host_by_name(const char *hostname, const struct sockaddr *saddr)
 
 	debuglog("monitor_lock_host: %s\n", hostname);
 	ihp = get_lock_host(&hostlst_head, hostname, NULL);
-	if (ihp == NULL)
+	if (ihp == NULL) {
 		ihp = get_lock_host(&hostlst_unref, hostname, NULL);
+	}
 	if (ihp != NULL) {
-		if (ihp->revname)
+		if (ihp->revname) {
 			debuglog("Monitor_lock_host: %s - %s (cached)\n",
-				ihp->name, ihp->revname);
-		else
+			    ihp->name, ihp->revname);
+		} else {
 			debuglog("Monitor_lock_host: %s (cached)\n", ihp->name);
+		}
 		return;
 	}
 
@@ -2469,23 +2499,25 @@ monitor_lock_host_by_addr(const struct sockaddr *saddr)
 	char hostname[NI_MAXHOST];
 
 	if (getnameinfo(saddr, saddr->sa_len, hostaddr, sizeof(hostaddr),
-			NULL, 0, NI_NUMERICHOST)) {
+	    NULL, 0, NI_NUMERICHOST)) {
 		debuglog("monitor_lock_host: bad address\n");
 		return;
 	}
 	debuglog("monitor_lock_host: %s\n", hostaddr);
 	ihp = get_lock_host(&hostlst_head, NULL, saddr);
-	if (ihp == NULL)
+	if (ihp == NULL) {
 		ihp = get_lock_host(&hostlst_unref, NULL, saddr);
+	}
 	if (ihp != NULL) {
 		debuglog("Monitor_lock_host: %s (cached)\n", ihp->name);
 		return;
 	}
 
-	if (!getnameinfo(saddr, saddr->sa_len, hostname, sizeof(hostname), NULL, 0, 0))
+	if (!getnameinfo(saddr, saddr->sa_len, hostname, sizeof(hostname), NULL, 0, 0)) {
 		monitor_lock_host(hostname, saddr);
-	else
+	} else {
 		monitor_lock_host(hostaddr, saddr);
+	}
 }
 
 static void
@@ -2531,7 +2563,7 @@ monitor_lock_host(const char *hostname, const struct sockaddr *saddr)
 
 	debuglog("Attempting to tell statd\n");
 
-	bzero(&smon,sizeof(smon));
+	bzero(&smon, sizeof(smon));
 
 	smon.mon_id.mon_name = nhp->name;
 	smon.mon_id.my_id.my_name = (char *) "localhost\0";
@@ -2608,8 +2640,9 @@ unmonitor_lock_host(const char *hostname)
 		return;
 	}
 
-	if (ihp->refcnt > 0)
+	if (ihp->refcnt > 0) {
 		return;
+	}
 
 	if (ihp->refcnt < 0) {
 		debuglog("Negative refcount!: %d\n", ihp->refcnt);
@@ -2617,8 +2650,9 @@ unmonitor_lock_host(const char *hostname)
 
 	TAILQ_REMOVE(&hostlst_head, ihp, hostlst);
 	TAILQ_INSERT_HEAD(&hostlst_unref, ihp, hostlst);
-	if (config.host_monitor_cache_timeout <= 0)
+	if (config.host_monitor_cache_timeout <= 0) {
 		destroy_lock_host(ihp);
+	}
 }
 
 void
@@ -2637,28 +2671,30 @@ destroy_lock_host(struct host *ihp)
 	name = ihp->revname ? ihp->revname : ihp->name;
 	debuglog("Attempting to unmonitor host %16s\n", name);
 
-	bzero(&smon_id,sizeof(smon_id));
+	bzero(&smon_id, sizeof(smon_id));
 	smon_id.mon_name = name;
 	smon_id.my_id.my_name = (char *) "localhost";
 	smon_id.my_id.my_prog = NLM_PROG;
 	smon_id.my_id.my_vers = NLM_SM;
 	smon_id.my_id.my_proc = NLM_SM_NOTIFY;
-			  
+
 	rpcret = callrpc((char *) "localhost", SM_PROG, SM_VERS, SM_UNMON, (xdrproc_t)xdr_mon_id,
 	    &smon_id, (xdrproc_t)xdr_sm_stat, &smstat);
-			  
+
 	if (rpcret != 0) {
 		debuglog("Rpc call to unmonitor statd failed with "
-		   " return value: %d: %s", rpcret, clnt_sperrno(rpcret));
+		    " return value: %d: %s", rpcret, clnt_sperrno(rpcret));
 	} else {
 		debuglog("Succeeded unmonitoring %16s\n", ihp->name);
 	}
 
 	TAILQ_REMOVE(&hostlst_unref, ihp, hostlst);
-	if (ihp->name)
+	if (ihp->name) {
 		free(ihp->name);
-	if (ihp->revname)
+	}
+	if (ihp->revname) {
 		free(ihp->revname);
+	}
 	free(ihp);
 }
 
@@ -2670,19 +2706,21 @@ expire_lock_hosts(void)
 {
 	struct host *ihp;
 
-	for ( ;; ) {
+	for (;;) {
 		ihp = TAILQ_LAST(&hostlst_unref, hostlst_head);
-		if (ihp == NULL)
+		if (ihp == NULL) {
 			break;
+		}
 		if ((config.host_monitor_cache_timeout > 0) &&
-		    (ihp->lastuse >= (currsec - config.host_monitor_cache_timeout)))
+		    (ihp->lastuse >= (currsec - config.host_monitor_cache_timeout))) {
 			break;
+		}
 		debuglog("expire_lock_hosts: expiring %s %d %d %d\n",
 		    ihp->name, (int)ihp->lastuse,
 		    (int)currsec, (int)currsec - config.host_monitor_cache_timeout);
 		destroy_lock_host(ihp);
 	}
-	return (TAILQ_LAST(&hostlst_unref, hostlst_head) != NULL);
+	return TAILQ_LAST(&hostlst_unref, hostlst_head) != NULL;
 }
 
 /*
@@ -2698,14 +2736,14 @@ expire_lock_hosts(void)
  * Please note that this routine skips the usual level of redirection
  * through a do_* type routine.  This introduces a possible level of
  * error and might better be written as do_notify and take this one out.
-
+ *
  */
 
 void
 notify(const char *hostname, const int state)
 {
 	debuglog("notify from %s, new state %d", hostname, state);
-	
+
 	siglock();
 	do_clear(hostname);
 	do_notify_mounts(hostname);
@@ -2716,8 +2754,8 @@ notify(const char *hostname, const int state)
 
 int
 send_granted(fl, opcode)
-	struct file_lock *fl;
-	int opcode __unused;
+struct file_lock *fl;
+int opcode __unused;
 {
 	CLIENT *cli;
 	static char dummy;
@@ -2743,8 +2781,9 @@ send_granted(fl, opcode)
 	timeo.tv_usec = (fl->flags & LOCK_ASYNC) ? 0 : 500000; /* 0.5s */
 
 	fl->granted_cookie = ++send_granted_cookie;
-	if (!send_granted_cookie)
+	if (!send_granted_cookie) {
 		send_granted_cookie++;
+	}
 
 	if (fl->flags & LOCK_V4) {
 		static nlm4_testargs res;
@@ -2759,7 +2798,7 @@ send_granted(fl, opcode)
 		res.alock.l_offset = fl->client.l_offset;
 		res.alock.l_len = fl->client.l_len;
 		debuglog("sending v4 reply%s",
-			 (fl->flags & LOCK_ASYNC) ? " (async)":"");
+		    (fl->flags & LOCK_ASYNC) ? " (async)":"");
 		if (fl->flags & LOCK_ASYNC) {
 			rv = clnt_call(cli, NLM4_GRANTED_MSG,
 			    (xdrproc_t)xdr_nlm4_testargs, &res, (xdrproc_t)xdr_void, &dummy, timeo);
@@ -2782,7 +2821,7 @@ send_granted(fl, opcode)
 		res.alock.l_offset = (u_int) fl->client.l_offset;
 		res.alock.l_len = (u_int) fl->client.l_len;
 		debuglog("sending v1 reply%s",
-			 (fl->flags & LOCK_ASYNC) ? " (async)":"");
+		    (fl->flags & LOCK_ASYNC) ? " (async)":"");
 		if (fl->flags & LOCK_ASYNC) {
 			rv = clnt_call(cli, NLM_GRANTED_MSG,
 			    (xdrproc_t)xdr_nlm_testargs, &res, (xdrproc_t)xdr_void, &dummy, timeo);
@@ -2792,13 +2831,15 @@ send_granted(fl, opcode)
 			    &retval, timeo);
 		}
 	}
-	if (config.verbose > 2)
+	if (config.verbose > 2) {
 		debuglog("clnt_call returns %d(%s) for granted",
-			 rv, clnt_sperrno(rv));
+		    rv, clnt_sperrno(rv));
+	}
 
 	if ((rv != RPC_SUCCESS) &&
-	    !((fl->flags & LOCK_ASYNC) && (rv == RPC_TIMEDOUT)))
+	    !((fl->flags & LOCK_ASYNC) && (rv == RPC_TIMEDOUT))) {
 		return -1;
+	}
 	return 0;
 }
 
@@ -2816,20 +2857,21 @@ granted_failed(nlm4_res *arg)
 
 	if (arg->cookie.n_len != sizeof(cookie)) {
 		debuglog("Exiting granted_failed: bogus cookie size %d\n",
-			arg->cookie.n_len);
+		    arg->cookie.n_len);
 		return;
 	}
 	bcopy(arg->cookie.n_bytes, &cookie, sizeof(cookie));
 	debuglog("granted_failed, cookie 0x%llx\n", cookie);
 
 	LIST_FOREACH(ifl, &nfslocklist_head, nfslocklist) {
-		debuglog("Pointer to file lock: %p\n",ifl);
+		debuglog("Pointer to file lock: %p\n", ifl);
 
 		debuglog("****Dump of ifl****\n");
 		dump_filelock(ifl);
 
-		if (ifl->granted_cookie != cookie)
+		if (ifl->granted_cookie != cookie) {
 			continue;
+		}
 
 		debuglog("granted_failed: cookie found\n");
 		break;
@@ -2860,8 +2902,8 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	if (grace_expired == 0 && shrarg->reclaim == 0) {
 		debuglog("getshare denied - grace period\n");
 		return (flags & LOCK_V4) ?
-			nlm4_denied_grace_period :
-			(nlm4_stats) nlm_denied_grace_period;
+		       nlm4_denied_grace_period :
+		       (nlm4_stats) nlm_denied_grace_period;
 	}
 
 	if (shrarg->share.fh.n_len > NFSV3_MAX_FH_SIZE) {
@@ -2874,7 +2916,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	LIST_FOREACH(shrfile, &nfssharefilelist_head, sharefilelist) {
 		if ((shrarg->share.fh.n_len == shrfile->filehandle.n_len) &&
 		    (bcmp(shrarg->share.fh.n_bytes, shrfile->filehandle.n_bytes,
-			shrarg->share.fh.n_len) == 0)) {
+		    shrarg->share.fh.n_len) == 0)) {
 			/* shrfile is the correct file */
 			break;
 		}
@@ -2890,8 +2932,9 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 		if (fd < 0) {
 			debuglog("fhopen failed (from %16s): %32s\n",
 			    shrarg->share.caller_name, strerror(errno));
-			if ((flags & LOCK_V4) == 0)
+			if ((flags & LOCK_V4) == 0) {
 				return (nlm4_stats) nlm_denied;
+			}
 			switch (errno) {
 			case ESTALE:
 				return nlm4_stale_fh;
@@ -2914,7 +2957,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 			return (flags & LOCK_V4) ? nlm4_denied_nolocks : (nlm4_stats) nlm_denied_nolocks;
 		}
 		bcopy(shrarg->share.fh.n_bytes, shrfile->filehandle.n_bytes,
-			shrarg->share.fh.n_len);
+		    shrarg->share.fh.n_len);
 		shrfile->fd = fd;
 		shrfile->refcount = 0;
 		shrfile->sharelist_head.lh_first = NULL;
@@ -2925,7 +2968,7 @@ getshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	LIST_FOREACH(sh, &shrfile->sharelist_head, nfssharelist) {
 		/* if request host/owner matches a current share... */
 		if ((strncmp(shrarg->share.caller_name, sh->client_name, SM_MAXSTRLEN) == 0) &&
-			same_netobj(&shrarg->share.oh, &sh->oh)) {
+		    same_netobj(&shrarg->share.oh, &sh->oh)) {
 			/* ...then just update share mode/access */
 			sh->mode = shrarg->share.mode;
 			sh->access = shrarg->share.access;
@@ -3006,7 +3049,7 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	LIST_FOREACH(shrfile, &nfssharefilelist_head, sharefilelist) {
 		if ((shrarg->share.fh.n_len == shrfile->filehandle.n_len) &&
 		    (bcmp(shrarg->share.fh.n_bytes, shrfile->filehandle.n_bytes,
-			shrarg->share.fh.n_len) == 0)) {
+		    shrarg->share.fh.n_len) == 0)) {
 			/* shrfile is the correct file */
 			break;
 		}
@@ -3022,8 +3065,9 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
 	LIST_FOREACH(sh, &shrfile->sharelist_head, nfssharelist) {
 		/* if request host/owner matches a current share... */
 		if ((strncmp(shrarg->share.caller_name, sh->client_name, SM_MAXSTRLEN) == 0) &&
-			same_netobj(&shrarg->share.oh, &sh->oh))
+		    same_netobj(&shrarg->share.oh, &sh->oh)) {
 			break;
+		}
 	}
 
 	/* if share not found, return success (per spec) */
@@ -3058,7 +3102,7 @@ unshare(nlm_shareargs *shrarg, struct svc_req *rqstp __unused, const int flags)
  * Wipe out all non-monitored locks and shares held by a host.
  */
 
-void 
+void
 do_free_all(const char *hostname)
 {
 	struct file_lock *ifl, *nfl;
@@ -3096,7 +3140,7 @@ restart:
 				/* stuck here forever getting errors. */
 				/* So, let's just abort the whole scan. */
 				syslog(LOG_WARNING, "unmonitored lock clearing for %s failed: %d",
-					hostname, pfsret);
+				    hostname, pfsret);
 				break;
 			}
 			/* ifl is NO LONGER VALID AT THIS POINT */
@@ -3137,7 +3181,6 @@ restart:
 
 		shrfile = nshrfile;
 	}
-
 }
 
 
@@ -3156,27 +3199,25 @@ restart:
 void
 siglock(void)
 {
-  sigset_t block;
-	
-  sigemptyset(&block);
-  sigaddset(&block, SIGCHLD);
+	sigset_t block;
 
-  if (sigprocmask(SIG_BLOCK, &block, NULL) < 0) {
-    syslog(LOG_WARNING, "siglock failed: %s", strerror(errno));
-  }
+	sigemptyset(&block);
+	sigaddset(&block, SIGCHLD);
+
+	if (sigprocmask(SIG_BLOCK, &block, NULL) < 0) {
+		syslog(LOG_WARNING, "siglock failed: %s", strerror(errno));
+	}
 }
 
 void
 sigunlock(void)
 {
-  sigset_t block;
-	
-  sigemptyset(&block);
-  sigaddset(&block, SIGCHLD);
-  
-  if (sigprocmask(SIG_UNBLOCK, &block, NULL) < 0) {
-    syslog(LOG_WARNING, "sigunlock failed: %s", strerror(errno));
-  }
+	sigset_t block;
+
+	sigemptyset(&block);
+	sigaddset(&block, SIGCHLD);
+
+	if (sigprocmask(SIG_UNBLOCK, &block, NULL) < 0) {
+		syslog(LOG_WARNING, "sigunlock failed: %s", strerror(errno));
+	}
 }
-
-

@@ -15,7 +15,7 @@
 #include <DriverKit/IOMemoryDescriptor.iig>
 #include <DriverKit/IODataQueueDispatchSource.iig>
 
-// This class is needed to enable bus mastering on the virtual bridge to the other functions
+// This class is needed to enable bus lead on the virtual bridge to the other functions
 class PCIDriverKitPEX8733VBridge : public IOService
 {
 public:

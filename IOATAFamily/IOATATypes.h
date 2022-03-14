@@ -107,8 +107,8 @@ enum atapiConfig {
 enum ataUnitID {
 
 	kATAInvalidDeviceID			= -1,
-	kATADevice0DeviceID			= 0,							/* aka, Master. Device 0 is the correct terminology */
-	kATADevice1DeviceID			= 1								/* aka, Slave. Device 1 is the correct terminology */
+	kATADevice0DeviceID			= 0,							/* aka, Primary. Device 0 is the correct terminology */
+	kATADevice1DeviceID			= 1								/* aka, Secondary. Device 1 is the correct terminology */
 
 } ;
 
@@ -147,7 +147,7 @@ enum {
 enum {
 	mATAHeadNumber				= 0x0F,							/* Head Number (bits 0-3) */
 	mATASectorSize				= 0xA0,							/* bit 7=1; bit 5 = 01 (512 sector size) <DP4>*/
-	mATADriveSelect				= 0x10,							/* Drive (0 = master, 1 = slave) */
+	mATADriveSelect				= 0x10,							/* Drive (0 = primary, 1 = secondary) */
 	mATALBASelect				= 0x40							/* LBA mode bit (0 = chs, 1 = LBA)*/
 };
 

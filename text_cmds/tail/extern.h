@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -10,11 +12,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -36,9 +34,15 @@
  */
 
 #define	WR(p, size) do { \
-	if (write(STDOUT_FILENO, p, size) != (ssize_t)size) \
-		oerr(); \
-	} while(0)
+	ssize_t res; \
+	res = write(STDOUT_FILENO, p, size); \
+	if (res != (ssize_t)size) { \
+		if (res == -1) \
+			oerr(); \
+		else \
+			errx(1, "stdout"); \
+	} \
+} while (0)
 
 #define TAILMAPLEN (4<<20)
 
@@ -61,16 +65,19 @@ typedef struct file_info file_info_t;
 enum STYLE { NOTSET = 0, FBYTES, FLINES, RBYTES, RLINES, REVERSE };
 
 void follow(file_info_t *, enum STYLE, off_t);
-void forward(FILE *, enum STYLE, off_t, struct stat *);
-void reverse(FILE *, enum STYLE, off_t, struct stat *);
+void forward(FILE *, const char *, enum STYLE, off_t, struct stat *);
+void reverse(FILE *, const char *, enum STYLE, off_t, struct stat *);
 
-int bytes(FILE *, off_t);
-int lines(FILE *, off_t);
+int bytes(FILE *, const char *, off_t);
+int lines(FILE *, const char *, off_t);
 
-void ierr(void);
+void ierr(const char *);
 void oerr(void);
 int mapprint(struct mapinfo *, off_t, off_t);
 int maparound(struct mapinfo *, off_t);
+void printfn(const char *, int);
 
 extern int Fflag, fflag, qflag, rflag, rval, no_files;
-extern const char *fname;
+#ifndef __APPLE__
+extern fileargs_t *fa;
+#endif

@@ -42,7 +42,7 @@ namespace WebCore {
 class InbandMetadataTextTrackPrivateAVF;
 class InbandTextTrackPrivateAVF;
 
-// Use eager initialization for the WeakPtrFactory since we call makeWeakPtr() from another thread.
+// Use eager initialization for the WeakPtrFactory since we construct WeakPtrs on another thread.
 class MediaPlayerPrivateAVFoundation : public CanMakeWeakPtr<MediaPlayerPrivateAVFoundation, WeakPtrFactoryInitialization::Eager>, public MediaPlayerPrivateInterface, public AVFInbandTrackParent
 #if !RELEASE_LOG_DISABLED
     , private LoggerHelper
@@ -116,7 +116,7 @@ public:
         {
         }
 
-        Notification(WTF::Function<void ()>&& function)
+        Notification(Function<void()>&& function)
             : m_type(FunctionType)
             , m_finished(false)
             , m_function(WTFMove(function))
@@ -127,13 +127,13 @@ public:
         bool isValid() { return m_type != None; }
         MediaTime time() { return m_time; }
         bool finished() { return m_finished; }
-        WTF::Function<void ()>& function() { return m_function; }
+        Function<void ()>& function() { return m_function; }
         
     private:
         Type m_type;
         MediaTime m_time;
         bool m_finished;
-        WTF::Function<void ()> m_function;
+        Function<void()> m_function;
     };
 
     void scheduleMainThreadNotification(Notification&&);
@@ -197,6 +197,7 @@ protected:
     std::unique_ptr<PlatformTimeRanges> buffered() const override;
     bool didLoadingProgress() const override;
     void paint(GraphicsContext&, const FloatRect&) override = 0;
+    DestinationColorSpace colorSpace() override = 0;
     void paintCurrentFrameInContext(GraphicsContext&, const FloatRect&) override = 0;
     void setPreload(MediaPlayer::Preload) override;
     PlatformLayer* platformLayer() const override { return 0; }
@@ -331,7 +332,7 @@ protected:
 private:
     MediaPlayer* m_player;
 
-    WTF::Function<void()> m_pendingSeek;
+    Function<void()> m_pendingSeek;
 
     mutable Lock m_queuedNotificationsLock;
     Deque<Notification> m_queuedNotifications WTF_GUARDED_BY_LOCK(m_queuedNotificationsLock);

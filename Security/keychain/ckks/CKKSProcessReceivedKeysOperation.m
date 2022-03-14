@@ -89,7 +89,12 @@
                                     currentTrustStates:currentTrustStates
                                                  error:&remoteError];
 
-                ckksnotice("ckkskey", viewState.zoneID, "After remote key processing, Key hierachy is '%@' (error: %@)", newZoneState, remoteError);
+                ckksnotice("ckkskey", viewState.zoneID, "After remote key processing, Key hierarchy is '%@' (error: %@)", newZoneState, remoteError);
+
+                // If there's any issue processing the remote keys, bail.
+                if(![newZoneState isEqualToString:SecCKKSZoneKeyStateReady]) {
+                    return CKKSDatabaseTransactionCommit;
+                }
             }
 
             // Check for the existence of a key which we don't have

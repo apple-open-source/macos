@@ -731,6 +731,9 @@ STATIC boolean_t
 IFState_attach_IPv6(IFStateRef ifstate, boolean_t set_iff_up);
 
 STATIC void
+IFState_detach_IPv4(IFStateRef ifstate);
+
+STATIC void
 IFState_detach_IPv6(IFStateRef ifstate);
 
 STATIC const struct in6_addr *
@@ -2038,11 +2041,8 @@ IFStateFreeIPv4Services(IFStateRef ifstate, boolean_t all)
     else {
 	S_FreeNonDynamicServices(&ifstate->services);
     }
-    ifstate->startup_ready = TRUE;
-    if (count != 0
-	&& dynarray_count(&ifstate->services) == 0
-	&& if_ift_type(ifstate->if_p) != IFT_STF) {
-	inet_detach_interface(if_name(ifstate->if_p));
+    if (count != 0) {
+	IFState_detach_IPv4(ifstate);
     }
     return;
 }
@@ -2085,7 +2085,10 @@ IFStateFreeServiceWithID(IFStateRef ifstate, CFStringRef serviceID,
 	    break;
 	}
     }
-    if (is_ipv4 == FALSE) {
+    if (is_ipv4) {
+	IFState_detach_IPv4(ifstate);
+    }
+    else {
 	IFState_detach_IPv6(ifstate);
     }
     return;
@@ -2162,11 +2165,7 @@ IFState_service_add(IFStateRef ifstate, CFStringRef serviceID,
 	       ipconfig_method_string(method),
 	       ipconfig_status_string(status));
 	if (ipconfig_method_is_v4(method)) {
-	    if (dynarray_count(&ifstate->services) == 0) {
-		/* no services configured, detach IP again */
-		ifstate->startup_ready = TRUE;
-		inet_detach_interface(if_name(if_p));
-	    }
+	    IFState_detach_IPv4(ifstate);
 	}
 	else {
 	    IFState_detach_IPv6(ifstate);
@@ -2308,6 +2307,18 @@ STATIC void
 IFStateClearIPv6LinkLocalAddress(IFStateRef ifstate)
 {
     bzero(&ifstate->ipv6_linklocal, sizeof(ifstate->ipv6_linklocal));
+}
+
+STATIC void
+IFState_detach_IPv4(IFStateRef ifstate)
+{
+    if (dynarray_count(&ifstate->services) == 0) {
+	interface_t *	if_p = ifstate->if_p;
+
+	ifstate->startup_ready = TRUE;
+	inet_detach_interface(if_name(if_p));
+    }
+    return;
 }
 
 STATIC void
@@ -3202,12 +3213,21 @@ ServiceSetDHCPWaiting(ServiceRef service_p, boolean_t waiting)
     }
  }
 
-boolean_t
+PRIVATE_EXTERN boolean_t
 ServiceGetDHCPWaiting(ServiceRef service_p)
 {
     IFStateRef		ifstate = service_ifstate(service_p);
 
     return (ifstate->dhcp_waiting);
+}
+
+PRIVATE_EXTERN void
+ServiceDetachIPv4(ServiceRef service_p)
+{
+    IFStateRef		ifstate = service_ifstate(service_p);
+
+    IFState_detach_IPv4(ifstate);
+    return;
 }
 
 PRIVATE_EXTERN void

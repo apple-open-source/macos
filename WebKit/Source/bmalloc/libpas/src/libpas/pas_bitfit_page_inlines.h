@@ -233,7 +233,7 @@ static PAS_ALWAYS_INLINE pas_bitfit_allocation_result pas_bitfit_page_finish_all
 
     if (verbose) {
         pas_log("%p: bitfit allocated %p of size %lu in %p\n",
-                pthread_self(), (void*)begin, size, page);
+                (void*)pthread_self(), (void*)begin, size, page);
     }
 
     if (verbose) {
@@ -272,7 +272,8 @@ static PAS_ALWAYS_INLINE pas_bitfit_allocation_result pas_bitfit_page_allocate(
     PAS_TESTING_ASSERT(pas_is_aligned(size, pas_page_base_config_min_align(page_config.base)));
 
     pas_lock_testing_assert_held(&owner->ownership_lock);
-    PAS_TESTING_ASSERT(pas_page_base_get_kind(&page->base) == page_config.base.page_kind);
+    PAS_TESTING_ASSERT(pas_page_base_get_kind(&page->base)
+                       == pas_page_kind_for_bitfit_variant(page_config.variant));
     PAS_TESTING_ASSERT(pas_compact_atomic_bitfit_view_ptr_load_non_null(&page->owner) == owner);
 
     pas_bitfit_page_testing_verify(page);
@@ -369,8 +370,8 @@ static PAS_ALWAYS_INLINE pas_bitfit_allocation_result pas_bitfit_page_allocate(
 
                 if (verbose) {
                     pas_log("Need to do a search starting at word_index = %lu + 1, "
-                            "num_remaining_needed_bits = %lu\n",
-                            word_index, num_remaining_needed_bits);
+                            "num_remaining_needed_bits = %llu\n",
+                            (unsigned long)word_index, (unsigned long long)num_remaining_needed_bits);
                 }
 
                 for (other_word_index = word_index + 1; ; ++other_word_index) {
@@ -383,8 +384,8 @@ static PAS_ALWAYS_INLINE pas_bitfit_allocation_result pas_bitfit_page_allocate(
                     unsigned pages_to_commit_on_reloop;
 
                     if (verbose) {
-                        pas_log("At other_word_index = %lu, num_remaining_needed_bits = %lu\n",
-                                other_word_index, num_remaining_needed_bits);
+                        pas_log("At other_word_index = %lu, num_remaining_needed_bits = %llu\n",
+                                (unsigned long)other_word_index, (unsigned long long)num_remaining_needed_bits);
                     }
 
                     if (other_word_index >= pas_bitfit_page_config_num_alloc_words64(page_config)) {
@@ -644,7 +645,7 @@ static PAS_ALWAYS_INLINE uintptr_t pas_bitfit_page_deallocate_with_page_impl(
 
         if (verbose) {
             pas_log("Taking the same-word fast path with object_end_bit_index = %llu\n",
-                    object_end_bit_index);
+                    (unsigned long long)object_end_bit_index);
         }
 
         switch (mode) {
@@ -699,7 +700,7 @@ static PAS_ALWAYS_INLINE uintptr_t pas_bitfit_page_deallocate_with_page_impl(
 
                 if (verbose) {
                     pas_log("Found end bit word at %lu, bit index %llu\n",
-                            other_word_index, object_end_bit_index);
+                            (unsigned long)other_word_index, (unsigned long long)object_end_bit_index);
                 }
 
                 num_bits =
@@ -796,16 +797,16 @@ static PAS_ALWAYS_INLINE uintptr_t pas_bitfit_page_deallocate_with_page_impl(
                          intermediate_word_index++)
                         free_words[intermediate_word_index] = UINT64_MAX;
                     if (verbose) {
-                        pas_log("object_end_bit_index = %lu, mask = %llu\n",
-                                object_end_bit_index, pas_make_mask64(object_end_bit_index + 1));
+                        pas_log("object_end_bit_index = %llu, mask = %llu\n",
+                                (unsigned long long)object_end_bit_index, (unsigned long long)pas_make_mask64(object_end_bit_index + 1));
                     }
                     break;
                 } }
 
                 if (verbose) {
                     pas_log("word_index = %lu, bit_index_in_word = %lu, other_word_index = %lu, "
-                            "object_end_bit_index = %lu\n",
-                            word_index, bit_index_in_word, other_word_index, object_end_bit_index);
+                            "object_end_bit_index = %llu\n",
+                            (unsigned long)word_index, (unsigned long)bit_index_in_word, (unsigned long)other_word_index, (unsigned long long)object_end_bit_index);
                 }
 
                 if (verbose)
@@ -831,7 +832,7 @@ static PAS_ALWAYS_INLINE uintptr_t pas_bitfit_page_deallocate_with_page_impl(
 
         if (verbose) {
             pas_log("%p: bitfit deallocated %p of size %lu in %p with modified_offset = %lu\n",
-                    pthread_self(), (void*)begin, size, page, modified_offset);
+                    (void*)pthread_self(), (void*)begin, size, page, modified_offset);
         }
         
         if (page_config.base.page_size > page_config.base.granule_size) {

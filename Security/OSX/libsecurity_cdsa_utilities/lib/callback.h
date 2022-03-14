@@ -55,7 +55,7 @@ public:
     bool operator == (const ModuleCallback &cb) const
     { return mCallback == cb.mCallback && mContext == cb.mContext; }
     bool operator < (const ModuleCallback &cb) const
-    { return mCallback < cb.mCallback
+    { return (uintptr_t)mCallback < (uintptr_t)cb.mCallback
         || (mCallback == cb.mCallback && mContext < cb.mContext); }
 
 private:

@@ -151,7 +151,7 @@ changes merged.
 
 We strongly prefer pull requests to mailed patches, as it makes it a proper
 git commit that is easy to merge and they are easy to track and not that easy
-to loose in the flood of many emails, like they sometimes do on the mailing
+to lose in the flood of many emails, like they sometimes do on the mailing
 lists.
 
 Every pull request submitted will automatically be tested in several different
@@ -185,7 +185,6 @@ Consider the following table while looking at pull request failures:
  | LGTM analysis:  C/C++               | stable | new findings               |
  | buildbot/curl_winssl_ ...           | stable | all errors and failures    |
  | continuous-integration/appveyor/pr  | stable | all errors and failures    |
- | continuous-integration/travis-ci/pr | stable | all errors and failures    |
  | curl.curl (linux ...)               | stable | all errors and failures    |
  | curl.curl (windows ...)             | flaky  | repetitive errors/failures |
  | deepcode-ci-bot                     | stable | new findings               |

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2011-2020 Apple Inc. All rights reserved.
+ * Copyright (c) 2011-2021 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -113,7 +113,7 @@ nwi_state_get_notify_key()
 #define ATOMIC_DEC(p)		__sync_sub_and_fetch((p), 1)		// return (--n);
 
 void
-_nwi_state_force_refresh()
+_nwi_state_force_refresh(void)
 {
 	ATOMIC_CMPXCHG(&nwi_store_force_refresh, FALSE, TRUE);
 }

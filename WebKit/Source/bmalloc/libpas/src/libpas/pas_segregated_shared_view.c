@@ -126,9 +126,10 @@ pas_segregated_shared_handle* pas_segregated_shared_view_commit_page(
             pas_physical_memory_transaction_begin(&transaction);
             pas_heap_lock_lock_conditionally(
                 pas_segregated_page_config_heap_lock_hold_mode(page_config));
-            page_boundary = page_config.base.page_allocator(
+            page_boundary = page_config.page_allocator(
                 heap,
-                pas_segregated_page_config_heap_lock_hold_mode(page_config) ? NULL : &transaction);
+                pas_segregated_page_config_heap_lock_hold_mode(page_config) ? NULL : &transaction,
+                pas_segregated_page_shared_role);
             pas_heap_lock_unlock_conditionally(
                 pas_segregated_page_config_heap_lock_hold_mode(page_config));
         } while (!pas_physical_memory_transaction_end(&transaction));
@@ -143,7 +144,11 @@ pas_segregated_shared_handle* pas_segregated_shared_view_commit_page(
         }
         
         page = (pas_segregated_page*)
-            page_config.base.create_page_header(page_boundary, pas_lock_is_held);
+            page_config.base.create_page_header(
+                page_boundary,
+                pas_page_kind_for_segregated_variant_and_role(
+                    page_config.variant, pas_segregated_page_shared_role),
+                pas_lock_is_held);
         
         pas_heap_lock_unlock_conditionally(
             pas_segregated_page_config_heap_lock_hold_mode(page_config));
@@ -151,8 +156,7 @@ pas_segregated_shared_handle* pas_segregated_shared_view_commit_page(
         handle->page_boundary = pas_segregated_page_boundary(page, page_config);
 
         view->bump_offset = (unsigned)pas_round_up_to_power_of_2(
-            page_config.base.page_object_payload_offset,
-            pas_segregated_page_config_min_align(page_config));
+            page_config.shared_payload_offset, pas_segregated_page_config_min_align(page_config));
     } else {
         if (PAS_DEBUG_SPECTRUM_USE_FOR_COMMIT) {
             pas_debug_spectrum_add(
@@ -164,7 +168,11 @@ pas_segregated_shared_handle* pas_segregated_shared_view_commit_page(
             pas_segregated_page_config_heap_lock_hold_mode(page_config));
 
         pas_page_malloc_commit(handle->page_boundary, page_config.base.page_size);
-        page_config.base.create_page_header(handle->page_boundary, pas_lock_is_not_held);
+        page_config.base.create_page_header(
+            handle->page_boundary,
+            pas_page_kind_for_segregated_variant_and_role(
+                page_config.variant, pas_segregated_page_shared_role),
+            pas_lock_is_not_held);
     }
 
     pas_segregated_page_construct(
@@ -262,13 +270,13 @@ static pas_heap_summary compute_summary(pas_segregated_shared_view* view,
 
     start_of_page = 0;
     start_of_payload = pas_round_up_to_power_of_2(
-        page_config.base.page_object_payload_offset,
+        page_config.shared_payload_offset,
         pas_segregated_page_config_min_align(page_config));
     end_of_payload = view->bump_offset;
     end_of_page = page_config.base.page_size;
 
     if (verbose)
-        pas_log("index = %zu, bump_offset = %lu/%lu.\n", view->index, end_of_payload, end_of_page);
+        pas_log("index = %d, bump_offset = %lu/%lu.\n", view->index, end_of_payload, end_of_page);
     
     PAS_ASSERT(start_of_payload >= start_of_page);
     PAS_ASSERT(end_of_payload >= start_of_payload);
@@ -278,6 +286,7 @@ static pas_heap_summary compute_summary(pas_segregated_shared_view* view,
 
     size_of_payload = end_of_payload - start_of_payload;
     size_of_meta = page_config.base.page_size - size_of_payload;
+    PAS_UNUSED_PARAM(size_of_meta);
 
     if (!view->is_owned) {
         if (verbose)

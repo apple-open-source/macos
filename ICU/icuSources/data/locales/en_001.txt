@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_001{
@@ -19,9 +19,21 @@ en_001{
                 "{1} 'at' {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "rMMMMEEEEd",
+                "rMMMMd",
+                "rMMMd",
+                "rMMdd",
+            }
             availableFormats{
                 Ed{"E d"}
-                GyMMMEd{"E, d MMM r(U)"}
+                GyMMMEd{"E, d MMM r"}
+                GyMMMMEd{"E, d MMMM r(U)"}
+                GyMMMMd{"d MMMM r(U)"}
                 GyMMMd{"d MMM r"}
                 M{"LL"}
                 MEd{"E, dd/MM"}
@@ -31,10 +43,11 @@ en_001{
                 Md{"dd/MM"}
                 UMMMd{"d MMM U"}
                 UMd{"dd/MM/U"}
-                yMd{"dd/MM/r"}
                 yyyyM{"MM/r"}
                 yyyyMEd{"E, dd/MM/r"}
-                yyyyMMMEd{"E, d MMM r(U)"}
+                yyyyMMMEd{"E, d MMM r"}
+                yyyyMMMMEd{"E, d MMMM r(U)"}
+                yyyyMMMMd{"d MMMM r(U)"}
                 yyyyMMMd{"d MMM r"}
                 yyyyMd{"dd/MM/r"}
             }
@@ -97,6 +110,16 @@ en_001{
                 "{1} 'at' {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMEEEEd",
+                "GyMMMMd",
+                "GyMMMd",
+                "GGGGGyMMdd",
+            }
             availableFormats{
                 Bhms{"h:mm:ss B"}
                 EBhm{"E, h:mm B"}
@@ -108,6 +131,7 @@ en_001{
                 Ehms{"E, h:mm:ss a"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"dd/MM/y GGGGG"}
                 H{"HH"}
                 Hm{"HH:mm"}
                 Hms{"HH:mm:ss"}
@@ -125,13 +149,9 @@ en_001{
                 hmsv{"h:mm:ss a v"}
                 hmv{"h:mm a v"}
                 ms{"mm:ss"}
-                y{"y G"}
-                yyyy{"y G"}
                 yyyyM{"MM/y GGGGG"}
                 yyyyMEd{"E, dd/MM/y GGGGG"}
-                yyyyMMM{"MMM y G"}
                 yyyyMMMEd{"E, d MMM y G"}
-                yyyyMMMM{"MMMM y G"}
                 yyyyMMMd{"d MMM y G"}
                 yyyyMd{"dd/MM/y GGGGG"}
             }
@@ -231,12 +251,23 @@ en_001{
                 "{1} 'at' {0}",
                 "{1}, {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMEEEEd",
+                "yMMMMd",
+                "yMMMd",
+                "yMMdd",
+            }
             availableFormats{
                 EBhm{"E, h:mm B"}
                 EBhms{"E, h:mm:ss B"}
                 Ed{"E d"}
                 GyMMMEd{"E, d MMM y G"}
                 GyMMMd{"d MMM y G"}
+                GyMd{"d/M/y GGGGG"}
                 MEd{"E, dd/MM"}
                 MMMEd{"E, d MMM"}
                 MMMMd{"d MMMM"}
@@ -358,6 +389,40 @@ en_001{
                     M{"dd/MM/y – dd/MM/y"}
                     d{"dd/MM/y – dd/MM/y"}
                     y{"dd/MM/y – dd/MM/y"}
+                }
+            }
+            monthNames{
+                format{
+                    abbreviated{
+                        "Jan",
+                        "Feb",
+                        "Mar",
+                        "Apr",
+                        "May",
+                        "Jun",
+                        "Jul",
+                        "Aug",
+                        "Sept",
+                        "Oct",
+                        "Nov",
+                        "Dec",
+                    }
+                }
+                stand-alone{
+                    abbreviated{
+                        "Jan",
+                        "Feb",
+                        "Mar",
+                        "Apr",
+                        "May",
+                        "Jun",
+                        "Jul",
+                        "Aug",
+                        "Sept",
+                        "Oct",
+                        "Nov",
+                        "Dec",
+                    }
                 }
             }
         }

@@ -30,6 +30,8 @@
 #include "ContentSecurityPolicy.h"
 #include "CrossOriginAccessControl.h"
 #include "CurrentScriptIncrementer.h"
+#include "DocumentInlines.h"
+#include "ElementInlines.h"
 #include "Event.h"
 #include "EventNames.h"
 #include "Frame.h"
@@ -45,6 +47,7 @@
 #include "ModuleFetchParameters.h"
 #include "PendingScript.h"
 #include "RuntimeApplicationChecks.h"
+#include "SVGElementTypeHelpers.h"
 #include "SVGScriptElement.h"
 #include "ScriptController.h"
 #include "ScriptDisallowedScope.h"
@@ -63,8 +66,8 @@ static const auto maxUserGesturePropagationTime = 1_s;
 
 ScriptElement::ScriptElement(Element& element, bool parserInserted, bool alreadyStarted)
     : m_element(element)
-    , m_startLineNumber(WTF::OrdinalNumber::beforeFirst())
-    , m_parserInserted(parserInserted)
+    , m_startLineNumber(OrdinalNumber::beforeFirst())
+    , m_parserInserted(parserInserted ? ParserInserted::Yes : ParserInserted::No)
     , m_isExternalScript(false)
     , m_alreadyStarted(alreadyStarted)
     , m_haveFiredLoad(false)
@@ -84,13 +87,13 @@ ScriptElement::ScriptElement(Element& element, bool parserInserted, bool already
 
 void ScriptElement::didFinishInsertingNode()
 {
-    ASSERT(!m_parserInserted);
+    ASSERT(m_parserInserted == ParserInserted::No);
     prepareScript(); // FIXME: Provide a real starting line number here.
 }
 
 void ScriptElement::childrenChanged(const ContainerNode::ChildChange& childChange)
 {
-    if (!m_parserInserted && childChange.isInsertion() && m_element.isConnected())
+    if (m_parserInserted == ParserInserted::No && childChange.isInsertion() && m_element.isConnected())
         prepareScript(); // FIXME: Provide a real starting line number here.
 }
 
@@ -174,9 +177,9 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
         return false;
 
     bool wasParserInserted;
-    if (m_parserInserted) {
+    if (m_parserInserted == ParserInserted::Yes) {
         wasParserInserted = true;
-        m_parserInserted = false;
+        m_parserInserted = ParserInserted::No;
     } else
         wasParserInserted = false;
 
@@ -198,7 +201,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
     m_isModuleScript = scriptType == ScriptType::Module;
 
     if (wasParserInserted) {
-        m_parserInserted = true;
+        m_parserInserted = ParserInserted::Yes;
         m_forceAsync = false;
     }
 
@@ -248,11 +251,11 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
 
     bool isClassicExternalScript = scriptType == ScriptType::Classic && hasSourceAttribute();
     bool isParserInsertedDeferredScript = ((isClassicExternalScript && hasDeferAttribute()) || scriptType == ScriptType::Module)
-        && m_parserInserted && !hasAsyncAttribute();
+        && m_parserInserted == ParserInserted::Yes && !hasAsyncAttribute();
     if (isParserInsertedDeferredScript) {
         m_willExecuteWhenDocumentFinishedParsing = true;
         m_willBeParserExecuted = true;
-    } else if (isClassicExternalScript && m_parserInserted && !hasAsyncAttribute()) {
+    } else if (isClassicExternalScript && m_parserInserted == ParserInserted::Yes && !hasAsyncAttribute()) {
         ASSERT(scriptType == ScriptType::Classic);
         m_willBeParserExecuted = true;
     } else if ((isClassicExternalScript || scriptType == ScriptType::Module) && !hasAsyncAttribute() && !m_forceAsync) {
@@ -263,7 +266,7 @@ bool ScriptElement::prepareScript(const TextPosition& scriptStartPosition, Legac
         ASSERT(m_loadableScript);
         ASSERT(hasAsyncAttribute() || m_forceAsync);
         document.scriptRunner().queueScriptForExecution(*this, *m_loadableScript, ScriptRunner::ASYNC_EXECUTION);
-    } else if (!hasSourceAttribute() && m_parserInserted && !document.haveStylesheetsLoaded()) {
+    } else if (!hasSourceAttribute() && m_parserInserted == ParserInserted::Yes && !document.haveStylesheetsLoaded()) {
         ASSERT(scriptType == ScriptType::Classic);
         m_willBeParserExecuted = true;
         m_readyToBeParserExecuted = true;
@@ -288,7 +291,7 @@ bool ScriptElement::requestClassicScript(const String& sourceURL)
     ASSERT(!m_loadableScript);
     if (!stripLeadingAndTrailingHTMLSpaces(sourceURL).isEmpty()) {
         auto script = LoadableClassicScript::create(
-            m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr),
+            m_element.nonce(),
             m_element.document().settings().subresourceIntegrityEnabled() ? m_element.attributeWithoutSynchronization(HTMLNames::integrityAttr).string() : emptyString(),
             referrerPolicy(),
             m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr),
@@ -299,6 +302,10 @@ bool ScriptElement::requestClassicScript(const String& sourceURL)
 
         auto scriptURL = m_element.document().completeURL(sourceURL);
         m_element.document().willLoadScriptElement(scriptURL);
+
+        const auto& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
+        if (!contentSecurityPolicy.allowNonParserInsertedScripts(scriptURL, URL(), m_startLineNumber, m_element.nonce(), String(), m_parserInserted))
+            return false;
 
         if (script->load(m_element.document(), scriptURL)) {
             m_loadableScript = WTFMove(script);
@@ -319,7 +326,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
 {
     // https://html.spec.whatwg.org/multipage/urls-and-fetching.html#cors-settings-attributes
     // Module is always CORS request. If attribute is not given, it should be same-origin credential.
-    String nonce = m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr);
+    String nonce = m_element.nonce();
     String crossOriginMode = m_element.attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
     if (crossOriginMode.isNull())
         crossOriginMode = ScriptElementCachedScriptFetcher::defaultCrossOriginModeForModule;
@@ -357,7 +364,7 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
         m_loadableScript = WTFMove(script);
         if (auto* frame = m_element.document().frame()) {
             auto& script = downcast<LoadableModuleScript>(*m_loadableScript.get());
-            frame->script().loadModuleScript(script, moduleScriptRootURL.string(), makeRef(script.parameters()));
+            frame->script().loadModuleScript(script, moduleScriptRootURL.string(), script.parameters());
         }
         return true;
     }
@@ -369,8 +376,10 @@ bool ScriptElement::requestModuleScript(const TextPosition& scriptStartPosition)
 
     ASSERT(m_element.document().contentSecurityPolicy());
     const auto& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
-    bool hasKnownNonce = contentSecurityPolicy.allowScriptWithNonce(nonce, m_element.isInUserAgentShadowTree());
-    if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), hasKnownNonce))
+    if (!contentSecurityPolicy.allowNonParserInsertedScripts(URL(), m_element.document().url(), m_startLineNumber, m_element.nonce(), sourceCode.source(), m_parserInserted))
+        return false;
+
+    if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), m_element, nonce, m_element.isInUserAgentShadowTree()))
         return false;
 
     m_loadableScript = WTFMove(script);
@@ -390,8 +399,10 @@ void ScriptElement::executeClassicScript(const ScriptSourceCode& sourceCode)
     if (!m_isExternalScript) {
         ASSERT(m_element.document().contentSecurityPolicy());
         const ContentSecurityPolicy& contentSecurityPolicy = *m_element.document().contentSecurityPolicy();
-        bool hasKnownNonce = contentSecurityPolicy.allowScriptWithNonce(m_element.attributeWithoutSynchronization(HTMLNames::nonceAttr), m_element.isInUserAgentShadowTree());
-        if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), hasKnownNonce))
+        if (!contentSecurityPolicy.allowNonParserInsertedScripts(URL(), m_element.document().url(), m_startLineNumber, m_element.nonce(), sourceCode.source(), m_parserInserted))
+            return;
+
+        if (!contentSecurityPolicy.allowInlineScript(m_element.document().url().string(), m_startLineNumber, sourceCode.source(), m_element, m_element.nonce(), m_element.isInUserAgentShadowTree()))
             return;
     }
 
@@ -470,7 +481,7 @@ void ScriptElement::executePendingScript(PendingScript& pendingScript)
 
 bool ScriptElement::ignoresLoadRequest() const
 {
-    return m_alreadyStarted || m_isExternalScript || m_parserInserted || !m_element.isConnected();
+    return m_alreadyStarted || m_isExternalScript || m_parserInserted == ParserInserted::Yes || !m_element.isConnected();
 }
 
 bool ScriptElement::isScriptForEventSupported() const

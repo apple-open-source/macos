@@ -72,7 +72,7 @@ class IOFireWireSBP2Login;
     The ORBs are executed using the submitORB method in IOFireWireSBP2Login.
 */
 
-class IOFireWireSBP2ORB : public IOCommand
+class __exported IOFireWireSBP2ORB : public IOCommand
 {
     OSDeclareDefaultStructors( IOFireWireSBP2ORB )
 

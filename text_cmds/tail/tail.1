@@ -12,11 +12,7 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
-.\" 4. Neither the name of the University nor the names of its contributors
+.\" 3. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
 .\"
@@ -35,7 +31,7 @@
 .\"	@(#)tail.1	8.1 (Berkeley) 6/6/93
 .\" $FreeBSD$
 .\"
-.Dd June 29, 2006
+.Dd March 22, 2020
 .Dt TAIL 1
 .Os
 .Sh NAME
@@ -77,11 +73,11 @@ or the last 10 lines of the input.
 .Pp
 The options are as follows:
 .Bl -tag -width indent
-.It Fl b Ar number
+.It Fl b Ar number , Fl -blocks Ns = Ns Ar number
 The location is
 .Ar number
 512-byte blocks.
-.It Fl c Ar number
+.It Fl c Ar number , Fl -bytes Ns = Ns Ar number
 The location is
 .Ar number
 bytes.
@@ -106,10 +102,17 @@ will also check to see if the file being followed has been renamed or rotated.
 The file is closed and reopened when
 .Nm
 detects that the filename being read from has a new inode number.
+.Pp
+If the file being followed does not (yet) exist or if it is removed, tail
+will keep looking and will display the file from the beginning if and when
+it is created.
+.Pp
 The
 .Fl F
-option is ignored if reading from standard input rather than a file.
-.It Fl n Ar number
+option is the same as the
+.Fl f
+option if reading from standard input rather than a file.
+.It Fl n Ar number , Fl -lines Ns = Ns Ar number
 The location is
 .Ar number
 lines.
@@ -144,6 +147,17 @@ is the name of the file unless
 flag is specified.
 .Sh EXIT STATUS
 .Ex -std
+.Sh EXAMPLES
+To display the last 500 lines of the file
+.Ar foo :
+.Pp
+.Dl $ tail -n 500 foo
+.Pp
+Keep
+.Pa /var/log/messages
+open, displaying to the standard output anything appended to the file:
+.Pp
+.Dl $ tail -F /var/log/messages
 .Sh SEE ALSO
 .Xr cat 1 ,
 .Xr head 1 ,

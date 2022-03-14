@@ -35,6 +35,7 @@ namespace DisplayList {
 template<typename BackendType>
 class ImageBuffer : public ConcreteImageBuffer<BackendType> {
     using BaseConcreteImageBuffer = ConcreteImageBuffer<BackendType>;
+    using BaseConcreteImageBuffer::truncatedLogicalSize;
     using BaseConcreteImageBuffer::logicalSize;
     using BaseConcreteImageBuffer::baseTransform;
 
@@ -52,18 +53,18 @@ public:
     ImageBuffer(const ImageBufferBackend::Parameters& parameters, std::unique_ptr<BackendType>&& backend)
         : BaseConcreteImageBuffer(parameters, WTFMove(backend))
         , m_drawingContext(logicalSize(), baseTransform())
-        , m_writingClient(WTF::makeUnique<InMemoryDisplayList::WritingClient>())
-        , m_readingClient(WTF::makeUnique<InMemoryDisplayList::ReadingClient>())
+        , m_writingClient(makeUnique<InMemoryDisplayList::WritingClient>())
+        , m_readingClient(makeUnique<InMemoryDisplayList::ReadingClient>())
     {
         m_drawingContext.displayList().setItemBufferWritingClient(m_writingClient.get());
         m_drawingContext.displayList().setItemBufferReadingClient(m_readingClient.get());
     }
 
-    ImageBuffer(const ImageBufferBackend::Parameters& parameters, Recorder::Delegate* delegate = nullptr)
+    ImageBuffer(const ImageBufferBackend::Parameters& parameters, RecorderImpl::Delegate* delegate = nullptr)
         : BaseConcreteImageBuffer(parameters)
         , m_drawingContext(logicalSize(), baseTransform(), delegate)
-        , m_writingClient(WTF::makeUnique<InMemoryDisplayList::WritingClient>())
-        , m_readingClient(WTF::makeUnique<InMemoryDisplayList::ReadingClient>())
+        , m_writingClient(makeUnique<InMemoryDisplayList::WritingClient>())
+        , m_readingClient(makeUnique<InMemoryDisplayList::ReadingClient>())
     {
         m_drawingContext.displayList().setItemBufferWritingClient(m_writingClient.get());
         m_drawingContext.displayList().setItemBufferReadingClient(m_readingClient.get());
@@ -79,7 +80,7 @@ public:
         return m_drawingContext.context();
     }
 
-    DrawingContext* drawingContext() override { return &m_drawingContext; }
+    GraphicsContext* drawingContext() override { return &m_drawingContext.context(); }
 
     void flushDrawingContext() override
     {

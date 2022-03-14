@@ -14,5 +14,9 @@
 	</array>
 	<key>com.apple.private.vfs.allow-low-space-writes</key>
 	<true/>
+	<key>com.apple.networkd_privileged</key>
+	<true/>
+	<key>com.apple.networkd.modify_settings</key>
+	<true/>
 </dict>
 </plist>

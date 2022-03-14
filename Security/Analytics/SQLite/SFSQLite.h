@@ -35,6 +35,7 @@
 
 typedef SInt64 SFSQLiteRowID;
 @class SFSQLite;
+@protocol SFSQLiteRow;
 
 NSArray *SFSQLiteJournalSuffixes(void);
 
@@ -138,6 +139,7 @@ typedef NS_ENUM(NSInteger, SFSQLiteSynchronousMode) {
 // Convience calls that generate and execute statements.
 - (NSArray *)selectAllFrom:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings;
 - (NSArray *)select:(NSArray *)columns from:(NSString *)tableName;
+- (NSArray *)select:(NSArray *)columns from:(NSString *)tableName mapEachRow:(id (^)(id<SFSQLiteRow> row))block;
 - (NSArray *)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings;
 - (void)select:(NSArray *)columns from:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings orderBy:(NSArray *)orderBy limit:(NSNumber *)limit block:(void (^)(NSDictionary *resultDictionary, BOOL *stop))block;
 - (void)selectFrom:(NSString *)tableName where:(NSString *)whereSQL bindings:(NSArray *)bindings orderBy:(NSArray *)orderBy limit:(NSNumber *)limit block:(void (^)(NSDictionary *resultDictionary, BOOL *stop))block;

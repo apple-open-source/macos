@@ -43,6 +43,8 @@ opt_in_rules:
     - vertical_whitespace_closing_braces
     - xct_specific_matcher
     - yoda_condition
+    - overridden_super_call
+    - contains_over_filter_is_empty
 trailing_comma:
     mandatory_comma: true
 excluded:

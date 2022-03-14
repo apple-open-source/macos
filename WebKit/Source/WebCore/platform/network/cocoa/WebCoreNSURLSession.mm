@@ -31,6 +31,7 @@
 #import "PlatformMediaResourceLoader.h"
 #import "SharedBuffer.h"
 #import "SubresourceLoader.h"
+#import "WebCoreObjCExtras.h"
 #import <pal/spi/cf/CFNetworkSPI.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
@@ -55,7 +56,7 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 }
 
 @interface WebCoreNSURLSessionTaskTransactionMetrics : NSObject
-- (instancetype)_initWithMetrics:(const WebCore::NetworkLoadMetrics&)metrics;
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics;
 @property (nullable, copy, readonly) NSDate *fetchStartDate;
 @property (nullable, copy, readonly) NSDate *domainLookupStartDate;
 @property (nullable, copy, readonly) NSDate *domainLookupEndDate;
@@ -80,12 +81,21 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
     WebCore::NetworkLoadMetrics _metrics;
 }
 
-- (instancetype)_initWithMetrics:(const WebCore::NetworkLoadMetrics&)metrics
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics
 {
+    ASSERT(isMainThread());
     if (!(self = [super init]))
         return nil;
     _metrics = metrics;
     return self;
+}
+
+- (void)dealloc
+{
+    if (WebCoreObjCScheduleDeallocateOnMainThread(WebCoreNSURLSessionTaskTransactionMetrics.class, self))
+        return;
+
+    [super dealloc];
 }
 
 @dynamic fetchStartDate;
@@ -207,7 +217,7 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
 @end
 
 @interface WebCoreNSURLSessionTaskMetrics : NSObject
-- (instancetype)_initWithMetrics:(const WebCore::NetworkLoadMetrics&)metrics;
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics;
 @property (copy, readonly) NSArray<NSURLSessionTaskTransactionMetrics *> *transactionMetrics;
 @end
 
@@ -215,12 +225,22 @@ static NSDate * __nullable networkLoadMetricsDate(MonotonicTime time)
     RetainPtr<WebCoreNSURLSessionTaskTransactionMetrics> _transactionMetrics;
 }
 
-- (instancetype)_initWithMetrics:(const WebCore::NetworkLoadMetrics&)metrics
+- (instancetype)_initWithMetrics:(WebCore::NetworkLoadMetrics&&)metrics
 {
+    ASSERT(isMainThread());
+
     if (!(self = [super init]))
         return nil;
-    _transactionMetrics = adoptNS([[WebCoreNSURLSessionTaskTransactionMetrics alloc] _initWithMetrics:metrics]);
+    _transactionMetrics = adoptNS([[WebCoreNSURLSessionTaskTransactionMetrics alloc] _initWithMetrics:WTFMove(metrics)]);
     return self;
+}
+
+- (void)dealloc
+{
+    if (WebCoreObjCScheduleDeallocateOnMainThread(WebCoreNSURLSessionTaskMetrics.class, self))
+        return;
+
+    [super dealloc];
 }
 
 @dynamic transactionMetrics;
@@ -588,7 +608,7 @@ public:
     void redirectReceived(PlatformMediaResource&, ResourceRequest&&, const ResourceResponse&, CompletionHandler<void(ResourceRequest&&)>&&) override;
     bool shouldCacheResponse(PlatformMediaResource&, const ResourceResponse&) override;
     void dataSent(PlatformMediaResource&, unsigned long long, unsigned long long) override;
-    void dataReceived(PlatformMediaResource&, Ref<SharedBuffer>&&) override;
+    void dataReceived(PlatformMediaResource&, const SharedBuffer&) override;
     void accessControlCheckFailed(PlatformMediaResource&, const ResourceError&) override;
     void loadFailed(PlatformMediaResource&, const ResourceError&) override;
     void loadFinished(PlatformMediaResource&, const NetworkLoadMetrics&) override;
@@ -615,7 +635,7 @@ void WebCoreNSURLSessionDataTaskClient::dataSent(PlatformMediaResource& resource
 
 void WebCoreNSURLSessionDataTaskClient::responseReceived(PlatformMediaResource& resource, const ResourceResponse& response, CompletionHandler<void(ShouldContinuePolicyCheck)>&& completionHandler)
 {
-    auto protectedThis = makeRef(*this);
+    Ref protectedThis { *this };
     Locker locker { m_taskLock };
     if (!m_task)
         return completionHandler(ShouldContinuePolicyCheck::No);
@@ -632,13 +652,13 @@ bool WebCoreNSURLSessionDataTaskClient::shouldCacheResponse(PlatformMediaResourc
     return [m_task resource:&resource shouldCacheResponse:response];
 }
 
-void WebCoreNSURLSessionDataTaskClient::dataReceived(PlatformMediaResource& resource, Ref<SharedBuffer>&& buffer)
+void WebCoreNSURLSessionDataTaskClient::dataReceived(PlatformMediaResource& resource, const SharedBuffer& buffer)
 {
     Locker locker { m_taskLock };
     if (!m_task)
         return;
 
-    [m_task resource:&resource receivedData:WTFMove(buffer)];
+    [m_task resource:&resource receivedData:buffer.createNSData()];
 }
 
 void WebCoreNSURLSessionDataTaskClient::redirectReceived(PlatformMediaResource& resource, ResourceRequest&& request, const ResourceResponse& response, CompletionHandler<void(ResourceRequest&&)>&& completionHandler)
@@ -701,7 +721,7 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
         request = mutableRequest.get();
     }
 
-    self.originalRequest = self.currentRequest = request;
+    self->_originalRequest = self->_currentRequest = request;
 
     return self;
 }
@@ -727,8 +747,13 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
         return;
 
     _resource = self.session.loader.requestResource(self.originalRequest, PlatformMediaResourceLoader::LoadOption::DisallowCaching);
-    if (_resource)
+    if (_resource) {
         _resource->setClient(adoptRef(*new WebCoreNSURLSessionDataTaskClient(self)));
+        return;
+    }
+
+    // A nil return from requestResource means the load was cancelled by a delegate client
+    [self _resource:nil loadFinishedWithError:ResourceError(ResourceError::Type::Cancellation) metrics:{ }];
 }
 
 - (void)_cancel
@@ -745,16 +770,37 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
 #pragma mark - NSURLSession API
 @synthesize taskIdentifier = _taskIdentifier;
-@synthesize originalRequest = _originalRequest;
-@synthesize currentRequest = _currentRequest;
 @synthesize countOfBytesReceived = _countOfBytesReceived;
 @synthesize countOfBytesSent = _countOfBytesSent;
 @synthesize countOfBytesExpectedToSend = _countOfBytesExpectedToSend;
 @synthesize countOfBytesExpectedToReceive = _countOfBytesExpectedToReceive;
 @synthesize state = _state;
-@synthesize error = _error;
-@synthesize taskDescription = _taskDescription;
 @synthesize priority = _priority;
+
+- (NSURLRequest *)originalRequest
+{
+    return adoptNS([_originalRequest copy]).autorelease();
+}
+
+- (NSURLRequest *)currentRequest
+{
+    return adoptNS([_currentRequest copy]).autorelease();
+}
+
+- (NSError *)error
+{
+    return adoptNS([_error copy]).autorelease();
+}
+
+- (NSString *)taskDescription
+{
+    return adoptNS([_taskDescription copy]).autorelease();
+}
+
+- (void)setTaskDescription:(NSString *)description
+{
+    _taskDescription = adoptNS([description copy]);
+}
 
 - (WebCoreNSURLSession *)session
 {
@@ -806,11 +852,6 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
 
 - (void)dealloc
 {
-    [_originalRequest release];
-    [_currentRequest release];
-    [_error release];
-    [_taskDescription release];
-
     if (!isMainThread() && _resource) {
         if (auto* client = _resource->client())
             static_cast<WebCoreNSURLSessionDataTaskClient*>(client)->clearTask();
@@ -844,7 +885,6 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     ASSERT_UNUSED(resource, !resource || resource == _resource);
     ASSERT(isMainThread());
     [self.session task:self didReceiveResponseFromOrigin:SecurityOrigin::create(response.url())];
-    // FIXME: Think about this and make sure it's safe.
     [self.session task:self didReceiveCORSAccessCheckResult:resource ? resource->didPassAccessControlCheck() : YES];
     self.countOfBytesExpectedToReceive = response.expectedContentLength();
     RetainPtr<NSURLResponse> strongResponse = response.nsURLResponse();
@@ -891,15 +931,14 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     return response.httpHeaderField(HTTPHeaderName::ContentRange).isEmpty();
 }
 
-- (void)resource:(PlatformMediaResource*)resource receivedData:(Ref<WebCore::SharedBuffer>&&)data
+- (void)resource:(PlatformMediaResource*)resource receivedData:(RetainPtr<NSData>&&)data
 {
     ASSERT_UNUSED(resource, !resource || resource == _resource);
     [self.session addDelegateOperation:[strongSelf = RetainPtr { self }, data = WTFMove(data)] {
-        auto nsData = data->createNSData();
-        strongSelf.get().countOfBytesReceived += data->size();
+        strongSelf.get().countOfBytesReceived += [data length];
         id<NSURLSessionDataDelegate> dataDelegate = (id<NSURLSessionDataDelegate>)strongSelf.get().session.delegate;
         if ([dataDelegate respondsToSelector:@selector(URLSession:dataTask:didReceiveData:)])
-            [dataDelegate URLSession:(NSURLSession *)strongSelf.get().session dataTask:(NSURLSessionDataTask *)strongSelf.get() didReceiveData:nsData.get()];
+            [dataDelegate URLSession:(NSURLSession *)strongSelf.get().session dataTask:(NSURLSessionDataTask *)strongSelf.get() didReceiveData:data.get()];
     }];
 }
 
@@ -941,11 +980,12 @@ void WebCoreNSURLSessionDataTaskClient::loadFinished(PlatformMediaResource& reso
     RetainPtr<WebCoreNSURLSessionDataTask> strongSelf { self };
     RetainPtr<WebCoreNSURLSession> strongSession { self.session };
     RetainPtr<NSError> strongError { error };
-    [self.session addDelegateOperation:[strongSelf, strongSession, strongError, metrics = metrics.isolatedCopy()] {
+    auto taskMetrics = adoptNS([[WebCoreNSURLSessionTaskMetrics alloc] _initWithMetrics:NetworkLoadMetrics(metrics)]);
+    [self.session addDelegateOperation:[strongSelf, strongSession, strongError, taskMetrics = WTFMove(taskMetrics)] () mutable {
         id<NSURLSessionTaskDelegate> delegate = (id<NSURLSessionTaskDelegate>)strongSession.get().delegate;
 
         if ([delegate respondsToSelector:@selector(URLSession:task:didFinishCollectingMetrics:)])
-            [delegate URLSession:(NSURLSession *)strongSession.get() task:(NSURLSessionDataTask *)strongSelf.get() didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)adoptNS([[WebCoreNSURLSessionTaskMetrics alloc] _initWithMetrics:metrics]).get()];
+            [delegate URLSession:(NSURLSession *)strongSession.get() task:(NSURLSessionDataTask *)strongSelf.get() didFinishCollectingMetrics:(NSURLSessionTaskMetrics *)taskMetrics.get()];
 
         if ([delegate respondsToSelector:@selector(URLSession:task:didCompleteWithError:)])
             [delegate URLSession:(NSURLSession *)strongSession.get() task:(NSURLSessionDataTask *)strongSelf.get() didCompleteWithError:strongError.get()];

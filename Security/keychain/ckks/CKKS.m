@@ -38,6 +38,7 @@
 
 #import "keychain/ot/OTManager.h"
 #import "keychain/ot/OctagonStateMachineHelpers.h"
+#import "keychain/ot/ErrorUtils.h"
 
 NSDictionary<CKKSZoneKeyState*, NSNumber*>* CKKSZoneKeyStateMap(void) {
     static NSDictionary<CKKSZoneKeyState*, NSNumber*>* map = nil;
@@ -224,6 +225,7 @@ bool SecCKKSTestsEnable(void) {
         return false;
     }
 
+    [NSError setDefaultRetryIntervalForTests:2];
     testCKKS = true;
     return testCKKS;
 }

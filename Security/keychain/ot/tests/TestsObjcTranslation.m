@@ -245,7 +245,7 @@ static const uint8_t signingKey_384[] = {
     return YES;
 }
 
-+ (BOOL)expectXNumberOfItemsUpgraded:(int64_t)expected
++ (BOOL)expectXNumberOfItemsUpgraded:(int)expected
 {
     int64_t upgraded = 0;
     

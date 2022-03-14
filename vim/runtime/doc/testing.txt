@@ -1,4 +1,4 @@
-*testing.txt*	For Vim version 8.2.  Last change: 2021 Mar 10
+*testing.txt*	For Vim version 8.2.  Last change: 2022 Jan 13
 
 
 		  VIM REFERENCE MANUAL	  by Bram Moolenaar
@@ -46,6 +46,7 @@ test_alloc_fail({id}, {countdown}, {repeat})		*test_alloc_fail()*
 		Can also be used as a |method|: >
 			GetAllocId()->test_alloc_fail()
 
+
 test_autochdir()					*test_autochdir()*
 		Set a flag to enable the effect of 'autochdir' before Vim
 		startup has finished.
@@ -59,11 +60,13 @@ test_feedinput({string})				*test_feedinput()*
 		Can also be used as a |method|: >
 			GetText()->test_feedinput()
 
+
 test_garbagecollect_now()			 *test_garbagecollect_now()*
 		Like garbagecollect(), but executed right away.  This must
 		only be called directly to avoid any structure to exist
 		internally, and |v:testing| must have been set before calling
-		any function.
+		any function.  This will not work when called from a :def
+		function, because variables on the stack will be freed.
 
 
 test_garbagecollect_soon()			 *test_garbagecollect_soon()*
@@ -78,6 +81,46 @@ test_getvalue({name})					*test_getvalue()*
 
 		Can also be used as a |method|: >
 			GetName()->test_getvalue()
+<
+						*test_gui_drop_files()*
+test_gui_drop_files({list}, {row}, {col}, {mods})
+		Drop one or more files in {list} in the window at {row}, {col}.
+		This function only works when the GUI is running and the
+		|drop_file| feature is present.
+
+		The supported values for {mods} are:
+			0x4	Shift
+			0x8	Alt
+			0x10	Ctrl
+		The files are added to the |argument-list| and the first file
+		in {list} is edited in the window.  See |drag-n-drop| for more
+		information.
+
+						*test_gui_mouse_event()*
+test_gui_mouse_event({button}, {row}, {col}, {multiclick}, {modifiers})
+		Inject a mouse button click event.  This function only works
+		when the GUI is running.
+		The supported values for {button} are:
+			0	right mouse button
+			1	middle mouse button
+			2	left mouse button
+			3	mouse button release
+			4	scroll wheel down
+			5	scroll wheel up
+			6	scroll wheel left
+			7	scroll wheel right
+		{row} and {col} specify the location of the mouse click. The
+		first row of the Vim window is 1 and the last row is 'lines'.
+		The maximum value of {col} is 'columns'.
+		To inject a multiclick event, set {multiclick} to 1.
+		The supported values for {modifiers} are:
+			4	shift is pressed
+			8	alt is pressed
+			16	ctrl is pressed
+		After injecting the mouse event you probably should call
+		|feedkeys()| to have them processed, e.g.: >
+			call feedkeys("y", 'Lx!')
+
 
 test_ignore_error({expr})			 *test_ignore_error()*
 		Ignore any error containing {expr}.  A normal message is given
@@ -91,6 +134,7 @@ test_ignore_error({expr})			 *test_ignore_error()*
 
 		Can also be used as a |method|: >
 			GetErrorText()->test_ignore_error()
+
 
 test_null_blob()					*test_null_blob()*
 		Return a |Blob| that is null. Only useful for testing.
@@ -126,13 +170,6 @@ test_null_string()					*test_null_string()*
 		Return a |String| that is null. Only useful for testing.
 
 
-test_unknown()						*test_unknown()*
-		Return a value with unknown type. Only useful for testing.
-
-test_void()						*test_void()*
-		Return a value with void type. Only useful for testing.
-
-
 test_option_not_set({name})				*test_option_not_set()*
 		Reset the flag that indicates option {name} was set.  Thus it
 		looks like it still has the default value. Use like this: >
@@ -151,23 +188,25 @@ test_override({name}, {val})				*test_override()*
 		to run tests. Only to be used for testing Vim!
 		The override is enabled when {val} is non-zero and removed
 		when {val} is zero.
-		Current supported values for name are:
+		Current supported values for {name} are:
 
-		name	     effect when {val} is non-zero ~
-		redraw       disable the redrawing() function
-		redraw_flag  ignore the RedrawingDisabled flag
+		{name}	     effect when {val} is non-zero ~
+		autoload     `import autoload` will load the script right
+			     away, not postponed until an item is used
 		char_avail   disable the char_avail() function
-		starting     reset the "starting" variable, see below
 		nfa_fail     makes the NFA regexp engine fail to force a
 			     fallback to the old engine
 		no_query_mouse  do not query the mouse position for "dec"
 				terminals
 		no_wait_return	set the "no_wait_return" flag.  Not restored
 				with "ALL".
-		ui_delay     time in msec to use in ui_delay(); overrules a
-			     wait time of up to 3 seconds for messages
+		redraw       disable the redrawing() function
+		redraw_flag  ignore the RedrawingDisabled flag
+		starting     reset the "starting" variable, see below
 		term_props   reset all terminal properties when the version
 			     string is detected
+		ui_delay     time in msec to use in ui_delay(); overrules a
+			     wait time of up to 3 seconds for messages
 		uptime 	     overrules sysinfo.uptime
 		ALL	     clear all overrides ({val} is not used)
 
@@ -183,6 +222,7 @@ test_override({name}, {val})				*test_override()*
 
 <		Can also be used as a |method|: >
 			GetOverrideVal()-> test_override('starting')
+
 
 test_refcount({expr})					*test_refcount()*
 		Return the reference count of {expr}.  When {expr} is of a
@@ -213,12 +253,14 @@ test_scrollbar({which}, {value}, {dragging})		*test_scrollbar()*
 		Can also be used as a |method|: >
 			GetValue()->test_scrollbar('right', 0)
 
+
 test_setmouse({row}, {col})				*test_setmouse()*
 		Set the mouse position to be used for the next mouse action.
 		{row} and {col} are one based.
 		For example: >
 			call test_setmouse(4, 20)
 			call feedkeys("\<LeftMouse>", "xt")
+
 
 test_settime({expr})					*test_settime()*
 		Set the time Vim uses internally.  Currently only used for
@@ -232,9 +274,18 @@ test_settime({expr})					*test_settime()*
 		Can also be used as a |method|: >
 			GetTime()->test_settime()
 
+
 test_srand_seed([seed])					*test_srand_seed()*
 		When [seed] is given this sets the seed value used by
 		`srand()`.  When omitted the test seed is removed.
+
+
+test_unknown()						*test_unknown()*
+		Return a value with unknown type. Only useful for testing.
+
+
+test_void()						*test_void()*
+		Return a value with void type. Only useful for testing.
 
 ==============================================================================
 3. Assert functions				*assert-functions-details*
@@ -243,7 +294,8 @@ test_srand_seed([seed])					*test_srand_seed()*
 assert_beeps({cmd})					*assert_beeps()*
 		Run {cmd} and add an error message to |v:errors| if it does
 		NOT produce a beep or visual bell.
-		Also see |assert_fails()| and |assert-return|.
+		Also see |assert_fails()|, |assert_nobeep()| and
+		|assert-return|.
 
 		Can also be used as a |method|: >
 			GetCmd()->assert_beeps()
@@ -377,6 +429,14 @@ assert_match({pattern}, {actual} [, {msg}])
 		Can also be used as a |method|: >
 			getFile()->assert_match('foo.*')
 <
+assert_nobeep({cmd})					*assert_nobeep()*
+		Run {cmd} and add an error message to |v:errors| if it
+		produces a beep or visual bell.
+		Also see |assert_beeps()|.
+
+		Can also be used as a |method|: >
+			GetCmd()->assert_nobeep()
+<
 							*assert_notequal()*
 assert_notequal({expected}, {actual} [, {msg}])
 		The opposite of `assert_equal()`: add an error message to
@@ -397,7 +457,7 @@ assert_notmatch({pattern}, {actual} [, {msg}])
 
 
 assert_report({msg})					*assert_report()*
-		Report a test failure directly, using {msg}.
+		Report a test failure directly, using String {msg}.
 		Always returns one.
 
 		Can also be used as a |method|: >

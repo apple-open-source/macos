@@ -139,9 +139,88 @@ gd{
             }
         }
         compound{
+            1024p1{"kibi-{0}"}
+            1024p2{"mebi-{0}"}
+            1024p3{"gibi-{0}"}
+            1024p4{"tebi-{0}"}
+            1024p5{"pebi-{0}"}
+            1024p6{"exbi-{0}"}
+            1024p7{"zebi-{0}"}
+            1024p8{"yobe-{0}"}
+            10p-1{"deicheamh-{0}"}
+            10p-12{"piceo-{0}"}
+            10p-15{"femto-{0}"}
+            10p-18{"atto-{0}"}
+            10p-2{"ceuda{0}"}
+            10p-21{"zepto-{0}"}
+            10p-24{"yocto-{0}"}
+            10p-3{"mili{0}"}
+            10p-6{"micreo-{0}"}
+            10p-9{"nano-{0}"}
+            10p1{"deaca-{0}"}
+            10p12{"tera-{0}"}
+            10p15{"peta-{0}"}
+            10p18{"exa-{0}"}
+            10p2{"heacta-{0}"}
+            10p21{"zetta-{0}"}
+            10p24{"yotta-{0}"}
+            10p3{"cile{0}"}
+            10p6{"meaga-{0}"}
+            10p9{"giga-{0}"}
             per{"{0} / {1}"}
+            power2{
+                few{
+                    _{
+                        _{"{0} ceàrnagach"}
+                    }
+                }
+                one{
+                    _{
+                        _{"{0} ceàrnagach"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} ceàrnagach"}
+                    }
+                }
+                two{
+                    _{
+                        _{"{0} ceàrnagach"}
+                    }
+                }
+            }
+            power3{
+                few{
+                    _{
+                        _{"{0} ciùbach"}
+                    }
+                }
+                one{
+                    _{
+                        _{"{0} ciùbach"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} ciùbach"}
+                    }
+                }
+                two{
+                    _{
+                        _{"{0} ciùbach"}
+                    }
+                }
+            }
         }
         concentr{
+            item{
+                dnam{"nì"}
+                few{"{0} nithean"}
+                one{"{0} nì"}
+                other{"{0} nì"}
+                two{"{0} nì"}
+            }
             karat{
                 dnam{"karat"}
                 few{"{0} karat"}
@@ -149,7 +228,7 @@ gd{
                 other{"{0} karat"}
                 two{"{0} karat"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"miligram san deicheamh-liotair"}
                 few{"{0} miligramaichean san deicheamh-liotair"}
                 one{"{0} mhiligram san deicheamh-liotair"}
@@ -246,7 +325,7 @@ gd{
             }
             byte{
                 dnam{"baidht"}
-                few{"{0} baidht"}
+                few{"{0} baidhtean"}
                 one{"{0} bhaidht"}
                 other{"{0} baidht"}
                 two{"{0} bhaidht"}
@@ -260,7 +339,7 @@ gd{
             }
             gigabyte{
                 dnam{"giga-baidht"}
-                few{"{0} giga-baidht"}
+                few{"{0} giga-baidhtean"}
                 one{"{0} ghiga-baidht"}
                 other{"{0} giga-baidht"}
                 two{"{0} ghiga-baidht"}
@@ -274,7 +353,7 @@ gd{
             }
             kilobyte{
                 dnam{"cileabaidht"}
-                few{"{0} cileabaidht"}
+                few{"{0} cileabaidhtean"}
                 one{"{0} chileabaidht"}
                 other{"{0} cileabaidht"}
                 two{"{0} chileabaidht"}
@@ -288,14 +367,14 @@ gd{
             }
             megabyte{
                 dnam{"meaga-baidht"}
-                few{"{0} meaga-baidht"}
+                few{"{0} meaga-baidhtean"}
                 one{"{0} mheaga-baidht"}
                 other{"{0} meaga-baidht"}
                 two{"{0} mheaga-baidht"}
             }
             petabyte{
                 dnam{"peta-baidht"}
-                few{"{0} peta-baidht"}
+                few{"{0} peta-baidhtean"}
                 one{"{0} pheta-baidht"}
                 other{"{0} peta-baidht"}
                 two{"{0} pheta-baidht"}
@@ -309,7 +388,7 @@ gd{
             }
             terabyte{
                 dnam{"tera-baidht"}
-                few{"{0} tera-baidht"}
+                few{"{0} tera-baidhtean"}
                 one{"{0} tera-baidht"}
                 other{"{0} tera-baidht"}
                 two{"{0} thera-baidht"}
@@ -489,11 +568,11 @@ gd{
                 two{"{0} chilea-joule"}
             }
             kilowatt-hour{
-                dnam{"cilea-watt san uair"}
-                few{"{0} cilea-watt san uair"}
-                one{"{0} chilea-watt san uair"}
-                other{"{0} cilea-watt san uair"}
-                two{"{0} chilea-watt san uair"}
+                dnam{"cilea-watt-uair"}
+                few{"{0} cilea-watt-uair"}
+                one{"{0} chilea-watt-uair"}
+                other{"{0} cilea-watt-uair"}
+                two{"{0} chilea-watt-uair"}
             }
             therm-us{
                 dnam{"aonad-teasa nan SA"}
@@ -504,6 +583,13 @@ gd{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"cilea-watt-uair sa cheud chilemeatair"}
+                few{"{0} cilea-watt-uairean sa cheud chilemeatair"}
+                one{"{0} chilea-watt-uair sa cheud chilemeatair"}
+                other{"{0} cilea-watt-uair sa cheud chilemeatair"}
+                two{"{0} chilea-watt-uair sa cheud chilemeatair"}
+            }
             newton{
                 dnam{"newton"}
                 few{"{0} newtonaichean"}
@@ -1475,9 +1561,25 @@ gd{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
+            10p-1{"d{0}"}
             per{"{0}/{1}"}
         }
         concentr{
+            item{
+                dnam{"nì"}
+                few{"{0}nith"}
+                one{"{0}nì"}
+                other{"{0}nì"}
+                two{"{0}nì"}
+            }
             karat{
                 dnam{"karat"}
                 few{"{0}kt"}
@@ -1485,7 +1587,7 @@ gd{
                 other{"{0}kt"}
                 two{"{0}kt"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dL"}
                 few{"{0}mg/dL"}
                 one{"{0}mg/dL"}
@@ -1528,6 +1630,7 @@ gd{
                 two{"{0}ppm"}
             }
             permyriad{
+                dnam{"‱"}
                 few{"{0}‱"}
                 one{"{0}‱"}
                 other{"{0}‱"}
@@ -1775,6 +1878,7 @@ gd{
         }
         energy{
             british-thermal-unit{
+                dnam{"Btu"}
                 few{"{0}Btu"}
                 one{"{0}Btu"}
                 other{"{0}Btu"}
@@ -1788,6 +1892,7 @@ gd{
                 two{"{0}cal"}
             }
             electronvolt{
+                dnam{"eV"}
                 few{"{0}eV"}
                 one{"{0}eV"}
                 other{"{0}eV"}
@@ -1829,6 +1934,7 @@ gd{
                 two{"{0}kWh"}
             }
             therm-us{
+                dnam{"US therm"}
                 few{"{0}US therm"}
                 one{"{0}US therm"}
                 other{"{0}US therm"}
@@ -1836,13 +1942,22 @@ gd{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"kWh/100km"}
+                few{"{0}kWh/100km"}
+                one{"{0}kWh/100km"}
+                other{"{0}kWh/100km"}
+                two{"{0}kWh/100km"}
+            }
             newton{
+                dnam{"N"}
                 few{"{0}N"}
                 one{"{0}N"}
                 other{"{0}N"}
                 two{"{0}N"}
             }
             pound-force{
+                dnam{"lbf"}
                 few{"{0}lbf"}
                 one{"{0}lbf"}
                 other{"{0}lbf"}
@@ -1888,12 +2003,14 @@ gd{
                 two{"{0}dhot"}
             }
             dot-per-centimeter{
+                dnam{"dpcm"}
                 few{"{0}dpcm"}
                 one{"{0}dpcm"}
                 other{"{0}dpcm"}
                 two{"{0}dpcm"}
             }
             dot-per-inch{
+                dnam{"dpi"}
                 few{"{0}dpi"}
                 one{"{0}dpi"}
                 other{"{0}dpi"}
@@ -2014,11 +2131,11 @@ gd{
                 two{"{0}m"}
             }
             micrometer{
-                dnam{"µm"}
-                few{"{0}µm"}
-                one{"{0}µm"}
-                other{"{0}µm"}
-                two{"{0}µm"}
+                dnam{"μm"}
+                few{"{0}μm"}
+                one{"{0}μm"}
+                other{"{0}μm"}
+                two{"{0}μm"}
             }
             mile{
                 dnam{"mì"}
@@ -2077,6 +2194,7 @@ gd{
                 two{"{0}pt"}
             }
             solar-radius{
+                dnam{"R☉"}
                 few{"{0}R☉"}
                 one{"{0}R☉"}
                 other{"{0}R☉"}
@@ -2092,12 +2210,14 @@ gd{
         }
         light{
             candela{
+                dnam{"cd"}
                 few{"{0}cd"}
                 one{"{0}cd"}
                 other{"{0}cd"}
                 two{"{0}cd"}
             }
             lumen{
+                dnam{"lm"}
                 few{"{0}lm"}
                 one{"{0}lm"}
                 other{"{0}lm"}
@@ -2111,6 +2231,7 @@ gd{
                 two{"{0}lx"}
             }
             solar-luminosity{
+                dnam{"L☉"}
                 few{"{0}L☉"}
                 one{"{0}L☉"}
                 other{"{0}L☉"}
@@ -2133,6 +2254,7 @@ gd{
                 two{"{0}Da"}
             }
             earth-mass{
+                dnam{"M⊕"}
                 few{"{0}M⊕"}
                 one{"{0}M⊕"}
                 other{"{0}M⊕"}
@@ -2169,11 +2291,11 @@ gd{
                 two{"{0}t"}
             }
             microgram{
-                dnam{"µg"}
-                few{"{0}µg"}
-                one{"{0}µg"}
-                other{"{0}µg"}
-                two{"{0}µg"}
+                dnam{"μg"}
+                few{"{0}μg"}
+                one{"{0}μg"}
+                other{"{0}μg"}
+                two{"{0}μg"}
             }
             milligram{
                 dnam{"mg"}
@@ -2206,6 +2328,7 @@ gd{
                 two{"{0}lb"}
             }
             solar-mass{
+                dnam{"M☉"}
                 few{"{0}M☉"}
                 one{"{0}M☉"}
                 other{"{0}M☉"}
@@ -2300,12 +2423,14 @@ gd{
                 two{"{0}″ Hg"}
             }
             kilopascal{
+                dnam{"kPa"}
                 few{"{0}kPa"}
                 one{"{0}kPa"}
                 other{"{0}kPa"}
                 two{"{0}kPa"}
             }
             megapascal{
+                dnam{"MPa"}
                 few{"{0}MPa"}
                 one{"{0}MPa"}
                 other{"{0}MPa"}
@@ -2326,6 +2451,7 @@ gd{
                 two{"{0}mm Hg"}
             }
             pascal{
+                dnam{"Pa"}
                 few{"{0}Pa"}
                 one{"{0}Pa"}
                 other{"{0}Pa"}
@@ -2423,6 +2549,7 @@ gd{
                 two{"{0}ac ft"}
             }
             barrel{
+                dnam{"bbl"}
                 few{"{0}bbl"}
                 one{"{0}bbl"}
                 other{"{0}bbl"}
@@ -2588,11 +2715,11 @@ gd{
             }
             liter{
                 dnam{"liotair"}
-                few{"{0}l"}
-                one{"{0}l"}
-                other{"{0}l"}
-                per{"{0}/l"}
-                two{"{0}l"}
+                few{"{0}L"}
+                one{"{0}L"}
+                other{"{0}L"}
+                per{"{0}/L"}
+                two{"{0}L"}
             }
             megaliter{
                 dnam{"ML"}
@@ -2610,10 +2737,10 @@ gd{
             }
             pinch{
                 dnam{"crudhag"}
-                few{"{0}crud."}
-                one{"{0}chrud."}
-                other{"{0}crud."}
-                two{"{0}chrud."}
+                few{"{0}crudh."}
+                one{"{0}chrudh."}
+                other{"{0}crudh."}
+                two{"{0}chrudh."}
             }
             pint{
                 dnam{"pt"}
@@ -2791,9 +2918,25 @@ gd{
             }
         }
         compound{
+            1024p1{"Ki{0}"}
+            1024p2{"Mi{0}"}
+            1024p3{"Gi{0}"}
+            1024p4{"Ti{0}"}
+            1024p5{"Pi{0}"}
+            1024p6{"Ei{0}"}
+            1024p7{"Zi{0}"}
+            1024p8{"Yi{0}"}
+            10p-1{"d{0}"}
             per{"{0}/{1}"}
         }
         concentr{
+            item{
+                dnam{"nì"}
+                few{"{0} nith"}
+                one{"{0} nì"}
+                other{"{0} nì"}
+                two{"{0} nì"}
+            }
             karat{
                 dnam{"karat"}
                 few{"{0} kt"}
@@ -2801,7 +2944,7 @@ gd{
                 other{"{0} kt"}
                 two{"{0} kt"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dL"}
                 few{"{0} mg/dL"}
                 one{"{0} mg/dL"}
@@ -3129,7 +3272,7 @@ gd{
                 two{"{0} kJ"}
             }
             kilowatt-hour{
-                dnam{"kW san uair"}
+                dnam{"kW-uair"}
                 few{"{0} kWh"}
                 one{"{0} kWh"}
                 other{"{0} kWh"}
@@ -3185,8 +3328,25 @@ gd{
                 other{"{0} dot"}
                 two{"{0} dot"}
             }
+            dot-per-centimeter{
+                dnam{"dpcm"}
+                few{"{0} dpcm"}
+                one{"{0} dpcm"}
+                other{"{0} dpcm"}
+                two{"{0} dpcm"}
+            }
+            dot-per-inch{
+                dnam{"dpi"}
+                few{"{0} dpi"}
+                one{"{0} dpi"}
+                other{"{0} dpi"}
+                two{"{0} dpi"}
+            }
             megapixel{
                 dnam{"meaga-piogsail"}
+            }
+            pixel{
+                dnam{"piogsail"}
             }
         }
         length{
@@ -3266,11 +3426,11 @@ gd{
                 two{"{0} m"}
             }
             micrometer{
-                dnam{"µ-meatair"}
-                few{"{0} µm"}
-                one{"{0} µm"}
-                other{"{0} µm"}
-                two{"{0} µm"}
+                dnam{"μ-meatair"}
+                few{"{0} μm"}
+                one{"{0} μm"}
+                other{"{0} μm"}
+                two{"{0} μm"}
             }
             mile{
                 dnam{"mìle"}
@@ -3406,11 +3566,11 @@ gd{
                 two{"{0} t"}
             }
             microgram{
-                dnam{"µg"}
-                few{"{0} µg"}
-                one{"{0} µg"}
-                other{"{0} µg"}
-                two{"{0} µg"}
+                dnam{"μg"}
+                few{"{0} μg"}
+                one{"{0} μg"}
+                other{"{0} μg"}
+                two{"{0} μg"}
             }
             milligram{
                 dnam{"mg"}
@@ -3801,11 +3961,11 @@ gd{
             }
             liter{
                 dnam{"liotair"}
-                few{"{0} l"}
-                one{"{0} l"}
-                other{"{0} l"}
-                per{"{0}/l"}
-                two{"{0} l"}
+                few{"{0} L"}
+                one{"{0} L"}
+                other{"{0} L"}
+                per{"{0}/L"}
+                two{"{0} L"}
             }
             megaliter{
                 dnam{"ML"}

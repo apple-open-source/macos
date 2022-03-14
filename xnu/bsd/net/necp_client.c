@@ -251,6 +251,14 @@ static uint32_t necp_client_stats_rtt_ceiling = 1920000; // 60s
 const static struct sk_stats_flow ntstat_sk_stats_zero;
 #endif /* SKYWALK */
 
+/*
+ * Global lock to protect socket inp_necp_attributes across updates.
+ * NECP updating these attributes and clients accessing these attributes
+ * must take this lock.
+ */
+static LCK_GRP_DECLARE(necp_socket_attr_lock_grp, "necpSocketAttrGroup");
+LCK_MTX_DECLARE(necp_socket_attr_lock, &necp_socket_attr_lock_grp);
+
 os_refgrp_decl(static, necp_client_refgrp, "NECPClientRefGroup", NULL);
 
 SYSCTL_INT(_net_necp, NECPCTL_CLIENT_FD_COUNT, client_fd_count, CTLFLAG_LOCKED | CTLFLAG_RD, &necp_client_fd_count, 0, "");
@@ -639,7 +647,7 @@ struct necp_fd_data {
 static LIST_HEAD(_necp_fd_list, necp_fd_data) necp_fd_list;
 static LIST_HEAD(_necp_fd_observer_list, necp_fd_data) necp_fd_observer_list;
 
-static ZONE_DECLARE(necp_client_fd_zone, "necp.clientfd",
+static ZONE_DEFINE(necp_client_fd_zone, "necp.clientfd",
     sizeof(struct necp_fd_data), ZC_NONE);
 
 #define NECP_FLOW_ZONE_NAME                     "necp.flow"
@@ -652,7 +660,7 @@ static unsigned int necp_flow_registration_size;        /* size of necp_client_f
 static struct mcache *necp_flow_registration_cache;     /* cache for necp_client_flow_registration */
 
 #if SKYWALK
-static ZONE_DECLARE(necp_arena_info_zone, "necp.arenainfo",
+static ZONE_DEFINE(necp_arena_info_zone, "necp.arenainfo",
     sizeof(struct necp_arena_info), ZC_ZFREE_CLEARMEM);
 #endif /* !SKYWALK */
 
@@ -734,6 +742,19 @@ static int necp_sysctl_arena_initialize(struct necp_fd_data *fd_data, bool locke
 static void necp_sysctl_arena_destroy(struct necp_fd_data *fd_data);
 static void *necp_arena_sysctls_obj(struct necp_fd_data *fd_data, mach_vm_offset_t *off, size_t *size);
 #endif /* !SKYWALK */
+
+void necp_copy_inp_domain_info(struct inpcb *, struct socket *, nstat_domain_info *);
+
+static void
+necp_lock_socket_attributes(void)
+{
+	lck_mtx_lock(&necp_socket_attr_lock);
+}
+static void
+necp_unlock_socket_attributes(void)
+{
+	lck_mtx_unlock(&necp_socket_attr_lock);
+}
 
 /// NECP file descriptor functions
 
@@ -5642,7 +5663,36 @@ necp_find_matching_interface_index(struct necp_client_parsed_parameters *parsed_
 	return *return_ifindex != 0;
 }
 
-#if SKYWALK
+void
+necp_copy_inp_domain_info(struct inpcb *inp, struct socket *so, nstat_domain_info *domain_info)
+{
+	if (inp == NULL || so == NULL || domain_info == NULL) {
+		return;
+	}
+
+	necp_lock_socket_attributes();
+
+	domain_info->is_tracker = !!(so->so_flags1 & SOF1_KNOWN_TRACKER);
+	domain_info->is_non_app_initiated = !!(so->so_flags1 & SOF1_TRACKER_NON_APP_INITIATED);
+	if (domain_info->is_tracker &&
+	    inp->inp_necp_attributes.inp_tracker_domain != NULL) {
+		strlcpy(domain_info->domain_name, inp->inp_necp_attributes.inp_tracker_domain,
+		    sizeof(domain_info->domain_name));
+	} else if (inp->inp_necp_attributes.inp_domain != NULL) {
+		strlcpy(domain_info->domain_name, inp->inp_necp_attributes.inp_domain,
+		    sizeof(domain_info->domain_name));
+	}
+	if (inp->inp_necp_attributes.inp_domain_owner != NULL) {
+		strlcpy(domain_info->domain_owner, inp->inp_necp_attributes.inp_domain_owner,
+		    sizeof(domain_info->domain_owner));
+	}
+	if (inp->inp_necp_attributes.inp_domain_context != NULL) {
+		strlcpy(domain_info->domain_tracker_ctxt, inp->inp_necp_attributes.inp_domain_context,
+		    sizeof(domain_info->domain_tracker_ctxt));
+	}
+
+	necp_unlock_socket_attributes();
+}
 
 static size_t
 necp_find_domain_info_common(struct necp_client *client,
@@ -5821,6 +5871,8 @@ necp_find_conn_extension_info(nstat_provider_context ctx,
 		return 0;
 	}
 }
+
+#if SKYWALK
 
 static size_t
 necp_find_extension_info(userland_stats_provider_context *ctx,
@@ -6373,6 +6425,8 @@ necp_request_quic_netstats(userland_stats_provider_context *ctx,
 	return true;
 }
 
+#endif /* SKYWALK */
+
 // Support functions for NetworkStatistics support for necp_client connections
 
 static void
@@ -6507,8 +6561,6 @@ necp_request_conn_netstats(nstat_provider_context ctx,
 	}
 	return true;
 }
-
-#endif /* SKYWALK */
 
 static int
 necp_skywalk_priv_check_cred(proc_t p, kauth_cred_t cred)
@@ -6820,14 +6872,12 @@ necp_client_add(struct proc *p, struct necp_fd_data *fd_data, struct necp_client
 	(void)necp_update_client_result(current_proc(), fd_data, client, NULL);
 	NECP_CLIENT_UNLOCK(client);
 	NECP_FD_UNLOCK(fd_data);
-#if SKYWALK
 	// Now everything is set, it's safe to plumb this in to NetworkStatistics
 	uint32_t ntstat_properties = 0;
 	necp_find_conn_netstat_data(client, &ntstat_properties, NULL, NULL, NULL);
 
 	client->nstat_context = nstat_provider_stats_open((nstat_provider_context)client,
 	    NSTAT_PROVIDER_CONN_USERLAND, (u_int64_t)ntstat_properties, necp_request_conn_netstats, necp_find_conn_extension_info);
-#endif /* !SKYWALK */
 done:
 	if (error != 0 && client != NULL) {
 		necp_client_free(client);
@@ -9871,6 +9921,7 @@ necp_set_socket_attribute(u_int8_t *buffer, size_t buffer_length, u_int8_t type,
 	size_t string_size = 0;
 	char *local_string = NULL;
 	u_int8_t *value = NULL;
+	char *buffer_to_free = NULL;
 
 	cursor = necp_buffer_find_tlv(buffer, buffer_length, 0, type, NULL, 0);
 	if (cursor < 0) {
@@ -9903,12 +9954,16 @@ necp_set_socket_attribute(u_int8_t *buffer, size_t buffer_length, u_int8_t type,
 	local_string[string_size] = 0;
 
 done:
-	if (*buffer_p != NULL) {
-		kfree_data_addr(*buffer_p);
-		*buffer_p = NULL;
-	}
+	buffer_to_free = *buffer_p;
 
+	// Protect switching of buffer pointer
+	necp_lock_socket_attributes();
 	*buffer_p = local_string;
+	necp_unlock_socket_attributes();
+
+	if (buffer_to_free != NULL) {
+		kfree_data_addr(buffer_to_free);
+	}
 	return 0;
 fail:
 	if (local_string != NULL) {
@@ -10080,6 +10135,7 @@ necp_set_socket_domain_attributes(struct socket *so, const char *domain, const c
 	struct inpcb *inp = NULL;
 	u_int8_t *buffer = NULL;
 	size_t valsize = 0;
+	char *buffer_to_free = NULL;
 
 	if (SOCK_DOM(so) != PF_INET && SOCK_DOM(so) != PF_INET6) {
 		error = EINVAL;
@@ -10107,14 +10163,20 @@ necp_set_socket_domain_attributes(struct socket *so, const char *domain, const c
 	if (inp->inp_necp_attributes.inp_domain != NULL) {
 		if (strlen(inp->inp_necp_attributes.inp_domain) != strlen(domain) ||
 		    strncmp(inp->inp_necp_attributes.inp_domain, domain, strlen(domain)) != 0) {
-			if (inp->inp_necp_attributes.inp_tracker_domain != NULL) {
-				kfree_data_addr(inp->inp_necp_attributes.inp_tracker_domain);
-				inp->inp_necp_attributes.inp_tracker_domain = NULL;
-			}
+			buffer_to_free = inp->inp_necp_attributes.inp_tracker_domain;
+			// Protect switching of buffer pointer
+			necp_lock_socket_attributes();
 			inp->inp_necp_attributes.inp_tracker_domain = (char *)buffer;
+			necp_unlock_socket_attributes();
+			if (buffer_to_free != NULL) {
+				kfree_data_addr(buffer_to_free);
+			}
 		}
 	} else {
+		// Protect switching of buffer pointer
+		necp_lock_socket_attributes();
 		inp->inp_necp_attributes.inp_domain = (char *)buffer;
+		necp_unlock_socket_attributes();
 	}
 	buffer = NULL;
 
@@ -10138,12 +10200,17 @@ necp_set_socket_domain_attributes(struct socket *so, const char *domain, const c
 	buffer[valsize] = 0;
 
 	inp = sotoinpcb(so);
-	if (inp->inp_necp_attributes.inp_domain_owner != NULL) {
-		kfree_data_addr(inp->inp_necp_attributes.inp_domain_owner);
-		inp->inp_necp_attributes.inp_domain_owner = NULL;
-	}
+
+	buffer_to_free = inp->inp_necp_attributes.inp_domain_owner;
+	// Protect switching of buffer pointer
+	necp_lock_socket_attributes();
 	inp->inp_necp_attributes.inp_domain_owner = (char *)buffer;
+	necp_unlock_socket_attributes();
 	buffer = NULL;
+
+	if (buffer_to_free != NULL) {
+		kfree_data_addr(buffer_to_free);
+	}
 
 done:
 	// Log if it is a known tracker

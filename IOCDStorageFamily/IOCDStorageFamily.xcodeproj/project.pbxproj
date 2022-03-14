@@ -338,6 +338,7 @@
 		3032E1711A8DA16000BC0F17 /* ReleaseCoverage */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				SDKROOT = macosx.internal;
 			};
 			name = ReleaseCoverage;
 		};
@@ -390,12 +391,14 @@
 		60218FA9095B74720026C3D8 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				SDKROOT = macosx.internal;
 			};
 			name = Debug;
 		};
 		60218FAA095B74720026C3D8 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				SDKROOT = macosx.internal;
 			};
 			name = Release;
 		};

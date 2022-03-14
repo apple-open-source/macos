@@ -33,14 +33,8 @@
     undefined terminate();
 
     [CallWith=GlobalObject] undefined postMessage(any message, sequence<object> transfer);
-    [CallWith=GlobalObject] undefined postMessage(any message, optional PostMessageOptions options);
+    [CallWith=GlobalObject] undefined postMessage(any message, optional StructuredSerializeOptions options);
     attribute EventHandler onmessage;
-};
-
-dictionary WorkerOptions {
-    WorkerType type = "classic";
-    FetchRequestCredentials credentials = "same-origin"; // credentials is only used if type is "module"
-    DOMString name = "";
 };
 
 Worker includes AbstractWorker;

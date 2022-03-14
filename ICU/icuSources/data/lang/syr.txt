@@ -1,11 +1,51 @@
-// © 2016 and later: Unicode, Inc. and others.
+﻿// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 syr{
     Languages{
-        syr{"ܣܘܪܝܬ"}
+        ar{"ܥܪܒܝܬ݂"}
+        ar_001{"ܥܪܒܝܬܼ ܪܘܫܡܝܐ"}
+        bn{"ܒܢܓܠܐ"}
+        de{"ܐܠܡܢܝܐ"}
+        en{"ܐܢܓܠܝܼܫ"}
+        en_AU{"ܐܢܓܠܝܼܫ ܕܐܘܣܬܪܠܝܐ"}
+        en_CA{"ܐܢܓܠܝܼܫ ܕܟܢܕܐ"}
+        en_GB{"ܐܢܓܠܝܼܫ ܕܒܪܝܼܛܢܝܐ"}
+        es{"ܣܦܢܝܝܐ"}
+        fr{"ܦܪܢܣܝܬ݂"}
+        fr_CA{"ܦܪܢܣܝܬ݂ ܕܟܢܕܐ"}
+        hi{"ܗܢܕܝܐ"}
+        ru{"ܪܘܼܣܢܝܐ"}
+        syr{"ܣܘܪܝܝܐ"}
+        tr{"ܬܘܼܪܟܬ"}
+        und{"ܠܫܢܐ ܠܐ ܝܼܕܝܼܥܐ"}
+        zh{"ܨܝܼܢܝܐ"}
+    }
+    Languages%short{
+        en_GB{"ܐܢܓܠܝܼܫ ܕܒܪܝܼܛܢܝܐ"}
     }
     Scripts{
+        Arab{"ܥܪܒܝܬ݂"}
         Syrc{"ܣܘܪܝܬ"}
+    }
+    Types{
+        calendar{
+            gregorian{"ܣܘܪܓܕܐ ܓܪܝܓܘܪܝܐ"}
+            iso8601{"ܣܘܪܓܕܐ ISO-8601"}
+        }
+        collation{
+            standard{"ܛܟ݂ܣܐ ܦܫܝܬܐ"}
+        }
+        numbers{
+            latn{"ܡܢܝܢܐ ܡܥܪܒܼܝܐ"}
+        }
+    }
+    codePatterns{
+        language{"ܠܫܢܐ:‌ {0}"}
+        script{"ܛܟ̣ܣܐ ܕܟܬܝܼܒ݂ܬܐ: {0}"}
+        territory{"ܩܠܝܡܐ: {0}"}
+    }
+    localeDisplayPattern{
+        separator{"{0}، {1}"}
     }
 }

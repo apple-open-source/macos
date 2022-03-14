@@ -118,11 +118,9 @@ static inline s64 ntfs_attr_size(const ATTR_RECORD *a)
  * consistent and stable for the duration of the life of the search context.
  */
 struct _ntfs_attr_search_ctx {
-	union {
-		MFT_RECORD *m;
-		errno_t error;
-	};
+	MFT_RECORD *m;
 	ATTR_RECORD *a;
+    errno_t error;
 	struct {
 		unsigned is_first:1;	/* If 1 this is the first search. */
 		unsigned is_iteration:1;/* If 1 this is an iteration of all

@@ -8296,6 +8296,7 @@ exit:
 static int32_t 
 smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 {
+#define altMaxLen 0x0fffffffffffffff
 	int		flags = ap->a_flags;
 	vnode_t vp = ap->a_vp;
 	struct smb_share *share;
@@ -8398,8 +8399,20 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 		if (! np->f_smbflock) {
 			error = smbfs_smb_lock(share, SMB_LOCK_EXCL, np->f_fid, lck_pid, 
 								   start, len, timo, ap->a_context);
-			if (error)
-				goto exit;
+            if (error) {
+                /*
+                 * <80539255> Some third party servers fail on len of -1, try
+                 * again with a smaller, yet still very large len.
+                 */
+                len = altMaxLen;
+                error = smbfs_smb_lock(share, SMB_LOCK_EXCL, np->f_fid, lck_pid,
+                                       start, len, timo, ap->a_context);
+            }
+            
+            if (error) {
+                goto exit;
+            }
+            
 			SMB_MALLOC(np->f_smbflock, struct smbfs_flock *, sizeof *np->f_smbflock, 
 				   M_LOCKF, M_WAITOK);
 			np->f_smbflock->refcnt = 1;
@@ -8451,13 +8464,13 @@ smbfs_vnop_advlock(struct vnop_advlock_args *ap)
 		break;
 	case F_UNLCK:
 		error = 0;
-		if (! np->f_smbflock)	/* Got an  unlock and had no lock ignore */
+		if (! np->f_smbflock)	/* Got an unlock and had no lock ignore */
 			break;
 		np->f_smbflock->refcnt--;
-		/* remove the lock on the network and  */
+		/* remove the lock on the network and from np */
 		if (np->f_smbflock->refcnt <= 0) {
 			error = smbfs_smb_lock(share, SMB_LOCK_RELEASE, np->f_fid, lck_pid, 
-								   start, len, timo, ap->a_context);
+								   start, np->f_smbflock->len, timo, ap->a_context);
 			if (error == 0) {
 				SMB_FREE(np->f_smbflock, M_LOCKF);
 				np->f_smbflock = NULL;

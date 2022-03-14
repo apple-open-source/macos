@@ -103,9 +103,8 @@ extern void ipc_main_thread_set_immovable_pinned(
 	thread_t          thread);
 
 __options_decl(ipc_thread_init_options_t, uint32_t, {
-	IPC_THREAD_INIT_NONE      = 0x00,
-	IPC_THREAD_INIT_PINNED    = 0x01,
-	IPC_THREAD_INIT_IMMOVABLE = 0x02,
+	IPC_THREAD_INIT_NONE       = 0x00,
+	IPC_THREAD_INIT_MAINTHREAD = 0x01,
 });
 
 __options_decl(port_intrans_options_t, uint32_t, {

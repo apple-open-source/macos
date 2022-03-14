@@ -249,10 +249,8 @@ AppleSCSITargetEmulator::Init (
 	fLUNReportBufferSize	= PAGE_SIZE;
 	
 	// Start with a page of memory. Grow as required later.
-	fLUNReportBuffer = ( SCSICmd_REPORT_LUNS_Header * ) IOMalloc ( fLUNReportBufferSize );
+	fLUNReportBuffer = ( SCSICmd_REPORT_LUNS_Header * ) IOMallocZeroData ( fLUNReportBufferSize );
 	require_nonzero ( fLUNReportBuffer, ReleaseSet );
-	
-	bzero ( fLUNReportBuffer, fLUNReportBufferSize );
 	
 	fLUNReportBuffer->LUN_LIST_LENGTH = OSSwapHostToBigInt32 ( sizeof ( SCSICmd_REPORT_LUNS_LUN_ENTRY ) );
 	fLUNReportBuffer->LUN[0].FIRST_LEVEL_ADDRESSING = OSSwapHostToBigInt16 ( 0 );
@@ -303,7 +301,7 @@ AppleSCSITargetEmulator::free ( void )
 	if ( fLUNReportBuffer != NULL )
 	{
 		
-		IOFree ( fLUNReportBuffer, fLUNReportBufferSize );
+        IOFreeData ( fLUNReportBuffer, fLUNReportBufferSize );
 		fLUNReportBuffer = NULL;
 		fLUNReportBufferSize = 0;
 		
@@ -375,7 +373,7 @@ AppleSCSITargetEmulator::AddLogicalUnit (
 		IOLockUnlock ( fLock );
 		
 		// Allocate the new buffer.
-		buffer = IOMalloc ( bufferSize );
+		buffer = IOMallocData ( bufferSize );
 		
 		// Reacquire the lock.
 		IOLockLock ( fLock );
@@ -386,7 +384,7 @@ AppleSCSITargetEmulator::AddLogicalUnit (
 		{
 			
 			// Free the old buffer.
-			IOFree ( fLUNReportBuffer, fLUNReportBufferSize );
+            IOFreeData ( fLUNReportBuffer, fLUNReportBufferSize );
 			
 			// Set the new buffer.
 			fLUNReportBuffer 		= ( SCSICmd_REPORT_LUNS_Header * ) buffer;

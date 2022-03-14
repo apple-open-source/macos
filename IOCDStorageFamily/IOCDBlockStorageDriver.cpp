@@ -234,7 +234,7 @@ IOCDBlockStorageDriver::cacheTocInfo(void)
         return(result);
     }
     
-    toc = (CDTOC *) IOMalloc(tocSize);
+    toc = (CDTOC *) IOMallocData(tocSize);
     if (toc == NULL) {
         buffer->release();
         return(kIOReturnNoMemory);
@@ -242,7 +242,7 @@ IOCDBlockStorageDriver::cacheTocInfo(void)
 
     if (buffer->readBytes(0,toc,tocSize) != tocSize) {
         buffer->release();
-        IOFree(toc,tocSize);
+        IOFreeData(toc,tocSize);
         return(kIOReturnNoMemory);
     }
 
@@ -266,7 +266,7 @@ IOCDBlockStorageDriver::decommissionMedia(bool forcible)
 
     if (result == kIOReturnSuccess) {
         if (_toc) {
-            IOFree(_toc,_tocSize);
+            IOFreeData(_toc,_tocSize);
             _toc = NULL;
             _tocSize = 0;
         }
@@ -357,7 +357,7 @@ void
 IOCDBlockStorageDriver::free(void)
 {
     if (_expansionData) {
-        IODelete(_expansionData, ExpansionData, 1);
+        IOFreeType(_expansionData, ExpansionData);
     }
 
     super::free();
@@ -417,7 +417,7 @@ IOCDBlockStorageDriver::init(OSDictionary * properties)
         return false;
     }
 
-    _expansionData = IONew(ExpansionData, 1);
+    _expansionData = IOMallocType(ExpansionData);
 
     if (_expansionData == NULL) {
         return false;

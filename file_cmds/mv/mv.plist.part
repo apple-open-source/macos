@@ -1,0 +1,20 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>mv</string>
+		<key>OpenSourceVersion</key>
+		<string>2017-11-20</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/bin/mv?id=8a16b7a18f5d0b031f09832fd7752fba717e2a97</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-07-27</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>mv.c: Support case-insensitive directory renames (2937096)</string>
+			<string>mv.c: Fix warning about implicit conversion resulting in loss of precision (10819384)</string>
+			<string>mv.c: Preallocate blocks for the destination file if it resides on Xsan (3949364)</string>
+			<string>mv.c: Support extended attributes (3753263)</string>
+			<string>mv.c: Remove upstream ACL copying handled by fcopyfile (81144653)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

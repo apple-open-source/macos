@@ -95,11 +95,11 @@ IMPL(PCIDriverKitPEX8733, Start)
 
 
 
-    debugLog("Kevin enabling bus master and memory space");
+    debugLog("Kevin enabling bus lead and memory space");
     uint16_t command;
     ivars->pciDevice->ConfigurationRead16(kIOPCIConfigurationOffsetCommand, &command);
     ivars->pciDevice->ConfigurationWrite16(kIOPCIConfigurationOffsetCommand,
-                                           command | kIOPCICommandBusMaster | kIOPCICommandMemorySpace);
+                                           command | kIOPCICommandBusLead | kIOPCICommandMemorySpace);
 
     ivars->pciDevice->FindPCICapability(kPEX8733DMAChannelCapabilityID, 0, &(ivars->vendorCapabilityOffset));
 
@@ -138,7 +138,7 @@ IMPL(PCIDriverKitPEX8733, Start)
     ivars->interruptSource->SetEnable(true);
 
 
-    // temporary hack to synchronize the bridge bus mastering is enabled before issue'ing DMA's
+    // temporary hack to ensure the bridge bus leading is enabled before issue'ing DMA's
     IOSleep(1000);
     dmaBlockTransferTest();
 //    dmaDescriptorTransferTest();
@@ -148,13 +148,13 @@ IMPL(PCIDriverKitPEX8733, Start)
 kern_return_t
 IMPL(PCIDriverKitPEX8733, Stop)
 {
-    debugLog("disabling bus master and memory space");
+    debugLog("disabling bus lead and memory space");
     if(ivars->pciDevice != NULL)
     {
         uint16_t command;
         ivars->pciDevice->ConfigurationRead16(kIOPCIConfigurationOffsetCommand, &command);
         ivars->pciDevice->ConfigurationWrite16(kIOPCIConfigurationOffsetCommand,
-                                               command & ~(kIOPCICommandBusMaster | kIOPCICommandMemorySpace));
+                                               command & ~(kIOPCICommandBusLead | kIOPCICommandMemorySpace));
 
     }
     OSSafeReleaseNULL(ivars->pciDevice);

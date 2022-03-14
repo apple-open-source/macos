@@ -482,7 +482,7 @@ map_err_out:
 		int new_size;
 
 		new_size = base_ni->extent_alloc + 4 * sizeof(ntfs_inode *);
-		tmp = IOMallocZero(new_size);
+		tmp = IONewZero(ntfs_inode*, new_size);
 		if (!tmp) {
 			ntfs_error(base_ni->vol->mp, "Failed to allocate "
 					"internal buffer.");
@@ -495,7 +495,7 @@ map_err_out:
 				memcpy(tmp, base_ni->extent_nis,
 						base_ni->nr_extents *
 						sizeof(ntfs_inode *));
-			IOFree(base_ni->extent_nis, base_ni->extent_alloc);
+			IODelete(base_ni->extent_nis, ntfs_inode*, base_ni->extent_alloc / sizeof(ntfs_inode*));
 		}
 		base_ni->extent_alloc = new_size;
 		base_ni->extent_nis = tmp;
@@ -1075,7 +1075,7 @@ static errno_t ntfs_mft_bitmap_extend_allocation_nolock(ntfs_volume *vol)
 		lck_rw_unlock_exclusive(&vol->lcnbmp_lock);
 		/* Allocate a cluster from the DATA_ZONE. */
 		runlist.rl = NULL;
-		runlist.alloc = runlist.elements = 0;
+		runlist.alloc_count = runlist.elements = 0;
 		err = ntfs_cluster_alloc(vol, vcn + 1, 1, lcn, DATA_ZONE,
 				TRUE, &runlist);
 		if (err) {
@@ -1101,7 +1101,7 @@ static errno_t ntfs_mft_bitmap_extend_allocation_nolock(ntfs_volume *vol)
 						"%d).%s", err2, es);
 				NVolSetErrors(vol);
 			}
-			IOFreeData(runlist.rl, runlist.alloc);
+			IODeleteData(runlist.rl, ntfs_rl_element, runlist.alloc_count);
 			return err;
 		}
 		ntfs_debug("Adding one run to mft bitmap.");
@@ -1515,7 +1515,7 @@ static errno_t ntfs_mft_data_extend_allocation_nolock(ntfs_volume *vol)
 			nr > min_nr ? "default" : "minimal", (long long)nr);
 	do {
 		runlist.rl = NULL;
-		runlist.alloc = runlist.elements = 0;
+		runlist.alloc_count = runlist.elements = 0;
 		/*
 		 * We have taken the mft lock for writing.  This is not a
 		 * problem as ntfs_cluster_alloc() only needs to access pages
@@ -1563,7 +1563,7 @@ static errno_t ntfs_mft_data_extend_allocation_nolock(ntfs_volume *vol)
 					"cluster(s) (error %d).%s", err2, es);
 			NVolSetErrors(vol);
 		}
-		IOFreeData(runlist.rl, runlist.alloc);
+		IODeleteData(runlist.rl, ntfs_rl_element, runlist.alloc_count);
 		return err;
 	}
 	ntfs_debug("Allocated %lld clusters.", (long long)nr);
@@ -3317,7 +3317,7 @@ errno_t ntfs_extent_mft_record_free(ntfs_inode *base_ni, ntfs_inode *ni,
 			if (base_ni->nr_extents < 0)
 				panic("%s(): base_ni->nr_extents < 0\n",
 						__FUNCTION__);
-            IOFree(base_ni->extent_nis, base_ni->extent_alloc);
+            IODelete(base_ni->extent_nis, ntfs_inode*, base_ni->extent_alloc / sizeof(ntfs_inode*));
 			base_ni->extent_alloc = 0;
 		}
 		err = 0;

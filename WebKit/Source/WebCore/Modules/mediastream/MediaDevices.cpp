@@ -59,8 +59,6 @@ inline MediaDevices::MediaDevices(Document& document)
     , m_eventNames(eventNames())
     , m_groupIdHashSalt(createCanonicalUUIDString())
 {
-    suspendIfNeeded();
-
     static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Monitor) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor), "MediaDevices::DisplayCaptureSurfaceType::Monitor is not equal to RealtimeMediaSourceSettings::DisplaySurfaceType::Monitor as expected");
     static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Window) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Window), "MediaDevices::DisplayCaptureSurfaceType::Window is not RealtimeMediaSourceSettings::DisplaySurfaceType::Window as expected");
     static_assert(static_cast<size_t>(MediaDevices::DisplayCaptureSurfaceType::Application) == static_cast<size_t>(RealtimeMediaSourceSettings::DisplaySurfaceType::Application), "MediaDevices::DisplayCaptureSurfaceType::Application is not RealtimeMediaSourceSettings::DisplaySurfaceType::Application as expected");
@@ -81,7 +79,9 @@ void MediaDevices::stop()
 
 Ref<MediaDevices> MediaDevices::create(Document& document)
 {
-    return adoptRef(*new MediaDevices(document));
+    auto result = adoptRef(*new MediaDevices(document));
+    result->suspendIfNeeded();
+    return result;
 }
 
 Document* MediaDevices::document() const
@@ -89,7 +89,7 @@ Document* MediaDevices::document() const
     return downcast<Document>(scriptExecutionContext());
 }
 
-static MediaConstraints createMediaConstraints(const Variant<bool, MediaTrackConstraints>& constraints)
+static MediaConstraints createMediaConstraints(const std::variant<bool, MediaTrackConstraints>& constraints)
 {
     return WTF::switchOn(constraints,
         [&] (bool isValid) {
@@ -107,7 +107,7 @@ bool MediaDevices::computeUserGesturePriviledge(GestureAllowedRequest requestTyp
 {
     auto* currentGestureToken = UserGestureIndicator::currentUserGesture().get();
     if (m_currentGestureToken.get() != currentGestureToken) {
-        m_currentGestureToken = makeWeakPtr(currentGestureToken);
+        m_currentGestureToken = currentGestureToken;
         m_requestTypesForCurrentGesture = { };
     }
 
@@ -242,7 +242,7 @@ void MediaDevices::enumerateDevices(EnumerateDevicesPromise&& promise)
         return;
     }
 
-    controller->enumerateMediaDevices(*document, [this, weakThis = makeWeakPtr(this), promise = WTFMove(promise)](const auto& newDevices, const auto& deviceIDHashSalt) mutable {
+    controller->enumerateMediaDevices(*document, [this, weakThis = WeakPtr { *this }, promise = WTFMove(promise)](const auto& newDevices, const auto& deviceIDHashSalt) mutable {
         if (!weakThis)
             return;
         exposeDevices(newDevices, deviceIDHashSalt, WTFMove(promise));
@@ -299,7 +299,7 @@ void MediaDevices::listenForDeviceChanges()
 
     m_listeningForDeviceChanges = true;
 
-    m_deviceChangeToken = controller->addDeviceChangeObserver([weakThis = makeWeakPtr(*this), this]() {
+    m_deviceChangeToken = controller->addDeviceChangeObserver([weakThis = WeakPtr { *this }, this]() {
         if (!weakThis || isContextStopped() || m_scheduledEventTimer.isActive())
             return;
 

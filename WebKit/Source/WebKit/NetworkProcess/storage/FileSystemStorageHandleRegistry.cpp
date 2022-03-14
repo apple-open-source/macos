@@ -26,6 +26,8 @@
 #include "config.h"
 #include "FileSystemStorageHandleRegistry.h"
 
+#include "FileSystemStorageHandle.h"
+
 namespace WebKit {
 
 FileSystemStorageHandleRegistry::FileSystemStorageHandleRegistry() = default;
@@ -34,7 +36,7 @@ void FileSystemStorageHandleRegistry::registerHandle(WebCore::FileSystemHandleId
 {
     ASSERT(!m_handles.contains(identifier));
 
-    m_handles.add(identifier, makeWeakPtr(handle));
+    m_handles.add(identifier, handle);
 }
 
 void FileSystemStorageHandleRegistry::unregisterHandle(WebCore::FileSystemHandleIdentifier identifier)

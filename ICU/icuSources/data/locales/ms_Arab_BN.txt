@@ -30,6 +30,16 @@ ms_Arab_BN{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMMMMdd",
+                "GyMMMMd",
+                "GyMMdd",
+                "GGGGGyyMMd",
+            }
         }
         gregorian{
             DateTimePatterns{
@@ -46,6 +56,16 @@ ms_Arab_BN{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMMMMdd",
+                "yMMMMd",
+                "yMMdd",
+                "yyMMd",
             }
         }
     }

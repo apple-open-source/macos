@@ -367,10 +367,7 @@ mock_protocol_copy_definition(void)
         SEC_PROTOCOL_METADATA_VALIDATE(content, false);
 
         content->negotiated_ciphersuite = TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-        content->negotiated_protocol_version = kTLSProtocol12;
-#pragma clang diagnostic pop
+        content->negotiated_protocol_version = tls_protocol_version_TLSv12;
 
         return true;
     });
@@ -387,10 +384,7 @@ mock_protocol_copy_definition(void)
             SEC_PROTOCOL_METADATA_VALIDATE(content, false);
             
             content->negotiated_ciphersuite = TLS_DHE_RSA_WITH_AES_256_GCM_SHA384;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            content->negotiated_protocol_version = kTLSProtocol12;
-#pragma clang diagnostic pop
+            content->negotiated_protocol_version = tls_protocol_version_TLSv12;
             
             return true;
         });
@@ -410,7 +404,7 @@ mock_protocol_copy_definition(void)
             content->negotiated_ciphersuite = TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            content->negotiated_protocol_version = kTLSProtocol11;
+            content->negotiated_protocol_version = tls_protocol_version_TLSv11;
 #pragma clang diagnostic pop
             
             return true;
@@ -431,7 +425,7 @@ mock_protocol_copy_definition(void)
             content->negotiated_ciphersuite = TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            content->negotiated_protocol_version = kTLSProtocol1;
+            content->negotiated_protocol_version = tls_protocol_version_TLSv10;
 #pragma clang diagnostic pop
             
             return true;
@@ -439,48 +433,6 @@ mock_protocol_copy_definition(void)
         
         XCTAssertTrue(SSLConnectionStrengthWeak == sec_protocol_metadata_get_connection_strength(metadata), 
             "Expected SSLConnectionStrengthWeak for TLS 1.0, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
-    }
-}
-
-- (void)test_sec_protocol_metadata_get_connection_strength_sslv3_strong_ciphersuite {
-    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
-    if (metadata) {
-        (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
-            sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
-            SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-            
-            content->negotiated_ciphersuite = TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256; // This can be anything -- we downgrade based on the version here.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            content->negotiated_protocol_version = kSSLProtocol3;
-#pragma clang diagnostic pop
-            
-            return true;
-        });
-        
-        XCTAssertTrue(SSLConnectionStrengthNonsecure == sec_protocol_metadata_get_connection_strength(metadata), 
-            "Expected SSLConnectionStrengthNonsecure for SSL 3.0, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
-    }
-}
-
-- (void)test_sec_protocol_metadata_get_connection_strength_sslv3_weak_ciphersuite {
-    sec_protocol_metadata_t metadata = [self create_sec_protocol_metadata];
-    if (metadata) {
-        (void)sec_protocol_metadata_access_handle(metadata, ^bool(void *handle) {
-            sec_protocol_metadata_content_t content = (sec_protocol_metadata_content_t)handle;
-            SEC_PROTOCOL_METADATA_VALIDATE(content, false);
-            
-            content->negotiated_ciphersuite = SSL_RSA_WITH_3DES_EDE_CBC_SHA;
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-            content->negotiated_protocol_version = kSSLProtocol3;
-#pragma clang diagnostic pop
-            
-            return true;
-        });
-        
-        XCTAssertTrue(SSLConnectionStrengthNonsecure == sec_protocol_metadata_get_connection_strength(metadata), 
-            "Expected SSLConnectionStrengthNonsecure for SSL 3.0, got %d", (int)sec_protocol_metadata_get_connection_strength(metadata));
     }
 }
 
@@ -791,18 +743,15 @@ _sec_protocol_test_metadata_session_exporter(void *handle)
     sec_protocol_options_t optionsA = [self create_sec_protocol_options];
     sec_protocol_options_t optionsB = [self create_sec_protocol_options];
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
-    sec_protocol_options_set_tls_min_version(optionsA, kTLSProtocol13);
+    sec_protocol_options_set_min_tls_protocol_version(optionsA, tls_protocol_version_TLSv13);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
-    sec_protocol_options_set_tls_min_version(optionsB, kTLSProtocol13);
+    sec_protocol_options_set_min_tls_protocol_version(optionsB, tls_protocol_version_TLSv13);
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
 
-    sec_protocol_options_set_tls_max_version(optionsA, kTLSProtocol13);
+    sec_protocol_options_set_max_tls_protocol_version(optionsA, tls_protocol_version_TLSv13);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));
-    sec_protocol_options_set_tls_max_version(optionsB, kTLSProtocol13);
+    sec_protocol_options_set_max_tls_protocol_version(optionsB, tls_protocol_version_TLSv13);
     XCTAssertTrue(sec_protocol_options_are_equal(optionsA, optionsB));
-#pragma clang diagnostic pop
 
     sec_protocol_options_set_tls_sni_disabled(optionsA, true);
     XCTAssertFalse(sec_protocol_options_are_equal(optionsA, optionsB));

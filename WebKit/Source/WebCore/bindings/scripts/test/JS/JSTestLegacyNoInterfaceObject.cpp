@@ -75,7 +75,7 @@ public:
     using Base = JSC::JSNonFinalObject;
     static JSTestLegacyNoInterfaceObjectPrototype* create(JSC::VM& vm, JSDOMGlobalObject* globalObject, JSC::Structure* structure)
     {
-        JSTestLegacyNoInterfaceObjectPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestLegacyNoInterfaceObjectPrototype>(vm.heap)) JSTestLegacyNoInterfaceObjectPrototype(vm, globalObject, structure);
+        JSTestLegacyNoInterfaceObjectPrototype* ptr = new (NotNull, JSC::allocateCell<JSTestLegacyNoInterfaceObjectPrototype>(vm)) JSTestLegacyNoInterfaceObjectPrototype(vm, globalObject, structure);
         ptr->finishCreation(vm);
         return ptr;
     }
@@ -85,7 +85,7 @@ public:
     static JSC::IsoSubspace* subspaceFor(JSC::VM& vm)
     {
         STATIC_ASSERT_ISO_SUBSPACE_SHARABLE(JSTestLegacyNoInterfaceObjectPrototype, Base);
-        return &vm.plainObjectSpace;
+        return &vm.plainObjectSpace();
     }
     static JSC::Structure* createStructure(JSC::VM& vm, JSC::JSGlobalObject* globalObject, JSC::JSValue prototype)
     {
@@ -335,9 +335,9 @@ JSC::IsoSubspace* JSTestLegacyNoInterfaceObject::subspaceForImpl(JSC::VM& vm)
         return space;
     static_assert(std::is_base_of_v<JSC::JSDestructibleObject, JSTestLegacyNoInterfaceObject> || !JSTestLegacyNoInterfaceObject::needsDestruction);
     if constexpr (std::is_base_of_v<JSC::JSDestructibleObject, JSTestLegacyNoInterfaceObject>)
-        spaces.m_subspaceForTestLegacyNoInterfaceObject = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType.get(), JSTestLegacyNoInterfaceObject);
+        spaces.m_subspaceForTestLegacyNoInterfaceObject = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.destructibleObjectHeapCellType(), JSTestLegacyNoInterfaceObject);
     else
-        spaces.m_subspaceForTestLegacyNoInterfaceObject = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType.get(), JSTestLegacyNoInterfaceObject);
+        spaces.m_subspaceForTestLegacyNoInterfaceObject = makeUnique<IsoSubspace> ISO_SUBSPACE_INIT(vm.heap, vm.cellHeapCellType(), JSTestLegacyNoInterfaceObject);
     auto* space = spaces.m_subspaceForTestLegacyNoInterfaceObject.get();
 IGNORE_WARNINGS_BEGIN("unreachable-code")
 IGNORE_WARNINGS_BEGIN("tautological-compare")

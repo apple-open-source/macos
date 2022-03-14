@@ -29,7 +29,6 @@
 #include "DragActions.h"
 #include "FocusDirection.h"
 #include "HitTestRequest.h"
-#include "KeyboardScroll.h"
 #include "LayoutPoint.h"
 #include "PlatformMouseEvent.h"
 #include "RenderObject.h"
@@ -280,7 +279,7 @@ public:
 
     void focusDocumentView();
     
-    WEBCORE_EXPORT void sendScrollEvent();
+    WEBCORE_EXPORT void scheduleScrollEvent();
 
 #if PLATFORM(MAC)
     WEBCORE_EXPORT void mouseDown(NSEvent *, NSEvent *correspondingPressureEvent);
@@ -355,6 +354,10 @@ public:
 
     WEBCORE_EXPORT void invalidateClick();
 
+#if ENABLE(IMAGE_ANALYSIS)
+    WEBCORE_EXPORT RefPtr<Element> textRecognitionCandidateElement() const;
+#endif
+
     static bool scrollableAreaCanHandleEvent(const PlatformWheelEvent&, ScrollableArea&);
 
 private:
@@ -378,7 +381,6 @@ private:
     bool handleMousePressEventDoubleClick(const MouseEventWithHitTestResults&);
     bool handleMousePressEventTripleClick(const MouseEventWithHitTestResults&);
 
-    float scrollDistance(ScrollDirection, ScrollGranularity);
     bool startKeyboardScrolling(KeyboardEvent&);
     void stopKeyboardScrolling();
 
@@ -469,7 +471,6 @@ private:
     bool handleWheelEventInternal(const PlatformWheelEvent&, OptionSet<WheelEventProcessingSteps>, OptionSet<EventHandling>&);
     bool passWheelEventToWidget(const PlatformWheelEvent&, Widget&, OptionSet<WheelEventProcessingSteps>);
     void determineWheelEventTarget(const PlatformWheelEvent&, RefPtr<Element>& eventTarget, WeakPtr<ScrollableArea>&, bool& isOverWidget);
-    void recordWheelEventForDeltaFilter(const PlatformWheelEvent&);
     bool processWheelEventForScrolling(const PlatformWheelEvent&, const WeakPtr<ScrollableArea>&, OptionSet<EventHandling>);
     void processWheelEventForScrollSnap(const PlatformWheelEvent&, const WeakPtr<ScrollableArea>&);
     bool completeWidgetWheelEvent(const PlatformWheelEvent&, const WeakPtr<Widget>&, const WeakPtr<ScrollableArea>&);

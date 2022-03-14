@@ -363,7 +363,7 @@ int hfs_cnode_teardown (struct vnode *vp, vfs_context_t ctx, int reclaim)
 				struct cat_desc *desc_ptr = NULL;
 				lockflags = 0;
 
-				lookup_rsrc = hfs_mallocz(sizeof(*lookup_rsrc));
+				lookup_rsrc = hfs_malloc_type(struct cat_lookup_buffer);
 
 				if (cp->c_desc.cd_namelen == 0) {
 					/* Initialize the rsrc descriptor for lookup if necessary*/
@@ -388,7 +388,7 @@ int hfs_cnode_teardown (struct vnode *vp, vfs_context_t ctx, int reclaim)
 				hfs_systemfile_unlock (hfsmp, lockflags);
 				
 				if (error) {
-					hfs_free(lookup_rsrc, sizeof(*lookup_rsrc));
+					hfs_free_type(lookup_rsrc, struct cat_lookup_buffer);
 					goto out;
 				}
 
@@ -405,7 +405,7 @@ int hfs_cnode_teardown (struct vnode *vp, vfs_context_t ctx, int reclaim)
 				 */
 
 				error = hfs_release_storage (hfsmp, NULL, &lookup_rsrc->lookup_fork, cp->c_fileid);
-				hfs_free(lookup_rsrc, sizeof(*lookup_rsrc));
+				hfs_free_type(lookup_rsrc, struct cat_lookup_buffer);
 
 				if (error) {
 					goto out;
@@ -805,7 +805,7 @@ hfs_vnop_reclaim(struct vnop_reclaim_args *ap)
 	if (fp) {
 		/* Dump cached symlink data */
 		if (vnode_islnk(vp) && (fp->ff_symlinkptr != NULL)) {
-			hfs_free(fp->ff_symlinkptr, fp->ff_size);
+			hfs_free_data(fp->ff_symlinkptr, fp->ff_size);
 		}
 		rl_remove_all(&fp->ff_invalidranges);
 		hfs_zfree(fp, HFS_FILEFORK_ZONE);

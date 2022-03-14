@@ -1255,39 +1255,19 @@ nstat_inp_domain_info(struct inpcb *inp, nstat_domain_info *domain_info, size_t 
 		return 0;
 	}
 
-	domain_info->is_tracker = !!(so->so_flags1 & SOF1_KNOWN_TRACKER);
-	domain_info->is_non_app_initiated = !!(so->so_flags1 & SOF1_TRACKER_NON_APP_INITIATED);
-	if (domain_info->is_tracker &&
-	    inp->inp_necp_attributes.inp_tracker_domain != NULL) {
-		strlcpy(domain_info->domain_name, inp->inp_necp_attributes.inp_tracker_domain,
-		    sizeof(domain_info->domain_name));
-	} else if (inp->inp_necp_attributes.inp_domain != NULL) {
-		strlcpy(domain_info->domain_name, inp->inp_necp_attributes.inp_domain,
-		    sizeof(domain_info->domain_name));
-	}
-	if (inp->inp_necp_attributes.inp_domain_owner != NULL) {
-		strlcpy(domain_info->domain_owner, inp->inp_necp_attributes.inp_domain_owner,
-		    sizeof(domain_info->domain_owner));
-	}
-	if (inp->inp_necp_attributes.inp_domain_context != NULL) {
-		strlcpy(domain_info->domain_tracker_ctxt, inp->inp_necp_attributes.inp_domain_context,
-		    sizeof(domain_info->domain_tracker_ctxt));
-	}
+	necp_copy_inp_domain_info(inp, so, domain_info);
 
-	if (domain_info) {
-		NSTAT_DEBUG_SOCKET_LOG(so, "NSTAT: <pid %d> Collected stats - domain <%s> owner <%s> ctxt <%s> bundle id <%s> "
-		    "is_tracker %d is_non_app_initiated %d is_silent %d",
-		    so->so_flags & SOF_DELEGATED ? so->e_pid : so->last_pid,
-		    domain_info->domain_name,
-		    domain_info->domain_owner,
-		    domain_info->domain_tracker_ctxt,
-		    domain_info->domain_attributed_bundle_id,
-		    domain_info->is_tracker,
-		    domain_info->is_non_app_initiated,
-		    domain_info->is_silent);
-	}
+	NSTAT_DEBUG_SOCKET_LOG(so, "NSTAT: <pid %d> Collected stats - domain <%s> owner <%s> ctxt <%s> bundle id <%s> "
+	    "is_tracker %d is_non_app_initiated %d is_silent %d",
+	    so->so_flags & SOF_DELEGATED ? so->e_pid : so->last_pid,
+	    domain_info->domain_name,
+	    domain_info->domain_owner,
+	    domain_info->domain_tracker_ctxt,
+	    domain_info->domain_attributed_bundle_id,
+	    domain_info->is_tracker,
+	    domain_info->is_non_app_initiated,
+	    domain_info->is_silent);
 
-	/* XXX tracking context is not provided through kernel for socket flows */
 	return sizeof(nstat_domain_info);
 }
 

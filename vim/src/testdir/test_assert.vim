@@ -268,21 +268,21 @@ func Test_assert_fail_fails()
   catch
     let exp = v:exception
   endtry
-  call assert_match("E856: \"assert_fails()\" second argument", exp)
+  call assert_match("E1222: String or List required for argument 2", exp)
 
   try
     call assert_equal(1, assert_fails('xxx', 'E492', '', 'burp'))
   catch
     let exp = v:exception
   endtry
-  call assert_match("E1115: \"assert_fails()\" fourth argument must be a number", exp)
+  call assert_match("E1210: Number required for argument 4", exp)
 
   try
     call assert_equal(1, assert_fails('xxx', 'E492', '', 54, 123))
   catch
     let exp = v:exception
   endtry
-  call assert_match("E1116: \"assert_fails()\" fifth argument must be a string", exp)
+  call assert_match("E1174: String required for argument 5", exp)
 endfunc
 
 func Test_assert_fails_in_try_block()
@@ -374,6 +374,8 @@ func Test_mouse_position()
   call test_setmouse(5, 1)
   call feedkeys("\<LeftMouse>", "xt")
   call assert_equal([0, 2, 1, 0], getpos('.'))
+  call assert_fails('call test_setmouse("", 2)', 'E474:')
+  call assert_fails('call test_setmouse(1, "")', 'E474:')
   bwipe!
   let &mouse = save_mouse
 endfunc

@@ -29,7 +29,6 @@
 #if ENABLE(PDFKIT_PLUGIN)
 
 #import "ArgumentCoders.h"
-#import "CocoaColor.h"
 #import "DataReference.h"
 #import "FrameInfoData.h"
 #import "Logging.h"
@@ -51,6 +50,7 @@
 #import "WebPageProxyMessages.h"
 #import "WebPasteboardProxyMessages.h"
 #import "WebProcess.h"
+#import "WebWheelEvent.h"
 #import <JavaScriptCore/JSContextRef.h>
 #import <JavaScriptCore/JSObjectRef.h>
 #import <JavaScriptCore/OpaqueJSString.h>
@@ -61,6 +61,7 @@
 #import <WebCore/CSSPropertyNames.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/Color.h>
+#import <WebCore/ColorCocoa.h>
 #import <WebCore/ColorSerialization.h>
 #import <WebCore/Cursor.h>
 #import <WebCore/DictionaryLookup.h>
@@ -93,6 +94,7 @@
 #import <WebCore/ScrollAnimator.h>
 #import <WebCore/ScrollbarTheme.h>
 #import <WebCore/Settings.h>
+#import <WebCore/SharedBuffer.h>
 #import <WebCore/WebAccessibilityObjectWrapperMac.h>
 #import <WebCore/WheelEventTestMonitor.h>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
@@ -180,7 +182,7 @@ static const uint32_t nonLinearizedPDFSentinel = std::numeric_limits<uint32_t>::
         return nil;
 
     _pdfPlugin = plugin;
-    _pluginElement = makeWeakPtr(element);
+    _pluginElement = element;
 
     return self;
 }
@@ -530,7 +532,6 @@ namespace WebKit {
 using namespace WebCore;
 using namespace HTMLNames;
 
-static const char* postScriptMIMEType = "application/postscript";
 const uint64_t pdfDocumentRequestID = 1; // PluginController supports loading multiple streams, but we only need one for PDF.
 
 static void appendValuesInPDFNameSubtreeToVector(CGPDFDictionaryRef subtree, Vector<CGPDFObjectRef>& values)
@@ -632,8 +633,7 @@ Ref<PDFPlugin> PDFPlugin::create(WebFrame& frame, HTMLPlugInElement* pluginEleme
 }
 
 inline PDFPlugin::PDFPlugin(WebFrame& frame, HTMLPlugInElement* pluginElement)
-    : Plugin(PDFPluginType)
-    , m_frame(makeWeakPtr(frame))
+    : m_frame(frame)
     , m_containerLayer(adoptNS([[CALayer alloc] init]))
     , m_contentLayer(adoptNS([[CALayer alloc] init]))
     , m_scrollCornerLayer(adoptNS([[WKPDFPluginScrollbarLayer alloc] initWithPDFPlugin:this]))
@@ -656,7 +656,7 @@ inline PDFPlugin::PDFPlugin(WebFrame& frame, HTMLPlugInElement* pluginElement)
         auto* document = frame.coreFrame()->document();
 
         // FIXME: <rdar://problem/75332948> get the background color from PDFKit instead of hardcoding it
-        document->bodyOrFrameset()->setInlineStyleProperty(WebCore::CSSPropertyBackgroundColor, WebCore::serializationForHTML(WebCore::roundAndClampToSRGBALossy([CocoaColor grayColor].CGColor)));
+        document->bodyOrFrameset()->setInlineStyleProperty(WebCore::CSSPropertyBackgroundColor, WebCore::serializationForHTML(WebCore::roundAndClampToSRGBALossy([WebCore::CocoaColor grayColor].CGColor)));
     }
 
     if (supportsForms()) {
@@ -686,7 +686,7 @@ inline PDFPlugin::PDFPlugin(WebFrame& frame, HTMLPlugInElement* pluginElement)
 
 #if HAVE(INCREMENTAL_PDF_APIS)
     if (m_incrementalPDFLoadingEnabled) {
-        m_pdfThread = Thread::create("PDF document thread", [protectedThis = makeRef(*this), this] () mutable {
+        m_pdfThread = Thread::create("PDF document thread", [protectedThis = Ref { *this }, this] () mutable {
             threadEntry(WTFMove(protectedThis));
         });
     }
@@ -706,7 +706,7 @@ PDFPlugin::~PDFPlugin()
 void PDFPlugin::pdfLog(const String& message)
 {
     if (!isMainRunLoop()) {
-        callOnMainRunLoop([this, protectedThis = makeRef(*this), message = message.isolatedCopy()] {
+        callOnMainRunLoop([this, protectedThis = Ref { *this }, message = message.isolatedCopy()] {
             pdfLog(message);
         });
         return;
@@ -771,7 +771,7 @@ void PDFPlugin::receivedNonLinearizedPDFSentinel()
 #if !LOG_DISABLED
         pdfLog("Disabling incremental PDF loading on background thread");
 #endif
-        callOnMainRunLoop([this, protectedThis = makeRef(*this)] {
+        callOnMainRunLoop([this, protectedThis = Ref { *this }] {
             receivedNonLinearizedPDFSentinel();
         });
         return;
@@ -1027,7 +1027,7 @@ void PDFPlugin::getResourceBytesAtPosition(size_t count, off_t position, Complet
     pdfLog(makeString("Scheduling a stream loader for request ", identifier, " (", count, " bytes at ", position, ")"));
 #endif
 
-    WebProcess::singleton().webLoaderStrategy().schedulePluginStreamLoad(*coreFrame, m_streamLoaderClient, WTFMove(resourceRequest), [this, protectedThis = makeRef(*this), identifier] (RefPtr<WebCore::NetscapePlugInStreamLoader>&& loader) {
+    WebProcess::singleton().webLoaderStrategy().schedulePluginStreamLoad(*coreFrame, m_streamLoaderClient, WTFMove(resourceRequest), [this, protectedThis = Ref { *this }, identifier] (RefPtr<WebCore::NetscapePlugInStreamLoader>&& loader) {
         if (!loader)
             return;
         auto iterator = m_outstandingByteRangeRequests.find(identifier);
@@ -1191,7 +1191,7 @@ void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveResponse(NetscapePlugInSt
     }
 }
 
-void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStreamLoader* loader, const uint8_t* data, int count)
+void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStreamLoader* loader, const SharedBuffer& data)
 {
     if (!m_pdfPlugin)
         return;
@@ -1200,7 +1200,7 @@ void PDFPlugin::PDFPluginStreamLoaderClient::didReceiveData(NetscapePlugInStream
     if (!request)
         return;
 
-    request->addData(data, count);
+    request->addData(data.data(), data.size());
 }
 
 void PDFPlugin::PDFPluginStreamLoaderClient::didFail(NetscapePlugInStreamLoader* loader, const ResourceError&)
@@ -1267,7 +1267,7 @@ void PDFPlugin::forgetLoader(NetscapePlugInStreamLoader& loader)
 
 void PDFPlugin::cancelAndForgetLoader(NetscapePlugInStreamLoader& loader)
 {
-    auto protectedLoader = makeRef(loader);
+    Ref protectedLoader { loader };
     forgetLoader(loader);
     loader.cancel(loader.cancelledError());
 }
@@ -1293,12 +1293,6 @@ PluginInfo PDFPlugin::pluginInfo()
     textPDFMimeClassInfo.extensions.append("pdf");
     info.mimes.append(textPDFMimeClassInfo);
 
-    MimeClassInfo postScriptMimeClassInfo;
-    postScriptMimeClassInfo.type = postScriptMIMEType;
-    postScriptMimeClassInfo.desc = postScriptDocumentTypeDescription();
-    postScriptMimeClassInfo.extensions.append("ps");
-    info.mimes.append(postScriptMimeClassInfo);
-    
     return info;
 }
 
@@ -1311,15 +1305,15 @@ void PDFPlugin::updateScrollbars()
 
     if (m_horizontalScrollbar) {
         if (m_size.width() >= m_pdfDocumentSize.width())
-            destroyScrollbar(HorizontalScrollbar);
+            destroyScrollbar(ScrollbarOrientation::Horizontal);
     } else if (m_size.width() < m_pdfDocumentSize.width())
-        m_horizontalScrollbar = createScrollbar(HorizontalScrollbar);
+        m_horizontalScrollbar = createScrollbar(ScrollbarOrientation::Horizontal);
 
     if (m_verticalScrollbar) {
         if (m_size.height() >= m_pdfDocumentSize.height())
-            destroyScrollbar(VerticalScrollbar);
+            destroyScrollbar(ScrollbarOrientation::Vertical);
     } else if (m_size.height() < m_pdfDocumentSize.height())
-        m_verticalScrollbar = createScrollbar(VerticalScrollbar);
+        m_verticalScrollbar = createScrollbar(ScrollbarOrientation::Vertical);
 
     IntSize scrollbarSpace = scrollbarIntrusion();
 
@@ -1384,7 +1378,7 @@ const PluginView* PDFPlugin::pluginView() const
 Ref<Scrollbar> PDFPlugin::createScrollbar(ScrollbarOrientation orientation)
 {
     auto widget = Scrollbar::createNativeScrollbar(*this, orientation, ScrollbarControlSize::Regular);
-    if (orientation == HorizontalScrollbar) {
+    if (orientation == ScrollbarOrientation::Horizontal) {
         m_horizontalScrollbarLayer = adoptNS([[WKPDFPluginScrollbarLayer alloc] initWithPDFPlugin:this]);
         [m_containerLayer addSublayer:m_horizontalScrollbarLayer.get()];
     } else {
@@ -1412,7 +1406,7 @@ Ref<Scrollbar> PDFPlugin::createScrollbar(ScrollbarOrientation orientation)
 
 void PDFPlugin::destroyScrollbar(ScrollbarOrientation orientation)
 {
-    RefPtr<Scrollbar>& scrollbar = orientation == HorizontalScrollbar ? m_horizontalScrollbar : m_verticalScrollbar;
+    RefPtr<Scrollbar>& scrollbar = orientation == ScrollbarOrientation::Horizontal ? m_horizontalScrollbar : m_verticalScrollbar;
     if (!scrollbar)
         return;
 
@@ -1420,7 +1414,7 @@ void PDFPlugin::destroyScrollbar(ScrollbarOrientation orientation)
     scrollbar->removeFromParent();
     scrollbar = nullptr;
 
-    if (orientation == HorizontalScrollbar) {
+    if (orientation == ScrollbarOrientation::Horizontal) {
         [m_horizontalScrollbarLayer removeFromSuperlayer];
         m_horizontalScrollbarLayer = 0;
     } else {
@@ -1622,14 +1616,6 @@ JSObjectRef PDFPlugin::makeJSPDFDoc(JSContextRef ctx)
     return JSObjectMake(ctx, jsPDFDocClass, this);
 }
 
-void PDFPlugin::convertPostScriptDataIfNeeded()
-{
-    if (!m_isPostScript)
-        return;
-
-    m_data = PDFDocumentImage::convertPostScriptDataToPDF(WTFMove(m_data));
-}
-
 void PDFPlugin::documentDataDidFinishLoading()
 {
     if (m_hasBeenDestroyed)
@@ -1713,27 +1699,23 @@ void PDFPlugin::streamDidReceiveResponse(uint64_t streamID, const URL&, uint32_t
     ASSERT_UNUSED(streamID, streamID == pdfDocumentRequestID);
 
     setSuggestedFilename(suggestedFilename);
-
-    if (equalIgnoringASCIICase(mimeType, postScriptMIMEType))
-        m_isPostScript = true;
 }
 
-void PDFPlugin::streamDidReceiveData(uint64_t streamID, const uint8_t* bytes, int length)
+void PDFPlugin::streamDidReceiveData(uint64_t streamID, const SharedBuffer& buffer)
 {
     ASSERT_UNUSED(streamID, streamID == pdfDocumentRequestID);
 
     if (!m_data)
         m_data = adoptCF(CFDataCreateMutable(0, 0));
 
-    CFDataAppendBytes(m_data.get(), bytes, length);
-    m_streamedBytes += length;
+    CFDataAppendBytes(m_data.get(), buffer.data(), buffer.size());
+    m_streamedBytes += buffer.size();
 }
 
 void PDFPlugin::streamDidFinishLoading(uint64_t streamID)
 {
     ASSERT_UNUSED(streamID, streamID == pdfDocumentRequestID);
 
-    convertPostScriptDataIfNeeded();
     documentDataDidFinishLoading();
 }
 
@@ -1747,9 +1729,6 @@ void PDFPlugin::streamDidFail(uint64_t streamID, bool wasCancelled)
 void PDFPlugin::manualStreamDidReceiveResponse(const URL& responseURL, uint32_t streamLength,  uint32_t lastModifiedTime, const String& mimeType, const String& headers, const String& suggestedFilename)
 {
     setSuggestedFilename(suggestedFilename);
-
-    if (equalIgnoringASCIICase(mimeType, postScriptMIMEType))
-        m_isPostScript = true;
 }
 
 void PDFPlugin::ensureDataBufferLength(uint64_t targetLength)
@@ -1763,14 +1742,14 @@ void PDFPlugin::ensureDataBufferLength(uint64_t targetLength)
         CFDataIncreaseLength(m_data.get(), targetLength - currentLength);
 }
 
-void PDFPlugin::manualStreamDidReceiveData(const uint8_t* bytes, int length)
+void PDFPlugin::manualStreamDidReceiveData(const SharedBuffer& buffer)
 {
     if (!m_data)
         m_data = adoptCF(CFDataCreateMutable(0, 0));
 
-    ensureDataBufferLength(m_streamedBytes + length);
-    memcpy(CFDataGetMutableBytePtr(m_data.get()) + m_streamedBytes, bytes, length);
-    m_streamedBytes += length;
+    ensureDataBufferLength(m_streamedBytes + buffer.size());
+    memcpy(CFDataGetMutableBytePtr(m_data.get()) + m_streamedBytes, buffer.data(), buffer.size());
+    m_streamedBytes += buffer.size();
 
 #if HAVE(INCREMENTAL_PDF_APIS)
     // Keep our ranges-lookup-table compact by continuously updating its first range
@@ -1795,7 +1774,6 @@ void PDFPlugin::manualStreamDidReceiveData(const uint8_t* bytes, int length)
 
 void PDFPlugin::manualStreamDidFinishLoading()
 {
-    convertPostScriptDataIfNeeded();
     documentDataDidFinishLoading();
 }
 
@@ -1815,7 +1793,7 @@ void PDFPlugin::tryRunScriptsInPDFDocument()
     if (!m_pdfDocument || !m_documentFinishedLoading)
         return;
 
-    auto completionHandler = [this, protectedThis = makeRef(*this)] (Vector<RetainPtr<CFStringRef>>&& scripts) mutable {
+    auto completionHandler = [this, protectedThis = Ref { *this }] (Vector<RetainPtr<CFStringRef>>&& scripts) mutable {
         if (scripts.isEmpty())
             return;
 
@@ -1952,8 +1930,8 @@ void PDFPlugin::destroy()
     m_activeAnnotation = nullptr;
     m_annotationContainer = nullptr;
 
-    destroyScrollbar(HorizontalScrollbar);
-    destroyScrollbar(VerticalScrollbar);
+    destroyScrollbar(ScrollbarOrientation::Horizontal);
+    destroyScrollbar(ScrollbarOrientation::Vertical);
     
     [m_scrollCornerLayer removeFromSuperlayer];
     [m_contentLayer removeFromSuperlayer];
@@ -2047,13 +2025,13 @@ IntPoint PDFPlugin::convertFromRootViewToPlugin(const IntPoint& point) const
 IntPoint PDFPlugin::convertFromPDFViewToRootView(const IntPoint& point) const
 {
     IntPoint pointInPluginCoordinates(point.x(), size().height() - point.y());
-    return m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapPoint(pointInPluginCoordinates);
+    return valueOrDefault(m_rootViewToPluginTransform.inverse()).mapPoint(pointInPluginCoordinates);
 }
 
 IntRect PDFPlugin::convertFromPDFViewToRootView(const IntRect& rect) const
 {
     IntRect rectInPluginCoordinates(rect.x(), rect.y(), rect.width(), rect.height());
-    return m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(rectInPluginCoordinates);
+    return valueOrDefault(m_rootViewToPluginTransform.inverse()).mapRect(rectInPluginCoordinates);
 }
 
 IntPoint PDFPlugin::convertFromRootViewToPDFView(const IntPoint& point) const
@@ -2086,7 +2064,7 @@ IntRect PDFPlugin::boundsOnScreen() const
         return { };
 
     FloatRect bounds = FloatRect(FloatPoint(), size());
-    FloatRect rectInRootViewCoordinates = m_rootViewToPluginTransform.inverse().value_or(AffineTransform()).mapRect(bounds);
+    FloatRect rectInRootViewCoordinates = valueOrDefault(m_rootViewToPluginTransform.inverse()).mapRect(bounds);
     auto* page = m_frame->coreFrame()->page();
     if (!page)
         return { };
@@ -2113,7 +2091,7 @@ void PDFPlugin::geometryDidChange(const IntSize& pluginSize, const IntRect&, con
         return;
 
     m_size = pluginSize;
-    m_rootViewToPluginTransform = pluginToRootViewTransform.inverse().value_or(AffineTransform());
+    m_rootViewToPluginTransform = valueOrDefault(pluginToRootViewTransform.inverse());
     [m_pdfLayerController setFrameSize:pluginSize];
 
     [CATransaction begin];
@@ -2551,7 +2529,7 @@ void PDFPlugin::notifyDisplayModeChanged(int)
     updateScrollbars();
 }
 
-RefPtr<SharedBuffer> PDFPlugin::liveResourceData() const
+RefPtr<FragmentedSharedBuffer> PDFPlugin::liveResourceData() const
 {
     NSData *pdfData = liveData();
 
@@ -2662,9 +2640,10 @@ void PDFPlugin::writeItemsToPasteboard(NSString *pasteboardName, NSArray *items,
             webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardStringForType(pasteboardName, type, plainTextString.get(), pageIdentifier), Messages::WebPasteboardProxy::SetPasteboardStringForType::Reply(newChangeCount), 0);
         } else {
             auto buffer = SharedBuffer::create(data);
+            auto sharedMemory = SharedMemory::copyBuffer(buffer.get());
+            if (!sharedMemory)
+                continue;
             SharedMemory::Handle handle;
-            auto sharedMemory = SharedMemory::allocate(buffer->size());
-            memcpy(sharedMemory->data(), buffer->data(), buffer->size());
             sharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
             webProcess.parentProcessConnection()->sendSync(Messages::WebPasteboardProxy::SetPasteboardBufferForType(pasteboardName, type, SharedMemory::IPCHandle { WTFMove(handle), buffer->size() }, pageIdentifier), Messages::WebPasteboardProxy::SetPasteboardBufferForType::Reply(newChangeCount), 0);
         }
@@ -2834,14 +2813,6 @@ void PDFPlugin::notifyCursorChanged(uint64_t type)
 String PDFPlugin::getSelectionString() const
 {
     return [[m_pdfLayerController currentSelection] string];
-}
-
-String PDFPlugin::getSelectionForWordAtPoint(const WebCore::FloatPoint& point) const
-{
-    IntPoint pointInView = convertFromPluginToPDFView(convertFromRootViewToPlugin(roundedIntPoint(point)));
-    PDFSelection *selectionForWord = [m_pdfLayerController getSelectionForWordAtPoint:pointInView];
-    [m_pdfLayerController setCurrentSelection:selectionForWord];
-    return [selectionForWord string];
 }
 
 bool PDFPlugin::existingSelectionContainsPoint(const WebCore::FloatPoint& locationInViewCoordinates) const

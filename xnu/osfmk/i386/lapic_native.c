@@ -130,7 +130,6 @@ map_local_apic(void)
 		result = vm_map_find_space(kernel_map,
 		    &lapic_vbase64,
 		    round_page(LAPIC_SIZE), 0,
-		    0,
 		    VM_MAP_KERNEL_FLAGS_NONE,
 		    VM_KERN_MEMORY_IOKIT,
 		    &entry);

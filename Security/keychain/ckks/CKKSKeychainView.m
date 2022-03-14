@@ -100,6 +100,7 @@
 @interface CKKSKeychainView()
 
 @property CKKSCondition* policyLoaded;
+@property (nullable) OctagonStateMultiStateArrivalWatcher* priorityViewsProcessed;
 
 @property BOOL itemModificationsBeforePolicyLoaded;
 
@@ -259,6 +260,7 @@
             // Check if we believe we've synced all zones before.
             bool needInitialFetch = false;
             bool moreComing = false;
+
             for(CKKSZoneStateEntry* ckse in ckses) {
                 if(ckse.changeToken == nil) {
                     needInitialFetch = true;
@@ -580,7 +582,15 @@
 
     if([currentState isEqualToString:CKKSStateInitialized]) {
         // We're initialized and all CloudKit zones are created.
-        [self.operationDependencies setStateForAllViews:SecCKKSZoneKeyStateInitialized];
+        [self.operationDependencies setStateForActiveZones:SecCKKSZoneKeyStateInitialized];
+
+        // Now that we've created (hopefully) all views, limit our consideration to only priority views
+        // But _only_ if we're already trusted. Otherwise, proceed as normal: we'll focus on the priority views once trust arrives
+        if([flags _onqueueContains:CKKSFlagNewPriorityViews] && self.trustStatus == CKKSAccountStatusAvailable) {
+            [flags _onqueueRemoveFlag:CKKSFlagNewPriorityViews];
+            [self _onqueuePrioritizePriorityViews];
+        }
+
         return [self performInitializedOperation];
     }
 
@@ -723,12 +733,24 @@
         return op;
     }
 
+    if([currentState isEqualToString:CKKSStateExpandToHandleAllViews]) {
+        WEAKIFY(self);
+        return [OctagonStateTransitionOperation named:@"handle-all-views"
+                                            intending:CKKSStateInitializing
+                                           errorState:CKKSStateInitializing
+                                  withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+            STRONGIFY(self);
+            [self.operationDependencies operateOnAllViews];
+            ckksnotice_global("ckksview", "Now operating on these views: %@", self.operationDependencies.views);
+        }];
+    }
+
     if([currentState isEqualToString:CKKSStateBecomeReady]) {
         return [self becomeReadyOperation:CKKSStateReady];
     }
 
     if([currentState isEqualToString:CKKSStateReady]) {
-        // If we're ready, we can ignore the begin trusted flag
+        // If we're ready, we can ignore the trust-related flags
         [flags _onqueueRemoveFlag:CKKSFlagBeginTrustedOperation];
 
         if(SecCKKSTestsEnabled()) {
@@ -824,6 +846,11 @@
             }
         }
 
+        // We're in ready. Any priority views have been handled!
+        if([flags _onqueueContains:CKKSFlagNewPriorityViews]) {
+            [flags _onqueueRemoveFlag:CKKSFlagNewPriorityViews];
+        }
+
         // TODO: kick off a key roll if one has been requested
 
         // If we reach this point, we're in ready, and will stay there.
@@ -837,6 +864,13 @@
 
     if([currentState isEqualToString:CKKSStateBeginFetch]) {
         [flags _onqueueRemoveFlag:CKKSFlagFetchComplete];
+
+        // Now that we've created (hopefully) all views, limit our consideration to only priority views
+        // But _only_ if we're already trusted. Otherwise, proceed as normal: we'll focus on the priority views once trust arrives
+        if([flags _onqueueContains:CKKSFlagNewPriorityViews] && self.trustStatus == CKKSAccountStatusAvailable) {
+            [flags _onqueueRemoveFlag:CKKSFlagNewPriorityViews];
+            [self _onqueuePrioritizePriorityViews];
+        }
 
         WEAKIFY(self);
 
@@ -869,6 +903,13 @@
         if([flags _onqueueContains:CKKSFlagFetchComplete]) {
             [flags _onqueueRemoveFlag:CKKSFlagFetchComplete];
             return [OctagonStateTransitionOperation named:@"fetch-complete" entering:CKKSStateFetchComplete];
+        }
+
+        // Now that we've created (hopefully) all views, limit our consideration to only priority views
+        // But _only_ if we're already trusted. Otherwise, proceed as normal: we'll focus on the priority views once trust arrives
+        if([flags _onqueueContains:CKKSFlagNewPriorityViews] && self.trustStatus == CKKSAccountStatusAvailable) {
+            [flags _onqueueRemoveFlag:CKKSFlagNewPriorityViews];
+            [self _onqueuePrioritizePriorityViews];
         }
 
         // The flags CKKSFlagCloudKitZoneMissing and CKKSFlagChangeTokenExpired are both handled at the top of this function
@@ -921,8 +962,22 @@
         }
 
         if([self anyViewsInState:SecCKKSZoneKeyStateWaitForTrust]) {
-            return [OctagonStateTransitionOperation named:@"no-trust"
-                                                 entering:CKKSStateLoseTrust];
+            // If we're noticing a trust failure while processing just priority views, then we'll want to go back to fetch everything, before ending back here.
+            if(![self.operationDependencies.allViews isEqualToSet:self.operationDependencies.views]) {
+                WEAKIFY(self);
+                return [OctagonStateTransitionOperation named:@"handle-all-views-trust-loss"
+                                                    intending:CKKSStateInitializing
+                                                   errorState:CKKSStateInitializing
+                                          withBlockTakingSelf:^(OctagonStateTransitionOperation * _Nonnull op) {
+                    STRONGIFY(self);
+                    [self.operationDependencies operateOnAllViews];
+                    ckksnotice_global("ckksview", "After trust failure, operating on these views: %@", self.operationDependencies.views);
+                    op.nextState = op.intendedState;
+                }];
+            } else {
+                return [OctagonStateTransitionOperation named:@"no-trust"
+                                                     entering:CKKSStateLoseTrust];
+            }
         }
 
         if([self anyViewsInState:SecCKKSZoneKeyStateNeedFullRefetch]) {
@@ -1149,6 +1204,17 @@
                 }
             }
 
+            // Now that we've processed incoming items, check to see if we've limited which views we're handling
+            // We might be in this situation if we just processed some priority views
+            // If we have been operating only on a subset of views, now operate on all of them
+            NSMutableSet<CKKSKeychainViewState*>* filteredViews = [self.operationDependencies.allViews mutableCopy];
+            [filteredViews minusSet:self.operationDependencies.views];
+            if(filteredViews.count > 0) {
+                ckksnotice_global("ckkszone", "Beginning again to include these views: %@", filteredViews);
+                op.nextState = CKKSStateExpandToHandleAllViews;
+                return;
+            }
+
             for(CKKSKeychainViewState* viewState in viewsOfInterest) {
                 // Are there any entries waiting for reencryption? If so, set the flag.
                 NSError* reencryptOQEError = nil;
@@ -1293,6 +1359,9 @@
                 viewState.viewKeyHierarchyState = SecCKKSZoneKeyStateWaitForTrust;
             }
         }
+
+        // We're now untrusted. If anyone is waiting, tell them things won't happen
+        [self.priorityViewsProcessed completeWithErrorIfPending:[NSError errorWithDomain:CKKSErrorDomain code:CKKSLackingTrust description:@"Trust not present"]];
 
         op.nextState = intendedState;
     }];
@@ -2391,6 +2460,61 @@
     return watcher.result;
 }
 
+- (CKKSResultOperation*)rpcWaitForPriorityViewProcessing
+{
+    __block CKKSResultOperation* returnOp = nil;
+
+    dispatch_sync(self.queue, ^{
+        NSError* failError = nil;
+
+        if(self.accountStatus != CKKSAccountStatusAvailable) {
+            if(self.accountStatus == CKKSAccountStatusUnknown) {
+                failError = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSErrorAccountStatusUnknown
+                                          description:@"iCloud account status unknown."];
+            } else {
+                failError = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSNotLoggedIn
+                                          description:@"User is not signed into iCloud."];
+            }
+        } else {
+            if(self.operationDependencies.syncingPolicy == nil) {
+                failError = [NSError errorWithDomain:CKKSErrorDomain
+                                                 code:CKKSErrorPolicyNotLoaded
+                                          description:@"Syncing policy not yet loaded"];
+            } else {
+                if(self.trustStatus != CKKSAccountStatusAvailable) {
+                    failError = [NSError errorWithDomain:CKKSErrorDomain
+                                                     code:CKKSLackingTrust
+                                              description:@"No iCloud Keychain Trust"];
+                }
+            }
+        }
+
+        if(failError != nil) {
+            returnOp = [CKKSResultOperation named:@"rpcWaitForPriorityViewProcessing-fail"
+                              withBlockTakingSelf:^(CKKSResultOperation * _Nonnull op) {
+                ckksnotice_global("ckksrpc", "Returning failure for waitForPriorityViews: %@", failError);
+                op.error = failError;
+            }];
+            [self.operationQueue addOperation:returnOp];
+            return;
+        }
+
+        returnOp = self.priorityViewsProcessed.result;
+        if(returnOp == nil) {
+            ckksnotice_global("ckksrpc", "Returning success for waitForPriorityViews");
+            returnOp = [CKKSResultOperation named:@"waitForPriority-succeed" withBlock:^{}];
+            [self.operationQueue addOperation:returnOp];
+            return;
+        } else {
+            ckksnotice_global("ckksrpc", "waitForPriorityViews pending on %@", self.priorityViewsProcessed);
+        }
+    });
+
+    return returnOp;
+}
+
 - (void)scanLocalItems
 {
     [self.stateMachine handleFlag:CKKSFlagScanLocalItems];
@@ -2690,6 +2814,10 @@
 
             [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessIncomingQueue];
             [self.stateMachine _onqueueHandleFlag:CKKSFlagScanLocalItems];
+
+            // Since we just gained trust, we'll try to process the priority views first. Set this up again,
+            // since the last one likely failed due to trust issues
+            [self onqueueCreatePriorityViewsProcessedWatcher];
         }
     });
 }
@@ -2758,6 +2886,8 @@
         NSMutableSet<CKKSKeychainViewState*>* viewStates = [self.operationDependencies.allViews mutableCopy];
         NSMutableSet<CKKSKeychainViewState*>* viewStatesToRemove = [NSMutableSet set];
 
+        BOOL newPriorityViews = NO;
+
         for(CKKSKeychainViewState* viewState in viewStates) {
             if([viewNames containsObject:viewState.zoneID.zoneName]) {
 
@@ -2799,11 +2929,26 @@
             CKKSZoneStateEntry* ckse = [CKKSZoneStateEntry state:viewName];
 
             bool ckksManaged = [viewNames containsObject:viewName];
+            BOOL zoneIsNew = ckse.changeToken == nil;
 
-            viewState = [self createViewState:viewName zoneIsNew:ckse.changeToken == nil ckksManagedView:ckksManaged];
+            viewState = [self createViewState:viewName zoneIsNew:zoneIsNew ckksManagedView:ckksManaged];
             [viewStates addObject:viewState];
 
-            ckksnotice("ckks", viewState.zoneID, "Created %@ view %@", ckksManaged ? @"CKKS" : @"externally-managed", viewState);
+            BOOL priorityView = [syncingPolicy.priorityViews containsObject:viewName];
+
+            ckksnotice("ckks", viewState.zoneID, "Created %@ %@ view %@",
+                       priorityView ? @"priority" : @"normal",
+                       ckksManaged ? @"CKKS" : @"externally-managed",
+                       viewState);
+
+            if(priorityView && zoneIsNew) {
+                ckksnotice("ckks", viewState.zoneID, "Initializing a priority view for the first time");
+                newPriorityViews = YES;
+            }
+            if(priorityView && ckse.moreRecordsInCloudKit) {
+                ckksnotice("ckks", viewState.zoneID, "A priority view has more records in CloudKit; treating as new");
+                newPriorityViews = YES;
+            }
 
             newViews = YES;
         }
@@ -2811,6 +2956,12 @@
         [self.operationDependencies applyNewSyncingPolicy:syncingPolicy
                                                viewStates:viewStates];
         [self.stateMachine _onqueueHandleFlag:CKKSFlagCheckQueues];
+
+        if(newPriorityViews) {
+            [self onqueueCreatePriorityViewsProcessedWatcher];
+
+            [self.stateMachine _onqueueHandleFlag:CKKSFlagNewPriorityViews];
+        }
 
         for(CKKSKeychainViewState* viewState in viewStates) {
             [self.zoneChangeFetcher registerClient:self zoneID:viewState.zoneID];
@@ -2834,6 +2985,28 @@
     // The policy is considered loaded once the views have been created
     [self.policyLoaded fulfill];
     return newViews || disappearedViews;
+}
+
+- (void)onqueueCreatePriorityViewsProcessedWatcher {
+    // Note: once CKKS makes it into ready or restarts with non-priority views, then the initial download for priority views is complete.
+    // Be careful about waiting on this if CKKS is not trusted.
+
+    // Note that we fail on CKKSStateLoseTrust, not CKKSStateWaitForTrust. This allows us to handle the racy situation where
+    // the state machine is in CKKSStateWaitForTrust, and -beginTrust is called, and creates a new one of these. If we failed on
+    // CKKSStateWaitForTrust, this watcher would fail immediately.
+    //
+    //
+    self.priorityViewsProcessed = [[OctagonStateMultiStateArrivalWatcher alloc] initNamed:@"wait-for-priority-view-processing"
+                                                                              serialQueue:self.queue
+                                                                                   states:[NSSet setWithArray:@[
+                                                                                    CKKSStateReady,
+                                                                                    CKKSStateExpandToHandleAllViews,
+                                                                                   ]]
+                                                                               failStates:@{
+        CKKSStateLoggedOut: [NSError errorWithDomain:CKKSErrorDomain code:CKKSNotLoggedIn description:@"CloudKit account not present"],
+        CKKSStateError: [NSError errorWithDomain:CKKSErrorDomain code:CKKSErrorNotSupported description:@"CKKS currently in error state"],
+    }];
+    [self.stateMachine _onqueueRegisterMultiStateArrivalWatcher:self.priorityViewsProcessed];
 }
 
 - (CKKSKeychainViewState*)createViewState:(NSString*)zoneName
@@ -2900,6 +3073,16 @@
     return [self.operationDependencies viewStateForName:viewName];
 }
 
+- (void)_onqueuePrioritizePriorityViews
+{
+    // Let's limit operation to just our priority views (if there are any)
+    NSSet<CKKSKeychainViewState*>* priorityViews = self.operationDependencies.allPriorityViews;
+    if(priorityViews.count > 0) {
+        [self.operationDependencies limitOperationToPriorityViews];
+        ckksnotice("ckksviews", self, "Restricting operation to priority views: %@", self.operationDependencies.views);
+    }
+}
+
 #pragma mark - CKKSChangeFetcherClient
 
 - (BOOL)zoneIsReadyForFetching:(CKRecordZoneID*)zoneID
@@ -2927,6 +3110,21 @@
         ckksnotice("ckksfetch", zoneID, "Not participating in fetch: zone not created yet");
         return NO;
     }
+
+    CKKSKeychainViewState* activeViewState = nil;
+    for(CKKSKeychainViewState* viewState in self.operationDependencies.views) {
+        if([viewState.zoneName isEqualToString:zoneID.zoneName]) {
+            activeViewState = viewState;
+            break;
+        }
+    }
+
+    if(activeViewState == nil) {
+        // View is not active. Do not fetch.
+        ckksnotice("ckksfetch", zoneID, "Not participating in fetch: zone is not active");
+        return NO;
+    }
+
     return YES;
 }
 
@@ -2936,7 +3134,7 @@
 
     [self dispatchSyncWithReadOnlySQLTransaction:^{
         if (![self _onQueueZoneIsReadyForFetching:zoneID]) {
-            ckksnotice("ckksfetch", self, "skipping fetch since zones are not ready");
+            ckksnotice("ckksfetch", self, "skipping fetch for %@; zone is not ready", zoneID);
             return;
         }
 
@@ -3389,8 +3587,9 @@
 }
 
 - (void)rpcStatus:(NSString* _Nullable)viewName
-             fast:(bool)fast
-            reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error))reply
+        fast:(BOOL)fast
+        waitForNonTransientState:(dispatch_time_t)nonTransientStateTimeout
+        reply:(void(^)(NSArray<NSDictionary*>* result, NSError* error))reply
 {
     // Now, query the views about their status. Don't wait for the policy to be loaded
     NSError* error = nil;
@@ -3415,7 +3614,7 @@
                                                                                                                   CKKSStateWaitForTrust,
                                                                                                                   OctagonStateMachineHalted,
                                                                                                               ]]];
-    [waitForTransient timeout:1*NSEC_PER_SEC];
+    [waitForTransient timeout:nonTransientStateTimeout];
     [self.stateMachine registerMultiStateArrivalWatcher:waitForTransient];
 
     WEAKIFY(self);

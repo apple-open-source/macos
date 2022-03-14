@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005,2011-2015,2021 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2005,2011-2015,2021-2022 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -493,7 +493,11 @@ OSStatus TrustSettings::CreateTrustSettings(
 		case kSecTrustSettingsDomainUser:
 			if (!tsUseXPCEnabled()) {
 				/* get settings from ocspd */
+#if OCSPD_ENABLED
 				ortn = ocspdTrustSettingsRead(alloc, domain, fileData);
+#else
+				ortn = errSecInternal; /* no ocspd */
+#endif
 			} else {
 				/* get settings from trustd */
 				ortn = xpcTrustSettingsRead(alloc, domain, fileData);
@@ -697,7 +701,11 @@ void TrustSettings::flushToDisk()
 	if(tsUseXPCEnabled()) {
 		ortn = xpcTrustSettingsWrite(mDomain, authBlob, cssmXmlData);
 	} else {
+#if OCSPD_ENABLED
 		ortn = ocspdTrustSettingsWrite(mDomain, authBlob, cssmXmlData);
+#else
+		ortn = errSecInternal; /* no ocspd */
+#endif
 	}
 
 	if(ortn) {

@@ -77,6 +77,7 @@
 #include <vm/vm_kern.h>
 #include <vm/vm_map.h>
 #include <vm/pmap.h>
+#include <vm/vm_compressor.h>
 #include <stdarg.h>
 #include <stdatomic.h>
 #include <sys/pgo.h>
@@ -128,6 +129,7 @@ extern int vsnprintf(char *, size_t, const char *, va_list);
 #endif
 
 extern int IODTGetLoaderInfo( const char *key, void **infoAddr, int *infosize );
+extern void IODTFreeLoaderInfo( const char *key, void *infoAddr, int infoSize );
 
 unsigned int    halt_in_debugger = 0;
 unsigned int    current_debugger = 0;
@@ -211,7 +213,7 @@ unsigned long debugger_panic_caller = 0;
 
 void panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args,
     unsigned int reason, void *ctx, uint64_t panic_options_mask, void *panic_data,
-    unsigned long panic_caller) __dead2;
+    unsigned long panic_caller) __dead2 __printflike(1, 0);
 static void kdp_machine_reboot_type(unsigned int type, uint64_t debugger_flags);
 void panic_spin_forever(void) __dead2;
 extern kern_return_t do_stackshot(void);
@@ -596,6 +598,7 @@ DebuggerResumeOtherCores(void)
 #endif
 }
 
+__printflike(3, 0)
 static void
 DebuggerSaveState(debugger_op db_op, const char *db_message, const char *db_panic_str,
     va_list *db_panic_args, uint64_t db_panic_options, void *db_panic_data_ptr,
@@ -729,7 +732,7 @@ DebuggerWithContext(unsigned int reason, void *ctx, const char *message,
 	}
 
 	#pragma unused(debugger_caller) // lies!
-	SOCD_TRACE_XNU(PANIC, PACK_2X32(VALUE(CPUDEBUGGERCOUNT), VALUE(cpu_number())), VALUE(debugger_options_mask), ADDR(message), ADDR(debugger_caller));
+	SOCD_TRACE_XNU(PANIC, PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)), VALUE(debugger_options_mask), ADDR(message), ADDR(debugger_caller));
 
 	/* Handle any necessary platform specific actions before we proceed */
 	PEInitiatePanic();
@@ -994,7 +997,7 @@ panic_trap_to_debugger(const char *panic_format_str, va_list *panic_args, unsign
 		panic_spin_forever();
 	}
 
-	SOCD_TRACE_XNU(PANIC, PACK_2X32(VALUE(CPUDEBUGGERCOUNT), VALUE(cpu_number())), VALUE(panic_options_mask), ADDR(panic_format_str), ADDR(panic_caller));
+	SOCD_TRACE_XNU(PANIC, PACK_2X32(VALUE(cpu_number()), VALUE(CPUDEBUGGERCOUNT)), VALUE(panic_options_mask), ADDR(panic_format_str), ADDR(panic_caller));
 	/* Handle any necessary platform specific actions before we proceed */
 	PEInitiatePanic();
 
@@ -1157,7 +1160,10 @@ debugger_collect_diagnostics(unsigned int exception, unsigned int code, unsigned
 	if (debugger_current_op == DBOP_PANIC) {
 		paniclog_append_noflush("panic(cpu %d caller 0x%lx): ", (unsigned) cpu_number(), debugger_panic_caller);
 		if (debugger_panic_str) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 			_doprnt(debugger_panic_str, debugger_panic_args, consdebug_putc, 0);
+#pragma clang diagnostic pop
 		}
 		paniclog_append_noflush("\n");
 	}
@@ -1460,7 +1466,10 @@ log(__unused int level, char *fmt, ...)
 
 	va_end(listp);
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wformat-nonliteral"
 	os_log_with_args(OS_LOG_DEFAULT, OS_LOG_TYPE_DEFAULT, fmt, listp2, caller);
+#pragma clang diagnostic pop
 	va_end(listp2);
 #endif
 }
@@ -1604,7 +1613,8 @@ out:
 unsigned
 panic_active(void)
 {
-	return debugger_panic_str != (char *) 0;
+	return debugger_current_op == DBOP_PANIC ||
+	       (debugger_current_op == DBOP_DEBUGGER && debugger_is_panic);
 }
 
 void
@@ -1689,6 +1699,52 @@ panic_display_ecc_errors(void)
 }
 #endif /* CONFIG_ECC_LOGGING */
 
+#if CONFIG_FREEZE
+extern bool freezer_incore_cseg_acct;
+extern uint32_t c_segment_pages_compressed_incore;
+#endif
+
+extern uint32_t c_segment_pages_compressed;
+extern uint32_t c_segment_count;
+extern uint32_t c_segments_limit;
+extern uint32_t c_segment_pages_compressed_limit;
+extern uint32_t c_segment_pages_compressed_nearing_limit;
+extern uint32_t c_segments_nearing_limit;
+extern int vm_num_swap_files;
+
+void
+panic_display_compressor_stats(void)
+{
+	int isswaplow = vm_swap_low_on_space();
+#if CONFIG_FREEZE
+	uint32_t incore_seg_count;
+	uint32_t incore_compressed_pages;
+	if (freezer_incore_cseg_acct) {
+		incore_seg_count = c_segment_count - c_swappedout_count - c_swappedout_sparse_count;
+		incore_compressed_pages = c_segment_pages_compressed_incore;
+	} else {
+		incore_seg_count = c_segment_count;
+		incore_compressed_pages = c_segment_pages_compressed;
+	}
+
+	paniclog_append_noflush("Compressor Info: %u%% of compressed pages limit (%s) and %u%% of segments limit (%s) with %d swapfiles and %s swap space\n",
+	    (incore_compressed_pages * 100) / c_segment_pages_compressed_limit,
+	    (incore_compressed_pages > c_segment_pages_compressed_nearing_limit) ? "BAD":"OK",
+	    (incore_seg_count * 100) / c_segments_limit,
+	    (incore_seg_count > c_segments_nearing_limit) ? "BAD":"OK",
+	    vm_num_swap_files,
+	    isswaplow ? "LOW":"OK");
+#else /* CONFIG_FREEZE */
+	paniclog_append_noflush("Compressor Info: %u%% of compressed pages limit (%s) and %u%% of segments limit (%s) with %d swapfiles and %s swap space\n",
+	    (c_segment_pages_compressed * 100) / c_segment_pages_compressed_limit,
+	    (c_segment_pages_compressed > c_segment_pages_compressed_nearing_limit) ? "BAD":"OK",
+	    (c_segment_count * 100) / c_segments_limit,
+	    (c_segment_count > c_segments_nearing_limit) ? "BAD":"OK",
+	    vm_num_swap_files,
+	    isswaplow ? "LOW":"OK");
+#endif /* CONFIG_FREEZE */
+}
+
 #if !CONFIG_TELEMETRY
 int
 telemetry_gather(user_addr_t buffer __unused, uint32_t *length __unused, bool mark __unused)
@@ -1767,7 +1823,6 @@ panic_stackshot_to_disk_enabled(void)
 	return FALSE;
 }
 
-#if DEBUG || DEVELOPMENT
 const char *
 sysctl_debug_get_preoslog(size_t *size)
 {
@@ -1790,4 +1845,23 @@ sysctl_debug_get_preoslog(size_t *size)
 	*size = preoslog_size;
 	return (char *)(ml_static_ptovirt((vm_offset_t)(preoslog_pa)));
 }
-#endif /* DEBUG || DEVELOPMENT */
+
+void
+sysctl_debug_free_preoslog(void)
+{
+#if RELEASE
+	int result = 0;
+	void *preoslog_pa = NULL;
+	int preoslog_size = 0;
+
+	result = IODTGetLoaderInfo("preoslog", &preoslog_pa, &preoslog_size);
+	if (result || preoslog_pa == NULL || preoslog_size == 0) {
+		kprintf("Couldn't obtain preoslog region: result = %d, preoslog_pa = %p, preoslog_size = %d\n", result, preoslog_pa, preoslog_size);
+		return;
+	}
+
+	IODTFreeLoaderInfo("preoslog", preoslog_pa, preoslog_size);
+#else
+	/*  On Development & Debug builds, we retain the buffer so it can be extracted from coredumps. */
+#endif // RELEASE
+}

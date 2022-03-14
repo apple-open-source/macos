@@ -355,7 +355,7 @@ IOReturn GTraceBuffer::copyOut(
         }
         else {
             assert(hasBCFunc);
-            void* buf = IOMalloc(kGTraceMaxBreadcrumbSize);
+            void* buf = IOMallocData(kGTraceMaxBreadcrumbSize);
             if (buf) {
                 // Cast the const away, internally we don't touch the data but
                 // the breadcrumb func can modify the context if it chooses.
@@ -374,7 +374,7 @@ IOReturn GTraceBuffer::copyOut(
                     IOLog("GTrace[%u] bad breadcrumb %x, dropping\n",
                             bufferID(), err);
                 }
-                IOFree(buf, kGTraceMaxBreadcrumbSize);
+                IOFreeData(buf, kGTraceMaxBreadcrumbSize);
             }
         }
 
@@ -536,7 +536,7 @@ GTraceBuffer::fetch(const uint32_t index, IOMemoryDescriptor* outDesc)
     // Copy the breadcrumb data on first call to destroy()
     assert(!bso->fBCData);
 
-    void* buf = IOMalloc(kGTraceMaxBreadcrumbSize);
+    void* buf = IOMallocData(kGTraceMaxBreadcrumbSize);
     if (buf) {
         // Cast the const away, internally we don't touch the data but the
         // breadcrumb func can modify the context if it chooses.
@@ -546,7 +546,7 @@ GTraceBuffer::fetch(const uint32_t index, IOMemoryDescriptor* outDesc)
         const IOReturn err = (*breadcrumbFunc)(context, buf, &bcCopied);
         if (!err && bcCopied)
             bso->fBCData = OSData::withBytes(buf, bcCopied);
-        IOFree(buf, kGTraceMaxBreadcrumbSize);
+        IOFreeData(buf, kGTraceMaxBreadcrumbSize);
     }
 
     // bso now goes out of scope and its reference dropped.

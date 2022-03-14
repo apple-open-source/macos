@@ -96,7 +96,7 @@ static void Callback(void *context, CFArrayRef certs) {
     NSArray *receivedCerts = CFBridgingRelease(static_certs);
     XCTAssertNotNil(receivedCerts);
     static_certs = NULL;
-    SecPathBuilderDestroy(builder);
+    CFReleaseNull(builder);
 
     // Entry added to cache should not be expired
     result = CFBridgingRelease(SecCAIssuerCacheCopyMatching((__bridge CFURLRef)apple_uri, false));
@@ -133,7 +133,7 @@ static void Callback(void *context, CFArrayRef certs) {
 
     XCTAssertNotNil(receivedCerts);
 
-    SecPathBuilderDestroy(builder);
+    CFReleaseNull(builder);
 
     // Entry updated in cache should not be expired
     result = CFBridgingRelease(SecCAIssuerCacheCopyMatching((__bridge CFURLRef)apple_uri, false));
@@ -171,7 +171,7 @@ static void Callback(void *context, CFArrayRef certs) {
     XCTAssertEqual(receivedCerts.count, 1);
     XCTAssert(CFEqualSafe(apple_ca, (__bridge SecCertificateRef)receivedCerts[0]));
 
-    SecPathBuilderDestroy(builder);
+    CFReleaseNull(builder);
 
     // Entry updated in cache should still be expired
     result = CFBridgingRelease(SecCAIssuerCacheCopyMatching((__bridge CFURLRef)apple_uri, false));

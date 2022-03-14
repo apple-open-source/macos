@@ -553,9 +553,7 @@ flow_set_port_info(struct ns_flow_info *nfi, struct nx_flow_req *req)
 static int
 flow_req_prepare_namespace(struct nx_flow_req *req)
 {
-#if SK_LOG
-	char src_s[MAX_IPv6_STR_LEN];
-#endif /* SK_LOG */
+	SK_LOG_VAR(char src_s[MAX_IPv6_STR_LEN]);
 	int err = 0;
 
 	if (flow_req_needs_netns_reservation(req)) {
@@ -752,9 +750,7 @@ flow_req_prepare(struct nx_flow_req *req, struct kern_nexus *nx,
 
 	if (__improbable(has_saddr && !flow_route_laddr_validate(saddr, ifp,
 	    &req->nfr_saddr_gencnt))) {
-#if SK_LOG
-		char src_s[MAX_IPv6_STR_LEN];
-#endif /* SK_LOG */
+		SK_LOG_VAR(char src_s[MAX_IPv6_STR_LEN]);
 		SK_ERR("src address %s is not valid",
 		    sk_sa_ntop(SA(saddr), src_s, sizeof(src_s)));
 		err = EADDRNOTAVAIL;
@@ -1103,19 +1099,42 @@ flow_mgr_flow_hash_mask_del(struct flow_mgr *fm, uint32_t mask)
 	return flow_hash_mask_add(fm, mask, -1);
 }
 
+#if SK_LOG
+SK_NO_INLINE_ATTRIBUTE
+static void
+__flow_mgr_find_fe_by_key_prelog(struct flow_key *key)
+{
+	SK_LOG_VAR(char dbgbuf[FLOWENTRY_DBGBUF_SIZE]);
+	SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "key %s",
+	    fk_as_string(key, dbgbuf, sizeof(dbgbuf)));
+}
+
+SK_NO_INLINE_ATTRIBUTE
+static void
+__flow_mgr_find_fe_by_key_epilog(struct flow_entry *fe)
+{
+	SK_LOG_VAR(char dbgbuf[FLOWENTRY_DBGBUF_SIZE]);
+	if (fe != NULL) {
+		SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "fe 0x%llx \"%s\"",
+		    SK_KVA(fe), fe_as_string(fe, dbgbuf, sizeof(dbgbuf)));
+	} else {
+		SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "fe not found");
+	}
+}
+#else
+#define __flow_mgr_find_fe_by_key_prelog(key) do { ((void)0); } while (0)
+#define __flow_mgr_find_fe_by_key_epilog(fe) do { ((void)0); } while (0)
+#endif /* SK_LOG */
+
 struct flow_entry *
 flow_mgr_find_fe_by_key(struct flow_mgr *fm, struct flow_key *key)
 {
-#if SK_LOG
-	char dbgbuf[FLOWENTRY_DBGBUF_SIZE]; /* just for debug message */
-#endif /* SK_LOG */
 	struct cuckoo_node *node = NULL;
 	struct flow_entry *fe = NULL;
 	uint32_t hash = 0;
 	uint16_t saved_mask = key->fk_mask;
 
-	SK_DF(SK_VERB_FLOW | SK_VERB_LOOKUP, "key %s",
-	    fk_as_string(key, dbgbuf, sizeof(dbgbuf)));
+	__flow_mgr_find_fe_by_key_prelog(key);
 
 	for (int i = 0; i < FKMASK_IDX_MAX; i++) {
 		size_t count = fm->fm_flow_hash_count[i];
@@ -1149,6 +1168,8 @@ flow_mgr_find_fe_by_key(struct flow_mgr *fm, struct flow_key *key)
 	}
 
 	key->fk_mask = saved_mask;
+
+	__flow_mgr_find_fe_by_key_epilog(fe);
 
 	return fe;
 }

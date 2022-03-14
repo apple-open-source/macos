@@ -27,6 +27,7 @@
 #include "config.h"
 #include "WorkerOrWorkletScriptController.h"
 
+#include "CommonVM.h"
 #include "DedicatedWorkerGlobalScope.h"
 #include "EventLoop.h"
 #include "JSAudioWorkletGlobalScope.h"
@@ -36,12 +37,15 @@
 #include "JSExecState.h"
 #include "JSPaintWorkletGlobalScope.h"
 #include "JSServiceWorkerGlobalScope.h"
+#include "JSSharedWorkerGlobalScope.h"
 #include "ModuleFetchFailureKind.h"
 #include "ModuleFetchParameters.h"
 #include "ScriptSourceCode.h"
 #include "WebCoreJSClientData.h"
 #include "WorkerConsoleClient.h"
 #include "WorkerModuleScriptLoader.h"
+#include "WorkerOrWorkletThread.h"
+#include "WorkerRunLoop.h"
 #include "WorkerScriptFetcher.h"
 #include <JavaScriptCore/Completion.h>
 #include <JavaScriptCore/DeferTermination.h>
@@ -68,18 +72,16 @@ WorkerOrWorkletScriptController::WorkerOrWorkletScriptController(WorkerThreadTyp
     , m_globalScope(globalScope)
     , m_globalScopeWrapper(*m_vm)
 {
-    m_vm->heap.acquireAccess(); // It's not clear that we have good discipline for heap access, so turn it on permanently.
-    {
-        JSLockHolder lock(m_vm.get());
-        m_vm->ensureTerminationException();
+    if (!isMainThread() || m_vm != &commonVM()) {
+        m_vm->heap.acquireAccess(); // It's not clear that we have good discipline for heap access, so turn it on permanently.
+        {
+            JSLockHolder lock(m_vm.get());
+            m_vm->ensureTerminationException();
+            m_vm->forbidExecutionOnTermination();
+        }
+
+        JSVMClientData::initNormalWorld(m_vm.get(), type);
     }
-
-    JSVMClientData::initNormalWorld(m_vm.get(), type);
-}
-
-WorkerOrWorkletScriptController::WorkerOrWorkletScriptController(WorkerThreadType type, WorkerOrWorkletGlobalScope* globalScope)
-    : WorkerOrWorkletScriptController(type, JSC::VM::create(), globalScope)
-{
 }
 
 WorkerOrWorkletScriptController::~WorkerOrWorkletScriptController()
@@ -129,7 +131,8 @@ void WorkerOrWorkletScriptController::scheduleExecutionTermination()
 
         m_isTerminatingExecution = true;
     }
-    m_vm->notifyNeedTermination();
+    if (m_vm != &commonVM())
+        m_vm->notifyNeedTermination();
 }
 
 bool WorkerOrWorkletScriptController::isTerminatingExecution() const
@@ -267,10 +270,10 @@ JSC::JSValue WorkerOrWorkletScriptController::evaluateModule(JSC::JSModuleRecord
     return moduleRecord.evaluate(&globalObject, awaitedValue, resumeMode);
 }
 
-MessageQueueWaitResult WorkerOrWorkletScriptController::loadModuleSynchronously(WorkerScriptFetcher& scriptFetcher, const ScriptSourceCode& sourceCode)
+bool WorkerOrWorkletScriptController::loadModuleSynchronously(WorkerScriptFetcher& scriptFetcher, const ScriptSourceCode& sourceCode)
 {
     if (isExecutionForbidden())
-        return MessageQueueTerminated;
+        return false;
 
     initScriptIfNeeded();
 
@@ -278,7 +281,7 @@ MessageQueueWaitResult WorkerOrWorkletScriptController::loadModuleSynchronously(
     VM& vm = globalObject.vm();
     JSLockHolder lock { vm };
 
-    auto protector = makeRef(scriptFetcher);
+    Ref protector { scriptFetcher };
     {
         auto& promise = JSExecState::loadModule(globalObject, sourceCode.jsSourceCode(), JSC::JSScriptFetcher::create(vm, { &scriptFetcher }));
 
@@ -340,14 +343,14 @@ MessageQueueWaitResult WorkerOrWorkletScriptController::loadModuleSynchronously(
     // task is queued in WorkerRunLoop before start running module scripts. This task should not be discarded
     // in the following driving of the RunLoop which mainly attempt to collect initial load of module scripts.
     String taskMode = WorkerModuleScriptLoader::taskMode();
-    MessageQueueWaitResult result = MessageQueueMessageReceived;
-    while ((!protector->isLoaded() && !protector->wasCanceled()) && result != MessageQueueTerminated) {
-        result = runLoop.runInMode(m_globalScope, taskMode);
-        if (result != MessageQueueTerminated)
+    bool success = true;
+    while ((!protector->isLoaded() && !protector->wasCanceled()) && success) {
+        success = runLoop.runInMode(m_globalScope, taskMode);
+        if (success)
             m_globalScope->eventLoop().performMicrotaskCheckpoint();
     }
 
-    return result;
+    return success;
 }
 
 void WorkerOrWorkletScriptController::linkAndEvaluateModule(WorkerScriptFetcher& scriptFetcher, const ScriptSourceCode& sourceCode, String* returnedExceptionMessage)
@@ -397,7 +400,7 @@ void WorkerOrWorkletScriptController::loadAndEvaluateModule(const URL& moduleURL
 
     auto scriptFetcher = WorkerScriptFetcher::create(credentials, globalScope()->destination(), globalScope()->referrerPolicy());
     {
-        auto& promise = JSExecState::loadModule(globalObject, moduleURL.string(), JSC::JSScriptFetchParameters::create(vm, makeRef(scriptFetcher->parameters())), JSC::JSScriptFetcher::create(vm, { scriptFetcher.ptr() }));
+        auto& promise = JSExecState::loadModule(globalObject, moduleURL.string(), JSC::JSScriptFetchParameters::create(vm, scriptFetcher->parameters()), JSC::JSScriptFetcher::create(vm, { scriptFetcher.ptr() }));
 
         auto task = createSharedTask<void(std::optional<Exception>&&)>([completionHandler = WTFMove(completionHandler)](std::optional<Exception>&& exception) mutable {
             completionHandler(WTFMove(exception));
@@ -519,7 +522,7 @@ void WorkerOrWorkletScriptController::initScriptWithSubclass()
     ASSERT(asObject(m_globalScopeWrapper->getPrototypeDirect(*m_vm))->globalObject() == m_globalScopeWrapper);
 
     m_consoleClient = makeUnique<WorkerConsoleClient>(*m_globalScope);
-    m_globalScopeWrapper->setConsoleClient(makeWeakPtr(*m_consoleClient));
+    m_globalScopeWrapper->setConsoleClient(*m_consoleClient);
 }
 
 void WorkerOrWorkletScriptController::initScript()
@@ -529,6 +532,11 @@ void WorkerOrWorkletScriptController::initScript()
 
     if (is<DedicatedWorkerGlobalScope>(m_globalScope)) {
         initScriptWithSubclass<JSDedicatedWorkerGlobalScopePrototype, JSDedicatedWorkerGlobalScope, DedicatedWorkerGlobalScope>();
+        return;
+    }
+
+    if (is<SharedWorkerGlobalScope>(m_globalScope)) {
+        initScriptWithSubclass<JSSharedWorkerGlobalScopePrototype, JSSharedWorkerGlobalScope, SharedWorkerGlobalScope>();
         return;
     }
 

@@ -56,6 +56,13 @@ NetworkLoad::NetworkLoad(NetworkLoadClient& client, BlobRegistryImpl* blobRegist
         m_task = NetworkDataTask::create(networkSession, *this, m_parameters);
 }
 
+NetworkLoad::NetworkLoad(NetworkLoadClient& client, NetworkSession& networkSession, const Function<RefPtr<NetworkDataTask>(NetworkDataTaskClient&)>& createTask)
+    : m_client(client)
+    , m_networkProcess(networkSession.networkProcess())
+    , m_task(createTask(*this))
+{
+}
+
 void NetworkLoad::start()
 {
     if (!m_task)
@@ -67,7 +74,7 @@ void NetworkLoad::startWithScheduling()
 {
     if (!m_task || !m_task->networkSession())
         return;
-    m_scheduler = makeWeakPtr(m_task->networkSession()->networkLoadScheduler());
+    m_scheduler = m_task->networkSession()->networkLoadScheduler();
     m_scheduler->schedule(*this);
 }
 
@@ -208,8 +215,8 @@ void NetworkLoad::didReceiveChallenge(AuthenticationChallenge&& challenge, Negot
     m_client.get().didReceiveChallenge(challenge);
 
     auto scheme = challenge.protectionSpace().authenticationScheme();
-    bool isTLSHandshake = scheme == ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested
-        || scheme == ProtectionSpaceAuthenticationSchemeClientCertificateRequested;
+    bool isTLSHandshake = scheme == ProtectionSpace::AuthenticationScheme::ServerTrustEvaluationRequested
+        || scheme == ProtectionSpace::AuthenticationScheme::ClientCertificateRequested;
     if (!isAllowedToAskUserForCredentials() && !isTLSHandshake && !challenge.protectionSpace().isProxy()) {
         m_client.get().didBlockAuthenticationChallenge();
         completionHandler(AuthenticationChallengeDisposition::UseCredential, { });
@@ -247,11 +254,10 @@ void NetworkLoad::notifyDidReceiveResponse(ResourceResponse&& response, Negotiat
     m_client.get().didReceiveResponse(WTFMove(response), WTFMove(completionHandler));
 }
 
-void NetworkLoad::didReceiveData(Ref<SharedBuffer>&& buffer)
+void NetworkLoad::didReceiveData(const WebCore::SharedBuffer& buffer)
 {
     // FIXME: This should be the encoded data length, not the decoded data length.
-    auto size = buffer->size();
-    m_client.get().didReceiveBuffer(WTFMove(buffer), size);
+    m_client.get().didReceiveBuffer(buffer, buffer.size());
 }
 
 void NetworkLoad::didCompleteWithError(const ResourceError& error, const WebCore::NetworkLoadMetrics& networkLoadMetrics)

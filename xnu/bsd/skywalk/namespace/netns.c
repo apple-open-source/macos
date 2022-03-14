@@ -217,7 +217,7 @@ SLIST_HEAD(, ns_token) netns_all_tokens = SLIST_HEAD_INITIALIZER(
 /*
  * Memory management
  */
-static ZONE_DECLARE(netns_ns_zone, SKMEM_ZONE_PREFIX ".netns.ns",
+static ZONE_DEFINE(netns_ns_zone, SKMEM_ZONE_PREFIX ".netns.ns",
     sizeof(struct ns), ZC_ZFREE_CLEARMEM);
 
 #define NETNS_NS_TOKEN_ZONE_NAME        "netns.ns_token"
@@ -481,7 +481,8 @@ _netns_get_ns(uint32_t *addr, uint8_t addr_len, uint8_t proto, bool create)
 		    PROTO_STR(proto), inet_ntop(LEN_TO_AF(addr_len), addr,
 		    tmp_ip_str, sizeof(tmp_ip_str)));
 		NETNS_LOCK_CONVERT();
-		namespace = netns_ns_alloc(Z_WAITOK);
+		namespace = netns_ns_alloc(Z_WAITOK | Z_NOFAIL);
+		__builtin_assume(namespace != NULL);
 		memcpy(namespace->ns_addr, addr, addr_len);
 		namespace->ns_addr_key = &namespace->ns_addr;
 		namespace->ns_addr_len = addr_len;
@@ -839,7 +840,7 @@ static void
 _netns_release_common(struct ns *namespace, in_port_t port, uint32_t flags)
 {
 	struct ns_reservation *res;
-	uint16_t refs;
+	uint32_t refs;
 	int i;
 #if SK_LOG
 	char tmp_ip_str[MAX_IPv6_STR_LEN];

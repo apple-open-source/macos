@@ -39,9 +39,11 @@ __FBSDID("$FreeBSD: src/usr.bin/makewhatis/makewhatis.c,v 1.9 2002/09/04 23:29:0
 #define SLIST_HEAD_INITIALIZER(head) { NULL }
 #endif
 
+#include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <err.h>
+#include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -730,7 +732,33 @@ collect_names(StringList *names, char *text)
 	}
 }
 
-enum { STATE_UNKNOWN, STATE_MANSTYLE, STATE_MDOCNAME, STATE_MDOCDESC };
+static int
+roff_macro_endmarker(const char *line, char **marker)
+{
+	const char *lspc;
+
+	/* Skip past the directive. */
+	line += 3;
+	if (*line == '1')
+		line++;
+
+	/* Guaranteed by the caller, line == ".de " or ".de1 " at a minimum. */
+	assert(*line == ' ');
+	lspc = strrchr(line, ' ');
+	/* No further spaces? no end macro marker. */
+	if (lspc == line || *(lspc + 1) == '\0') {
+		*marker = NULL;
+		return (0);
+	}
+
+	*marker = strdup(lspc + 1);
+	if (*marker == NULL)
+		return (ENOMEM);
+	return (0);
+}
+
+enum { STATE_UNKNOWN, STATE_MANSTYLE, STATE_MDOCNAME, STATE_MDOCDESC,
+    STATE_ROFF_MACRO};
 
 /*
  * Processes a man page source into a single whatis line and adds it
@@ -743,8 +771,8 @@ process_page(struct page_info *page, char *section_dir)
 	char buffer[4096];
 	char *line;
 	StringList *names;
-	char *descr;
-	int state = STATE_UNKNOWN;
+	char *descr, *endmarker = NULL;
+	int error, state = STATE_UNKNOWN;
 	size_t i;
 
 	sbuf_clear(whatis_proto);
@@ -768,14 +796,53 @@ process_page(struct page_info *page, char *section_dir)
 				state = STATE_MDOCNAME;
 			continue;
 		/*
+		 * Inside of a macro definition in an old-style .SH NAME
+		 * section.
+		 */
+		case STATE_ROFF_MACRO:
+			/*
+			 * If the line doesn't begin with a dot, then we're
+			 * definitely not looking at the end and we'll just eat
+			 * the line.  Otherwise, we'll check if the remainder
+			 * matches our endmacro and switch back to parsing the
+			 * .SH section.
+			 */
+			if (*line == '.') {
+				const char *check;
+
+				line++;
+				trim_rhs(line);
+				check = endmarker;
+				if (check == NULL)
+					check = ".";
+				if (strcmp(line, check) == 0) {
+					/* Out! */
+					free(endmarker);
+					endmarker = NULL;
+					state = STATE_MANSTYLE;
+				}
+			}
+
+			continue;
+		/*
 		 * Inside an old-style .SH NAME section.
 		 */
 		case STATE_MANSTYLE:
 			if ((strncmp(line, ".SH", 3) == 0) || (strncmp(line, ".SS", 3) == 0))
 				break;
 			trim_rhs(line);
-			if (strcmp(line, ".") == 0)
+			if (strcmp(line, ".") == 0 ||
+			    strncmp(line, ".nr ", 4) == 0)
 				continue;
+			if (strncmp(line, ".de1 ", 4) == 0 ||
+			    strncmp(line, ".de ", 3) == 0) {
+				/* Switch to macro processing for a bit. */
+				error = roff_macro_endmarker(line, &endmarker);
+				if (error != 0)
+					errc(1, error, "roff_macro_endmarker");
+				state = STATE_ROFF_MACRO;
+				continue;
+			}
 			if (strncmp(line, ".IX", 3) == 0) {
 				line += 3;
 				line = skip_spaces(line);
@@ -811,6 +878,7 @@ process_page(struct page_info *page, char *section_dir)
 		}
 		break;
 	}
+	free(endmarker);
 	gzclose(in);
 	sbuf_strip(whatis_proto, " \t.-");
 	line = sbuf_content(whatis_proto);

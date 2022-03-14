@@ -115,11 +115,17 @@ static void rmslashes(char *rrpin, char *rrpout)
 		*rrpout = '\0';
 }
 
-static void checkpath(const char *path, char *resolved)
+static void checkpath(int flags, const char *path, char *resolved)
 {
 	struct stat sb;
 
-	if (!realpath(path, resolved) || stat(resolved, &sb))
+	if (flags & MNT_NOFOLLOW) {
+		size_t sc = strlcpy(resolved, path, MAXPATHLEN);
+		if (sc >= MAXPATHLEN)
+			err(EX_USAGE, "%s", resolved);
+	} else if (!realpath(path, resolved))
+		err(EX_USAGE, "%s", resolved);
+	if (stat(resolved, &sb))
 		err(EX_USAGE, "%s", resolved);
 	if (!S_ISDIR(sb.st_mode)) 
 		errx(EX_USAGE, "%s: not a directory", resolved);
@@ -173,7 +179,7 @@ int main(int argc, char **argv)
 	if (argc != 2)
 		usage(progname);
 	dev = argv[0];
-	checkpath(argv[1], dir);
+	checkpath(flags, argv[1], dir);
 	rmslashes(dev, dev);
 	/*
 	 * Set up the NTFS mount options structure for the mount(2) call.

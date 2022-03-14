@@ -2622,6 +2622,7 @@ eapol_handle_change(SCDynamicStoreRef store, CFArrayRef changes, void * arg)
 					       &kCFTypeArrayCallBacks);
 		}
 		CFArrayAppendValue(link_changes, if_name);
+		CFRelease(if_name);
 	    }
 	}
     }

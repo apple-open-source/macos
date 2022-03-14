@@ -349,20 +349,13 @@ smb_usr_t2request(struct smb_share *share, struct smbioc_t2rq *dp, vfs_context_t
             goto bad;
         }
         
-		t2p->t_name = smb_memdupin(dp->ioc_kern_name, ioc_name_len);
-		if (t2p->t_name == NULL) {
-			error = ENOMEM;
+		t2p->t_name = smb_str_memdupin(dp->ioc_kern_name, ioc_name_len, &error);
+
+		if (error) {
 			goto bad;
 		}
-        
-        /* check null-termination to prevent race-condition attack */
-        /* note that ioc_name_len value includes the '\0' byte */
-        if (t2p->t_name[ioc_name_len-1] != '\0') {
-            SMB_FREE(t2p->t_name, M_SMBDATA);
-            error = EINVAL;
-            goto bad;
-        }
 	}
+
 	t2p->t2_maxscount = 0;
 	t2p->t2_maxpcount = dp->ioc_rparamcnt;
 	t2p->t2_maxdcount = dp->ioc_rdatacnt;
@@ -410,7 +403,9 @@ smb_usr_t2request(struct smb_share *share, struct smbioc_t2rq *dp, vfs_context_t
 	} else
 		dp->ioc_rdatacnt = 0;
 bad:
-	SMB_FREE(t2p->t_name, M_SMBSTR);
+    if (t2p->t_name) {
+        SMB_FREE(t2p->t_name, M_SMBDATA);
+    }
 	smb_t2_done(t2p);
 	return error;
 }

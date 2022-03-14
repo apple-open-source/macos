@@ -1,4 +1,6 @@
 /*-
+ * SPDX-License-Identifier: BSD-3-Clause
+ *
  * Copyright (c) 1991, 1993, 1994
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -14,11 +16,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors
+ * 3. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -35,67 +33,126 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
 #if 0
 static char sccsid[] = "@(#)misc.c	8.3 (Berkeley) 4/2/94";
 #endif
-__used static const char rcsid[] =
-  "$FreeBSD: src/bin/dd/misc.c,v 1.23 2002/02/02 06:24:12 imp Exp $";
 #endif /* not lint */
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD$");
 
 #include <sys/types.h>
-#include <sys/time.h>
 
+#include <err.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <libutil.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <string.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "dd.h"
 #include "extern.h"
 
+double
+secs_elapsed(void)
+{
+	struct timespec end, ts_res;
+	double secs, res;
+
+	if (clock_gettime(CLOCK_MONOTONIC, &end))
+		err(1, "clock_gettime");
+	if (clock_getres(CLOCK_MONOTONIC, &ts_res))
+		err(1, "clock_getres");
+	secs = (end.tv_sec - st.start.tv_sec) + \
+	       (end.tv_nsec - st.start.tv_nsec) * 1e-9;
+	res = ts_res.tv_sec + ts_res.tv_nsec * 1e-9;
+	if (secs < res)
+		secs = res;
+
+	return (secs);
+}
+
 void
 summary(void)
 {
-	struct timeval tv;
 	double secs;
-	char buf[100];
 
-	(void)gettimeofday(&tv, (struct timezone *)NULL);
-	secs = tv.tv_sec + tv.tv_usec * 1e-6 - st.start;
-	if (secs < 1e-6)
-		secs = 1e-6;
-	/* Use snprintf(3) so that we don't reenter stdio(3). */
-	(void)snprintf(buf, sizeof(buf),
-	    "%qu+%qu records in\n%qu+%qu records out\n",
+	if (ddflags & C_NOINFO)
+		return;
+
+	if (ddflags & C_PROGRESS)
+		fprintf(stderr, "\n");
+
+	secs = secs_elapsed();
+
+	(void)fprintf(stderr,
+	    "%ju+%ju records in\n%ju+%ju records out\n",
 	    st.in_full, st.in_part, st.out_full, st.out_part);
-	(void)write(STDERR_FILENO, buf, strlen(buf));
-	if (st.swab) {
-		(void)snprintf(buf, sizeof(buf), "%qu odd length swab %s\n",
+	if (st.swab)
+		(void)fprintf(stderr, "%ju odd length swab %s\n",
+#ifdef __APPLE__
+		     st.swab, (st.swab == 1) ? "record" : "records");
+#else
 		     st.swab, (st.swab == 1) ? "block" : "blocks");
-		(void)write(STDERR_FILENO, buf, strlen(buf));
-	}
-	if (st.trunc) {
-		(void)snprintf(buf, sizeof(buf), "%qu truncated %s\n",
+#endif
+	if (st.trunc)
+		(void)fprintf(stderr, "%ju truncated %s\n",
+#ifdef __APPLE__
 		     st.trunc, (st.trunc == 1) ? "record" : "records");
-		(void)write(STDERR_FILENO, buf, strlen(buf));
+#else
+		     st.trunc, (st.trunc == 1) ? "block" : "blocks");
+#endif
+	if (!(ddflags & C_NOXFER)) {
+		(void)fprintf(stderr,
+		    "%ju bytes transferred in %.6f secs (%.0f bytes/sec)\n",
+		    st.bytes, secs, st.bytes / secs);
 	}
-	(void)snprintf(buf, sizeof(buf),
-	    "%qu bytes transferred in %.6f secs (%.0f bytes/sec)\n",
-	    st.bytes, secs, st.bytes / secs);
-	(void)write(STDERR_FILENO, buf, strlen(buf));
+	need_summary = 0;
+}
+
+void
+progress(void)
+{
+	static int outlen;
+	char si[4 + 1 + 2 + 1];		/* 123 <space> <suffix> NUL */
+	char iec[4 + 1 + 3 + 1];	/* 123 <space> <suffix> NUL */
+	char persec[4 + 1 + 2 + 1];	/* 123 <space> <suffix> NUL */
+	char *buf;
+	double secs;
+
+	secs = secs_elapsed();
+	humanize_number(si, sizeof(si), (int64_t)st.bytes, "B", HN_AUTOSCALE,
+	    HN_DECIMAL | HN_DIVISOR_1000);
+	humanize_number(iec, sizeof(iec), (int64_t)st.bytes, "B", HN_AUTOSCALE,
+	    HN_DECIMAL | HN_IEC_PREFIXES);
+	humanize_number(persec, sizeof(persec), (int64_t)(st.bytes / secs), "B",
+	    HN_AUTOSCALE, HN_DECIMAL | HN_DIVISOR_1000);
+	asprintf(&buf, "  %'ju bytes (%s, %s) transferred %.3fs, %s/s",
+	    (uintmax_t)st.bytes, si, iec, secs, persec);
+	outlen = fprintf(stderr, "%-*s\r", outlen, buf) - 1;
+	fflush(stderr);
+	free(buf);
+	need_progress = 0;
 }
 
 /* ARGSUSED */
 void
-summaryx(int notused)
+siginfo_handler(int signo __unused)
 {
-	int save_errno = errno;
 
-	summary();
-	errno = save_errno;
+	need_summary = 1;
+}
+
+/* ARGSUSED */
+void
+sigalarm_handler(int signo __unused)
+{
+
+	need_progress = 1;
 }
 
 /* ARGSUSED */

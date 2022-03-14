@@ -134,16 +134,9 @@ bool IOFWWriteCommand::createMemberVariables( void )
 	{
 		if( success )
 		{
-			fMembers->fSubclassMembers = IOMalloc( sizeof(MemberVariables) );
+			fMembers->fSubclassMembers = IOMallocType( MemberVariables );
 			if( fMembers->fSubclassMembers == NULL )
 				success = false;
-		}
-		
-		// zero member variables
-		
-		if( success )
-		{
-			bzero( fMembers->fSubclassMembers, sizeof(MemberVariables) );
 		}
 		
 		// clean up on failure
@@ -167,8 +160,7 @@ void IOFWWriteCommand::destroyMemberVariables( void )
 	{		
 		// free member variables
 		
-		IOFree( fMembers->fSubclassMembers, sizeof(MemberVariables) );
-		fMembers->fSubclassMembers = NULL;
+		IOFreeType( fMembers->fSubclassMembers, MemberVariables );
 	}
 }
 

@@ -52,10 +52,10 @@ public:
     static void prepareForProcessToSuspend(CompletionHandler<void()>&&);
     static void processDidResume();
 
-    void insertPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&, WebKit::PrivateClickMeasurementAttributionType);
-    void attributePrivateClickMeasurement(const WebCore::PrivateClickMeasurement::SourceSite&, const WebCore::PrivateClickMeasurement::AttributionDestinationSite&, const ApplicationBundleIdentifier&, WebCore::PrivateClickMeasurement::AttributionTriggerData&&, std::optional<WebCore::PrivateClickMeasurement>&& ephemeralMeasurement, WebCore::PrivateClickMeasurement::IsRunningLayoutTest, CompletionHandler<void(std::optional<WebCore::PrivateClickMeasurement::AttributionSecondsUntilSendData>&&, DebugInfo&&)>&&);
+    void insertPrivateClickMeasurement(WebCore::PrivateClickMeasurement&&, WebKit::PrivateClickMeasurementAttributionType, CompletionHandler<void()>&&);
+    void attributePrivateClickMeasurement(const WebCore::PrivateClickMeasurement::SourceSite&&, const WebCore::PrivateClickMeasurement::AttributionDestinationSite&&, const ApplicationBundleIdentifier&, WebCore::PrivateClickMeasurement::AttributionTriggerData&&, WebCore::PrivateClickMeasurement::IsRunningLayoutTest, CompletionHandler<void(std::optional<WebCore::PrivateClickMeasurement::AttributionSecondsUntilSendData>&&, DebugInfo&&)>&&);
 
-    void privateClickMeasurementToStringForTesting(CompletionHandler<void(String)>&&);
+    void privateClickMeasurementToStringForTesting(CompletionHandler<void(String)>&&) const;
     void markAllUnattributedPrivateClickMeasurementAsExpiredForTesting();
     void markAttributedPrivateClickMeasurementsAsExpiredForTesting(CompletionHandler<void()>&&);
 
@@ -70,8 +70,8 @@ public:
 private:
     Store(const String& databaseDirectory);
 
-    void postTask(Function<void()>&&);
-    void postTaskReply(Function<void()>&&);
+    void postTask(Function<void()>&&) const;
+    void postTaskReply(Function<void()>&&) const;
 
     std::unique_ptr<Database> m_database;
     Ref<SuspendableWorkQueue> m_queue;

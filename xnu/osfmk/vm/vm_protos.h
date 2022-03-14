@@ -600,14 +600,11 @@ extern kern_return_t mach_memory_entry_range_op(
 	int                     *range);
 
 extern void mach_memory_entry_port_release(ipc_port_t port);
-extern void mach_destroy_memory_entry(ipc_port_t port);
 extern vm_named_entry_t mach_memory_entry_from_port(ipc_port_t port);
-extern kern_return_t mach_memory_entry_allocate(
-	struct vm_named_entry **user_entry_p,
-	ipc_port_t *user_handle_p);
+extern struct vm_named_entry *mach_memory_entry_allocate(ipc_port_t *user_handle_p);
 extern vm_object_t vm_named_entry_to_vm_object(
 	vm_named_entry_t        named_entry);
-extern kern_return_t vm_named_entry_from_vm_object(
+extern void vm_named_entry_associate_vm_object(
 	vm_named_entry_t        named_entry,
 	vm_object_t             object,
 	vm_object_offset_t      offset,

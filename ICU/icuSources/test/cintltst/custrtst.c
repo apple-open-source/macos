@@ -131,13 +131,13 @@ static void TestStringFunctions()
             u_memcpy(temp,dataTable[i][j], 7);
 
             if(temp[7] != 0xA4)
-                log_err("an error occured in u_memcpy()\n");
+                log_err("an error occurred in u_memcpy()\n");
             if(u_memcmp(temp, dataTable[i][j], 7)!=0)
-                log_err("an error occured in u_memcpy() or u_memcmp()\n");
+                log_err("an error occurred in u_memcpy() or u_memcmp()\n");
         }
     }
     if(u_memcmp(dataTable[0][0], dataTable[1][1], 7)==0)
-        log_err("an error occured in u_memcmp()\n");
+        log_err("an error occurred in u_memcmp()\n");
 
     log_verbose("Testing u_memset()\n");
     nullTemp[0] = 0;
@@ -145,7 +145,7 @@ static void TestStringFunctions()
     u_memset(nullTemp, 0xa4, 7);
     for (i = 0; i < 7; i++) {
         if(nullTemp[i] != 0xa4) {
-            log_err("an error occured in u_memset()\n");
+            log_err("an error occurred in u_memset()\n");
         }
     }
     if(nullTemp[7] != 0) {
@@ -157,7 +157,7 @@ static void TestStringFunctions()
     temp[7] = 0;
     u_memcpy(temp,nullTemp, 7);
     if(u_memcmp(temp, nullTemp, 7)!=0 || temp[7]!=0)
-        log_err("an error occured in u_memcpy() or u_memcmp()\n");
+        log_err("an error occurred in u_memcpy() or u_memcmp()\n");
 
 
     log_verbose("Testing u_memmove()\n");
@@ -166,11 +166,11 @@ static void TestStringFunctions()
     }
     u_memmove(temp + 1, temp, 7);
     if(temp[0] != 0) {
-        log_err("an error occured in u_memmove()\n");
+        log_err("an error occurred in u_memmove()\n");
     }
     for (i = 1; i <= 7; i++) {
         if(temp[i] != (i - 1)) {
-            log_err("an error occured in u_memmove()\n");
+            log_err("an error occurred in u_memmove()\n");
         }
     }
 
@@ -189,7 +189,7 @@ static void TestStringFunctions()
         }
     }
     if(u_strcmp(dataTable[0][0], dataTable[1][1])==0)
-        log_err("an error occured in u_memcmp()\n");
+        log_err("an error occurred in u_memcmp()\n");
 
     log_verbose("testing u_strcat()\n");
     i=0;
@@ -210,7 +210,7 @@ static void TestStringFunctions()
             log_err("Something threw an error in u_strncmp\n");
     }
     if(u_strncmp(dataTable[0][0], dataTable[1][1], 7)==0)
-        log_err("an error occured in u_memcmp()\n");
+        log_err("an error occurred in u_memcmp()\n");
 
 
     log_verbose("Testing u_strncat\n");
@@ -408,7 +408,7 @@ static void TestStringFunctions()
         u_uastrcpy(delimBuf, "q");  /* Give it a delimiter that it can't find. */
         ptr = u_strtok_r(currTokenBuf, delimBuf, &state);
         if (ptr == NULL || u_strcmp(ptr, temp) != 0) {
-            log_err("Should have recieved the same string when there are no delimiters\n");
+            log_err("Should have received the same string when there are no delimiters\n");
         }
         if (u_strtok_r(NULL, delimBuf, &state) != NULL) {
             log_err("Should not have found another token in a one token string\n");

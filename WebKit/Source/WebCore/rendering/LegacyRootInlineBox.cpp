@@ -56,7 +56,7 @@ COMPILE_ASSERT(sizeof(LegacyRootInlineBox) == sizeof(SameSizeAsLegacyRootInlineB
 COMPILE_ASSERT(sizeof(WeakPtr<RenderObject>) == sizeof(void*), WeakPtr_should_be_same_size_as_raw_pointer);
 #endif
 
-typedef WTF::HashMap<const LegacyRootInlineBox*, std::unique_ptr<LegacyEllipsisBox>> EllipsisBoxMap;
+typedef HashMap<const LegacyRootInlineBox*, std::unique_ptr<LegacyEllipsisBox>> EllipsisBoxMap;
 static EllipsisBoxMap* gEllipsisBoxMap;
 
 static ContainingFragmentMap& containingFragmentMap(RenderBlockFlow& block)
@@ -175,7 +175,7 @@ void LegacyRootInlineBox::paint(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
 bool LegacyRootInlineBox::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, LayoutUnit lineTop, LayoutUnit lineBottom, HitTestAction hitTestAction)
 {
-    if (hasEllipsisBox() && visibleToHitTesting(request)) {
+    if (hasEllipsisBox() && renderer().visibleToHitTesting(request)) {
         if (ellipsisBox()->nodeAtPoint(request, result, locationInContainer, accumulatedOffset, lineTop, lineBottom, hitTestAction)) {
             renderer().updateHitTestResult(result, locationInContainer.point() - toLayoutSize(accumulatedOffset));
             return true;
@@ -428,61 +428,7 @@ LayoutUnit LegacyRootInlineBox::lineSnapAdjustment(LayoutUnit delta) const
     return lineSnapAdjustment(newPageLogicalTop - (blockOffset + lineBoxTop()));
 }
 
-GapRects LegacyRootInlineBox::lineSelectionGap(RenderBlock& rootBlock, const LayoutPoint& rootBlockPhysicalPosition, const LayoutSize& offsetFromRootBlock,
-    LayoutUnit selTop, LayoutUnit selHeight, const LogicalSelectionOffsetCaches& cache, const PaintInfo* paintInfo)
-{
-    RenderObject::HighlightState lineState = selectionState();
-
-    bool leftGap, rightGap;
-    blockFlow().getSelectionGapInfo(lineState, leftGap, rightGap);
-
-    GapRects result;
-
-    LegacyInlineBox* firstBox = firstSelectedBox();
-    LegacyInlineBox* lastBox = lastSelectedBox();
-    if (leftGap) {
-        result.uniteLeft(blockFlow().logicalLeftSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, &firstBox->parent()->renderer(), LayoutUnit(firstBox->logicalLeft()),
-            selTop, selHeight, cache, paintInfo));
-    }
-    if (rightGap) {
-        result.uniteRight(blockFlow().logicalRightSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, &lastBox->parent()->renderer(), LayoutUnit(lastBox->logicalRight()),
-            selTop, selHeight, cache, paintInfo));
-    }
-
-    // When dealing with bidi text, a non-contiguous selection region is possible.
-    // e.g. The logical text aaaAAAbbb (capitals denote RTL text and non-capitals LTR) is layed out
-    // visually as 3 text runs |aaa|bbb|AAA| if we select 4 characters from the start of the text the
-    // selection will look like (underline denotes selection):
-    // |aaa|bbb|AAA|
-    //  ___       _
-    // We can see that the |bbb| run is not part of the selection while the runs around it are.
-    if (firstBox && firstBox != lastBox) {
-        // Now fill in any gaps on the line that occurred between two selected elements.
-        LayoutUnit lastLogicalLeft { firstBox->logicalRight() };
-        bool isPreviousBoxSelected = firstBox->selectionState() != RenderObject::HighlightState::None;
-        for (auto* box = firstBox->nextLeafOnLine(); box; box = box->nextLeafOnLine()) {
-            if (box->selectionState() != RenderObject::HighlightState::None) {
-                LayoutRect logicalRect { lastLogicalLeft, selTop, LayoutUnit(box->logicalLeft() - lastLogicalLeft), selHeight };
-                logicalRect.move(renderer().isHorizontalWritingMode() ? offsetFromRootBlock : LayoutSize(offsetFromRootBlock.height(), offsetFromRootBlock.width()));
-                LayoutRect gapRect = rootBlock.logicalRectToPhysicalRect(rootBlockPhysicalPosition, logicalRect);
-                if (isPreviousBoxSelected && gapRect.width() > 0 && gapRect.height() > 0) {
-                    if (paintInfo && box->parent()->renderer().style().visibility() == Visibility::Visible)
-                        paintInfo->context().fillRect(gapRect, box->parent()->renderer().selectionBackgroundColor());
-                    // VisibleSelection may be non-contiguous, see comment above.
-                    result.uniteCenter(gapRect);
-                }
-                lastLogicalLeft = box->logicalRight();
-            }
-            if (box == lastBox)
-                break;
-            isPreviousBoxSelected = box->selectionState() != RenderObject::HighlightState::None;
-        }
-    }
-
-    return result;
-}
-
-RenderObject::HighlightState LegacyRootInlineBox::selectionState()
+RenderObject::HighlightState LegacyRootInlineBox::selectionState() const
 {
     // Walk over all of the selected boxes.
     RenderObject::HighlightState state = RenderObject::HighlightState::None;
@@ -505,7 +451,7 @@ RenderObject::HighlightState LegacyRootInlineBox::selectionState()
     return state;
 }
 
-LegacyInlineBox* LegacyRootInlineBox::firstSelectedBox()
+const LegacyInlineBox* LegacyRootInlineBox::firstSelectedBox() const
 {
     for (auto* box = firstLeafDescendant(); box; box = box->nextLeafOnLine()) {
         if (box->selectionState() != RenderObject::HighlightState::None)
@@ -514,7 +460,7 @@ LegacyInlineBox* LegacyRootInlineBox::firstSelectedBox()
     return nullptr;
 }
 
-LegacyInlineBox* LegacyRootInlineBox::lastSelectedBox()
+const LegacyInlineBox* LegacyRootInlineBox::lastSelectedBox() const
 {
     for (auto* box = lastLeafDescendant(); box; box = box->previousLeafOnLine()) {
         if (box->selectionState() != RenderObject::HighlightState::None)
@@ -567,10 +513,8 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
     LayoutUnit prevBottom;
     if (auto* previousBox = prevRootBox())
         prevBottom = previousBox->selectionBottom();
-    else {
-        auto borderAndPaddingBefore = blockFlow().borderAndPaddingBefore();
-        prevBottom = forHitTesting == ForHitTesting::Yes ? borderAndPaddingBefore : std::max(borderAndPaddingBefore, selectionTop);
-    }
+    else
+        prevBottom = forHitTesting == ForHitTesting::Yes ? blockFlow().borderAndPaddingBefore() : selectionTop;
 
     if (prevBottom < selectionTop && blockFlow().containsFloats()) {
         // This line has actually been moved further down, probably from a large line-height, but possibly because the
@@ -587,65 +531,9 @@ LayoutUnit LegacyRootInlineBox::selectionTop(ForHitTesting forHitTesting) const
     return prevBottom;
 }
 
-static RenderBlock* blockBeforeWithinSelectionRoot(const RenderBlockFlow& blockFlow, LayoutSize& offset)
-{
-    if (blockFlow.isSelectionRoot())
-        return nullptr;
-
-    const RenderElement* object = &blockFlow;
-    RenderObject* sibling;
-    do {
-        sibling = object->previousSibling();
-        while (sibling && (!is<RenderBlock>(*sibling) || downcast<RenderBlock>(*sibling).isSelectionRoot()))
-            sibling = sibling->previousSibling();
-
-        offset -= LayoutSize(downcast<RenderBlock>(*object).logicalLeft(), downcast<RenderBlock>(*object).logicalTop());
-        object = object->parent();
-    } while (!sibling && is<RenderBlock>(object) && !downcast<RenderBlock>(*object).isSelectionRoot());
-
-    if (!sibling)
-        return nullptr;
-
-    RenderBlock* beforeBlock = downcast<RenderBlock>(sibling);
-
-    offset += LayoutSize(beforeBlock->logicalLeft(), beforeBlock->logicalTop());
-
-    RenderObject* child = beforeBlock->lastChild();
-    while (is<RenderBlock>(child)) {
-        beforeBlock = downcast<RenderBlock>(child);
-        offset += LayoutSize(beforeBlock->logicalLeft(), beforeBlock->logicalTop());
-        child = beforeBlock->lastChild();
-    }
-    return beforeBlock;
-}
-
 LayoutUnit LegacyRootInlineBox::selectionTopAdjustedForPrecedingBlock() const
 {
-    const LegacyRootInlineBox& rootBox = root();
-    LayoutUnit top = selectionTop();
-
-    auto blockSelectionState = rootBox.blockFlow().selectionState();
-    if (blockSelectionState != RenderObject::HighlightState::Inside && blockSelectionState != RenderObject::HighlightState::End)
-        return top;
-
-    LayoutSize offsetToBlockBefore;
-    auto* blockBefore = blockBeforeWithinSelectionRoot(rootBox.blockFlow(), offsetToBlockBefore);
-    if (!is<RenderBlockFlow>(blockBefore))
-        return top;
-
-    // Do not adjust blocks sharing the same line.
-    if (!offsetToBlockBefore.height())
-        return top;
-
-    if (auto* lastLine = downcast<RenderBlockFlow>(*blockBefore).lastRootBox()) {
-        RenderObject::HighlightState lastLineSelectionState = lastLine->selectionState();
-        if (lastLineSelectionState != RenderObject::HighlightState::Inside && lastLineSelectionState != RenderObject::HighlightState::Start)
-            return top;
-
-        LayoutUnit lastLineSelectionBottom = lastLine->selectionBottom() + offsetToBlockBefore.height();
-        top = std::max(top, lastLineSelectionBottom);
-    }
-    return top;
+    return blockFlow().adjustSelectionTopForPrecedingBlock(selectionTop());
 }
 
 LayoutUnit LegacyRootInlineBox::selectionBottom() const
@@ -717,7 +605,7 @@ BidiStatus LegacyRootInlineBox::lineBreakBidiStatus() const
 
 void LegacyRootInlineBox::setLineBreakInfo(RenderObject* object, unsigned breakPosition, const BidiStatus& status)
 {
-    m_lineBreakObj = makeWeakPtr(object);
+    m_lineBreakObj = object;
     m_lineBreakPos = breakPosition;
     m_lineBreakBidiStatusEor = status.eor;
     m_lineBreakBidiStatusLastStrong = status.lastStrong;

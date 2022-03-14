@@ -296,7 +296,7 @@ Expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<LexerType>
     if (!sourceElements || !validEnding)
         return makeUnexpected(hasError() ? m_errorMessage : "Parser error"_s);
 
-    if (Options::usePrivateClassFields() && !m_lexer->isReparsingFunction() && m_seenPrivateNameUseInNonReparsingFunctionMode) {
+    if (!m_lexer->isReparsingFunction() && m_seenPrivateNameUseInNonReparsingFunctionMode) {
         String errorMessage;
         scope->forEachUsedVariable([&] (UniquedStringImpl* impl) {
             if (!isPrivateFieldName(impl))
@@ -1385,7 +1385,7 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseForStatement(
     m_statementDepth++;
 
     if (match(AWAIT)) {
-        semanticFailIfFalse(currentScope()->isAsyncFunction() || (isModuleParseMode(sourceParseMode()) && Options::useTopLevelAwait()), "for-await-of can only be used in an async function or async generator");
+        semanticFailIfFalse(currentScope()->isAsyncFunction() || isModuleParseMode(sourceParseMode()), "for-await-of can only be used in an async function or async generator");
         isAwaitFor = true;
         next();
     }
@@ -3015,7 +3015,7 @@ parseMethod:
             bool escaped = m_token.m_data.escaped;
             ASSERT(ident);
             next();
-            if (parseMode == SourceParseMode::MethodMode && !escaped && (matchIdentifierOrKeyword() || match(STRING) || match(DOUBLE) || match(INTEGER) || match(BIGINT) || match(OPENBRACKET) || (Options::usePrivateMethods() && match(PRIVATENAME)))) {
+            if (parseMode == SourceParseMode::MethodMode && !escaped && (matchIdentifierOrKeyword() || match(STRING) || match(DOUBLE) || match(INTEGER) || match(BIGINT) || match(OPENBRACKET) || match(PRIVATENAME))) {
                 isGetter = *ident == propertyNames.get;
                 isSetter = *ident == propertyNames.set;
             }
@@ -3035,14 +3035,11 @@ parseMethod:
             handleProductionOrFail(CLOSEBRACKET, "]", "end", "computed property name");
             break;
         case PRIVATENAME: {
-            ASSERT(Options::usePrivateClassFields());
             ident = m_token.m_data.ident;
-            if (!Options::usePrivateStaticClassFields())
-                failIfTrue(tag == ClassElementTag::Static, "Static class element cannot be private");
             failIfTrue(isGetter || isSetter, "Cannot parse class method with private name");
             ASSERT(ident);
             next();
-            if (Options::usePrivateMethods() && match(OPENPAREN)) {
+            if (match(OPENPAREN)) {
                 semanticFailIfTrue(classScope->declarePrivateMethod(*ident, tag) & DeclarationResult::InvalidDuplicateDeclaration, "Cannot declare private method twice");
                 semanticFailIfTrue(*ident == propertyNames.constructorPrivateField, "Cannot declare a private method named '#constructor'");
 
@@ -3068,7 +3065,7 @@ parseMethod:
 
         TreeProperty property;
         if (isGetter || isSetter) {
-            if (Options::usePrivateMethods() && match(PRIVATENAME)) {
+            if (match(PRIVATENAME)) {
                 ident = m_token.m_data.ident;
 
                 auto declarationResult = isSetter ? classScope->declarePrivateSetter(*ident, tag) : classScope->declarePrivateGetter(*ident, tag);
@@ -3091,7 +3088,7 @@ parseMethod:
             }
             property = parseGetterSetter(context, type, methodStart, ConstructorKind::None, tag);
             failIfFalse(property, "Cannot parse this method");
-        } else if (!match(OPENPAREN) && (tag == ClassElementTag::Instance || Options::usePublicStaticClassFields()) && parseMode == SourceParseMode::MethodMode) {
+        } else if (!match(OPENPAREN) && parseMode == SourceParseMode::MethodMode) {
             ASSERT(!isGetter && !isSetter);
             if (ident) {
                 semanticFailIfTrue(*ident == propertyNames.constructor, "Cannot declare class field named 'constructor'");
@@ -4241,19 +4238,20 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseBinaryExpres
     bool hasLogicalOperator = false;
     bool hasCoalesceOperator = false;
 
+    int previousOperator = 0;
     while (true) {
         JSTextPosition exprStart = tokenStartPosition();
         int initialAssignments = m_parserState.assignmentCount;
         JSTokenType leadingTokenTypeForUnaryExpression = m_token.m_type;
 
         TreeExpression current = 0;
-        if (Options::usePrivateIn() && match(PRIVATENAME)) {
+        if (match(PRIVATENAME)) {
             const Identifier* ident = m_token.m_data.ident;
             ASSERT(ident);
             currentScope()->usePrivateName(*ident);
             m_seenPrivateNameUseInNonReparsingFunctionMode = true;
             next();
-            semanticFailIfTrue(m_token.m_type != INTOKEN, "Bare private name can only be used as the left-hand side of an `in` expression");
+            semanticFailIfTrue(m_token.m_type != INTOKEN || previousOperator >= INTOKEN, "Bare private name can only be used as the left-hand side of an `in` expression");
             current = context.createPrivateIdentifierNode(location, *ident);
         } else
             current = parseUnaryExpression(context);
@@ -4310,6 +4308,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseBinaryExpres
             context.operatorStackPop(operatorStackDepth);
         }
         context.operatorStackAppend(operatorStackDepth, operatorToken, precedence);
+        previousOperator = operatorToken;
     }
     while (operatorStackDepth) {
         ASSERT(operandStackDepth > 1);
@@ -4514,7 +4513,7 @@ template <class TreeBuilder> TreeProperty Parser<LexerType>::parseGetterSetter(T
     JSTokenLocation location(tokenLocation());
 
     bool matchesPrivateName = match(PRIVATENAME);
-    if (matchSpecIdentifier() || match(STRING) || (Options::usePrivateMethods() && matchesPrivateName) || m_token.m_type & KeywordTokenFlag) {
+    if (matchSpecIdentifier() || match(STRING) || matchesPrivateName || m_token.m_type & KeywordTokenFlag) {
         stringPropertyName = m_token.m_data.ident;
         semanticFailIfTrue(tag == ClassElementTag::Static && *stringPropertyName == m_vm.propertyNames->prototype,
             "Cannot declare a static method named 'prototype'");
@@ -4859,7 +4858,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parsePrimaryExpre
     case AWAIT:
         if (m_parserState.functionParsePhase == FunctionParsePhase::Parameters)
             semanticFailIfFalse(m_parserState.allowAwait, "Cannot use 'await' within a parameter default expression");
-        else if (currentFunctionScope()->isAsyncFunctionBoundary() || (isModuleParseMode(sourceParseMode()) && Options::useTopLevelAwait()))
+        else if (currentFunctionScope()->isAsyncFunctionBoundary() || isModuleParseMode(sourceParseMode()))
             return parseAwaitExpression(context);
 
         goto identifierExpression;
@@ -5097,7 +5096,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
             newCount--;
             next();
         } else {
-            failIfTrue(match(IDENT), "\"new.\" can only followed with target");
+            failIfTrue(match(IDENT), "\"new.\" can only be followed with target");
             failDueToUnexpectedToken();
         }
     }
@@ -5132,7 +5131,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
                 base = context.createImportMetaExpr(location, createResolveAndUseVariable(context, &m_vm.propertyNames->metaPrivateName, false, expressionStart, location));
                 next();
             } else {
-                failIfTrue(match(IDENT), "\"import.\" can only followed with meta");
+                failIfTrue(match(IDENT), "\"import.\" can only be followed with meta");
                 failDueToUnexpectedToken();
             }
         } else {
@@ -5365,7 +5364,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseUnaryExpress
     bool hasPrefixUpdateOp = false;
     unsigned lastOperator = 0;
 
-    if (UNLIKELY(match(AWAIT) && (currentFunctionScope()->isAsyncFunctionBoundary() || (isModuleParseMode(sourceParseMode()) && Options::useTopLevelAwait()))))
+    if (UNLIKELY(match(AWAIT) && (currentFunctionScope()->isAsyncFunctionBoundary() || isModuleParseMode(sourceParseMode()))))
         return parseAwaitExpression(context);
 
     JSTokenLocation location(tokenLocation());

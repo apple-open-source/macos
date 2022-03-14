@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2012 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2002-2012,2022 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -17,7 +17,7 @@
 
 
 /*
- * TPNetwork.h - LDAP, HTTP and (eventually) other network tools 
+ * TPNetwork.cpp - LDAP, HTTP and (eventually) other network tools
  */
  
 #include "TPNetwork.h"
@@ -73,6 +73,7 @@ static CSSM_RETURN tpFetchViaNet(
 	Allocator		&alloc,
 	CSSM_DATA		&rtnBlob)		// mallocd and RETURNED
 {
+#if OCSPD_ENABLED
 	if(lfType == LT_Crl) {
 		return ocspdCRLFetch(alloc, url, issuer,
 			true, true,				// cache r/w both enable
@@ -86,6 +87,9 @@ static CSSM_RETURN tpFetchViaNet(
 		}
 		return result;
 	}
+#else
+	return CSSMERR_TP_INTERNAL_ERROR; /* no ocspd */
+#endif
 }
 
 static CSSM_RETURN tpCrlViaNet(
@@ -128,9 +132,13 @@ static CSSM_RETURN tpCrlViaNet(
 		 * the CRL came from disk cache, flush the cache and try to get the CRL
 		 * from the net.
 		 */
-		tpDebug("   bad CRL; flushing from cache and retrying"); 
+		tpDebug("   bad CRL; flushing from cache and retrying");
+#if OCSPD_ENABLED
 		ocspdCRLFlush(url);
 		crtn = tpFetchViaNet(url, issuer, LT_Crl, cssmTime, alloc, crlData);
+#else
+		crtn = CSSMERR_TP_INTERNAL_ERROR; /* no ocspd */
+#endif
 		if(crtn == CSSM_OK) {
 			try {
 				crl = new TPCrlInfo(vfyCtx.clHand,

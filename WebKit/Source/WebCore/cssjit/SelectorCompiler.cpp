@@ -77,6 +77,7 @@ static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationSynchronizeAllAni
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationSynchronizeStyleAttributeInternal, void, (StyledElement* styledElement));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationEqualIgnoringASCIICaseNonNull, bool, (const StringImpl*, const StringImpl*));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsAutofilled, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsAutofilledAndObscured, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsAutofilledStrongPassword, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsAutofilledStrongPasswordViewable, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsChecked, bool, (const Element&));
@@ -84,7 +85,6 @@ static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesDefaultPse
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesDisabledPseudoClass, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesEnabledPseudoClass, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationIsDefinedElement, bool, (const Element&));
-static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesDirectFocusPseudoClass, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesFocusPseudoClass, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesFocusVisiblePseudoClass, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesFocusWithinPseudoClass, bool, (const Element&));
@@ -113,6 +113,13 @@ static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesPictureInP
 #if ENABLE(VIDEO)
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesFutureCuePseudoClass, bool, (const Element&));
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesPastCuePseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesPlayingPseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesPausedPseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesSeekingPseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesBufferingPseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesStalledPseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesMutedPseudoClass, bool, (const Element&));
+static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationMatchesVolumeLockedPseudoClass, bool, (const Element&));
 #endif
 #if ENABLE(ATTACHMENT_ELEMENT)
 static JSC_DECLARE_JIT_OPERATION_WITHOUT_WTF_INTERNAL(operationHasAttachment, bool, (const Element&));
@@ -493,6 +500,8 @@ static inline FragmentRelation fragmentRelationForSelectorRelation(CSSSelector::
         return FragmentRelation::IndirectAdjacent;
     case CSSSelector::Subselector:
     case CSSSelector::ShadowDescendant:
+    case CSSSelector::ShadowPartDescendant:
+    case CSSSelector::ShadowSlotted:
         ASSERT_NOT_REACHED();
     }
     ASSERT_NOT_REACHED();
@@ -591,6 +600,11 @@ JSC_DEFINE_JIT_OPERATION(operationIsAutofilled, bool, (const Element& element))
     return isAutofilled(element);
 }
 
+JSC_DEFINE_JIT_OPERATION(operationIsAutofilledAndObscured, bool, (const Element& element))
+{
+    return isAutofilledAndObscured(element);
+}
+
 JSC_DEFINE_JIT_OPERATION(operationIsAutofilledStrongPassword, bool, (const Element& element))
 {
     return isAutofilledStrongPassword(element);
@@ -624,11 +638,6 @@ JSC_DEFINE_JIT_OPERATION(operationMatchesEnabledPseudoClass, bool, (const Elemen
 JSC_DEFINE_JIT_OPERATION(operationIsDefinedElement, bool, (const Element& element))
 {
     return isDefinedElement(element);
-}
-
-JSC_DEFINE_JIT_OPERATION(operationMatchesDirectFocusPseudoClass, bool, (const Element& element))
-{
-    return matchesDirectFocusPseudoClass(element);
 }
 
 JSC_DEFINE_JIT_OPERATION(operationMatchesFocusPseudoClass, bool, (const Element& element))
@@ -745,6 +754,41 @@ JSC_DEFINE_JIT_OPERATION(operationMatchesPastCuePseudoClass, bool, (const Elemen
 {
     return matchesPastCuePseudoClass(element);
 }
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesPlayingPseudoClass, bool, (const Element& element))
+{
+    return matchesPlayingPseudoClass(element);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesPausedPseudoClass, bool, (const Element& element))
+{
+    return matchesPausedPseudoClass(element);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesSeekingPseudoClass, bool, (const Element& element))
+{
+    return matchesSeekingPseudoClass(element);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesBufferingPseudoClass, bool, (const Element& element))
+{
+    return matchesBufferingPseudoClass(element);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesStalledPseudoClass, bool, (const Element& element))
+{
+    return matchesStalledPseudoClass(element);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesMutedPseudoClass, bool, (const Element& element))
+{
+    return matchesMutedPseudoClass(element);
+}
+
+JSC_DEFINE_JIT_OPERATION(operationMatchesVolumeLockedPseudoClass, bool, (const Element& element))
+{
+    return matchesVolumeLockedPseudoClass(element);
+}
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -772,6 +816,9 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
     case CSSSelector::PseudoClassAutofill:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationIsAutofilled));
         return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassAutofillAndObscured:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationIsAutofilledAndObscured));
+        return FunctionType::SimpleSelectorChecker;
     case CSSSelector::PseudoClassAutofillStrongPassword:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationIsAutofilledStrongPassword));
         return FunctionType::SimpleSelectorChecker;
@@ -792,9 +839,6 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
         return FunctionType::SimpleSelectorChecker;
     case CSSSelector::PseudoClassDefined:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationIsDefinedElement));
-        return FunctionType::SimpleSelectorChecker;
-    case CSSSelector::PseudoClassDirectFocus:
-        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesDirectFocusPseudoClass));
         return FunctionType::SimpleSelectorChecker;
     case CSSSelector::PseudoClassFocus:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesFocusPseudoClass));
@@ -871,6 +915,27 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
     case CSSSelector::PseudoClassPast:
         fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesPastCuePseudoClass));
         return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassPlaying:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesPlayingPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassPaused:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesPausedPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassSeeking:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesSeekingPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassBuffering:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesBufferingPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassStalled:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesStalledPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassMuted:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesMutedPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
+    case CSSSelector::PseudoClassVolumeLocked:
+        fragment.unoptimizedPseudoClasses.append(JSC::FunctionPtr<JSC::OperationPtrTag>(operationMatchesVolumeLockedPseudoClass));
+        return FunctionType::SimpleSelectorChecker;
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
@@ -903,6 +968,8 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
     case CSSSelector::PseudoClassNthOfType:
     case CSSSelector::PseudoClassNthLastOfType:
     case CSSSelector::PseudoClassDrag:
+    case CSSSelector::PseudoClassHas:
+    case CSSSelector::PseudoClassRelativeScope:
 #if ENABLE(CSS_SELECTORS_LEVEL4)
     case CSSSelector::PseudoClassDir:
     case CSSSelector::PseudoClassRole:
@@ -998,44 +1065,6 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
 
             return functionType;
         }
-
-    case CSSSelector::PseudoClassAny:
-        {
-            Vector<SelectorFragment, 32> anyFragments;
-            FunctionType functionType = FunctionType::SimpleSelectorChecker;
-            for (const CSSSelector* rootSelector = selector.selectorList()->first(); rootSelector; rootSelector = CSSSelectorList::next(rootSelector)) {
-                SelectorFragmentList fragmentList;
-                VisitedMode ignoreVisitedMode = VisitedMode::None;
-                FunctionType subFunctionType = constructFragments(rootSelector, selectorContext, fragmentList, FragmentsLevel::InFunctionalPseudoType, positionInRootFragments, visitedMatchEnabled, ignoreVisitedMode, PseudoElementMatchingBehavior::NeverMatch);
-                ASSERT_WITH_MESSAGE(ignoreVisitedMode == VisitedMode::None, ":visited is disabled in the functional pseudo classes");
-
-                // Since this fragment always unmatch against the element, don't insert it to anyFragments.
-                if (subFunctionType == FunctionType::CannotMatchAnything)
-                    continue;
-
-                if (subFunctionType == FunctionType::CannotCompile)
-                    return FunctionType::CannotCompile;
-
-                // :any() may not contain complex selectors which have combinators.
-                ASSERT(fragmentList.size() == 1);
-                if (fragmentList.size() != 1)
-                    return FunctionType::CannotCompile;
-
-                const SelectorFragment& subFragment = fragmentList.first();
-                anyFragments.append(subFragment);
-                functionType = mostRestrictiveFunctionType(functionType, subFunctionType);
-            }
-
-            // Since all fragments in :any() cannot match anything, this :any() filter cannot match anything.
-            if (anyFragments.isEmpty())
-                return FunctionType::CannotMatchAnything;
-
-            ASSERT(!anyFragments.isEmpty());
-            fragment.anyFilters.append(anyFragments);
-
-            return functionType;
-        }
-
     case CSSSelector::PseudoClassLang:
         {
             const Vector<AtomString>* selectorLangArgumentList = selector.argumentList();
@@ -1045,8 +1074,9 @@ static inline FunctionType addPseudoClassType(const CSSSelector& selector, Selec
         }
 
     case CSSSelector::PseudoClassIs:
-    case CSSSelector::PseudoClassMatches:
     case CSSSelector::PseudoClassWhere:
+    case CSSSelector::PseudoClassMatches:
+    case CSSSelector::PseudoClassAny:
         {
             SelectorList matchesList;
             const CSSSelectorList* selectorList = selector.selectorList();
@@ -1257,7 +1287,10 @@ static FunctionType constructFragmentsInternal(const CSSSelector* rootSelector, 
         if (relation == CSSSelector::Subselector)
             continue;
 
-        if (relation == CSSSelector::ShadowDescendant && !selector->isLastInTagHistory())
+        if ((relation == CSSSelector::ShadowDescendant || relation == CSSSelector::ShadowPartDescendant) && !selector->isLastInTagHistory())
+            return FunctionType::CannotCompile;
+
+        if (relation == CSSSelector::ShadowSlotted)
             return FunctionType::CannotCompile;
 
         if (relation == CSSSelector::DirectAdjacent || relation == CSSSelector::IndirectAdjacent) {
@@ -2016,9 +2049,9 @@ void SelectorCodeGenerator::generateSelectorChecker()
     if (m_selectorContext == SelectorContext::RuleCollector) {
         unsigned specificity = m_selectorFragments.staticSpecificity;
         if (m_functionType == FunctionType::SelectorCheckerWithCheckingContext)
-            m_assembler.store32(Assembler::TrustedImm32(specificity), JSC::GPRInfo::argumentGPR2);
+            m_assembler.store32(Assembler::TrustedImm32(specificity), Assembler::Address(JSC::GPRInfo::argumentGPR2));
         else
-            m_assembler.store32(Assembler::TrustedImm32(specificity), JSC::GPRInfo::argumentGPR1);
+            m_assembler.store32(Assembler::TrustedImm32(specificity), Assembler::Address(JSC::GPRInfo::argumentGPR1));
     }
 
     computeBacktrackingMemoryRequirements(m_selectorFragments);
@@ -3292,7 +3325,8 @@ void SelectorCodeGenerator::generateElementAttributeValueMatching(Assembler::Jum
 
 static inline Assembler::Jump testIsHTMLClassOnDocument(Assembler::ResultCondition condition, Assembler& assembler, Assembler::RegisterID documentAddress)
 {
-    return assembler.branchTest32(condition, Assembler::Address(documentAddress, Document::documentClassesMemoryOffset()), Assembler::TrustedImm32(Document::isHTMLDocumentClassFlag()));
+    static_assert(sizeof(Document::DocumentClass) == 2, "Document::DocumentClass must be a 16-bit value for branchTest16");
+    return assembler.branchTest16(condition, Assembler::Address(documentAddress, Document::documentClassesMemoryOffset()), Assembler::TrustedImm32(Document::isHTMLDocumentClassFlag()));
 }
 
 void SelectorCodeGenerator::generateElementAttributeValueExactMatching(Assembler::JumpList& failureCases, Assembler::RegisterID currentAttributeAddress, const AtomString& expectedValue, AttributeCaseSensitivity valueCaseSensitivity)

@@ -71,6 +71,13 @@
     return [JSContext contextWithJSGlobalContextRef:_frame->jsContextForWorld(&[world _scriptWorld])];
 }
 
+- (JSContext *)jsContextForServiceWorkerWorld:(WKWebProcessPlugInScriptWorld *)world
+{
+    if (auto context = _frame->jsContextForServiceWorkerWorld(&[world _scriptWorld]))
+        return [JSContext contextWithJSGlobalContextRef:context];
+    return nil;
+}
+
 - (WKWebProcessPlugInHitTestResult *)hitTest:(CGPoint)point
 {
     return wrapper(_frame->hitTest(WebCore::IntPoint(point)));
@@ -103,7 +110,7 @@
 
 - (NSURL *)URL
 {
-    return [NSURL _web_URLWithWTFString:_frame->url().string()];
+    return _frame->url();
 }
 
 - (NSArray *)childFrames

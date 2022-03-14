@@ -1658,6 +1658,19 @@ vnode_isonexternalstorage(vnode_t vp)
 	return FALSE;
 }
 
+boolean_t
+vnode_isonssd(vnode_t vp)
+{
+	if (vp) {
+		if (vp->v_mount) {
+			if (vp->v_mount->mnt_kern_flag & MNTK_SSD) {
+				return TRUE;
+			}
+		}
+	}
+	return FALSE;
+}
+
 mount_t
 vnode_mountedhere(vnode_t vp)
 {

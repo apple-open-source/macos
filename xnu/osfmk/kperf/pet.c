@@ -241,7 +241,9 @@ kppet_config(unsigned int actionid)
 		}
 		if (kppet.g_threads) {
 			assert(kppet.g_threads_count != 0);
-			kfree_type(thread_t, kppet.g_threads_count, kppet.g_tasks);
+			void *g_tasks = (void *)kppet.g_tasks;
+			kfree_type(thread_t, kppet.g_threads_count, g_tasks);
+			kppet.g_tasks = NULL;
 			kppet.g_threads = NULL;
 			kppet.g_threads_count = 0;
 			kppet.g_nthreads = 0;

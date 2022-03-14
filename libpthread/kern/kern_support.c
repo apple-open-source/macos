@@ -271,11 +271,7 @@ _bsdthread_create(struct proc *p,
 	PTHREAD_TRACE(pthread_thread_create | DBG_FUNC_START, flags, 0, 0, 0);
 	
 	/* Create thread and make it immovable, do not pin control port yet */
-	if (pthread_kern->thread_create_immovable) {
-		kret = pthread_kern->thread_create_immovable(ctask, &th);
-	} else {
-		kret = pthread_kern->thread_create(ctask, &th);
-	}
+	kret = pthread_kern->thread_create_immovable(ctask, &th);
 	
 	if (kret != KERN_SUCCESS)
 		return(ENOMEM);
@@ -283,19 +279,11 @@ _bsdthread_create(struct proc *p,
 
 	pthread_kern->thread_set_tag(th, THREAD_TAG_PTHREAD);
 
-	if (pthread_kern->convert_thread_to_port_pinned) {
-		/* Convert to immovable/pinned thread port, but port is not pinned yet */
-		sright = (void *)pthread_kern->convert_thread_to_port_pinned(th);
-	} else {
-		sright = (void *)pthread_kern->convert_thread_to_port(th);
-	}
+	/* Convert to immovable thread port, port is not pinned yet */
+	sright = (void *)pthread_kern->convert_thread_to_port_pinned(th);
 	
-	if (pthread_kern->ipc_port_copyout_send_pinned) {
-		/* Atomically, pin and copy out the port */
-		th_thport = pthread_kern->ipc_port_copyout_send_pinned(sright, pthread_kern->task_get_ipcspace(ctask));
-	} else {
-		th_thport = pthread_kern->ipc_port_copyout_send(sright, pthread_kern->task_get_ipcspace(ctask));
-	}
+	/* Atomically copyout and pin the thread port */
+	th_thport = pthread_kern->ipc_port_copyout_send_pinned(sright, pthread_kern->task_get_ipcspace(ctask));
 	
 	if (!MACH_PORT_VALID(th_thport)) {
 		error = EMFILE; // userland will convert this into a crash
@@ -519,11 +507,9 @@ _bsdthread_terminate(__unused struct proc *p,
 	if (pthread_kern->thread_will_park_or_terminate) {
 		pthread_kern->thread_will_park_or_terminate(th);
 	}
-	if (pthread_kern->thread_terminate_pinned) {
-		(void)pthread_kern->thread_terminate_pinned(th);
-	} else {
-		(void)thread_terminate(th);
-	}
+	
+	(void)pthread_kern->thread_terminate_pinned(th);
+	
 	if (sem != MACH_PORT_NULL) {
 		kret = pthread_kern->semaphore_signal_internal_trap(sem);
 		if (kret != KERN_SUCCESS) {

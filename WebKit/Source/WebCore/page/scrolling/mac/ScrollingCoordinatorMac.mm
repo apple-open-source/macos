@@ -41,7 +41,7 @@
 #import "ScrollingTreeFixedNode.h"
 #import "ScrollingTreeFrameScrollingNodeMac.h"
 #import "ScrollingTreeMac.h"
-#import "ScrollingTreeStickyNode.h"
+#import "ScrollingTreeStickyNodeCocoa.h"
 #import "TiledBacking.h"
 #import <wtf/MainThread.h>
 
@@ -115,12 +115,18 @@ void ScrollingCoordinatorMac::commitTreeStateIfNeeded()
     if (!scrollingStateTree()->hasChangedProperties())
         return;
 
-    LOG_WITH_STREAM(ScrollingTree, stream << scrollingStateTreeAsText(ScrollingStateTreeAsTextBehaviorDebug));
+    LOG_WITH_STREAM(ScrollingTree, stream << "ScrollingCoordinatorMac::commitTreeState: state tree " << scrollingStateTreeAsText(debugScrollingStateTreeAsTextBehaviors));
 
     auto stateTree = scrollingStateTree()->commit(LayerRepresentation::PlatformLayerRepresentation);
     scrollingTree()->commitTreeState(WTFMove(stateTree));
 
     updateTiledScrollingIndicator();
+}
+
+void ScrollingCoordinatorMac::didScheduleRenderingUpdate()
+{
+    RefPtr<ThreadedScrollingTree> threadedScrollingTree = downcast<ThreadedScrollingTree>(scrollingTree());
+    threadedScrollingTree->didScheduleRenderingUpdate();
 }
 
 void ScrollingCoordinatorMac::willStartRenderingUpdate()
@@ -134,6 +140,13 @@ void ScrollingCoordinatorMac::willStartRenderingUpdate()
 void ScrollingCoordinatorMac::didCompleteRenderingUpdate()
 {
     downcast<ThreadedScrollingTree>(scrollingTree())->didCompleteRenderingUpdate();
+
+    // When scroll animations are running on the scrolling thread, we need something to continually tickle the
+    // DisplayRefreshMonitor so that ThreadedScrollingTree::displayDidRefresh() will get called to service those animations.
+    // We can achieve this by scheduling a rendering update; this won't cause extra work, since scrolling thread scrolls
+    // will end up triggering these anyway.
+    if (scrollingTree()->hasNodeWithActiveScrollAnimations())
+        scheduleRenderingUpdate();
 }
 
 void ScrollingCoordinatorMac::willStartPlatformRenderingUpdate()
@@ -143,8 +156,16 @@ void ScrollingCoordinatorMac::willStartPlatformRenderingUpdate()
 
 void ScrollingCoordinatorMac::didCompletePlatformRenderingUpdate()
 {
-    downcast<ThreadedScrollingTree>(scrollingTree())->didCompletePlatformRenderingUpdate();
+    downcast<ScrollingTreeMac>(scrollingTree())->didCompletePlatformRenderingUpdate();
     PlatformCALayerContentsDelayedReleaser::singleton().mainThreadCommitDidEnd();
+}
+
+void ScrollingCoordinatorMac::hasNodeWithAnimatedScrollChanged(bool hasAnimatingNode)
+{
+    // This is necessary to trigger a rendering update, after which the code in
+    // ScrollingCoordinatorMac::didCompleteRenderingUpdate() triggers the rest.
+    if (hasAnimatingNode)
+        scheduleRenderingUpdate();
 }
 
 void ScrollingCoordinatorMac::updateTiledScrollingIndicator()

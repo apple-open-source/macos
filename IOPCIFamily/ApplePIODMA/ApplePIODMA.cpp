@@ -135,7 +135,7 @@ bool ApplePIODMA::start(IOService* provider)
     {
         const uint64_t* baseAddressOffsets = reinterpret_cast<const uint64_t*>(propertyData->getBytesNoCopy());
         _numBaseAddressOffsets             = propertyData->getLength() / sizeof(uint64_t);
-        _baseAddressOffsets = reinterpret_cast<uint64_t*>(IOMallocZero(sizeof(uint64_t) * _numBaseAddressOffsets));
+        _baseAddressOffsets = IONewZero(uint64_t, _numBaseAddressOffsets);
 
         for(int offset = 0; offset < _numBaseAddressOffsets; ++offset)
         {
@@ -151,7 +151,7 @@ bool ApplePIODMA::start(IOService* provider)
     }
     _completionQueueSize = piodmaFIFOSize;
 
-    _completionQueue = reinterpret_cast<ApplePIODMARequest**>(IOMallocZero(_completionQueueSize * sizeof(ApplePIODMARequest*)));
+    _completionQueue = IONewZero(ApplePIODMARequest *, _completionQueueSize);
     if(_completionQueue == NULL)
     {
         debug(kApplePIODMADebugLoggingAlways, "couldn't create completionqueue\n");
@@ -206,8 +206,7 @@ void ApplePIODMA::stop(IOService* provider)
 
     if(_completionQueue != NULL)
     {
-        IOFree(_completionQueue, _completionQueueSize * sizeof(ApplePIODMARequest*));
-        _completionQueue = NULL;
+        IOSafeDeleteNULL(_completionQueue, ApplePIODMARequest *, _completionQueueSize);
     }
 
     if(_stateLock != NULL)
@@ -218,8 +217,7 @@ void ApplePIODMA::stop(IOService* provider)
 
     if(_baseAddressOffsets != NULL)
     {
-        IOFree(_baseAddressOffsets, sizeof(uint64_t) * _numBaseAddressOffsets);
-        _baseAddressOffsets    = NULL;
+        IOSafeDeleteNULL(_baseAddressOffsets, uint64_t, _numBaseAddressOffsets);
         _numBaseAddressOffsets = 0;
     }
 

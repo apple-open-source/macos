@@ -1,8 +1,11 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 
+from __future__ import absolute_import
+from __future__ import print_function
 import sys
 import plistlib
 import argparse
+import six
 
 eventType = [
     "null",
@@ -65,18 +68,18 @@ serviceList = []
 serviceProperties = {}
 
 def handleClients(clients):
-    print "Clients"
+    print("Clients")
     
-    for client in sorted(clients, key=lambda client: client['ProcessName'].lower() if 'ProcessName' in client else 0):
+    for client in sorted(clients, key=lambda client: client['ProcessName'].lower() if 'ProcessName' in client else ''):
         if 'PID' in client:
-            print "    pid: %-5d process: %-20.20s latency: %3dms drop: %-2d type: %-8s uuid: %-37s caller: %s" % (
+            print("    pid: %-5d process: %-20.20s latency: %3dms drop: %-2d type: %-8s uuid: %-37s caller: %s" % (
                         client['PID'], 
                         client['ProcessName'] if 'ProcessName' in client else "",
                         int(client['MaxEventLatency'])/1000000,
                         client['DroppedEventCount'], 
                         clientType[client['Type']],
                         client['UUID'] if 'UUID' in client else "",
-                        client['Caller'])
+                        client['Caller']))
 
 def handleServices(services, desiredService, ioreg, events, properties, prop, intervals):
     # find service passed in through --service
@@ -86,7 +89,7 @@ def handleServices(services, desiredService, ioreg, events, properties, prop, in
             if desiredService in service['IOClass']:
                 tmpServices.append(service)
         if not len(tmpServices):
-            print "No service %s found" % desiredService
+            print("No service %s found" % desiredService)
             exit(0)
         services = tmpServices
     
@@ -97,11 +100,11 @@ def handleServices(services, desiredService, ioreg, events, properties, prop, in
     # gather service properties from ioreg
     if properties or prop:
         if not len(ioreg):
-            print "no ioregistry found, please use sysdiagnose path"
+            print("no ioregistry found, please use sysdiagnose path")
             exit(0)
         traverseRegistry(ioreg)
     
-    print "Services"
+    print("Services")
     for service in sorted(services, key=lambda service: service['IOClass'].lower() if 'IOClass' in service else 0):
         sys.stdout.write("    %-25.25s id: %s  built-in: %-4s usagePage: %-7s usage: %-7s report interval: %-6s batch interval: %-6s transport: %s" % (
                                 service['IOClass'] if 'IOClass' in service else "n/a", 
@@ -115,65 +118,65 @@ def handleServices(services, desiredService, ioreg, events, properties, prop, in
         
         if "EventTypeCounts" in service:
             sys.stdout.write("\n        event counts: ")
-            for key, value in service['EventTypeCounts'].iteritems():
+            for key, value in six.iteritems(service['EventTypeCounts']):
                 sys.stdout.write("%s: %d " % (key.lower(), value))
 
         sys.stdout.write("\n")
 
         if intervals and "PropertyCache" in service:
-            for key, value in service['PropertyCache'].iteritems():
-                print "       %s" % key,
-                for key2, value2 in value.iteritems():
-                    print "%s: %s" % (key2, value2),
-                print ""
+            for key, value in six.iteritems(service['PropertyCache']):
+                print("       %s" % key, end=' ')
+                for key2, value2 in six.iteritems(value):
+                    print("%s: %s" % (key2, value2), end=' ')
+                print("")
         if properties and len(serviceProperties[service['IORegistryEntryID']]):
-            print "        Properties"
-            print "       ",
-            for key, value in serviceProperties[service['IORegistryEntryID']].iteritems():
-                print "%s: %s," % (key, value),
-            print ""
+            print("        Properties")
+            print("       ", end=' ')
+            for key, value in six.iteritems(serviceProperties[service['IORegistryEntryID']]):
+                print("%s: %s," % (key, value), end=' ')
+            print("")
         if prop and len(serviceProperties[service['IORegistryEntryID']]):
-            print "        Property"
-            print "       ",
-            for key, value in serviceProperties[service['IORegistryEntryID']].iteritems():
+            print("        Property")
+            print("       ", end=' ')
+            for key, value in six.iteritems(serviceProperties[service['IORegistryEntryID']]):
                 if prop in key:
-                    print "%s: %s," % (key, value),
-            print ""
+                    print("%s: %s," % (key, value), end=' ')
+            print("")
         if 'EventLog' in service and events:
-            print "        Event Log"
+            print("        Event Log")
             for entry in service['EventLog']:
-                print "        %-26.26s type: %s %s %s" % (entry['EventTime'], 
+                print("        %-26.26s type: %s %s %s" % (entry['EventTime'], 
                             eventType[entry['EventType']],
                             "down: %s" % entry['Down'] if 'Down' in entry else "",
-                            "press: %s" % entry['PressCount'] if 'PressCount' in entry else "")
+                            "press: %s" % entry['PressCount'] if 'PressCount' in entry else ""))
 
 def handleDisplayWakeLog(log):
-    print "    Display Wake Log"
+    print("    Display Wake Log")
     for entry in log:
-        print "    %-26.26s timestamp: %-15d id: %s policy: %-8s type: %s" % (
+        print("    %-26.26s timestamp: %-15d id: %s policy: %-8s type: %s" % (
                     entry['Time'],
                     entry['timestamp'] if 'timestamp' in entry else 0,
                     hex(entry['ServiceID']), 
                     policyType[entry['Policy']] if 'Policy' in entry else "", 
-                    eventType[entry['EventType']] if 'EventType' in entry else "")
-    print ""
+                    eventType[entry['EventType']] if 'EventType' in entry else ""))
+    print("")
 
 def handleSessionFilter(session):
     if 'DisplayWakeLog' in session:
         handleDisplayWakeLog(session['DisplayWakeLog'])
 
 def handleActivityLog(log):
-    print "    Activity Log"
+    print("    Activity Log")
     for entry in log:
         if entry['ActivityState']:
-            print "    %-26.26s id: %s type: %s" % (entry['ActivityTime'], 
+            print("    %-26.26s id: %s type: %s" % (entry['ActivityTime'], 
                         hex(0x100000000 | entry['ServiceID']) if 'ServiceID' in entry else "", 
-                        eventType[entry['EventType']] if 'EventType' in entry else "")
+                        eventType[entry['EventType']] if 'EventType' in entry else ""))
         else:
-            print "    %s idle" % (entry['ActivityTime'])
+            print("    %s idle" % (entry['ActivityTime']))
 
 def handleFilters(filters):
-    print "Filters"
+    print("Filters")
     for filter in filters:
         if 'Class' in filter and filter['Class']  == 'IOHIDNXEventTranslatorSessionFilter':
             handleSessionFilter(filter)
@@ -217,14 +220,14 @@ if __name__ == "__main__":
     if args.file:
         if "plist" in args.file:
             # plist file
-            with open(args.file, "r") as fd:
-                hidutil = plistlib.readPlist(fd)
+            with open(args.file, "rb") as fd:
+                hidutil = plistlib.load(fd)
         else:
             #sysdiagnose path
-            with open(args.file + '/hidutil.plist', "r") as fd:
-                hidutil = plistlib.readPlist(fd)
-            with open(args.file + '/ioreg/IOReg.xml', "r") as fd:
-                ioreg = plistlib.readPlist(fd)
+            with open(args.file + '/hidutil.plist', "rb") as fd:
+                hidutil = plistlib.load(fd)
+            with open(args.file + '/ioreg/IOReg.xml', "rb") as fd:
+                ioreg = plistlib.load(fd)
                 ioreg = ioreg['IORegistryEntryChildren'][0]['IORegistryEntryChildren']
     
     # don't require both --services and --service
@@ -239,10 +242,10 @@ if __name__ == "__main__":
     
     if args.clients:
         handleClients(hidutil['ClientRecords'])
-        print ""
+        print("")
     if args.services:   
         handleServices(hidutil['ServiceRecords'], args.service, ioreg, args.events, args.properties, args.property, args.intervals)
-        print ""
+        print("")
     if args.filters:
         handleFilters(hidutil['SessionFilterDebug'])
         

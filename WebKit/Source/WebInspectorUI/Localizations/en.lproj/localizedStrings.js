@@ -244,6 +244,8 @@ localizedStrings["Bubbling"] = "Bubbling";
 localizedStrings["Busy"] = "Busy";
 localizedStrings["By Path"] = "By Path";
 localizedStrings["By Type"] = "By Type";
+/* Label for button to show CSS variables grouped by type */
+localizedStrings["By Type @ Computed Style variables grouping mode"] = "By Type";
 localizedStrings["Byte Range %s\u2013%s"] = "Byte Range %s\u2013%s";
 localizedStrings["Bytes Received"] = "Bytes Received";
 localizedStrings["Bytes Sent"] = "Bytes Sent";
@@ -323,8 +325,8 @@ localizedStrings["Click to show %d error in the Console"] = "Click to show %d er
 localizedStrings["Click to show %d errors in the Console"] = "Click to show %d errors in the Console";
 localizedStrings["Click to show %d warning in the Console"] = "Click to show %d warning in the Console";
 localizedStrings["Click to show %d warnings in the Console"] = "Click to show %d warnings in the Console";
-/* Tooltip to show purpose of the contextual documentation button */
-localizedStrings["Click to show documentation @ Contextual Documentation Button"] = "Click to show documentation";
+/* Tooltip to show purpose of the CSS documentation button */
+localizedStrings["Click to show documentation @ CSS Documentation Button"] = "Click to show documentation";
 localizedStrings["Click to view variable value\nShift-click to replace variable with value"] = "Click to view variable value\nShift-click to replace variable with value";
 localizedStrings["Clickable"] = "Clickable";
 localizedStrings["Clients"] = "Clients";
@@ -340,6 +342,8 @@ localizedStrings["Collapse All"] = "Collapse All";
 localizedStrings["Collapse blackboxed call frames @ Experimental Settings"] = "Collapse blackboxed call frames";
 localizedStrings["Collapse columns"] = "Collapse columns";
 localizedStrings["Collect garbage"] = "Collect garbage";
+/* Section header for the group of CSS variables with colors as values */
+localizedStrings["Colors @ Computed Style variables section"] = "Colors";
 localizedStrings["Comment"] = "Comment";
 /* Property value for `font-variant-ligatures: common-ligatures`. */
 localizedStrings["Common @ Font Details Sidebar Property Value"] = "Common";
@@ -363,6 +367,7 @@ localizedStrings["Connection Close Frame"] = "Connection Close Frame";
 localizedStrings["Connection Closed"] = "Connection Closed";
 localizedStrings["Connection ID"] = "Connection ID";
 localizedStrings["Connection:"] = "Connection:";
+localizedStrings["Conic Gradient"] = "Conic Gradient";
 localizedStrings["Console"] = "Console";
 localizedStrings["Console Evaluation"] = "Console Evaluation";
 localizedStrings["Console Evaluation %d"] = "Console Evaluation %d";
@@ -469,6 +474,8 @@ localizedStrings["Diagnostics: @ Experimental Settings"] = "Diagnostics:";
 /* Property value for `font-variant-numeric: diagonal-fractions`. */
 localizedStrings["Diagonal Fractions @ Font Details Sidebar Property Value"] = "Diagonal Fractions";
 localizedStrings["Dimensions"] = "Dimensions";
+/* Section header for the group of CSS variables with dimensions as values */
+localizedStrings["Dimensions @ Computed style variables section"] = "Dimensions";
 localizedStrings["Disable Audit"] = "Disable Audit";
 localizedStrings["Disable Breakpoint"] = "Disable Breakpoint";
 localizedStrings["Disable Breakpoints"] = "Disable Breakpoints";
@@ -498,7 +505,8 @@ localizedStrings["Do not clear network items on new page loads"] = "Do not clear
 localizedStrings["Do not clear the console on new page loads"] = "Do not clear the console on new page loads";
 localizedStrings["Do not fade unexecuted code"] = "Do not fade unexecuted code";
 localizedStrings["Dock to bottom of window"] = "Dock to bottom of window";
-localizedStrings["Dock to side of window"] = "Dock to side of window";
+localizedStrings["Dock to left of window"] = "Dock to left of window";
+localizedStrings["Dock to right of window"] = "Dock to right of window";
 localizedStrings["Document"] = "Document";
 localizedStrings["Document Fragment"] = "Document Fragment";
 localizedStrings["Document Type"] = "Document Type";
@@ -1006,6 +1014,8 @@ localizedStrings["Normal @ Font Details Sidebar Property Value"] = "Normal";
 localizedStrings["Not found"] = "Not found";
 /* Title of icon indicating that the selected audit has not been run yet. */
 localizedStrings["Not yet run @ Audit Tab - Test Case"] = "Not yet run";
+/* Section header for the group of CSS variables with numbers as values */
+localizedStrings["Numbers @ Computed Style variables section"] = "Numbers";
 /* Property title for `font-variant-numeric`. */
 localizedStrings["Numeric @ Font Details Sidebar Property"] = "Numeric";
 localizedStrings["Object Graph"] = "Object Graph";
@@ -1027,6 +1037,7 @@ localizedStrings["Online"] = "Online";
 localizedStrings["Only show resources with issues"] = "Only show resources with issues";
 localizedStrings["Only show visual actions"] = "Only show visual actions";
 localizedStrings["Open"] = "Open";
+localizedStrings["Open closed tabs\u2026"] = "Open closed tabs\u2026";
 /* Context menu item for opening the target item in a new window. */
 localizedStrings["Open in New Window @ Context Menu Item"] = "Open in New Window";
 localizedStrings["Option-click to show source"] = "Option-click to show source";
@@ -1039,6 +1050,8 @@ localizedStrings["Original formatting"] = "Original formatting";
 localizedStrings["Originally %s"] = "Originally %s";
 localizedStrings["Originator"] = "Originator";
 localizedStrings["Other"] = "Other";
+/* Section header for the generic group of CSS variables */
+localizedStrings["Other @ Computed Style variables section"] = "Other";
 localizedStrings["Other Issue"] = "Other Issue";
 localizedStrings["Other Threads"] = "Other Threads";
 localizedStrings["Other: %s"] = "Other: %s";
@@ -1171,6 +1184,7 @@ localizedStrings["Render Pipeline %d"] = "Render Pipeline %d";
 localizedStrings["Rendering Frames"] = "Rendering Frames";
 localizedStrings["Repeating Linear Gradient"] = "Repeating Linear Gradient";
 localizedStrings["Repeating Radial Gradient"] = "Repeating Radial Gradient";
+localizedStrings["Repeating Conic Gradient"] = "Repeating Conic Gradient";
 localizedStrings["Request"] = "Request";
 localizedStrings["Request & Response"] = "Request & Response";
 localizedStrings["Request (DOM Tree)"] = "Request (DOM Tree)";
@@ -1323,9 +1337,9 @@ localizedStrings["Shadow Content (%s)"] = "Shadow Content (%s)";
 localizedStrings["Shared Focus"] = "Shared Focus";
 localizedStrings["Shortest property path to %s"] = "Shortest property path to %s";
 localizedStrings["Show %d More"] = "Show %d More";
-/* Text label for button to reveal multiple unused CSS variables */
-localizedStrings["Show %d unused CSS variable (singular) @ Styles Sidebar Panel"] = "Show %d unused CSS variable";
 /* Text label for button to reveal one unused CSS variable */
+localizedStrings["Show %d unused CSS variable (singular) @ Styles Sidebar Panel"] = "Show %d unused CSS variable";
+/* Text label for button to reveal multiple unused CSS variables */
 localizedStrings["Show %d unused CSS variables (plural) @ Styles Sidebar Panel"] = "Show %d unused CSS variables";
 localizedStrings["Show All"] = "Show All";
 localizedStrings["Show All (%d More)"] = "Show All (%d More)";
@@ -1343,7 +1357,7 @@ localizedStrings["Show compositing borders"] = "Show compositing borders";
 /* Label for option to toggle the extended lines setting for CSS grid overlays */
 localizedStrings["Show extended lines @ Layout Panel Overlay Options"] = "Extended Grid Lines";
 localizedStrings["Show full certificate"] = "Show full certificate";
-localizedStrings["Show hidden tabs"] = "Show hidden tabs";
+localizedStrings["Show hidden tabs\u2026"] = "Show hidden tabs\u2026";
 /* Settings tab checkbox label for whether the independent styles sidebar should be shown */
 localizedStrings["Show independent Styles sidebar @ Settings Elements Pane"] = "Show independent Styles sidebar";
 localizedStrings["Show jump to effective property button"] = "Show jump to effective property button";
@@ -1587,6 +1601,10 @@ localizedStrings["Unblackbox script to include it when debugging"] = "Unblackbox
 /* Break (pause) on uncaught (unhandled) exceptions */
 localizedStrings["Uncaught Exceptions @ JavaScript Breakpoint"] = "Uncaught Exceptions";
 localizedStrings["Undefined custom element"] = "Undefined custom element";
+/* Label for button to show CSS variables ungrouped */
+localizedStrings["Ungrouped @ Computed Style variables grouping mode"] = "Ungrouped";
+/* Section header for ungrouped CSS variables */
+localizedStrings["Ungrouped @ Computed Style variables section"] = "Ungrouped";
 /* Property value for `font-variant-capitals: unicase`. */
 localizedStrings["Unicase @ Font Details Sidebar Property Value"] = "Unicase";
 localizedStrings["Unique"] = "Unique";
@@ -1605,6 +1623,7 @@ localizedStrings["Usage: %s"] = "Usage: %s";
 localizedStrings["Use Default Appearance"] = "Use Default Appearance";
 localizedStrings["Use Mock Capture Devices"] = "Use Mock Capture Devices";
 localizedStrings["Use default media styles"] = "Use default media styles";
+localizedStrings["Use fuzzy matching for completion suggestions"] = "Use fuzzy matching for completion suggestions";
 localizedStrings["Use the resource cache when loading resources"] = "Use the resource cache when loading resources";
 localizedStrings["User Agent"] = "User Agent";
 localizedStrings["User Agent Style Sheet"] = "User Agent Style Sheet";

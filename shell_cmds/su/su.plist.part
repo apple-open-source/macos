@@ -1,0 +1,23 @@
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>su</string>
+		<key>OpenSourceVersion</key>
+		<string>2020-03-26</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>https://cgit.freebsd.org/src/tree/usr.bin/su?id=68fbe6f0b3e8eff10667f63dae166f3c50e1f59a</string>
+		<key>OpenSourceImportDate</key>
+		<string>2021-09-23</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>su.1, su.c: remove -c class (4754386)</string>
+			<string>su.1, su.c: remove -s (5940186)</string>
+			<string>su.c: copyshell from pwd (3825554)</string>
+			<string>su.c: avoid setusercontxt (5940186)</string>
+			<string>su.c: setup PATH as documented (5276965)</string>
+			<string>su.c: use shell binary name as-is (4043304)</string>
+			<string>su.c: call SessionCreate() (8530846)</string>
+			<string>su.c: don't preserve $TMPDIR (5412484)</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>bsd</string>
+	</dict>

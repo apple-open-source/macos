@@ -61,14 +61,14 @@
 #define FQ_CODEL_DRR_MAX_VO        8
 #define FQ_CODEL_DRR_MAX_CTL       8
 
-static ZONE_DECLARE(fq_if_zone, "pktsched_fq_if", sizeof(fq_if_t), ZC_ZFREE_CLEARMEM);
+static ZONE_DEFINE_TYPE(fq_if_zone, "pktsched_fq_if", fq_if_t, ZC_ZFREE_CLEARMEM);
 
 typedef STAILQ_HEAD(, flowq) flowq_dqlist_t;
 
 static fq_if_t *fq_if_alloc(struct ifnet *, struct ifclassq *, classq_pkt_type_t);
 static void fq_if_destroy(fq_if_t *fqs);
 static void fq_if_classq_init(fq_if_t *fqs, uint32_t priority,
-    uint16_t quantum, uint32_t drr_max, uint32_t svc_class);
+    uint32_t quantum, uint32_t drr_max, uint32_t svc_class);
 static void fq_if_dequeue(fq_if_t *, fq_if_classq_t *, uint32_t,
     int64_t, classq_pkt_t *, classq_pkt_t *, uint32_t *,
     uint32_t *, flowq_dqlist_t *, boolean_t drvmgmt);
@@ -316,7 +316,7 @@ fq_if_service_to_priority(fq_if_t *fqs, mbuf_svc_class_t svc)
 }
 
 static void
-fq_if_classq_init(fq_if_t *fqs, uint32_t pri, uint16_t quantum,
+fq_if_classq_init(fq_if_t *fqs, uint32_t pri, uint32_t quantum,
     uint32_t drr_max, uint32_t svc_class)
 {
 	fq_if_classq_t *fq_cl;
@@ -324,6 +324,7 @@ fq_if_classq_init(fq_if_t *fqs, uint32_t pri, uint16_t quantum,
 	fq_cl = &fqs->fqs_classq[pri];
 
 	VERIFY(fq_cl->fcl_quantum == 0);
+	VERIFY(quantum != 0);
 	fq_cl->fcl_quantum = quantum;
 	fq_cl->fcl_pri = pri;
 	fq_cl->fcl_drr_max = drr_max;
@@ -873,6 +874,7 @@ fq_if_calc_quantum(struct ifnet *ifp)
 #if DEBUG || DEVELOPMENT
 	quantum = (fq_codel_quantum != 0) ? fq_codel_quantum : quantum;
 #endif /* DEBUG || DEVELOPMENT */
+	VERIFY(quantum != 0);
 	return quantum;
 }
 
@@ -883,7 +885,7 @@ fq_if_mtu_update(fq_if_t *fqs)
 	(_fqs)->fqs_classq[FQ_IF_ ## _s ## _INDEX].fcl_quantum = \
 	FQ_CODEL_QUANTUM_ ## _s(_q)
 
-	uint16_t quantum;
+	uint32_t quantum;
 
 	quantum = fq_if_calc_quantum(fqs->fqs_ifq->ifcq_ifp);
 
@@ -1036,7 +1038,7 @@ fq_if_setup_ifclassq(struct ifclassq *ifq, u_int32_t flags,
 
 	struct ifnet *ifp = ifq->ifcq_ifp;
 	fq_if_t *fqs = NULL;
-	uint16_t quantum;
+	uint32_t quantum;
 	int err = 0;
 
 	IFCQ_LOCK_ASSERT_HELD(ifq);
@@ -1161,6 +1163,16 @@ fq_if_at_drop_limit(fq_if_t *fqs)
 {
 	return (IFCQ_LEN(fqs->fqs_ifq) >= fqs->fqs_pkt_droplimit) ?
 	       TRUE : FALSE;
+}
+
+inline boolean_t
+fq_if_almost_at_drop_limit(fq_if_t *fqs)
+{
+	/*
+	 * Whether we are above 90% of the queue limit. This is used to tell if we
+	 * can stop flow controlling the largest flow.
+	 */
+	return IFCQ_LEN(fqs->fqs_ifq) >= fqs->fqs_pkt_droplimit * 9 / 10;
 }
 
 static void
@@ -1565,6 +1577,7 @@ fq_if_getqstats_ifclassq(struct ifclassq *ifq, u_int32_t qid,
 	fcls->fcls_min_qdelay = fq_cl->fcl_stat.fcl_min_qdelay;
 	fcls->fcls_max_qdelay = fq_cl->fcl_stat.fcl_max_qdelay;
 	fcls->fcls_avg_qdelay = fq_cl->fcl_stat.fcl_avg_qdelay;
+	fcls->fcls_overwhelming = fq_cl->fcl_stat.fcl_overwhelming;
 
 	/* Gather per flow stats */
 	flowstat_cnt = min((fcls->fcls_newflows_cnt +

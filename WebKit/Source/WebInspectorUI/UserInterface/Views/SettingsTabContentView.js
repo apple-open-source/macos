@@ -397,6 +397,7 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
             let stylesGroup = experimentalSettingsView.addGroup(WI.UIString("Styles:"));
             stylesGroup.addSetting(WI.settings.experimentalEnableStylesJumpToEffective, WI.UIString("Show jump to effective property button"));
             stylesGroup.addSetting(WI.settings.experimentalEnableStylesJumpToVariableDeclaration, WI.UIString("Show jump to variable declaration button"));
+            stylesGroup.addSetting(WI.settings.experimentalCSSCompletionFuzzyMatching, WI.UIString("Use fuzzy matching for completion suggestions"));
 
             experimentalSettingsView.addSeparator();
         }
@@ -464,6 +465,9 @@ WI.SettingsTabContentView = class SettingsTabContentView extends WI.TabContentVi
         let heapSnapshotGroup = engineeringSettingsView.addGroup(WI.unlocalizedString("Heap Snapshot:"));
         heapSnapshotGroup.addSetting(WI.settings.engineeringShowInternalObjectsInHeapSnapshot, WI.unlocalizedString("Show Internal Objects"));
         heapSnapshotGroup.addSetting(WI.settings.engineeringShowPrivateSymbolsInHeapSnapshot, WI.unlocalizedString("Show Private Symbols"));
+
+        let extensionsGroup = engineeringSettingsView.addGroup(WI.unlocalizedString("Web Extensions:"));
+        extensionsGroup.addSetting(WI.settings.engineeringShowMockWebExtensionTab, WI.unlocalizedString("Show Mock Web Extension tab"));
 
         this.addSettingsView(engineeringSettingsView);
     }

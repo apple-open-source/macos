@@ -264,7 +264,7 @@ void smb_hexdump(const char *func, const char *s, unsigned char *buf, size_t inl
 char *smb_strndup(const char *s, size_t maxlen);
 void *smb_memdup(const void *umem, int len);
 void *smb_memdupin(user_addr_t umem, int len);
-
+void *smb_str_memdupin(user_addr_t umem, int len, int *errp);
 void smb_reset_sig(struct smb_session *sessionp);
 
 int  smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN);

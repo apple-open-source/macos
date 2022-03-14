@@ -577,21 +577,24 @@ pam_sm_setcred(pam_handle_t *pamh, int flags,
 			goto cleanup3;
 		}
 
-		krbret = krb5_cc_new_unique(pam_context, "API", NULL, &ccache_perm);
-		if (krbret) {
-			krb5_free_principal(pam_context, princ);
-			retval = PAM_SERVICE_ERR;
-			goto cleanup3;
-		}
-		PAM_LOG("pam_sm_setcred: init credential cache");
+        krbret = krb5_cc_cache_match(pam_context, princ, &ccache_perm);
+        if (krbret) {
+            krbret = krb5_cc_new_unique(pam_context, "API", NULL, &ccache_perm);
+            if (krbret) {
+                krb5_free_principal(pam_context, princ);
+                retval = PAM_SERVICE_ERR;
+                goto cleanup3;
+            }
+            PAM_LOG("pam_sm_setcred: init credential cache");
 
-		krbret = krb5_cc_initialize(pam_context, ccache_perm, princ);
-		if (krbret) {
-			krb5_free_principal(pam_context, princ);
-			krb5_cc_close(pam_context, ccache_perm);
-			retval = PAM_SERVICE_ERR;
-			goto cleanup3;
-		}
+            krbret = krb5_cc_initialize(pam_context, ccache_perm, princ);
+            if (krbret) {
+                krb5_free_principal(pam_context, princ);
+                krb5_cc_close(pam_context, ccache_perm);
+                retval = PAM_SERVICE_ERR;
+                goto cleanup3;
+            }
+        }
 
 		PAM_LOG("pam_sm_setcred: storing credential for: %s", principal);
 		krbret = _krb5_kcm_get_initial_ticket(pam_context, ccache_perm, princ, NULL, password);

@@ -1248,6 +1248,11 @@ public:
     void compileSymbolEquality(Node*);
     void compileHeapBigIntEquality(Node*);
     void compilePeepHoleSymbolEquality(Node*, Node* branchNode);
+#if USE(JSVALUE64)
+    void compileNeitherDoubleNorHeapBigIntToNotDoubleStrictEquality(Node*, Edge neitherDoubleNorHeapBigInt, Edge notDouble);
+#endif
+    void emitBitwiseJSValueEquality(JSValueRegs&, JSValueRegs&, GPRReg& result);
+    void emitBranchOnBitwiseJSValueEquality(JSValueRegs&, JSValueRegs&, BasicBlock* taken, BasicBlock* notTaken);
     void compileNotDoubleNeitherDoubleNorHeapBigIntNorStringStrictEquality(Node*, Edge notDoubleEdge, Edge neitherDoubleNorHeapBigIntNorStringEdge);
     void compilePeepHoleNotDoubleNeitherDoubleNorHeapBigIntNorStringStrictEquality(Node*, Node* branchNode, Edge notDoubleEdge, Edge neitherDoubleNorHeapBigIntNorStringEdge);
     void compileSymbolUntypedEquality(Node*, Edge symbolEdge, Edge untypedEdge);
@@ -1337,11 +1342,8 @@ public:
     void compileGetPrototypeOf(Node*);
     void compileIdentity(Node*);
     
-#if USE(JSVALUE32_64)
-    template<typename BaseOperandType, typename PropertyOperandType, typename ValueOperandType, typename TagType>
-    void compileContiguousPutByVal(Node*, BaseOperandType&, PropertyOperandType&, ValueOperandType&, GPRReg valuePayloadReg, TagType valueTag);
-#endif
-    void compileDoublePutByVal(Node*, SpeculateCellOperand& base, SpeculateStrictInt32Operand& property);
+    void compileContiguousPutByVal(Node*);
+    void compileDoublePutByVal(Node*);
     bool putByValWillNeedExtraRegister(ArrayMode arrayMode)
     {
         return arrayMode.mayStoreToHole();
@@ -1352,6 +1354,8 @@ public:
         return temporaryRegisterForPutByVal(temporary, node->arrayMode());
     }
     
+    void compilePutByVal(Node*);
+
     // We use a scopedLambda to placate register allocation validation.
     enum class CanUseFlush { Yes, No };
     void compileGetByVal(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
@@ -1442,13 +1446,13 @@ public:
     void compileGetTypedArrayByteOffsetAsInt52(Node*);
 #endif
     void compileGetByValOnIntTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
-    void compilePutByValForIntTypedArray(GPRReg base, GPRReg property, Node*, TypedArrayType);
+    void compilePutByValForIntTypedArray(Node*, TypedArrayType);
     void compileGetByValOnFloatTypedArray(Node*, TypedArrayType, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
-    void compilePutByValForFloatTypedArray(GPRReg base, GPRReg property, Node*, TypedArrayType);
+    void compilePutByValForFloatTypedArray(Node*, TypedArrayType);
     void compileGetByValForObjectWithString(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
     void compileGetByValForObjectWithSymbol(Node*, const ScopedLambda<std::tuple<JSValueRegs, DataFormat, CanUseFlush>(DataFormat preferredFormat)>& prefix);
-    void compilePutByValForCellWithString(Node*, Edge& child1, Edge& child2, Edge& child3);
-    void compilePutByValForCellWithSymbol(Node*, Edge& child1, Edge& child2, Edge& child3);
+    void compilePutByValForCellWithString(Node*);
+    void compilePutByValForCellWithSymbol(Node*);
     void compileGetByValWithThis(Node*);
     void compilePutPrivateName(Node*);
     void compilePutPrivateNameById(Node*);
@@ -1505,6 +1509,7 @@ public:
     void compileRegExpMatchFast(Node*);
     void compileRegExpMatchFastGlobal(Node*);
     void compileRegExpTest(Node*);
+    void compileRegExpTestInline(Node*);
     void compileStringReplace(Node*);
     void compileIsObject(Node*);
     void compileTypeOfIsObject(Node*);
@@ -1751,6 +1756,8 @@ public:
     void speculateNotCellNorBigInt(Edge);
     void speculateNotDouble(Edge, JSValueRegs, GPRReg temp);
     void speculateNotDouble(Edge);
+    void speculateNeitherDoubleNorHeapBigInt(Edge, JSValueRegs, GPRReg temp);
+    void speculateNeitherDoubleNorHeapBigInt(Edge);
     void speculateNeitherDoubleNorHeapBigIntNorString(Edge, JSValueRegs, GPRReg temp);
     void speculateNeitherDoubleNorHeapBigIntNorString(Edge);
     void speculateOther(Edge, JSValueRegs, GPRReg temp);

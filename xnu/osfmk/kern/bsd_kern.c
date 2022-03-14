@@ -71,7 +71,7 @@ int fill_task_rusage(task_t task, rusage_info_current *ri);
 int fill_task_io_rusage(task_t task, rusage_info_current *ri);
 int fill_task_qos_rusage(task_t task, rusage_info_current *ri);
 void fill_task_monotonic_rusage(task_t task, rusage_info_current *ri);
-uint64_t get_task_logical_writes(task_t task, boolean_t external);
+uint64_t get_task_logical_writes(task_t task, bool external);
 void fill_task_billed_usage(task_t task, rusage_info_current *ri);
 void task_bsdtask_kill(task_t);
 
@@ -1310,22 +1310,17 @@ fill_task_monotonic_rusage(task_t task, rusage_info_current *ri)
 }
 
 uint64_t
-get_task_logical_writes(task_t task, boolean_t external)
+get_task_logical_writes(task_t task, bool external)
 {
 	assert(task != TASK_NULL);
 	struct ledger_entry_info lei;
+	int entry = external ? task_ledgers.logical_writes_to_external :
+	    task_ledgers.logical_writes;
 
 	task_lock(task);
-
-	if (external == FALSE) {
-		ledger_get_entry_info(task->ledger, task_ledgers.logical_writes, &lei);
-	} else {
-		ledger_get_entry_info(task->ledger, task_ledgers.logical_writes_to_external, &lei);
-	}
-
-	ledger_get_entry_info(task->ledger, task_ledgers.logical_writes, &lei);
-
+	ledger_get_entry_info(task->ledger, entry, &lei);
 	task_unlock(task);
+
 	return lei.lei_balance;
 }
 

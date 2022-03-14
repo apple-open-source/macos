@@ -80,6 +80,7 @@ int SOSCircleCountApplicants(SOSCircleRef circle);
 bool SOSCircleHasApplicant(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error);
 CFMutableSetRef SOSCircleCopyApplicants(SOSCircleRef c, CFAllocatorRef allocator);
 void SOSCircleForEachApplicant(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
+void SOSCircleForEachRejectedApplicant(SOSCircleRef circle, void (^action)(SOSPeerInfoRef peer));
 
 int SOSCircleCountRejectedApplicants(SOSCircleRef circle);
 bool SOSCircleHasRejectedApplicant(SOSCircleRef circle, SOSPeerInfoRef peerInfo, CFErrorRef *error);
@@ -180,6 +181,8 @@ bool SOSCircleIsLegacy(SOSCircleRef circle, SecKeyRef userPubKey);
 
 CFDataRef SOSCircleCreateIncompatibleCircleDER(CFErrorRef* error);
 void debugDumpCircle(CFStringRef message, SOSCircleRef circle);
+CFStringRef SOSCirclePeerInfoCopyStateString(SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID, SOSPeerInfoRef peer);
+CFStringRef SOSCircleCopyStateString(SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID);
 void SOSCircleLogState(char *category, SOSCircleRef circle, SecKeyRef pubKey, CFStringRef myPID);
 
 bool SOSCircleAcceptPeerFromHSA2(SOSCircleRef circle, SecKeyRef userKey, SOSGenCountRef gencount, SecKeyRef pPubKey, CFDataRef signature, SOSFullPeerInfoRef fpi, CFErrorRef *error);

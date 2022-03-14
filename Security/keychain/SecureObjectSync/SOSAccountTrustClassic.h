@@ -32,6 +32,7 @@
 //Views
 -(SOSViewResultCode) updateView:(SOSAccount*)account name:(CFStringRef) viewname code:(SOSViewActionCode) actionCode err:(CFErrorRef *)error;
 -(SOSViewResultCode) viewStatus:(SOSAccount*)account name:(CFStringRef) viewname err:(CFErrorRef *)error;
+-(bool) matchOTUserViewSettings: (SOSAccount*)account userViewsEnabled: (bool) otHasUserViewsEnabled err:(CFErrorRef *)error;
 -(bool) updateViewSets:(SOSAccount*)account enabled:(CFSetRef) origEnabledViews disabled:(CFSetRef) origDisabledViews;
 
 -(CFSetRef) copyPeerSetForView:(CFStringRef) viewName;

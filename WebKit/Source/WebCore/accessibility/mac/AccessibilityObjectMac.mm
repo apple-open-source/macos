@@ -114,6 +114,33 @@ bool AccessibilityObject::accessibilityIgnoreAttachment() const
     return true;
 }
 
+static bool shouldIgnoreGroup(const AccessibilityObject& axObject)
+{
+    if (!axObject.isGroup() && axObject.roleValue() != AccessibilityRole::Div)
+        return false;
+
+    // Never ignore a group with event listeners attached to it (e.g. onclick).
+    if (axObject.node() && axObject.node()->hasEventListeners())
+        return false;
+
+    auto* first = axObject.firstChild();
+    if (first && first == axObject.lastChild() && first->roleValue() == AccessibilityRole::StaticText) {
+        auto childString = first->stringValue();
+        // stringValue() can be null if the underlying document needs style recalculation.
+        if (!childString.isNull() && is<AccessibilityNodeObject>(axObject)) {
+            Vector<AccessibilityText> axText;
+            auto& axNodeObject = downcast<AccessibilityNodeObject>(axObject);
+            axNodeObject.alternativeText(axText);
+            axNodeObject.helpText(axText);
+            // Ignore groups whose accessibility text is the same as their child's static-text content.
+            auto firstText = axText.size() ? axText[0].text : String();
+            if (firstText == childString)
+                return true;
+        }
+    }
+    return false;
+}
+
 AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesObject() const
 {
     if (isMenuListPopup() || isMenuListOption())
@@ -142,6 +169,9 @@ AccessibilityObjectInclusion AccessibilityObject::accessibilityPlatformIncludesO
         }
     }
     
+    if (shouldIgnoreGroup(*this))
+        return AccessibilityObjectInclusion::IgnoreObject;
+
     return AccessibilityObjectInclusion::DefaultBehavior;
 }
     
@@ -440,6 +470,7 @@ PlatformRoleMap createPlatformRoleMap()
         { AccessibilityRole::Insertion, NSAccessibilityGroupRole },
         { AccessibilityRole::Subscript, NSAccessibilityGroupRole },
         { AccessibilityRole::Superscript, NSAccessibilityGroupRole },
+        { AccessibilityRole::Model, NSAccessibilityGroupRole },
     };
     PlatformRoleMap roleMap;
     for (auto& role : roles)

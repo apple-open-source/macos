@@ -23,7 +23,57 @@ pt_PT{
                 per{"{0} por quilómetro quadrado"}
             }
         }
+        compound{
+            10p-1{"decí{0}"}
+            10p-12{"picó{0}"}
+            10p-15{"fentó{0}"}
+            10p-18{"ató{0}"}
+            10p-2{"centí{0}"}
+            10p-21{"zeptó{0}"}
+            10p-24{"ioctó{0}"}
+            10p-3{"milí{0}"}
+            10p-6{"micró{0}"}
+            10p-9{"nanó{0}"}
+            10p1{"decâ{0}"}
+            10p12{"terâ{0}"}
+            10p15{"petâ{0}"}
+            10p18{"exâ{0}"}
+            10p2{"hectó{0}"}
+            10p21{"zetâ{0}"}
+            10p24{"iotâ{0}"}
+            10p3{"quiló{0}"}
+            10p6{"megâ{0}"}
+            10p9{"gigâ{0}"}
+            power2{
+                one{
+                    _{
+                        _{"{0} quadrado"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} quadrados"}
+                    }
+                }
+            }
+            power3{
+                one{
+                    _{
+                        _{"{0} cúbico"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} cúbicos"}
+                    }
+                }
+            }
+        }
         concentr{
+            item{
+                one{"{0} item"}
+                other{"{0} itens"}
+            }
             karat{
                 dnam{"quilates"}
                 one{"{0} quilate"}
@@ -71,14 +121,26 @@ pt_PT{
                 other{"{0} quilocalorias"}
             }
         }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"quilowatt-hora por 100 quilómetros"}
+                one{"{0} quilowatt-hora por 100 quilómetros"}
+                other{"{0} quilowatts-hora por 100 quilómetros"}
+            }
+        }
         graphics{
+            dot{
+                dnam{"pontos"}
+                one{"{0} ponto"}
+                other{"{0} pontos"}
+            }
             megapixel{
                 dnam{"megapíxeis"}
                 one{"{0} megapíxel"}
                 other{"{0} megapíxeis"}
             }
             pixel{
-                dnam{"píxel"}
+                dnam{"píxeis"}
                 one{"{0} píxel"}
                 other{"{0} píxeis"}
             }
@@ -122,6 +184,11 @@ pt_PT{
                 dnam{"picómetros"}
                 one{"{0} picómetro"}
                 other{"{0} picómetros"}
+            }
+            point{
+                dnam{"pontos tipográficos"}
+                one{"{0} ponto tipográfico"}
+                other{"{0} pontos tipográficos"}
             }
         }
         light{
@@ -190,7 +257,20 @@ pt_PT{
         }
     }
     unitsNarrow{
+        acceleration{
+            g-force{
+                dnam{"força G"}
+            }
+        }
         angle{
+            arc-minute{
+                one{"{0}′"}
+                other{"{0}′"}
+            }
+            arc-second{
+                one{"{0}″"}
+                other{"{0}″"}
+            }
             degree{
                 one{"{0}°"}
                 other{"{0}°"}
@@ -204,6 +284,10 @@ pt_PT{
             square-foot{
                 one{"{0} ft²"}
                 other{"{0} ft²"}
+            }
+            square-inch{
+                dnam{"in²"}
+                per{"{0}/in²"}
             }
             square-kilometer{
                 one{"{0} km²"}
@@ -221,10 +305,19 @@ pt_PT{
         compound{
             per{"{0}/{1}"}
         }
+        concentr{
+            item{
+                one{"{0} item"}
+                other{"{0} itens"}
+            }
+        }
         consumption{
             liter-per-100-kilometer{
                 one{"{0}l/100km"}
                 other{"{0}l/100km"}
+            }
+            mile-per-gallon-imperial{
+                dnam{"mpg imp."}
             }
         }
         duration{
@@ -244,11 +337,27 @@ pt_PT{
                 per{"{0}/s"}
             }
         }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"kWh/100 km"}
+                one{"{0}kWh/100 km"}
+                other{"{0}kWh/100 km"}
+            }
+        }
+        graphics{
+            dot{
+                dnam{"ponto"}
+            }
+        }
         length{
             centimeter{
                 dnam{"cm"}
                 one{"{0} cm"}
                 other{"{0} cm"}
+            }
+            fathom{
+                one{"{0} fth"}
+                other{"{0} fth"}
             }
             foot{
                 one{"{0}′"}
@@ -259,10 +368,18 @@ pt_PT{
                 one{"{0} km"}
                 other{"{0} km"}
             }
+            mile{
+                dnam{"milha"}
+            }
             millimeter{
                 dnam{"mm"}
                 one{"{0} mm"}
                 other{"{0} mm"}
+            }
+            nautical-mile{
+                dnam{"nmi"}
+                one{"{0} nmi"}
+                other{"{0} nmi"}
             }
             picometer{
                 one{"{0} pm"}
@@ -274,6 +391,10 @@ pt_PT{
             }
         }
         mass{
+            carat{
+                one{"{0} ct"}
+                other{"{0} ct"}
+            }
             kilogram{
                 dnam{"kg"}
                 one{"{0} kg"}
@@ -303,6 +424,11 @@ pt_PT{
                 one{"{0} hPa"}
                 other{"{0} hPa"}
             }
+            inch-ofhg{
+                dnam{"″ Hg"}
+                one{"{0}″ Hg"}
+                other{"{0}″ Hg"}
+            }
         }
         speed{
             kilometer-per-hour{
@@ -315,11 +441,18 @@ pt_PT{
                 other{"{0} m/s"}
             }
             mile-per-hour{
+                dnam{"mi/h"}
                 one{"{0} mi/h"}
                 other{"{0} mi/h"}
             }
         }
         volume{
+            barrel{
+                dnam{"bbl"}
+            }
+            cubic-inch{
+                dnam{"in³"}
+            }
             cubic-kilometer{
                 one{"{0} km³"}
                 other{"{0} km³"}
@@ -327,6 +460,26 @@ pt_PT{
             cubic-mile{
                 one{"{0} mi³"}
                 other{"{0} mi³"}
+            }
+            cup{
+                dnam{"chávena"}
+            }
+            dessert-spoon-imperial{
+                dnam{"csb imp."}
+                one{"{0} csb imp."}
+                other{"{0} csb imp."}
+            }
+            dram{
+                dnam{"dram fl"}
+            }
+            fluid-ounce{
+                dnam{"fl oz"}
+                one{"{0} fl oz"}
+                other{"{0} fl oz"}
+            }
+            jigger{
+                one{"{0} doseador"}
+                other{"{0} doseadores"}
             }
         }
     }
@@ -384,6 +537,10 @@ pt_PT{
             per{"{0}/{1}"}
         }
         concentr{
+            item{
+                one{"{0} item"}
+                other{"{0} itens"}
+            }
             karat{
                 dnam{"quilates"}
                 one{"{0} kt"}
@@ -464,6 +621,13 @@ pt_PT{
                 other{"{0} kcal"}
             }
         }
+        force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"kWh/100 km"}
+                one{"{0} kWh/100 km"}
+                other{"{0} kWh/100 km"}
+            }
+        }
         frequency{
             gigahertz{
                 dnam{"GHz"}
@@ -488,6 +652,7 @@ pt_PT{
         }
         graphics{
             dot{
+                dnam{"pontos"}
                 one{"{0} p"}
                 other{"{0} p"}
             }
@@ -527,9 +692,9 @@ pt_PT{
                 other{"{0} km"}
             }
             micrometer{
-                dnam{"µm"}
-                one{"{0} µm"}
-                other{"{0} µm"}
+                dnam{"μm"}
+                one{"{0} μm"}
+                other{"{0} μm"}
             }
             mile{
                 one{"{0} milha"}
@@ -563,6 +728,9 @@ pt_PT{
                 one{"{0} pm"}
                 other{"{0} pm"}
             }
+            point{
+                dnam{"pontos tipográficos"}
+            }
         }
         mass{
             earth-mass{
@@ -574,9 +742,9 @@ pt_PT{
                 other{"{0} kg"}
             }
             microgram{
-                dnam{"µg"}
-                one{"{0} µg"}
-                other{"{0} µg"}
+                dnam{"μg"}
+                one{"{0} μg"}
+                other{"{0} μg"}
             }
             milligram{
                 dnam{"mg"}
@@ -707,6 +875,11 @@ pt_PT{
                 one{"{0} chám"}
                 other{"{0} chám"}
             }
+            dessert-spoon-imperial{
+                dnam{"csb imp."}
+                one{"{0} csb imp."}
+                other{"{0} csb imp."}
+            }
             dram{
                 dnam{"dracma fluido"}
                 one{"{0} dram fl"}
@@ -725,7 +898,7 @@ pt_PT{
             }
             jigger{
                 dnam{"doseador"}
-                one{"{0} doseadores"}
+                one{"{0} doseador"}
                 other{"{0} doseadores"}
             }
             megaliter{

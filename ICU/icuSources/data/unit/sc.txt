@@ -100,15 +100,72 @@ sc{
             }
         }
         compound{
+            1024p1{"kibì{0}"}
+            1024p2{"mebì{0}"}
+            1024p3{"gibì{0}"}
+            1024p4{"tebì{0}"}
+            1024p5{"pebì{0}"}
+            1024p6{"exbì{0}"}
+            1024p7{"zebì{0}"}
+            1024p8{"yobì{0}"}
+            10p-1{"detzì{0}"}
+            10p-12{"picò{0}"}
+            10p-15{"femtò{0}"}
+            10p-18{"atò{0}"}
+            10p-2{"tzentì{0}"}
+            10p-21{"zeptò{0}"}
+            10p-24{"yoctò{0}"}
+            10p-3{"millì{0}"}
+            10p-6{"micrò{0}"}
+            10p-9{"nanò{0}"}
+            10p1{"decà{0}"}
+            10p12{"terà{0}"}
+            10p15{"petà{0}"}
+            10p18{"exà{0}"}
+            10p2{"etò{0}"}
+            10p21{"zetà{0}"}
+            10p24{"yotà{0}"}
+            10p3{"chilò{0}"}
+            10p6{"megà{0}"}
+            10p9{"gigà{0}"}
             per{"{0} a su {1}"}
+            power2{
+                one{
+                    _{
+                        _{"{0} cuadradu"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} cuadrados"}
+                    }
+                }
+            }
+            power3{
+                one{
+                    _{
+                        _{"{0} cùbicu"}
+                    }
+                }
+                other{
+                    _{
+                        _{"{0} cùbicos"}
+                    }
+                }
+            }
         }
         concentr{
+            item{
+                dnam{"elementos"}
+                one{"{0} elementu"}
+                other{"{0} elementos"}
+            }
             karat{
                 dnam{"caratos"}
                 one{"{0} caratu"}
                 other{"{0} caratos"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"milligrammos pro detzìlitru"}
                 one{"{0} milligrammu pro detzìlitru"}
                 other{"{0} milligrammos pro detzìlitru"}
@@ -369,6 +426,11 @@ sc{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                dnam{"chilowatt-ora pro 100 chilòmetros"}
+                one{"{0} chilowatt-ora pro 100 chilòmetros"}
+                other{"{0} chilowatt-oras pro 100 chilòmetros"}
+            }
             newton{
                 dnam{"newtons"}
                 one{"{0} newton"}
@@ -403,6 +465,11 @@ sc{
             }
         }
         graphics{
+            dot{
+                dnam{"puntu gràficu"}
+                one{"{0} puntu gràficu"}
+                other{"{0} puntos gràficos"}
+            }
             dot-per-centimeter{
                 dnam{"puntos pro tzentìmetru"}
                 one{"{0} puntu pro tzentìmetru"}
@@ -455,6 +522,11 @@ sc{
                 dnam{"detzìmetros"}
                 one{"{0} detzìmetru"}
                 other{"{0} detzìmetros"}
+            }
+            earth-radius{
+                dnam{"raju de sa terra"}
+                one{"{0} raju de sa terra"}
+                other{"{0} rajos de sa terra"}
             }
             fathom{
                 dnam{"fathoms"}
@@ -552,6 +624,16 @@ sc{
             }
         }
         light{
+            candela{
+                dnam{"candela"}
+                one{"{0} candela"}
+                other{"{0} candelas"}
+            }
+            lumen{
+                dnam{"lumen"}
+                one{"{0} lumen"}
+                other{"{0} lumens"}
+            }
             lux{
                 dnam{"lux"}
                 one{"{0} lux"}
@@ -578,6 +660,11 @@ sc{
                 dnam{"massas terrestres"}
                 one{"{0} massa terrestre"}
                 other{"{0} massas terrestres"}
+            }
+            grain{
+                dnam{"granu"}
+                one{"{0} granu"}
+                other{"{0} granos"}
             }
             gram{
                 dnam{"grammos"}
@@ -847,6 +934,26 @@ sc{
                 one{"{0} detzìlitru"}
                 other{"{0} detzìlitros"}
             }
+            dessert-spoon{
+                dnam{"culleredda de postre"}
+                one{"{0} culleredda de postre"}
+                other{"{0} cullereddas de postre"}
+            }
+            dessert-spoon-imperial{
+                dnam{"culleredda de postre imperiale"}
+                one{"{0} culleredda de postre imperiale"}
+                other{"{0} cullereddas de postre imperiales"}
+            }
+            dram{
+                dnam{"dràcma flùida"}
+                one{"{0} dràcma flùida"}
+                other{"{0} dràcmas flùidas"}
+            }
+            drop{
+                dnam{"gùtiu"}
+                one{"{0} gùtiu"}
+                other{"{0} gùtios"}
+            }
             fluid-ounce{
                 dnam{"untzas flùidas"}
                 one{"{0} untza flùida"}
@@ -874,6 +981,11 @@ sc{
                 one{"{0} etòlitru"}
                 other{"{0} etòlitros"}
             }
+            jigger{
+                dnam{"tzichete"}
+                one{"{0} tzichete"}
+                other{"{0} tzichetes"}
+            }
             liter{
                 dnam{"litros"}
                 one{"{0} litru"}
@@ -890,6 +1002,11 @@ sc{
                 one{"{0} millìlitru"}
                 other{"{0} millìlitros"}
             }
+            pinch{
+                dnam{"ispitzuleddu"}
+                one{"{0} ispitzuleddu"}
+                other{"{0} ispitzuleddos"}
+            }
             pint{
                 dnam{"pintas"}
                 one{"{0} pinta"}
@@ -904,6 +1021,11 @@ sc{
                 dnam{"cuartos"}
                 one{"{0} cuartu"}
                 other{"{0} cuartos"}
+            }
+            quart-imperial{
+                dnam{"cuartu imperiale"}
+                one{"{0} cuartu imperiale"}
+                other{"{0} cuartos imperiales"}
             }
             tablespoon{
                 dnam{"culleras"}
@@ -995,12 +1117,17 @@ sc{
             }
         }
         concentr{
+            item{
+                dnam{"elem."}
+                one{"{0}elem."}
+                other{"{0}elem."}
+            }
             karat{
                 dnam{"ct"}
                 one{"{0}ct"}
                 other{"{0}ct"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dl"}
                 one{"{0}mg/dl"}
                 other{"{0}mg/dl"}
@@ -1217,6 +1344,10 @@ sc{
             }
         }
         force{
+            kilowatt-hour-per-100-kilometer{
+                one{"{0}kWh/100km"}
+                other{"{0}kWh/100km"}
+            }
             newton{
                 one{"{0}N"}
                 other{"{0}N"}
@@ -1245,6 +1376,11 @@ sc{
             }
         }
         graphics{
+            dot{
+                dnam{"pg"}
+                one{"{0}pg"}
+                other{"{0}pg"}
+            }
             dot-per-centimeter{
                 dnam{"pupcm"}
                 one{"{0}pupcm"}
@@ -1290,6 +1426,10 @@ sc{
                 one{"{0}dm"}
                 other{"{0}dm"}
             }
+            earth-radius{
+                one{"{0}R⊕"}
+                other{"{0}R⊕"}
+            }
             fathom{
                 one{"{0}fth"}
                 other{"{0}fth"}
@@ -1321,8 +1461,8 @@ sc{
                 other{"{0}m"}
             }
             micrometer{
-                one{"{0}µm"}
-                other{"{0}µm"}
+                one{"{0}μm"}
+                other{"{0}μm"}
             }
             mile{
                 one{"{0}mi"}
@@ -1366,6 +1506,14 @@ sc{
             }
         }
         light{
+            candela{
+                one{"{0}cd"}
+                other{"{0}cd"}
+            }
+            lumen{
+                one{"{0}lm"}
+                other{"{0}lm"}
+            }
             lux{
                 one{"{0}lx"}
                 other{"{0}lx"}
@@ -1389,6 +1537,11 @@ sc{
                 one{"{0}M⊕"}
                 other{"{0}M⊕"}
             }
+            grain{
+                dnam{"gr"}
+                one{"{0}gr"}
+                other{"{0}gr"}
+            }
             gram{
                 dnam{"g"}
                 one{"{0}g"}
@@ -1403,8 +1556,8 @@ sc{
                 other{"{0}t"}
             }
             microgram{
-                one{"{0}µg"}
-                other{"{0}µg"}
+                one{"{0}μg"}
+                other{"{0}μg"}
             }
             milligram{
                 one{"{0}mg"}
@@ -1601,6 +1754,26 @@ sc{
                 one{"{0}dl"}
                 other{"{0}dl"}
             }
+            dessert-spoon{
+                dnam{"dsp"}
+                one{"{0}dsp"}
+                other{"{0}dsp"}
+            }
+            dessert-spoon-imperial{
+                dnam{"dsp imp."}
+                one{"{0}dspI"}
+                other{"{0}dspI"}
+            }
+            dram{
+                dnam{"dr.fl."}
+                one{"{0}dr.fl."}
+                other{"{0}dr.fl."}
+            }
+            drop{
+                dnam{"gù"}
+                one{"{0}gù"}
+                other{"{0}gù"}
+            }
             fluid-ounce{
                 dnam{"fl oz"}
                 one{"{0}fl oz"}
@@ -1624,6 +1797,11 @@ sc{
                 one{"{0}hl"}
                 other{"{0}hl"}
             }
+            jigger{
+                dnam{"tzichete"}
+                one{"{0}tzichete"}
+                other{"{0}tzichetes"}
+            }
             liter{
                 dnam{"l"}
                 one{"{0}l"}
@@ -1637,6 +1815,11 @@ sc{
                 one{"{0}ml"}
                 other{"{0}ml"}
             }
+            pinch{
+                dnam{"ispitz."}
+                one{"{0}isptz."}
+                other{"{0}isptz."}
+            }
             pint{
                 one{"{0}pt"}
                 other{"{0}pt"}
@@ -1648,6 +1831,11 @@ sc{
             quart{
                 one{"{0}qt"}
                 other{"{0}qt"}
+            }
+            quart-imperial{
+                dnam{"qt imp."}
+                one{"{0}qtI"}
+                other{"{0}qtI"}
             }
             tablespoon{
                 dnam{"cull"}
@@ -1695,12 +1883,17 @@ sc{
             }
         }
         concentr{
+            item{
+                dnam{"elem."}
+                one{"{0} elem."}
+                other{"{0} elem."}
+            }
             karat{
                 dnam{"ct"}
                 one{"{0} ct"}
                 other{"{0} ct"}
             }
-            milligram-per-deciliter{
+            milligram-ofglucose-per-deciliter{
                 dnam{"mg/dl"}
                 one{"{0} mg/dl"}
                 other{"{0} mg/dl"}
@@ -1823,6 +2016,11 @@ sc{
             }
         }
         graphics{
+            dot{
+                dnam{"pg"}
+                one{"{0} pg"}
+                other{"{0} pg"}
+            }
             dot-per-centimeter{
                 dnam{"pupcm"}
                 one{"{0} pupcm"}
@@ -1860,6 +2058,11 @@ sc{
                 dnam{"ct"}
                 one{"{0} ct"}
                 other{"{0} ct"}
+            }
+            grain{
+                dnam{"granu"}
+                one{"{0} granu"}
+                other{"{0} granos"}
             }
             gram{
                 dnam{"g"}
@@ -1918,6 +2121,21 @@ sc{
                 one{"{0} dl"}
                 other{"{0} dl"}
             }
+            dessert-spoon-imperial{
+                dnam{"dstspn imp."}
+                one{"{0} dstspn imp."}
+                other{"{0} dstspn imp."}
+            }
+            dram{
+                dnam{"dràcma flùida"}
+                one{"{0} dràcma fl"}
+                other{"{0} dràcma fl"}
+            }
+            drop{
+                dnam{"gùtiu"}
+                one{"{0} gùtiu"}
+                other{"{0} gùtios"}
+            }
             fluid-ounce{
                 dnam{"fl oz"}
                 one{"{0} fl oz"}
@@ -1945,6 +2163,11 @@ sc{
                 one{"{0} hl"}
                 other{"{0} hl"}
             }
+            jigger{
+                dnam{"tzichete"}
+                one{"{0} tzichete"}
+                other{"{0} tzichetes"}
+            }
             liter{
                 dnam{"l"}
             }
@@ -1957,6 +2180,16 @@ sc{
                 dnam{"ml"}
                 one{"{0} ml"}
                 other{"{0} ml"}
+            }
+            pinch{
+                dnam{"ispitzuleddu"}
+                one{"{0} ispitzuleddu"}
+                other{"{0} ispitzuleddu"}
+            }
+            quart-imperial{
+                dnam{"qt imp."}
+                one{"{0} qt imp."}
+                other{"{0} qt imp."}
             }
             tablespoon{
                 dnam{"cull"}

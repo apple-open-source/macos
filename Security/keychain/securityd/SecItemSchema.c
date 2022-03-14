@@ -3383,9 +3383,21 @@ const SecDbSchema * const * all_schemas() {
     }
 }
 
+// For tests
+static int current_schema_index = 0;
+
+void set_current_schema_index(int idx) {
+    current_schema_index = idx;
+}
+
+void reset_current_schema_index(void) {
+    current_schema_index = 0;
+}
+
+
 const SecDbSchema* current_schema() {
     // For now, the current schema is the first in the list.
-    return all_schemas()[0];
+    return all_schemas()[current_schema_index];
 }
 
 // class accessors for current schema.

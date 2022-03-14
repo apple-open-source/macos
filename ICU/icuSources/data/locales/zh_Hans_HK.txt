@@ -19,6 +19,16 @@ zh_Hans_HK{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyyMd",
+            }
             availableFormats{
                 M{"L"}
                 MEd{"M/dE"}
@@ -39,6 +49,16 @@ zh_Hans_HK{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GGGGGyyMd",
             }
             availableFormats{
                 HHmm{"HH:mm"}
@@ -95,6 +115,16 @@ zh_Hans_HK{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "yMEEEEd",
+                "yMd",
+                "yMd",
+                "yyMd",
             }
             availableFormats{
                 HHmm{"HH:mm"}
@@ -153,6 +183,16 @@ zh_Hans_HK{
                 "{1} {0}",
                 "{1} {0}",
             }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyyMd",
+            }
         }
         japanese{
             DateTimePatterns{
@@ -169,6 +209,16 @@ zh_Hans_HK{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyyMd",
             }
             availableFormats{
                 MEd{"M/dE"}
@@ -190,6 +240,16 @@ zh_Hans_HK{
                 "{1} {0}",
                 "{1} {0}",
                 "{1} {0}",
+            }
+            DateTimeSkeletons{
+                "ahmmsszzzz",
+                "ahmmssz",
+                "ahmmss",
+                "ahmm",
+                "GyMEEEEd",
+                "GyMd",
+                "GyMd",
+                "GyyMd",
             }
             availableFormats{
                 M{"L"}

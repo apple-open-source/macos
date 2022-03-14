@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 1984-2016  Mark Nudelman
+ * Copyright (C) 1984-2021  Mark Nudelman
  *
  * You may distribute under the terms of either the GNU General Public
  * License or the Less License, as specified in the README file.
@@ -33,12 +33,14 @@ extern int linenums;
 extern int wscroll;
 extern int reading;
 extern int quit_on_intr;
+extern int secure;
 extern int less_is_more;
 extern long jump_sline_fraction;
 
 /*
  * Interrupt signal handler.
  */
+#if MSDOS_COMPILER!=WIN32C
 	/* ARGSUSED*/
 	static RETSIGTYPE
 u_interrupt(type)
@@ -61,9 +63,13 @@ u_interrupt(type)
 #endif
 	if (less_is_more)
 		quit(0);
+#if HILITE_SEARCH
+	set_filter_pattern(NULL, 0);
+#endif
 	if (reading)
 		intread(); /* May longjmp */
 }
+#endif
 
 #ifdef SIGTSTP
 /*
@@ -81,22 +87,16 @@ stop(type)
 }
 #endif
 
+#undef SIG_LESSWINDOW
 #ifdef SIGWINCH
-/*
- * "Window" change handler
- */
-	/* ARGSUSED*/
-	public RETSIGTYPE
-winch(type)
-	int type;
-{
-	LSIGNAL(SIGWINCH, winch);
-	sigs |= S_WINCH;
-	if (reading)
-		intread();
-}
+#define SIG_LESSWINDOW SIGWINCH
 #else
 #ifdef SIGWIND
+#define SIG_LESSWINDOW SIGWIND
+#endif
+#endif
+
+#ifdef SIG_LESSWINDOW
 /*
  * "Window" change handler
  */
@@ -105,19 +105,19 @@ winch(type)
 winch(type)
 	int type;
 {
-	LSIGNAL(SIGWIND, winch);
+	LSIGNAL(SIG_LESSWINDOW, winch);
 	sigs |= S_WINCH;
 	if (reading)
 		intread();
 }
-#endif
 #endif
 
 #if MSDOS_COMPILER==WIN32C
 /*
  * Handle CTRL-C and CTRL-BREAK keys.
  */
-#include "windows.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 
 	static BOOL WINAPI 
 wbreak_handler(dwCtrlType)
@@ -128,6 +128,9 @@ wbreak_handler(dwCtrlType)
 	case CTRL_C_EVENT:
 	case CTRL_BREAK_EVENT:
 		sigs |= S_INTERRUPT;
+#if HILITE_SEARCH
+		set_filter_pattern(NULL, 0);
+#endif
 		return (TRUE);
 	default:
 		break;
@@ -135,6 +138,13 @@ wbreak_handler(dwCtrlType)
 	return (FALSE);
 }
 #endif
+
+	static RETSIGTYPE
+terminate(type)
+	int type;
+{
+	quit(15);
+}
 
 /*
  * Set up the signal handlers.
@@ -148,12 +158,13 @@ init_signals(on)
 		/*
 		 * Set signal handlers.
 		 */
-		(void) LSIGNAL(SIGINT, u_interrupt);
 #if MSDOS_COMPILER==WIN32C
 		SetConsoleCtrlHandler(wbreak_handler, TRUE);
+#else
+		(void) LSIGNAL(SIGINT, u_interrupt);
 #endif
 #ifdef SIGTSTP
-		(void) LSIGNAL(SIGTSTP, stop);
+		(void) LSIGNAL(SIGTSTP, secure ? SIG_IGN : stop);
 #endif
 #ifdef SIGWINCH
 		(void) LSIGNAL(SIGWINCH, winch);
@@ -164,14 +175,18 @@ init_signals(on)
 #ifdef SIGQUIT
 		(void) LSIGNAL(SIGQUIT, SIG_IGN);
 #endif
+#ifdef SIGTERM
+		(void) LSIGNAL(SIGTERM, terminate);
+#endif
 	} else
 	{
 		/*
 		 * Restore signals to defaults.
 		 */
-		(void) LSIGNAL(SIGINT, SIG_DFL);
 #if MSDOS_COMPILER==WIN32C
 		SetConsoleCtrlHandler(wbreak_handler, FALSE);
+#else
+		(void) LSIGNAL(SIGINT, SIG_DFL);
 #endif
 #ifdef SIGTSTP
 		(void) LSIGNAL(SIGTSTP, SIG_DFL);
@@ -185,6 +200,9 @@ init_signals(on)
 #ifdef SIGQUIT
 		(void) LSIGNAL(SIGQUIT, SIG_DFL);
 #endif
+#ifdef SIGTERM
+		(void) LSIGNAL(SIGTERM, SIG_DFL);
+#endif
 	}
 }
 
@@ -193,9 +211,9 @@ init_signals(on)
  * A received signal cause a bit to be set in "sigs".
  */
 	public void
-psignals()
+psignals(VOID_PARAM)
 {
-	register int tsignals;
+	int tsignals;
 
 	if ((tsignals = sigs) == 0)
 		return;
@@ -247,8 +265,8 @@ psignals()
 			wscroll = (sc_height + 1) / 2;
 			calc_jump_sline();
 			calc_shift_count();
-			screen_trashed = 1;
 		}
+		screen_trashed = 1;
 	}
 #endif
 	if (tsignals & S_INTERRUPT)

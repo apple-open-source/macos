@@ -353,6 +353,10 @@
     complete(nil, nil);
 }
 
+- (void) accountStatus: (void(^)(NSData *json, NSError *error))complete {
+    complete(nil, nil);
+}
+
 - (void)rpcTriggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
     complete(nil);
 }

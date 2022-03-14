@@ -32,6 +32,8 @@ import InternalSwiftProtobuf
 
 let CuttlefishPushTopicBundleIdentifier = "com.apple.security.cuttlefish"
 
+private let logger = Logger(subsystem: "com.apple.security.trustedpeers", category: "containermap")
+
 struct CKInternalErrorMatcher {
     let code: Int
     let internalCode: Int
@@ -124,7 +126,7 @@ public class RetryingCKCodeService: CuttlefishAPIAsync {
 
         let requestCompletion = { (requestInfo: CKRequestInfo?) -> Void in
             if let requestUUID = requestInfo?.requestUUID {
-                os_log("ckoperation request finished: %{public}@ %{public}@", log: tplogDebug, functionName, requestUUID)
+                logger.debug("ckoperation request finished: \(functionName, privacy: .public) \(requestUUID, privacy: .public)")
             }
         }
         op.requestCompletedBlock = requestCompletion
@@ -143,11 +145,7 @@ public class RetryingCKCodeService: CuttlefishAPIAsync {
                     let cutoff = Date(timeInterval: delay, since: now)
                     guard cutoff.compare(deadline) == ComparisonResult.orderedDescending else {
                         Thread.sleep(forTimeInterval: delay)
-                        os_log("%{public}@ error: %{public}@ (retrying, now=%{public}@, deadline=%{public}@)", log: tplogDebug,
-                               functionName,
-                               "\(String(describing: error))",
-                               "\(String(describing: now))",
-                               "\(String(describing: deadline))")
+                        logger.debug("\(functionName, privacy: .public) error: \(String(describing: error), privacy: .public) (retrying, now=\(String(describing: now), privacy: .public), deadline=\(String(describing: deadline), privacy: .public)")
 
                         self.invokeRetry(deadline: deadline, minimumDelay: minimumDelay, functionName: functionName, operationCreator: operationCreator, completion: completion)
                         return

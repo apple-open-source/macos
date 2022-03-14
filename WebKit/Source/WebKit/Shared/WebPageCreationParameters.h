@@ -34,6 +34,7 @@
 #include "WebPageGroupData.h"
 #include "WebPageProxyIdentifier.h"
 #include "WebPreferencesStore.h"
+#include "WebURLSchemeHandlerIdentifier.h"
 #include <WebCore/ActivityState.h>
 #include <WebCore/Color.h>
 #include <WebCore/DestinationColorSpace.h>
@@ -118,14 +119,15 @@ struct WebPageCreationParameters {
     float topContentInset;
     
     float mediaVolume;
-    WebCore::MediaProducer::MutedStateFlags muted;
+    WebCore::MediaProducerMutedStateFlags muted;
+    bool openedByDOM { false };
     bool mayStartMediaWhenInWindow;
     bool mediaPlaybackIsSuspended { false };
 
     WebCore::IntSize minimumSizeForAutoLayout;
     WebCore::IntSize sizeToContentAutoSizeMaximumSize;
     bool autoSizingShouldExpandToViewHeight;
-    std::optional<WebCore::IntSize> viewportSizeForCSSViewportUnits;
+    std::optional<WebCore::FloatSize> viewportSizeForCSSViewportUnits;
     
     WebCore::ScrollPinningBehavior scrollPinningBehavior;
 
@@ -160,13 +162,14 @@ struct WebPageCreationParameters {
     std::optional<WebCore::ViewportArguments> overrideViewportArguments;
 #endif
 #if ENABLE(ATTACHMENT_ELEMENT)
-    std::optional<SandboxExtension::HandleArray> attachmentElementExtensionHandles;
+    std::optional<Vector<SandboxExtension::Handle>> attachmentElementExtensionHandles;
 #endif
 #if PLATFORM(IOS_FAMILY)
     WebCore::FloatSize screenSize;
     WebCore::FloatSize availableScreenSize;
     WebCore::FloatSize overrideScreenSize;
     float textAutosizingWidth;
+    WebCore::FloatSize minimumUnobscuredSize;
     WebCore::FloatSize maximumUnobscuredSize;
     int32_t deviceOrientation { 0 };
     bool keyboardIsAttached { false };
@@ -176,10 +179,10 @@ struct WebPageCreationParameters {
 #if PLATFORM(COCOA)
     bool smartInsertDeleteEnabled;
     Vector<String> additionalSupportedImageTypes;
-    SandboxExtension::HandleArray mediaExtensionHandles; // FIXME(207716): Remove when GPU process is complete.
-    SandboxExtension::HandleArray mediaIOKitExtensionHandles;
-    SandboxExtension::HandleArray gpuIOKitExtensionHandles;
-    SandboxExtension::HandleArray gpuMachExtensionHandles;
+    Vector<SandboxExtension::Handle> mediaExtensionHandles; // FIXME(207716): Remove when GPU process is complete.
+    Vector<SandboxExtension::Handle> mediaIOKitExtensionHandles;
+    Vector<SandboxExtension::Handle> gpuIOKitExtensionHandles;
+    Vector<SandboxExtension::Handle> gpuMachExtensionHandles;
 #endif
 #if HAVE(STATIC_FONT_REGISTRY)
     std::optional<SandboxExtension::Handle> fontMachExtensionHandle;
@@ -201,7 +204,7 @@ struct WebPageCreationParameters {
     String overrideContentSecurityPolicy;
     std::optional<double> cpuLimit;
 
-    HashMap<String, uint64_t> urlSchemeHandlers;
+    HashMap<String, WebURLSchemeHandlerIdentifier> urlSchemeHandlers;
     Vector<String> urlSchemesWithLegacyCustomProtocolHandlers;
 
 #if ENABLE(APPLICATION_MANIFEST)

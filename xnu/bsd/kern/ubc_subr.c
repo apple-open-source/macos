@@ -110,7 +110,7 @@ static void ubc_cs_free(struct ubc_info *uip);
 static boolean_t ubc_cs_supports_multilevel_hash(struct cs_blob *blob);
 static kern_return_t ubc_cs_convert_to_multilevel_hash(struct cs_blob *blob);
 
-ZONE_DECLARE(ubc_info_zone, "ubc_info zone", sizeof(struct ubc_info),
+ZONE_DEFINE_TYPE(ubc_info_zone, "ubc_info zone", struct ubc_info,
     ZC_ZFREE_CLEARMEM);
 static uint32_t cs_blob_generation_count = 1;
 
@@ -119,9 +119,8 @@ static uint32_t cs_blob_generation_count = 1;
  * Routines to navigate code signing data structures in the kernel...
  */
 
-static SECURITY_READ_ONLY_LATE(zone_t) cs_blob_zone;
-ZONE_INIT(&cs_blob_zone, "cs_blob zone", sizeof(struct cs_blob),
-    ZC_READONLY | ZC_ZFREE_CLEARMEM, ZONE_ID_CS_BLOB, NULL);
+ZONE_DEFINE_ID(ZONE_ID_CS_BLOB, "cs_blob zone", struct cs_blob,
+    ZC_READONLY | ZC_ZFREE_CLEARMEM);
 
 extern int cs_debug;
 
@@ -2972,7 +2971,8 @@ ubc_cs_blob_allocate(
 	allocation_size = *blob_size_p;
 
 	{
-		*blob_addr_p = (vm_offset_t) kalloc_tag(allocation_size, VM_KERN_MEMORY_SECURITY);
+		*blob_addr_p = (vm_offset_t) kheap_alloc_tag(KHEAP_DEFAULT,
+		    allocation_size, Z_WAITOK, VM_KERN_MEMORY_SECURITY);
 
 		if (*blob_addr_p == 0) {
 			kr = KERN_NO_SPACE;
@@ -3000,7 +3000,7 @@ ubc_cs_blob_deallocate(
 	vm_size_t       blob_size)
 {
 	{
-		kfree(blob_addr, blob_size);
+		kheap_free(KHEAP_DEFAULT, blob_addr, blob_size);
 	}
 }
 

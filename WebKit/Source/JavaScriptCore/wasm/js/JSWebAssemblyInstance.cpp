@@ -81,7 +81,6 @@ void JSWebAssemblyInstance::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 
     Base::visitChildren(thisObject, visitor);
     visitor.append(thisObject->m_module);
-    visitor.append(thisObject->m_codeBlock);
     visitor.append(thisObject->m_moduleRecord);
     visitor.append(thisObject->m_memory);
     for (auto& table : thisObject->m_tables)
@@ -105,45 +104,47 @@ void JSWebAssemblyInstance::visitChildrenImpl(JSCell* cell, Visitor& visitor)
 
 DEFINE_VISIT_CHILDREN(JSWebAssemblyInstance);
 
-void JSWebAssemblyInstance::finalizeCreation(VM& vm, JSGlobalObject* globalObject, Ref<Wasm::CodeBlock>&& wasmCodeBlock, JSObject* importObject, Wasm::CreationMode creationMode)
+void JSWebAssemblyInstance::finalizeCreation(VM& vm, JSGlobalObject* globalObject, Ref<Wasm::CalleeGroup>&& wasmCalleeGroup, JSObject* importObject, Wasm::CreationMode creationMode)
 {
-    m_instance->finalizeCreation(this, wasmCodeBlock.copyRef());
+    m_instance->finalizeCreation(this);
 
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    if (!wasmCodeBlock->runnable()) {
-        throwException(globalObject, scope, createJSWebAssemblyLinkError(globalObject, vm, wasmCodeBlock->errorMessage()));
+    if (!wasmCalleeGroup->runnable()) {
+        throwException(globalObject, scope, createJSWebAssemblyLinkError(globalObject, vm, wasmCalleeGroup->errorMessage()));
         return;
     }
 
-    RELEASE_ASSERT(wasmCodeBlock->isSafeToRun(memoryMode()));
-    JSWebAssemblyCodeBlock* jsCodeBlock = m_module->codeBlock(memoryMode());
-    if (jsCodeBlock) {
-        // A CodeBlock might have already been compiled. If so, it means
-        // that the CodeBlock we are trying to compile must be the same
-        // because we will never compile a CodeBlock again once it's
-        // runnable.
-        ASSERT(&jsCodeBlock->codeBlock() == wasmCodeBlock.ptr());
-        m_codeBlock.set(vm, this, jsCodeBlock);
-    } else {
-        jsCodeBlock = JSWebAssemblyCodeBlock::create(vm, WTFMove(wasmCodeBlock), module()->module().moduleInformation());
-        if (UNLIKELY(!jsCodeBlock->runnable())) {
-            throwException(globalObject, scope, createJSWebAssemblyLinkError(globalObject, vm, jsCodeBlock->errorMessage()));
-            return;
+    RELEASE_ASSERT(wasmCalleeGroup->isSafeToRun(memoryMode()));
+
+    // In the module loader case, we will initialize all memory modes with the initial LLInt compilation
+    // results, so that later when memory imports become available, the appropriate CalleeGroup can be used.
+    // If LLInt is disabled, we instead defer compilation to module evaluation.
+    bool hasMemoryImport = module()->moduleInformation().memory.isImport();
+    if (creationMode == Wasm::CreationMode::FromModuleLoader && Options::useWasmLLInt() && hasMemoryImport) {
+        Wasm::MemoryMode initialMode = Wasm::MemoryMode::BoundsChecking;
+        ASSERT(memoryMode() == initialMode);
+        module()->module().copyInitialCalleeGroupToAllMemoryModes(initialMode);
+
+        for (unsigned i = 0; i < Wasm::NumberOfMemoryModes; i++) {
+            if (i == static_cast<uint8_t>(initialMode))
+                continue;
+            Wasm::MemoryMode memoryMode = static_cast<Wasm::MemoryMode>(i);
+            module()->module().calleeGroupFor(memoryMode); // Materialize Wasm::CalleeGroup.
         }
-        m_codeBlock.set(vm, this, jsCodeBlock);
-        m_module->setCodeBlock(vm, memoryMode(), jsCodeBlock);
     }
 
     for (unsigned importFunctionNum = 0; importFunctionNum < instance().numImportFunctions(); ++importFunctionNum) {
         auto* info = instance().importFunctionInfo(importFunctionNum);
-        info->wasmToEmbedderStub = m_codeBlock->wasmToEmbedderStub(importFunctionNum);
+        info->wasmToEmbedderStub = m_module->wasmToEmbedderStub(importFunctionNum);
     }
 
     m_moduleRecord->prepareLink(vm, this);
 
     if (creationMode == Wasm::CreationMode::FromJS) {
-        m_moduleRecord->link(globalObject, jsNull(), importObject, creationMode);
+        m_moduleRecord->link(globalObject, jsNull());
+        RETURN_IF_EXCEPTION(scope, void());
+        m_moduleRecord->initializeImportsAndExports(globalObject, importObject, creationMode);
         RETURN_IF_EXCEPTION(scope, void());
 
         JSValue startResult = m_moduleRecord->evaluate(globalObject);
@@ -183,7 +184,7 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, JSGlobalObject* 
     };
 
     // FIXME: These objects could be pretty big we should try to throw OOM here.
-    auto* jsInstance = new (NotNull, allocateCell<JSWebAssemblyInstance>(vm.heap)) JSWebAssemblyInstance(vm, instanceStructure, 
+    auto* jsInstance = new (NotNull, allocateCell<JSWebAssemblyInstance>(vm)) JSWebAssemblyInstance(vm, instanceStructure, 
         Wasm::Instance::create(&vm.wasmContext, WTFMove(module), &vm.topEntryFrame, vm.addressOfSoftStackLimit(), WTFMove(storeTopCallFrame)));
     jsInstance->finishCreation(vm, jsModule, moduleRecord);
     RETURN_IF_EXCEPTION(throwScope, nullptr);
@@ -210,8 +211,8 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, JSGlobalObject* 
             Identifier::fromUid(PrivateName(PrivateName::Description, "WebAssemblyImportName")),
         });
 
-        // Skip Wasm::ExternalKind::Function validation here. It will be done in WebAssemblyModuleRecord::link.
-        // Eventually we will move all the linking code here to WebAssemblyModuleRecord::link.
+        // Validation for most types are done in WebAssemblyModuleRecord::initializeImportsAndExports and skipped here.
+        // Eventually we will move all the linking code here to WebAssemblyModuleRecord::initializeImportsAndExports.
         switch (import.kind) {
         case Wasm::ExternalKind::Function:
         case Wasm::ExternalKind::Global:
@@ -251,6 +252,10 @@ JSWebAssemblyInstance* JSWebAssemblyInstance::tryCreate(VM& vm, JSGlobalObject* 
             RELEASE_ASSERT(!hasMemoryImport); // This should be guaranteed by a validation failure.
             RELEASE_ASSERT(moduleInformation.memory);
             hasMemoryImport = true;
+            // For the module loader, we cannot initialize the memory here so we delay this
+            // until WebAssemblyModuleRecord's initialization operation.
+            if (creationMode == Wasm::CreationMode::FromModuleLoader)
+                break;
             JSWebAssemblyMemory* memory = jsDynamicCast<JSWebAssemblyMemory*>(vm, value);
             // i. If v is not a WebAssembly.Memory object, throw a WebAssembly.LinkError.
             if (!memory)

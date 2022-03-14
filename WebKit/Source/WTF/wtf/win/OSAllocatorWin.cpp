@@ -28,6 +28,12 @@
 
 #include <windows.h>
 #include <wtf/Assertions.h>
+#include <wtf/MathExtras.h>
+#include <wtf/PageBlock.h>
+#include <wtf/SoftLinking.h>
+
+SOFT_LINK_LIBRARY(kernelbase)
+SOFT_LINK_OPTIONAL(kernelbase, VirtualAlloc2, void*, WINAPI, (HANDLE, PVOID, SIZE_T, ULONG, ULONG, MEM_EXTENDED_PARAMETER *, ULONG))
 
 namespace WTF {
 

@@ -448,7 +448,7 @@ restart:
 			return 0;
 		} else {
 			last_ptr = ptr;
-			if (was_str) {
+			if (ptr && was_str) {
 				strlcpy(last_str, ptr, sizeof(last_str));
 			}
 			last_nlen = nlen;
@@ -1954,7 +1954,9 @@ fseventsf_select(struct fileproc *fp, int which, __unused void *wql, vfs_context
 	}
 
 	if (!ready) {
+		lock_watch_table();
 		selrecord(vfs_context_proc(ctx), &fseh->si, wql);
+		unlock_watch_table();
 	}
 
 	return ready;
@@ -1985,6 +1987,7 @@ fseventsf_close(struct fileglob *fg, __unused vfs_context_t ctx)
 	fseh->watcher = NULL;
 
 	remove_watcher(watcher);
+	selthreadclear(&fseh->si);
 	kfree_type(fsevent_handle, fseh);
 
 	return 0;
@@ -2552,7 +2555,7 @@ fsevents_init(void)
 	}
 
 	devfs_make_node(makedev(ret, 0), DEVFS_CHAR,
-	    UID_ROOT, GID_WHEEL, 0644, "fsevents", 0);
+	    UID_ROOT, GID_WHEEL, 0644, "fsevents");
 
 	fsevents_internal_init();
 }

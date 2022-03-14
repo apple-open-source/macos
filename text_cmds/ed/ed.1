@@ -1,5 +1,5 @@
-.\" $FreeBSD: src/bin/ed/ed.1,v 1.35 2005/01/16 16:41:56 ru Exp $
-.Dd July 3, 2004
+.\" $FreeBSD$
+.Dd April 9, 2021
 .Dt ED 1
 .Os
 .Sh NAME
@@ -9,12 +9,12 @@
 .Sh SYNOPSIS
 .Nm
 .Op Fl
-.Op Fl sx
+.Op Fl s
 .Op Fl p Ar string
 .Op Ar file
 .Nm red
 .Op Fl
-.Op Fl sx
+.Op Fl s
 .Op Fl p Ar string
 .Op Ar file
 .Sh DESCRIPTION
@@ -141,12 +141,6 @@ Suppress diagnostics.
 This should be used if
 .Nm Ns 's
 standard input is from a script.
-.It Fl x
-Prompt for an encryption key to be used in subsequent reads and writes
-(see the
-.Em x
-command).
-Unsupported on Mac OS X.
 .It Fl p Ar string
 Specify a command prompt.
 This may be toggled on and off with the
@@ -232,7 +226,7 @@ The current line (address) in the buffer.
 The last line in the buffer.
 .It n
 The
-.Em n Ns th,
+.Em n Ns th
 line in the buffer
 where
 .Em n
@@ -650,7 +644,7 @@ The mark is not cleared until the line is
 deleted or otherwise modified.
 .It (.,.)l
 Print the addressed lines unambiguously.
-If a single line fills for than one screen (as might be the case
+If a single line fills more than one screen (as might be the case
 when viewing a binary file, for instance), a
 .Dq Li --More--
 prompt is printed on the last line.
@@ -866,13 +860,6 @@ This is similar to the
 .Em w
 command, expect that the previous contents of file is not clobbered.
 The current address is unchanged.
-.It x
-Prompt for an encryption key which is used in subsequent reads and
-writes.
-If a newline alone is entered as the key, then encryption is
-turned off.
-Otherwise, echoing is disabled while a key is read.
-Unsupported on Mac OS X.
 .It Pf (.+1)z n
 Scroll
 .Ar n
@@ -913,9 +900,9 @@ that line.
 .El
 .Sh FILES
 .Bl -tag -width /tmp/ed.* -compact
-.It /tmp/ed.*
+.It Pa /tmp/ed.*
 buffer file
-.It ed.hup
+.It Pa ed.hup
 the file to which
 .Nm
 attempts to write the buffer if the terminal hangs up
@@ -975,6 +962,16 @@ USD:12-13
 .%O Addison-Wesley
 .%D 1981
 .Re
+.Rs
+.\" 4.4BSD USD:9
+.%A B. W. Kernighan
+.%T A Tutorial Introduction to the UNIX Text Editor
+.Re
+.Rs
+.\" 4.4BSD USD:10
+.%A B. W. Kernighan
+.%T Advanced Editing on UNIX
+.Re
 .Sh LIMITATIONS
 The
 .Nm
@@ -997,7 +994,7 @@ per line overhead: 4 ints
 An
 .Nm
 command appeared in
-Version 1 AT&T UNIX.
+.At v1 .
 .Sh BUGS
 The
 .Nm

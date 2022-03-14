@@ -268,7 +268,7 @@ static __inline int pipeio_lock(struct pipe *cpipe, int catch);
 static __inline void pipeio_unlock(struct pipe *cpipe);
 
 static LCK_GRP_DECLARE(pipe_mtx_grp, "pipe");
-static ZONE_DECLARE(pipe_zone, "pipe zone", sizeof(struct pipepair), ZC_NONE);
+static ZONE_DEFINE_TYPE(pipe_zone, "pipe zone", struct pipepair, ZC_NONE);
 
 #define MAX_PIPESIZE(pipe)              ( MAX(PIPE_SIZE, (pipe)->pipe_buffer.size) )
 

@@ -53,6 +53,7 @@ messages -> NetworkProcess LegacyReceiver {
 #if PLATFORM(COCOA)
     PublishDownloadProgress(WebKit::DownloadID downloadID, URL url, WebKit::SandboxExtension::Handle sandboxExtensionHandle)
 #endif
+    RequestResource(WebKit::WebPageProxyIdentifier pageID, PAL::SessionID sessionID, WebCore::ResourceRequest request, IPC::FormDataReference requestBody) -> (IPC::DataReference data, WebCore::ResourceResponse response, WebCore::ResourceError error) Async
     ApplicationDidEnterBackground()
     ApplicationWillEnterForeground()
 
@@ -66,6 +67,7 @@ messages -> NetworkProcess LegacyReceiver {
     FlushCookies(PAL::SessionID sessionID) -> () Async
 
     AllowSpecificHTTPSCertificateForHost(WebCore::CertificateInfo certificate, String host)
+    AllowTLSCertificateChainForLocalPCMTesting(PAL::SessionID sessionID, WebCore::CertificateInfo certificate)
 
     SetCacheModel(enum:uint8_t WebKit::CacheModel cacheModel)
     SetCacheModelSynchronouslyForTesting(enum:uint8_t WebKit::CacheModel cacheModel) -> () Synchronous
@@ -76,7 +78,7 @@ messages -> NetworkProcess LegacyReceiver {
 
     PreconnectTo(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier webPageProxyID, WebCore::PageIdentifier webPageID, URL url, String userAgent, enum:uint8_t WebCore::StoredCredentialsPolicy storedCredentialsPolicy, enum:bool std::optional<WebKit::NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, enum:bool WebKit::LastNavigationWasAppInitiated lastNavigationWasAppInitiated);
 
-#if ENABLE(RESOURCE_LOAD_STATISTICS)
+#if ENABLE(INTELLIGENT_TRACKING_PREVENTION)
     ClearPrevalentResource(PAL::SessionID sessionID, WebCore::RegistrableDomain resourceDomain) -> () Async
     ClearUserInteraction(PAL::SessionID sessionID, WebCore::RegistrableDomain resourceDomain) -> () Async
     DumpResourceLoadStatistics(PAL::SessionID sessionID) -> (String dumpedStatistics) Async
@@ -108,7 +110,6 @@ messages -> NetworkProcess LegacyReceiver {
     ScheduleCookieBlockingUpdate(PAL::SessionID sessionID) -> () Async
     ScheduleStatisticsAndDataRecordsProcessing(PAL::SessionID sessionID) -> () Async
     StatisticsDatabaseHasAllTables(PAL::SessionID sessionID) -> (bool hasAllTables) Async
-    StatisticsDatabaseColumnsForTable(PAL::SessionID sessionID, String tableName) -> (Vector<String> columns) Async
     SetCacheMaxAgeCapForPrevalentResources(PAL::SessionID sessionID, Seconds seconds) -> () Async
     SetGrandfathered(PAL::SessionID sessionID, WebCore::RegistrableDomain resourceDomain, bool isGrandfathered) -> () Async
     GetResourceLoadStatisticsDataSummary(PAL::SessionID sessionID) -> (Vector<WebKit::WebResourceLoadStatisticsStore::ThirdPartyData> thirdPartyData) Async
@@ -134,6 +135,7 @@ messages -> NetworkProcess LegacyReceiver {
     ResetCrossSiteLoadsWithLinkDecorationForTesting(PAL::SessionID sessionID) -> () Async
     DeleteCookiesForTesting(PAL::SessionID sessionID, WebCore::RegistrableDomain domain, bool includeHttpOnlyCookies) -> () Async
     HasIsolatedSession(PAL::SessionID sessionID, WebCore::RegistrableDomain domain) -> (bool hasIsolatedSession) Async
+    CloseITPDatabase(PAL::SessionID sessionID) -> () Async
 #if ENABLE(APP_BOUND_DOMAINS)
     SetAppBoundDomainsForResourceLoadStatistics(PAL::SessionID sessionID, HashSet<WebCore::RegistrableDomain> appBoundDomains) -> () Async
 #endif
@@ -155,8 +157,6 @@ messages -> NetworkProcess LegacyReceiver {
     RegisterURLSchemeAsLocal(String scheme)
     RegisterURLSchemeAsNoAccess(String scheme)
 
-    SetCacheStorageParameters(PAL::SessionID sessionID, String cacheStorageDirectory, WebKit::SandboxExtension::Handle handle);
-
     SyncLocalStorage() -> () Async
 
     StorePrivateClickMeasurement(PAL::SessionID sessionID, WebCore::PrivateClickMeasurement privateClickMeasurement)
@@ -165,14 +165,14 @@ messages -> NetworkProcess LegacyReceiver {
     SetPrivateClickMeasurementOverrideTimerForTesting(PAL::SessionID sessionID, bool value) -> () Async
     MarkAttributedPrivateClickMeasurementsAsExpiredForTesting(PAL::SessionID sessionID) -> () Async
     SetPrivateClickMeasurementEphemeralMeasurementForTesting(PAL::SessionID sessionID, bool value) -> () Async
-    SimulateResourceLoadStatisticsSessionRestart(PAL::SessionID sessionID) -> () Async
+    SimulatePrivateClickMeasurementSessionRestart(PAL::SessionID sessionID) -> () Async
     SetPrivateClickMeasurementTokenPublicKeyURLForTesting(PAL::SessionID sessionID, URL url) -> () Async
     SetPrivateClickMeasurementTokenSignatureURLForTesting(PAL::SessionID sessionID, URL url) -> () Async
     SetPrivateClickMeasurementAttributionReportURLsForTesting(PAL::SessionID sessionID, URL sourceURL, URL destinationURL) -> () Async
     MarkPrivateClickMeasurementsAsExpiredForTesting(PAL::SessionID sessionID) -> () Async
     SetPCMFraudPreventionValuesForTesting(PAL::SessionID sessionID, String secretToken, String unlinkableToken, String signature, String keyID) -> () Async
     SetPrivateClickMeasurementAppBundleIDForTesting(PAL::SessionID sessionID, String appBundleIDForTesting) -> () Async
-    GetLocalStorageOriginDetails(PAL::SessionID sessionID) -> (Vector<WebKit::LocalStorageDatabaseTracker::OriginDetails> details) Async
+    ClosePCMDatabase(PAL::SessionID sessionID) -> () Async
 
     SetServiceWorkerFetchTimeoutForTesting(Seconds seconds) -> () Synchronous
     ResetServiceWorkerFetchTimeoutForTesting() -> () Synchronous
@@ -200,4 +200,15 @@ messages -> NetworkProcess LegacyReceiver {
     AddWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID, WebKit::WebPageNetworkParameters parameters)
     RemoveWebPageNetworkParameters(PAL::SessionID sessionID, WebKit::WebPageProxyIdentifier pageID)
     CountNonDefaultSessionSets(PAL::SessionID sessionID) -> (size_t count) Async
+
+#if ENABLE(CFPREFS_DIRECT_MODE)
+    NotifyPreferencesChanged(String domain, String key, std::optional<String> encodedValue)
+#endif
+
+#if ENABLE(SERVICE_WORKER)
+    GetPendingPushMessages(PAL::SessionID sessionID) -> (Vector<WebKit::WebPushMessage> messages) Async
+    ProcessPushMessage(PAL::SessionID sessionID, struct WebKit::WebPushMessage pushMessage) -> (bool didSucceed) Async
+#endif
+    DeletePushAndNotificationRegistration(PAL::SessionID sessionID, struct WebCore::SecurityOriginData origin) -> (String errorMessage) Async
+    GetOriginsWithPushAndNotificationPermissions(PAL::SessionID sessionID) -> (Vector<WebCore::SecurityOriginData> origins) Async
 }

@@ -32,6 +32,7 @@
 #if KERNEL
 #include <kern/assert.h>
 #include <kern/debug.h>
+#include <IOKit/IOLib.h>
 #else
 #include <cassert>
 #endif
@@ -157,6 +158,18 @@ template<class _T>
 bool operator!=(_VIOG::nullptr_t, const OSUniqueObject<_T>& rhs)
     { return static_cast<bool>(rhs); }
 
+#if KERNEL
+#if __OPTIMIZE__
+template<typename T>
+extern void _iog_subclass_is_missing_an_operator_new_override(void);
+#else  /* __OPTIMIZE__ */
+template<typename T>
+static inline void _iog_subclass_is_missing_an_operator_new_override(void)
+{
+    panic(__PRETTY_FUNCTION__);
+}
+#endif /* __OPTIMIZE__ */
+#endif /* KERNEL */
 
 // Shared and Weak object helper class
 class _OSSharedWeakCounter
@@ -181,6 +194,24 @@ class _OSSharedWeakCounter
     {
         return retain_shared() ? this : nullptr;
     }
+
+#if KERNEL
+public:
+    inline void *operator new(size_t size) {
+        if (size != sizeof(_OSSharedWeakCounter)) {
+            _iog_subclass_is_missing_an_operator_new_override<_OSSharedWeakCounter>();
+        }
+        return IOMallocType(_OSSharedWeakCounter);
+    }
+
+    inline void operator delete(void *ptr, size_t size) {
+        if (size != sizeof(_OSSharedWeakCounter)) {
+            _iog_subclass_is_missing_an_operator_new_override<_OSSharedWeakCounter>();
+        }
+        return IOFreeType(ptr, _OSSharedWeakCounter);
+    }
+#endif
+
 }; // class _OSSharedWeakCounter
 
 // std::shared_ptr<T> equivalent

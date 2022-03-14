@@ -51,6 +51,7 @@
 #include "HTMLFormControlElement.h"
 #include "HTMLFormElement.h"
 #include "HitTestResult.h"
+#include "ImageOverlay.h"
 #include "InspectorController.h"
 #include "LocalizedStrings.h"
 #include "MouseEvent.h"
@@ -71,6 +72,10 @@
 #include <wtf/SetForScope.h>
 #include <wtf/WallTime.h>
 #include <wtf/unicode/CharacterNames.h>
+
+#if ENABLE(SERVICE_CONTROLS)
+#include "ImageControlsMac.h"
+#endif
 
 
 namespace WebCore {
@@ -160,7 +165,7 @@ std::unique_ptr<ContextMenu> ContextMenuController::maybeCreateContextMenu(Event
         return nullptr;
 
     m_context = ContextMenuContext(contextType, result);
-
+    
     return makeUnique<ContextMenu>();
 }
 
@@ -527,7 +532,7 @@ void ContextMenuController::contextMenuItemSelected(ContextMenuAction action, co
         break;
     case ContextMenuItemTagTranslate:
 #if HAVE(TRANSLATION_UI_SERVICES)
-        if (auto view = makeRefPtr(frame->view())) {
+        if (RefPtr view = frame->view()) {
             m_client.handleTranslation({
                 m_context.hitTestResult().selectedText(),
                 view->contentsToRootView(enclosingIntRect(frame->selection().selectionBounds())),
@@ -844,7 +849,7 @@ void ContextMenuController::populate()
     if (!m_context.hitTestResult().isContentEditable() && is<HTMLFormControlElement>(*node))
         return;
 #endif
-    auto frame = makeRefPtr(node->document().frame());
+    RefPtr frame = node->document().frame();
     if (!frame)
         return;
 
@@ -943,7 +948,7 @@ void ContextMenuController::populate()
         }
 
         auto selectedRange = frame->selection().selection().range();
-        bool selectionIsInsideImageOverlay = selectedRange && HTMLElement::isInsideImageOverlay(*selectedRange);
+        bool selectionIsInsideImageOverlay = selectedRange && ImageOverlay::isInsideOverlay(*selectedRange);
         bool shouldShowItemsForNonEditableText = ([&] {
             if (!linkURL.isEmpty())
                 return false;
@@ -1531,6 +1536,17 @@ void ContextMenuController::showContextMenuAt(Frame& frame, const IntPoint& clic
     bool handled = frame.eventHandler().sendContextMenuEvent(mouseEvent);
     if (handled)
         m_client.showContextMenu();
+}
+
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+
+void ContextMenuController::showImageControlsMenu(Event& event)
+{
+    clearContextMenu();
+    handleContextMenuEvent(event);
+    m_client.showContextMenu();
 }
 
 #endif

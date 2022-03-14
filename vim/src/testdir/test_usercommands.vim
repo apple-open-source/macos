@@ -1,5 +1,7 @@
 " Tests for user defined commands
 
+source vim9.vim
+
 " Test for <mods> in user defined commands
 function Test_cmdmods()
   let g:mods = ''
@@ -275,6 +277,24 @@ func Test_CmdErrors()
   call assert_fails('com! -count=x DoCmd :', 'E178:')
   call assert_fails('com! -range=x DoCmd :', 'E178:')
 
+  com! -complete=file DoCmd :
+  call assert_match('E1208:', v:warningmsg)
+  let v:warningmsg = ''
+  com! -nargs=0 -complete=file DoCmd :
+  call assert_match('E1208:', v:warningmsg)
+
+  let lines =<< trim END
+      vim9script
+      com! -complete=file DoCmd :
+  END
+  call CheckScriptFailure(lines, 'E1208', 2)
+
+  let lines =<< trim END
+      vim9script
+      com! -nargs=0 -complete=file DoCmd :
+  END
+  call CheckScriptFailure(lines, 'E1208', 2)
+
   com! -nargs=0 DoCmd :
   call assert_fails('DoCmd x', 'E488:')
 
@@ -299,10 +319,10 @@ endfunc
 
 func Test_CmdCompletion()
   call feedkeys(":com -\<C-A>\<C-B>\"\<CR>", 'tx')
-  call assert_equal('"com -addr bang bar buffer complete count nargs range register', @:)
+  call assert_equal('"com -addr bang bar buffer complete count keepscript nargs range register', @:)
 
   call feedkeys(":com -nargs=0 -\<C-A>\<C-B>\"\<CR>", 'tx')
-  call assert_equal('"com -nargs=0 -addr bang bar buffer complete count nargs range register', @:)
+  call assert_equal('"com -nargs=0 -addr bang bar buffer complete count keepscript nargs range register', @:)
 
   call feedkeys(":com -nargs=\<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"com -nargs=* + 0 1 ?', @:)
@@ -338,34 +358,30 @@ func Test_CmdCompletion()
   call feedkeys(":com DoC\<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"com DoC', @:)
 
-  com! -complete=behave DoCmd :
+  com! -nargs=1 -complete=behave DoCmd :
   call feedkeys(":DoCmd \<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"DoCmd mswin xterm', @:)
 
-  " This does not work. Why?
-  "call feedkeys(":DoCmd x\<C-A>\<C-B>\"\<CR>", 'tx')
-  "call assert_equal('"DoCmd xterm', @:)
-
-  com! -complete=custom,CustomComplete DoCmd :
+  com! -nargs=* -complete=custom,CustomComplete DoCmd :
   call feedkeys(":DoCmd \<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"DoCmd January February Mars', @:)
 
-  com! -complete=customlist,CustomCompleteList DoCmd :
+  com! -nargs=? -complete=customlist,CustomCompleteList DoCmd :
   call feedkeys(":DoCmd \<C-A>\<C-B>\"\<CR>", 'tx')
   call assert_equal('"DoCmd Monday Tuesday Wednesday', @:)
 
-  com! -complete=custom,CustomCompleteList DoCmd :
+  com! -nargs=+ -complete=custom,CustomCompleteList DoCmd :
   call assert_fails("call feedkeys(':DoCmd \<C-D>', 'tx')", 'E730:')
 
-  com! -complete=customlist,CustomComp DoCmd :
+  com! -nargs=+ -complete=customlist,CustomComp DoCmd :
   call assert_fails("call feedkeys(':DoCmd \<C-D>', 'tx')", 'E117:')
 
   " custom completion without a function
-  com! -complete=custom, DoCmd
+  com! -nargs=? -complete=custom, DoCmd
   call assert_beeps("call feedkeys(':DoCmd \t', 'tx')")
 
   " custom completion failure with the wrong function
-  com! -complete=custom,min DoCmd
+  com! -nargs=? -complete=custom,min DoCmd
   call assert_fails("call feedkeys(':DoCmd \t', 'tx')", 'E118:')
 
   delcom DoCmd
@@ -500,21 +516,21 @@ func Test_command_list()
         \           execute('command DoCmd'))
 
   " Test with various -complete= argument values (non-exhaustive list)
-  command! -complete=arglist DoCmd :
+  command! -nargs=1 -complete=arglist DoCmd :
   call assert_equal("\n    Name              Args Address Complete    Definition"
-        \        .. "\n    DoCmd             0            arglist     :",
+        \        .. "\n    DoCmd             1            arglist     :",
         \           execute('command DoCmd'))
-  command! -complete=augroup DoCmd :
+  command! -nargs=* -complete=augroup DoCmd :
   call assert_equal("\n    Name              Args Address Complete    Definition"
-        \        .. "\n    DoCmd             0            augroup     :",
+        \        .. "\n    DoCmd             *            augroup     :",
         \           execute('command DoCmd'))
-  command! -complete=custom,CustomComplete DoCmd :
+  command! -nargs=? -complete=custom,CustomComplete DoCmd :
   call assert_equal("\n    Name              Args Address Complete    Definition"
-        \        .. "\n    DoCmd             0            custom      :",
+        \        .. "\n    DoCmd             ?            custom      :",
         \           execute('command DoCmd'))
-  command! -complete=customlist,CustomComplete DoCmd :
+  command! -nargs=+ -complete=customlist,CustomComplete DoCmd :
   call assert_equal("\n    Name              Args Address Complete    Definition"
-        \        .. "\n    DoCmd             0            customlist  :",
+        \        .. "\n    DoCmd             +            customlist  :",
         \           execute('command DoCmd'))
 
   " Test with various -narg= argument values.
@@ -605,5 +621,118 @@ func Test_usercmd_custom()
   delcommand TCmd2
   delfunc T2
 endfunc
+
+func Test_usercmd_with_block()
+  command DoSomething {
+        g:didit = 'yes'  # comment
+        # comment line
+        g:didmore = 'more'
+      }
+  DoSomething
+  call assert_equal('yes', g:didit)
+  call assert_equal('more', g:didmore)
+  unlet g:didit
+  unlet g:didmore
+  delcommand DoSomething
+
+  command DoMap {
+	echo [1, 2, 3]->map((_, v) => v + 1)
+    }
+  DoMap
+  delcommand DoMap
+
+  let lines =<< trim END
+      command DoesNotEnd {
+         echo 'hello'
+  END
+  call CheckScriptFailure(lines, 'E1026:')
+
+  let lines =<< trim END
+      command HelloThere {
+         echo 'hello' | echo 'there'
+        }
+      HelloThere
+  END
+  call CheckScriptSuccess(lines)
+  delcommand HelloThere
+
+  let lines =<< trim END
+      command BadCommand {
+         echo  {
+         'key': 'value',
+          }
+          }
+      BadCommand
+  END
+  call CheckScriptFailure(lines, 'E1128:')
+endfunc
+
+func Test_delcommand_buffer()
+  command Global echo 'global'
+  command -buffer OneBuffer echo 'one'
+  new
+  command -buffer TwoBuffer echo 'two'
+  call assert_equal(0, exists(':OneBuffer'))
+  call assert_equal(2, exists(':Global'))
+  call assert_equal(2, exists(':TwoBuffer'))
+  delcommand -buffer TwoBuffer
+  call assert_equal(0, exists(':TwoBuffer'))
+  call assert_fails('delcommand -buffer Global', 'E1237:')
+  call assert_fails('delcommand -buffer OneBuffer', 'E1237:')
+  bwipe!
+  call assert_equal(2, exists(':OneBuffer'))
+  delcommand -buffer OneBuffer
+  call assert_equal(0, exists(':OneBuffer'))
+  call assert_fails('delcommand -buffer Global', 'E1237:')
+  delcommand Global
+  call assert_equal(0, exists(':Global'))
+endfunc
+
+def Test_count_with_quotes()
+  command -count GetCount g:nr = <count>
+  execute("GetCount 1'2")
+  assert_equal(12, g:nr)
+  execute("GetCount 1'234'567")
+  assert_equal(1'234'567, g:nr)
+
+  execute("GetCount 1'234'567'890'123'456'789'012")
+  assert_equal(v:sizeoflong == 8 ? 9223372036854775807 : 2147483647, g:nr)
+
+  # TODO: test with negative number once this is supported
+
+  assert_fails("GetCount '12", "E488:")
+  assert_fails("GetCount 12'", "E488:")
+  assert_fails("GetCount 1''2", "E488:")
+
+  assert_fails(":1'2GetCount", 'E492:')
+  new
+  setline(1, 'text')
+  normal ma
+  execute(":1, 'aprint")
+  bwipe!
+
+  unlet g:nr
+  delcommand GetCount
+enddef
+
+func DefCmd(name)
+  if len(a:name) > 30
+    return
+  endif
+  exe 'command ' .. a:name .. ' call DefCmd("' .. a:name .. 'x")'
+  echo a:name
+  exe a:name
+endfunc
+
+func Test_recursive_define()
+  call DefCmd('Command')
+
+  let name = 'Command'
+  while len(name) < 30
+    exe 'delcommand ' .. name
+    let name ..= 'x'
+  endwhile
+endfunc
+
 
 " vim: shiftwidth=2 sts=2 expandtab

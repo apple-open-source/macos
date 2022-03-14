@@ -2977,8 +2977,7 @@ void IOFramebuffer::saveGammaTables(void)
 	maxCount = ((0x700 - (maxCount * sizeof(IOFBBootGamma))) / sizeof(IOFBGammaPoint) / maxCount);
 	if (maxCount > kIOFBGammaPointCountMax) maxCount = kIOFBGammaPointCountMax;
 
-	bootGamma = (IOGRAPHICS_TYPEOF(bootGamma)) IOMalloc(sizeof(IOFBBootGamma) 
-					+ maxCount * sizeof(IOFBGammaPoint));
+	bootGamma = IONew(IOFBBootGamma, IOFBGammaPoint, maxCount);
 	if (!bootGamma)
     {
         IOFB_END(saveGammaTables,-1,__LINE__,0);
@@ -3033,8 +3032,7 @@ void IOFramebuffer::saveGammaTables(void)
 
 		}
 	}
-	IOFree(bootGamma, sizeof(IOFBBootGamma) 
-					+ maxCount * sizeof(IOFBGammaPoint));
+    IODelete(bootGamma, IOFBBootGamma, IOFBGammaPoint, maxCount);
 	sym = OSSymbol::withCStringNoCopy(kIOFBBootGammaKey);
 	if (sym && data->getLength())
 	{
@@ -4511,8 +4509,8 @@ void IOFramebuffer::free()
         // thisName starts off as a static string "IOFB?"; thisNameLen = 0 then.
         // Later, thisName is allocated on the heap to contain a unique value;
         // thisNameLen tracks the size of the heap allocation, if it exists.
-        IODelete((void *)thisName, char, thisNameLen);
-        thisName = NULL;
+        void **thisNamePtr = (void **)&thisName;
+        IOSafeDeleteNULL(*thisNamePtr, char, thisNameLen);
     }
     OSSafeReleaseNULL(userAccessRanges);
     if (serverMsg) {
@@ -5557,7 +5555,7 @@ void IOFramebuffer::transformCursor( StdFBShmem_t * shmem, IOIndex frame )
         return;
     }
 
-    buf = IOMalloc(dw * dh * __private->cursorBytesPerPixel);
+    buf = IOMallocData(dw * dh * __private->cursorBytesPerPixel);
     if (NULL != buf)
     {
         out = (unsigned int *) buf;
@@ -5589,7 +5587,7 @@ void IOFramebuffer::transformCursor( StdFBShmem_t * shmem, IOIndex frame )
         }
 
         bcopy(buf, (void *) __private->cursorImages[frame], dw * dh * __private->cursorBytesPerPixel);
-        IOFree(buf, dw * dh * __private->cursorBytesPerPixel);
+        IOFreeData(buf, dw * dh * __private->cursorBytesPerPixel);
 
         shmem->cursorSize[0 != frame].width  = static_cast<SInt16>(dw);
         shmem->cursorSize[0 != frame].height = static_cast<SInt16>(dh);

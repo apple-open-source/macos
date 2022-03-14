@@ -16,10 +16,10 @@
 #  Standard Apple OS Configurations:
 #  -------- ----- -- ---------------
 #
-#  KERNEL_BASE =    [ arm64 xsmall msgb_small config_embedded config_enforce_signed_code config_requires_u32_munging config_darkboot config_waitq_irqsafe_allow_invalid ARM_EXTRAS_BASE ]
+#  KERNEL_BASE =    [ arm64 xsmall msgb_small config_embedded config_enforce_signed_code config_requires_u32_munging config_darkboot ARM_EXTRAS_BASE ]
 #  KERNEL_RELEASE = [ KERNEL_BASE ]
 #  KERNEL_DEV =     [ KERNEL_BASE development mach_assert config_xnupost proc_ref_debug config_proc_resource_limits ]
-#  KERNEL_DEBUG =   [ KERNEL_BASE debug mach_assert config_xnupost config_ltable_stats config_ltable_debug config_waitq_stats config_workloop_debug config_waitq_debug config_proc_resource_limits ]
+#  KERNEL_DEBUG =   [ KERNEL_BASE debug mach_assert config_xnupost config_waitq_stats config_workloop_debug config_proc_resource_limits ]
 #  BSD_BASE =       [ mach_bsd config_workqueue psynch config_proc_uuid_policy config_personas config_imageboot config_imageboot_img4 ]
 #  BSD_RELEASE =    [ BSD_BASE no_printf_str no_kprintf_str secure_kernel ]
 #  BSD_DEV =        [ BSD_BASE config_netboot config_imgsrc_access config_coredump pgo config_vnguard ]
@@ -56,7 +56,7 @@
 #  PERF_DBG_RELEASE=[ PERF_DBG_BASE ist_kdebug ]
 #  PERF_DBG_DEV =   [ PERF_DBG_BASE config_dtrace lock_stats zleaks kdp_interactive_debugging alternate_debugger interrupt_masked_debug config_debug_syscall_rejection sched_preemption_disable_debug ]
 #  PERF_DBG_DEBUG = [ PERF_DBG_BASE config_dtrace lock_stats zleaks kdp_interactive_debugging alternate_debugger interrupt_masked_debug config_debug_syscall_rejection sched_preemption_disable_debug ]
-#  MACH_BASE =      [ mach slidable config_ecc_logging vc_progress_white mdebug ipc_debug ipc_lockfree_space importance_inheritance config_atm config_coalitions config_iosched config_library_validation config_sysdiagnose config_telemetry config_mach_bridge_recv_time config_quiesce_counter phys_write_acct config_io_compression_stats ]
+#  MACH_BASE =      [ mach slidable config_ecc_logging vc_progress_white mdebug ipc_debug ipc_lockfree_space importance_inheritance config_atm config_coalitions config_iosched config_library_validation config_sysdiagnose config_telemetry config_mach_bridge_recv_time config_quiesce_counter phys_write_acct config_io_compression_stats config_service_port_info ]
 #  MACH_RELEASE =   [ MACH_BASE config_skip_precise_user_kernel_time debugger_for_zone_info ]
 #  MACH_DEV =       [ MACH_BASE task_zone_info config_io_accounting importance_trace config_ledger_interval_max ]
 #  MACH_DEBUG =     [ MACH_BASE task_zone_info config_io_accounting importance_trace config_ledger_interval_max importance_debug ]
@@ -66,8 +66,8 @@
 #  SCHED_DEBUG =    [ SCHED_BASE config_sched_grrr config_sched_proto ]
 #  VM_BASE =        [ vm_pressure_events jetsam memorystatus config_code_decryption phantom_cache config_secluded_memory config_background_queue config_cs_validation_bitmap ]
 #  VM_RELEASE =     [ VM_BASE ]
-#  VM_DEV =         [ VM_BASE dynamic_codesigning ]
-#  VM_DEBUG =       [ VM_BASE dynamic_codesigning ]
+#  VM_DEV =         [ VM_BASE dynamic_codesigning pgzalloc ]
+#  VM_DEBUG =       [ VM_BASE dynamic_codesigning pgzalloc ]
 #  VM_KASAN =       [ VM_BASE dynamic_codesigning config_kasan config_ubsan config_kcov config_ksancov ]
 #  SECURITY_BASE =    [ config_macf kernel_integrity config_secure_bsd_root ]
 #  SECURITY_RELEASE = [ SECURITY_BASE ]

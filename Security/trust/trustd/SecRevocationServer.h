@@ -59,7 +59,9 @@ typedef struct OpaqueSecRVC *SecRVCRef;
 
 /* OCSP Revocation verification context. */
 struct OpaqueSecORVC {
-    /* Pointer to the builder for this revocation check. */
+    CFRuntimeBase _base;
+
+    /* (weak) Pointer to the builder for this revocation check. */
     SecPathBuilderRef builder;
 
     /* Pointer to the generic rvc for this revocation check */

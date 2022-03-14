@@ -100,8 +100,8 @@ enum cfInternalFlags {
  * associated file-descriptors, the stat information for the
  * source file, the security information for the source file,
  * the flags passed in for the copy, a pointer to place statistics
- * (not currently implemented), debug flags, and a pointer to callbacks
- * (not currently implemented).
+ * (not currently implemented), debug flags, buffer sizes (if specified),
+ * and other helpful state information.
  */
 struct _copyfile_state
 {
@@ -125,6 +125,8 @@ struct _copyfile_state
 	char *xattr_name;
 	xattr_operation_intent_t copyIntent;
 	bool was_cloned;
+	uint32_t src_bsize;
+	uint32_t dst_bsize;
 };
 
 #define GET_PROT_CLASS(fd) fcntl((fd), F_GETPROTECTIONCLASS)
@@ -174,7 +176,10 @@ doesdecmpfs(int fd) {
 		vol_capabilities_attr_t volAttrs;
 	} volattrs;
 
-	(void)fstatfs(fd, &sfs);
+	rv = fstatfs(fd, &sfs);
+	if (rv != 0) {
+		return 0;
+	}
 	strlcpy(volroot, sfs.f_mntonname, sizeof(volroot));
 
 	memset(&attrs, 0, sizeof(attrs));
@@ -2513,10 +2518,70 @@ error_exit:
 }
 
 /*
- * Attempt to copy the data section of a file.  Using blockisize
- * is not necessarily the fastest -- it might be desirable to
- * specify a blocksize, somehow.  But it's a size that should be
- * guaranteed to work.
+ * Calculate the input (source file) and output (destination) block sizes,
+ * using any provided by the state if valid.
+ * Our output block size can be no greater than our input block size.
+ */
+static void copyfile_get_bsizes(copyfile_state_t s, size_t *src_bsize, size_t *dst_bsize,
+	size_t *src_minbsize, size_t *dst_minbsize)
+{
+	size_t iBlocksize = 0, iMinblocksize = 0;
+	size_t oBlocksize = 0, oMinblocksize = 0; // If 0, we don't support sparse copying.
+	const size_t blocksize_limit = 1 << 30; // 1 GiB
+	struct statfs sfs;
+
+	// Get default and fall-back values for the input blocksize.
+	if (fstatfs(s->src_fd, &sfs) == -1) {
+		iBlocksize = s->sb.st_blksize;
+	} else {
+		iBlocksize = sfs.f_iosize;
+		iMinblocksize = sfs.f_bsize;
+	}
+
+	// Get default and fall-back values for the output blocksize.
+	if (fstatfs(s->dst_fd, &sfs) == -1) {
+		oBlocksize = iBlocksize;
+	} else {
+		oBlocksize = (sfs.f_iosize == 0) ? iBlocksize : MIN((size_t) sfs.f_iosize, iBlocksize);
+		oMinblocksize = sfs.f_bsize;
+	}
+
+	// If the user has provided a valid source blocksize, use it instead.
+	if (s->src_bsize >= iMinblocksize) {
+		iBlocksize = s->src_bsize;
+	}
+
+	// If the user has provided a valid destination blocksize, use it instead,
+	// unless it is larger than the source blocksize.
+	if (s->dst_bsize >= oMinblocksize && s->dst_bsize <= iBlocksize) {
+		oBlocksize = s->dst_bsize;
+	}
+
+	// 6453525 and 34848916 require us to limit our blocksize to resonable values.
+	if ((size_t) s->sb.st_size < iBlocksize && iMinblocksize > 0) {
+		copyfile_debug(3, "rounding up block size from fsize: %lld to multiple of %zu\n",
+			s->sb.st_size, iMinblocksize);
+		iBlocksize = roundup((size_t) s->sb.st_size, iMinblocksize);
+		oBlocksize = MIN(oBlocksize, iBlocksize);
+	}
+
+	if (iBlocksize > blocksize_limit) {
+		iBlocksize = blocksize_limit;
+		oBlocksize = MIN(oBlocksize, iBlocksize);
+	}
+
+	*src_bsize = iBlocksize;
+	*dst_bsize = oBlocksize;
+
+	if (src_minbsize)
+		*src_minbsize = iMinblocksize;
+	if (dst_minbsize)
+		*dst_minbsize = oMinblocksize;
+}
+
+/*
+ * Attempt to copy the data section of a file,
+ * using a conservative blocksize or one provided by the user, if valid.
  */
 static int copyfile_data(copyfile_state_t s)
 {
@@ -2525,9 +2590,7 @@ static int copyfile_data(copyfile_state_t s)
 	ssize_t nread;
 	int ret = 0;
 	size_t iBlocksize = 0, iMinblocksize = 0;
-	size_t oBlocksize = 0, oMinblocksize = 0; // If 0, we don't support sparse copying.
-	const size_t blocksize_limit = 1 << 30; // 1 GiB
-	struct statfs sfs;
+	size_t oBlocksize = 0, oMinblocksize = 0;
 	copyfile_callback_t status = s->statuscb;
 
 	/* Unless it's a normal file, we don't copy.  For now, anyway */
@@ -2545,33 +2608,7 @@ static int copyfile_data(copyfile_state_t s)
 	}
 #endif
 
-	// Calculate the input and output block sizes.
-	// Our output block size can be no greater than our input block size.
-	if (fstatfs(s->src_fd, &sfs) == -1) {
-		iBlocksize = s->sb.st_blksize;
-	} else {
-		iBlocksize = sfs.f_iosize;
-		iMinblocksize = sfs.f_bsize;
-	}
-
-	if (fstatfs(s->dst_fd, &sfs) == -1) {
-		oBlocksize = iBlocksize;
-	} else {
-		oBlocksize = (sfs.f_iosize == 0) ? iBlocksize : MIN((size_t) sfs.f_iosize, iBlocksize);
-		oMinblocksize = sfs.f_bsize;
-	}
-
-	// 6453525 and 34848916 require us to limit our blocksize to resonable values.
-	if ((size_t) s->sb.st_size < iBlocksize && iMinblocksize > 0) {
-		copyfile_debug(3, "rounding up block size from fsize: %lld to multiple of %zu\n", s->sb.st_size, iMinblocksize);
-		iBlocksize = roundup((size_t) s->sb.st_size, iMinblocksize);
-		oBlocksize = MIN(oBlocksize, iBlocksize);
-	}
-
-	if (iBlocksize > blocksize_limit) {
-		iBlocksize = blocksize_limit;
-		oBlocksize = MIN(oBlocksize, iBlocksize);
-	}
+	copyfile_get_bsizes(s, &iBlocksize, &oBlocksize, &iMinblocksize, &oMinblocksize);
 
 	copyfile_debug(3, "input block size: %zu output block size: %zu\n", iBlocksize, oBlocksize);
 
@@ -3340,15 +3377,6 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 		case COPYFILE_STATE_QUARANTINE:
 			*(qtn_file_t*)ret = s->qinfo;
 			break;
-#if 0
-		case COPYFILE_STATE_STATS:
-			ret = s->stats.global;
-			break;
-		case COPYFILE_STATE_PROGRESS_CB:
-			ret = s->callbacks.progress;
-			break;
-#endif
-#ifdef	COPYFILE_STATE_STATUS_CB
 		case COPYFILE_STATE_STATUS_CB:
 			*(copyfile_callback_t*)ret = s->statuscb;
 			break;
@@ -3358,12 +3386,9 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 		case COPYFILE_STATE_COPIED:
 			*(off_t*)ret = s->totalCopied;
 			break;
-#endif
-#ifdef COPYFILE_STATE_XATTRNAME
 		case COPYFILE_STATE_XATTRNAME:
 			*(char**)ret = s->xattr_name;
 			break;
-#endif
 #ifdef COPYFILE_STATE_INTENT
 		case COPYFILE_STATE_INTENT:
 			*(xattr_operation_intent_t*)ret = s->copyIntent;
@@ -3371,6 +3396,14 @@ int copyfile_state_get(copyfile_state_t s, uint32_t flag, void *ret)
 #endif
 		case COPYFILE_STATE_WAS_CLONED:
 			*(bool *)ret = s->was_cloned;
+			break;
+		case COPYFILE_STATE_BSIZE:
+			OS_FALLTHROUGH;
+		case COPYFILE_STATE_SRC_BSIZE:
+			*(uint32_t*)ret = s->src_bsize;
+			break;
+		case COPYFILE_STATE_DST_BSIZE:
+			*(uint32_t*)ret = s->dst_bsize;
 			break;
 		default:
 			errno = EINVAL;
@@ -3427,27 +3460,27 @@ int copyfile_state_set(copyfile_state_t s, uint32_t flag, const void * thing)
 			if (*(qtn_file_t*)thing)
 				s->qinfo = qtn_file_clone(*(qtn_file_t*)thing);
 			break;
-#if 0
-		case COPYFILE_STATE_STATS:
-			s->stats.global = thing;
-			break;
-		case COPYFILE_STATE_PROGRESS_CB:
-			s->callbacks.progress = thing;
-			break;
-#endif
-#ifdef COPYFILE_STATE_STATUS_CB
 		case COPYFILE_STATE_STATUS_CB:
 			s->statuscb = (copyfile_callback_t)thing;
 			break;
 		case COPYFILE_STATE_STATUS_CTX:
 			s->ctx = (void*)thing;
 			break;
-#endif
 #ifdef COPYFILE_STATE_INTENT
 		case COPYFILE_STATE_INTENT:
 			s->copyIntent = *(xattr_operation_intent_t*)thing;
 			break;
 #endif
+		case COPYFILE_STATE_SRC_BSIZE:
+			s->src_bsize = *(uint32_t*)thing;
+			break;
+		case COPYFILE_STATE_DST_BSIZE:
+			s->dst_bsize = *(uint32_t*)thing;
+			break;
+		case COPYFILE_STATE_BSIZE:
+			s->src_bsize = *(uint32_t*)thing;
+			s->dst_bsize = s->src_bsize;
+			break;
 		default:
 			errno = EINVAL;
 			return -1;

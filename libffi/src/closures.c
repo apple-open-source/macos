@@ -34,6 +34,7 @@
 #include <fficonfig.h>
 #include <ffi.h>
 #include <ffi_common.h>
+#include <tramp.h>
 
 #ifdef __NetBSD__
 #include <sys/param.h>
@@ -45,6 +46,9 @@
 
 #include <stddef.h>
 #include <unistd.h>
+#ifdef  HAVE_SYS_MEMFD_H
+#include <sys/memfd.h>
+#endif
 
 static const size_t overhead =
   (sizeof(max_align_t) > sizeof(void *) + sizeof(size_t)) ?
@@ -109,6 +113,12 @@ ffi_closure_free (void *ptr)
   munmap(dataseg, rounded_size);
   munmap(codeseg, rounded_size);
 }
+
+int
+ffi_tramp_is_present (__attribute__((unused)) void *ptr)
+{
+  return 0;
+}
 #else /* !NetBSD with PROT_MPROTECT */
 
 #if !FFI_MMAP_EXEC_WRIT && !FFI_EXEC_TRAMPOLINE_TABLE
@@ -123,7 +133,7 @@ ffi_closure_free (void *ptr)
 #  define FFI_MMAP_EXEC_WRIT 1
 #  define HAVE_MNTENT 1
 # endif
-# if defined(X86_WIN32) || defined(X86_WIN64) || defined(_M_ARM64) || defined(__OS2__)
+# if defined(_WIN32) || defined(__OS2__)
 /* Windows systems may have Data Execution Protection (DEP) enabled, 
    which requires the use of VirtualMalloc/VirtualFree to alloc/free
    executable memory. */
@@ -146,21 +156,20 @@ ffi_closure_free (void *ptr)
 
 #ifdef __MACH__
 
-#include <assert.h>
-#include <dispatch/dispatch.h>
-#include <dlfcn.h>
 #include <mach/mach.h>
 #include <pthread.h>
+#ifdef HAVE_PTRAUTH
+#include <ptrauth.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 
-#if __has_feature(ptrauth_calls)
-#include <ptrauth.h>
-#define sign_ptr(p) ptrauth_sign_unauthenticated(p, ptrauth_key_function_pointer, 0)
-#define auth_ptr(p) ptrauth_auth_data(p, ptrauth_key_function_pointer, 0)
+#ifdef FFI_TRAMPOLINE_WHOLE_DYLIB
+#include <assert.h>
+#include <dispatch/dispatch.h>
+#include <dlfcn.h>
 #else
-#define sign_ptr(p) p
-#define auth_ptr(p) p
+extern void *ffi_closure_trampoline_table_page;
 #endif
 
 typedef struct ffi_trampoline_table ffi_trampoline_table;
@@ -189,13 +198,12 @@ struct ffi_trampoline_table_entry
 /* Total number of trampolines that fit in one trampoline table */
 #define FFI_TRAMPOLINE_COUNT (PAGE_MAX_SIZE / FFI_TRAMPOLINE_SIZE)
 
-/* The trampoline dylib has one page for the MACHO_HEADER and one page for the trampolines.
- * iOS 12.0 and later require that the entire dylib needs to be remapped as a unit.
+/* The trampoline dylib has one page for the MACHO_HEADER and one page for the
+ * trampolines. iOS 12.0 and later, and macOS on Apple Silicon require that
+ * the entire dylib needs to be remapped as a unit.
  *
  * arm (legacy): Allocate two pages -- a config page and a placeholder for the trampolines
  * arm64 (modern): Allocate three pages -- a config page and two placeholders for the trampoline dylib
- *
- * TODO: Update arm to be consistent with arm64.  Note that iOS12 does not support armv7.
  */
 #ifdef FFI_TRAMPOLINE_WHOLE_DYLIB
 #define FFI_TRAMPOLINE_ALLOCATION_PAGE_COUNT 3
@@ -234,18 +242,28 @@ ffi_trampoline_table_alloc (void)
   if (kt != KERN_SUCCESS)
     return NULL;
 
+  static void *trampoline_table_page;
+
+#ifdef FFI_TRAMPOLINE_WHOLE_DYLIB
   static dispatch_once_t trampoline_template_init_once;
-  static void *ffi_closure_trampoline_table_page;
 
   dispatch_once(&trampoline_template_init_once, ^{
     void * const trampoline_handle = dlopen("/usr/lib/libffi-trampolines.dylib", RTLD_NOW | RTLD_LOCAL | RTLD_FIRST);
     assert(trampoline_handle);
 
-    ffi_closure_trampoline_table_page = dlsym(trampoline_handle, "ffi_closure_trampoline_table_page");
-    assert(ffi_closure_trampoline_table_page);
+    trampoline_table_page = dlsym(trampoline_handle, "ffi_closure_trampoline_table_page");
+    assert(trampoline_table_page);
   });
+#else
+  trampoline_table_page = &ffi_closure_trampoline_table_page;
+#endif
 
-  trampoline_page_template = (uintptr_t) auth_ptr((void*)ffi_closure_trampoline_table_page);
+#ifdef HAVE_PTRAUTH
+  trampoline_page_template = (uintptr_t)ptrauth_auth_data(trampoline_table_page, ptrauth_key_function_pointer, 0);
+#else
+  trampoline_page_template = (uintptr_t)trampoline_table_page;
+#endif
+
 #ifdef __arm__
   /* ffi_closure_trampoline_table_page can be thumb-biased on some ARM archs */
   trampoline_page_template &= ~1UL;
@@ -281,7 +299,7 @@ ffi_trampoline_table_alloc (void)
       ffi_trampoline_table_entry *entry = &table->free_list_pool[i];
       entry->trampoline =
 	(void *) (trampoline_page + (i * FFI_TRAMPOLINE_SIZE));
-#if __has_feature(ptrauth_calls)
+#ifdef HAVE_PTRAUTH
       entry->trampoline = ptrauth_sign_unauthenticated(entry->trampoline, ptrauth_key_function_pointer, 0);
 #endif
 
@@ -437,7 +455,7 @@ ffi_closure_free (void *ptr)
 #endif
 #include <string.h>
 #include <stdio.h>
-#if !defined(X86_WIN32) && !defined(X86_WIN64) && !defined(_M_ARM64)
+#if !defined(_WIN32)
 #ifdef HAVE_MNTENT
 #include <mntent.h>
 #endif /* HAVE_MNTENT */
@@ -563,11 +581,11 @@ static int dlmalloc_trim(size_t) MAYBE_UNUSED;
 static size_t dlmalloc_usable_size(void*) MAYBE_UNUSED;
 static void dlmalloc_stats(void) MAYBE_UNUSED;
 
-#if !(defined(X86_WIN32) || defined(X86_WIN64) || defined(_M_ARM64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX)
+#if !(defined(_WIN32) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX)
 /* Use these for mmap and munmap within dlmalloc.c.  */
 static void *dlmmap(void *, size_t, int, int, int, off_t);
 static int dlmunmap(void *, size_t);
-#endif /* !(defined(X86_WIN32) || defined(X86_WIN64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX) */
+#endif /* !(defined(_WIN32) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX) */
 
 #define mmap dlmmap
 #define munmap dlmunmap
@@ -577,7 +595,7 @@ static int dlmunmap(void *, size_t);
 #undef mmap
 #undef munmap
 
-#if !(defined(X86_WIN32) || defined(X86_WIN64) || defined(_M_ARM64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX)
+#if !(defined(_WIN32) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX)
 
 /* A mutex used to synchronize access to *exec* variables in this file.  */
 static pthread_mutex_t open_temp_exec_file_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -588,6 +606,17 @@ static int execfd = -1;
 
 /* The amount of space already allocated from the temporary file.  */
 static size_t execsize = 0;
+
+#ifdef HAVE_MEMFD_CREATE
+/* Open a temporary file name, and immediately unlink it.  */
+static int
+open_temp_exec_file_memfd (const char *name)
+{
+  int fd;
+  fd = memfd_create (name, MFD_CLOEXEC);
+  return fd;
+}
+#endif
 
 /* Open a temporary file name, and immediately unlink it.  */
 static int
@@ -716,6 +745,10 @@ static struct
   const char *arg;
   int repeat;
 } open_temp_exec_file_opts[] = {
+#ifdef HAVE_MEMFD_CREATE
+  { open_temp_exec_file_memfd, "libffi", 0 },
+#endif
+  { open_temp_exec_file_env, "LIBFFI_TMPDIR", 0 },
   { open_temp_exec_file_env, "TMPDIR", 0 },
   { open_temp_exec_file_dir, "/tmp", 0 },
   { open_temp_exec_file_dir, "/var/tmp", 0 },
@@ -888,6 +921,12 @@ dlmmap (void *start, size_t length, int prot,
 	  && flags == (MAP_PRIVATE | MAP_ANONYMOUS)
 	  && fd == -1 && offset == 0);
 
+  if (execfd == -1 && ffi_tramp_is_supported ())
+    {
+      ptr = mmap (start, length, prot & ~PROT_EXEC, flags, fd, offset);
+      return ptr;
+    }
+
   if (execfd == -1 && is_emutramp_enabled ())
     {
       ptr = mmap (start, length, prot & ~PROT_EXEC, flags, fd, offset);
@@ -959,7 +998,7 @@ segment_holding_code (mstate m, char* addr)
 }
 #endif
 
-#endif /* !(defined(X86_WIN32) || defined(X86_WIN64) || defined(_M_ARM64) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX) */
+#endif /* !(defined(_WIN32) || defined(__OS2__)) || defined (__CYGWIN__) || defined(__INTERIX) */
 
 /* Allocate a chunk of memory with the given size.  Returns a pointer
    to the writable address, and sets *CODE to the executable
@@ -967,18 +1006,29 @@ segment_holding_code (mstate m, char* addr)
 void *
 ffi_closure_alloc (size_t size, void **code)
 {
-  void *ptr;
+  void *ptr, *ftramp;
 
   if (!code)
     return NULL;
 
-  ptr = dlmalloc (size);
+  ptr = FFI_CLOSURE_PTR (dlmalloc (size));
 
   if (ptr)
     {
       msegmentptr seg = segment_holding (gm, ptr);
 
       *code = add_segment_exec_offset (ptr, seg);
+      if (!ffi_tramp_is_supported ())
+        return ptr;
+
+      ftramp = ffi_tramp_alloc (0);
+      if (ftramp == NULL)
+      {
+        dlfree (FFI_RESTORE_PTR (ptr));
+        return NULL;
+      }
+      *code = ffi_tramp_get_addr (ftramp);
+      ((ffi_closure *) ptr)->ftramp = ftramp;
     }
 
   return ptr;
@@ -993,7 +1043,11 @@ ffi_data_to_code_pointer (void *data)
      burden of managing this memory themselves, in which case this
      we'll just return data. */
   if (seg)
-    return add_segment_exec_offset (data, seg);
+    {
+      if (!ffi_tramp_is_supported ())
+        return add_segment_exec_offset (data, seg);
+      return ffi_tramp_get_addr (((ffi_closure *) data)->ftramp);
+    }
   else
     return data;
 }
@@ -1011,8 +1065,17 @@ ffi_closure_free (void *ptr)
   if (seg)
     ptr = sub_segment_exec_offset (ptr, seg);
 #endif
+  if (ffi_tramp_is_supported ())
+    ffi_tramp_free (((ffi_closure *) ptr)->ftramp);
 
-  dlfree (ptr);
+  dlfree (FFI_RESTORE_PTR (ptr));
+}
+
+int
+ffi_tramp_is_present (void *ptr)
+{
+  msegmentptr seg = segment_holding (gm, ptr);
+  return seg != NULL && ffi_tramp_is_supported();
 }
 
 # else /* ! FFI_MMAP_EXEC_WRIT */
@@ -1028,19 +1091,25 @@ ffi_closure_alloc (size_t size, void **code)
   if (!code)
     return NULL;
 
-  return *code = malloc (size);
+  return *code = FFI_CLOSURE_PTR (malloc (size));
 }
 
 void
 ffi_closure_free (void *ptr)
 {
-  free (ptr);
+  free (FFI_RESTORE_PTR (ptr));
 }
 
 void *
 ffi_data_to_code_pointer (void *data)
 {
   return data;
+}
+
+int
+ffi_tramp_is_present (__attribute__((unused)) void *ptr)
+{
+  return 0;
 }
 
 # endif /* ! FFI_MMAP_EXEC_WRIT */

@@ -376,7 +376,7 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 					commandGate = IOCommandGate::commandGate(this);
 					if ( commandGate )
 					{
-						reserved = IONewZero(struct ExpansionData, 1);
+						reserved = IOMallocType(ExpansionData);
 						if ( reserved )
 						{
 							reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
@@ -485,7 +485,7 @@ IOReturn IOAudioEngineUserClient::registerClientParameterBuffer (void  * paramBu
         if (bufferSet) {
 			IOAudioClientBufferExtendedInfo64 *info;
 			
-			extendedInfo = IONewZero(IOAudioClientBufferExtendedInfo64, 1);
+			extendedInfo = IOMallocType(IOAudioClientBufferExtendedInfo64);
 			if (!extendedInfo) {
 				return kIOReturnError;
 			}
@@ -550,7 +550,7 @@ Exit:
 	{
 		OSSafeReleaseNULL(extendedInfo->mAudioClientBufferExtended32.paramBufferMap);
 		OSSafeReleaseNULL(extendedInfo->mAudioClientBufferExtended32.paramBufferDescriptor);
-		IODelete(extendedInfo, IOAudioClientBufferExtendedInfo64, 1);
+		IOFreeType(extendedInfo, IOAudioClientBufferExtendedInfo64);
 	}
 	return result;
 }
@@ -714,7 +714,7 @@ bool IOAudioEngineUserClient::initWithAudioEngine(IOAudioEngine *engine, task_t 
 					commandGate = IOCommandGate::commandGate(this);
 					if ( commandGate )
 					{
-						reserved = IONewZero(struct ExpansionData, 1);
+						reserved = IOMallocType(ExpansionData);
 						if ( reserved )
 						{
 							reserved->commandGateStatus = kCommandGateStatus_Normal;	// <rdar://8518215>
@@ -751,7 +751,7 @@ void IOAudioEngineUserClient::free()
     }
     
     if (notificationMessage) {
-        IOFreeAligned(notificationMessage, sizeof(IOAudioNotificationMessage));
+        IOFreeType(notificationMessage, IOAudioNotificationMessage);
         notificationMessage = NULL;
     }
     
@@ -780,7 +780,7 @@ void IOAudioEngineUserClient::free()
 				IODelete(prev, IOAudioClientBufferExtendedInfo64, 1);
 			}
 		}
-		IOFree (reserved, sizeof(struct ExpansionData));
+		IOFreeType (reserved, ExpansionData);
 	}
 
     super::free();
@@ -848,7 +848,7 @@ void IOAudioEngineUserClient::freeClientBuffer(IOAudioClientBuffer64 *clientBuff
 			clientBuffer->mAudioClientBuffer32.sourceBufferMap = NULL;
         }
 
-        IOFreeAligned(clientBuffer, sizeof(IOAudioClientBuffer64));
+        IOFreeType(clientBuffer, IOAudioClientBuffer64);
 		clientBuffer = NULL;
     }
 }
@@ -1143,10 +1143,9 @@ IOReturn IOAudioEngineUserClient::registerNotification(mach_port_t port, UInt32 
             }
         } else {
             if (notificationMessage == NULL) {
-                notificationMessage = (IOAudioNotificationMessage *)IOMallocAligned(sizeof(IOAudioNotificationMessage), sizeof (IOAudioNotificationMessage *));
+                notificationMessage = IOMallocType(IOAudioNotificationMessage);
                 
                 if (notificationMessage) {
-                    bzero( notificationMessage, sizeof(IOAudioNotificationMessage) );
                     notificationMessage->messageHeader.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
                     notificationMessage->messageHeader.msgh_size = sizeof(IOAudioNotificationMessage);
                     notificationMessage->messageHeader.msgh_local_port = MACH_PORT_NULL;
@@ -1463,7 +1462,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
 		unlockBuffers();
 
         // allocate IOAudioClientBuffer to hold buffer descriptor, etc...
-        clientBuffer = (IOAudioClientBuffer64 *)IOMallocAligned(sizeof(IOAudioClientBuffer64), sizeof (IOAudioClientBuffer64 *));
+        clientBuffer = IOMallocType(IOAudioClientBuffer64);
         if (!clientBuffer) 
 		{
 			audioDebugIOLog(3, "  no clientbuffer\n");
@@ -1471,8 +1470,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
             goto Exit;
         }
 		
-		// make sure everthing is set to NULL [2851917]
-		bzero(clientBuffer,sizeof(IOAudioClientBuffer64));
+
        
         clientBuffer->mAudioClientBuffer32.userClient = this;
         
@@ -1661,7 +1659,7 @@ IOReturn IOAudioEngineUserClient::registerClientBuffer64(IOAudioStream *audioStr
                     clientBuffer->mAudioClientBuffer32.audioStream->release();
 					clientBuffer->mAudioClientBuffer32.audioStream = NULL;
                 }
-                IOFreeAligned(clientBuffer, sizeof(IOAudioClientBuffer64));
+                IOFreeType(clientBuffer, IOAudioClientBuffer64);
 				clientBuffer = NULL;
             }
         }

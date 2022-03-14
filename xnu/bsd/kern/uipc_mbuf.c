@@ -1196,6 +1196,7 @@ mb_stat_sysctl SYSCTL_HANDLER_ARGS
 			oc->mbcl_mc_waiter_cnt = c->mbcl_mc_waiter_cnt;
 			oc->mbcl_mc_wretry_cnt = c->mbcl_mc_wretry_cnt;
 			oc->mbcl_mc_nwretry_cnt = c->mbcl_mc_nwretry_cnt;
+			oc->mbcl_peak_reported = c->mbcl_peak_reported;
 		}
 		statp = omb_stat;
 		statsz = OMB_STAT_SIZE(NELEM(mbuf_table));
@@ -3749,7 +3750,9 @@ m_free_paired(struct mbuf *m)
 		if (prefcnt > 1) {
 			return 1;
 		} else if (prefcnt == 1) {
-			(*(m_get_ext_free(m)))(m->m_ext.ext_buf,
+			m_ext_free_func_t m_free_func = m_get_ext_free(m);
+			VERIFY(m_free_func != NULL);
+			(*m_free_func)(m->m_ext.ext_buf,
 			    m->m_ext.ext_size, m_get_ext_arg(m));
 			return 1;
 		} else if (prefcnt == 0) {
@@ -4180,7 +4183,7 @@ m_copy_pkthdr(struct mbuf *to, struct mbuf *from)
  * "from" must have M_PKTHDR set, and "to" must be empty.
  * In particular, this does a deep copy of the packet tags.
  */
-static int
+int
 m_dup_pkthdr(struct mbuf *to, struct mbuf *from, int how)
 {
 	VERIFY(from->m_flags & M_PKTHDR);
@@ -7645,6 +7648,59 @@ mcl_audit_verify_nextptr(void *next, mcache_audit_t *mca)
 	}
 }
 
+static uintptr_t
+hash_mix(uintptr_t x)
+{
+#ifndef __LP64__
+	x += ~(x << 15);
+	x ^=  (x >> 10);
+	x +=  (x << 3);
+	x ^=  (x >> 6);
+	x += ~(x << 11);
+	x ^=  (x >> 16);
+#else
+	x += ~(x << 32);
+	x ^=  (x >> 22);
+	x += ~(x << 13);
+	x ^=  (x >> 8);
+	x +=  (x << 3);
+	x ^=  (x >> 15);
+	x += ~(x << 27);
+	x ^=  (x >> 31);
+#endif
+	return x;
+}
+
+static uint32_t
+hashbacktrace(uintptr_t* bt, uint32_t depth, uint32_t max_size)
+{
+	uintptr_t hash = 0;
+	uintptr_t mask = max_size - 1;
+
+	while (depth) {
+		hash += bt[--depth];
+	}
+
+	hash = hash_mix(hash) & mask;
+
+	assert(hash < max_size);
+
+	return (uint32_t) hash;
+}
+
+static uint32_t
+hashaddr(uintptr_t pt, uint32_t max_size)
+{
+	uintptr_t hash = 0;
+	uintptr_t mask = max_size - 1;
+
+	hash = hash_mix(pt) & mask;
+
+	assert(hash < max_size);
+
+	return (uint32_t) hash;
+}
+
 /* This function turns on mbuf leak detection */
 static void
 mleak_activate(void)
@@ -8833,6 +8889,7 @@ m_drain_force_sysctl SYSCTL_HANDLER_ARGS
 }
 
 #if DEBUG || DEVELOPMENT
+__printflike(3, 4)
 static void
 _mbwdog_logger(const char *func, const int line, const char *fmt, ...)
 {
@@ -8872,17 +8929,6 @@ _mbwdog_logger(const char *func, const int line, const char *fmt, ...)
 	strlcat(mbwdog_logging, str, mbwdog_logging_size);
 	mbwdog_logging_used += len;
 }
-
-static int
-sysctl_mbwdog_log SYSCTL_HANDLER_ARGS
-{
-#pragma unused(oidp, arg1, arg2)
-	return SYSCTL_OUT(req, mbwdog_logging, mbwdog_logging_used);
-}
-SYSCTL_DECL(_kern_ipc);
-SYSCTL_PROC(_kern_ipc, OID_AUTO, mbwdog_log,
-    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_LOCKED,
-    0, 0, sysctl_mbwdog_log, "A", "");
 
 #endif // DEBUG || DEVELOPMENT
 

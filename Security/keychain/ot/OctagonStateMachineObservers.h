@@ -70,15 +70,24 @@ NS_ASSUME_NONNULL_BEGIN
 @property (readonly) NSString* name;
 @property (readonly) CKKSResultOperation* result;
 @property (readonly) NSSet<OctagonState*>* states;
+@property (readonly) NSDictionary<OctagonState*, NSError*>* failStates;
 
 - (instancetype)initNamed:(NSString*)name
               serialQueue:(dispatch_queue_t)queue
                    states:(NSSet<OctagonState*>*)states;
 
+- (instancetype)initNamed:(NSString*)name
+              serialQueue:(dispatch_queue_t)queue
+                   states:(NSSet<OctagonState*>*)states
+               failStates:(NSDictionary<OctagonState*, NSError*>*)failStates;
+
 // Called by the state machine if it's already in a state at registration time
 - (void)onqueueEnterState:(OctagonState*)state;
 
 - (instancetype)timeout:(dispatch_time_t)timeout;
+
+// If the watcher is still waiting to complete or timeout, cause it to finish with this error
+- (void)completeWithErrorIfPending:(NSError*)error;
 @end
 
 NS_ASSUME_NONNULL_END

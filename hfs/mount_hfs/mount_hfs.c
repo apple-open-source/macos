@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2013 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2022 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -621,8 +621,18 @@ main(argc, argv)
 
 	dev = argv[0];
 
-	if (realpath(argv[1], dir) == NULL)
-		err(1, "realpath %s", dir);
+	/* don't realpath if MNT_NOFOLLOW specified */
+	if (mntflags & MNT_NOFOLLOW) {
+		size_t sc = strlcpy (dir, argv[1], MAXPATHLEN);
+		if (sc >= MAXPATHLEN) {
+			err(1, "realpath(2) %s", dir);
+		}
+	} else {
+		char *ptr = realpath(argv[1], dir);
+		if (ptr == NULL) {
+			err(1, "realpath %s", dir);
+		}
+	}
 
 	args.fspec = dev;
 

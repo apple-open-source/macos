@@ -1623,42 +1623,6 @@ SecPolicyRef SecPolicyCreateSSL(Boolean server, CFStringRef hostname) {
     return SecPolicyCreateSSLWithKeyUsage(server, hostname, kSecKeyUsageUnspecified);
 }
 
-SecPolicyRef SecPolicyCreateLegacySSL(Boolean server, CFStringRef hostname) {
-    CFMutableDictionaryRef options = NULL;
-    SecPolicyRef result = NULL;
-
-    require(options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                                                &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks), errOut);
-
-    SecPolicyAddBasicX509Options(options);
-
-    if (hostname) {
-        CFDictionaryAddValue(options, kSecPolicyCheckSSLHostname, hostname);
-    }
-
-    CFDictionaryAddValue(options, kSecPolicyCheckBlackListedLeaf,  kCFBooleanTrue);
-    CFDictionaryAddValue(options, kSecPolicyCheckGrayListedLeaf,   kCFBooleanTrue);
-
-    if (server) {
-        // fewer requirements than the standard SSL policy
-        require_quiet(SecPolicyAddPinningRequiredIfInfoSpecified(options), errOut);
-        SecPolicyAddATSpinningIfInfoSpecified(options);
-        SecPolicyReconcilePinningRequiredIfInfoSpecified(options);
-        CFDictionaryAddValue(options, kSecPolicyCheckValidityPeriodMaximums, kCFBooleanTrue);
-#if !TARGET_OS_BRIDGE
-        CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedCTRequired, kCFBooleanTrue);
-#endif
-    }
-
-    set_ssl_ekus(options, server);
-
-    require(result = SecPolicyCreate(kSecPolicyAppleLegacySSL, kSecPolicyNameLegacySSL, options), errOut);
-
-errOut:
-    CFReleaseSafe(options);
-    return (SecPolicyRef _Nonnull)result;
-}
-
 SecPolicyRef SecPolicyCreateApplePinned(CFStringRef policyName, CFStringRef intermediateMarkerOID, CFStringRef leafMarkerOID) {
     CFMutableDictionaryRef options = NULL;
     SecPolicyRef result = NULL;

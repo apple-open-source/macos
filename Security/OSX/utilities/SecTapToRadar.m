@@ -51,7 +51,7 @@ static NSString* kSecPreferenceDomain = @"com.apple.security";
 
 @end
 
-static BOOL SecTTRDisabled = true;
+static BOOL SecTTRDisabled = NO;
 
 @implementation SecTapToRadar
 
@@ -145,11 +145,10 @@ static BOOL SecTTRDisabled = true;
     NSString *title = [NSString stringWithFormat:@"Triggered SecTTR: %@ - %@", ttrRequest.alert, ttrRequest.radarnumber];
     NSString *encodedTitle = [title stringByAddingPercentEncodingWithAllowedCharacters:queryComponent];
 
-    NSString *desc = [NSString stringWithFormat:@"%@\nRelated radar: radr://%@", ttrRequest.radarDescription, ttrRequest.radarnumber];
+    NSString *desc = [NSString stringWithFormat:@"%@\nRelated radar: rdar://%@", ttrRequest.radarDescription, ttrRequest.radarnumber];
     NSString *encodedDesc = [desc stringByAddingPercentEncodingWithAllowedCharacters:queryComponent];
 
     NSString *url = [NSString stringWithFormat:@"tap-to-radar://new?"
-                     "Reproducibilty=Always&"
                      "Title=%@&"
                      "ComponentName=%@&"
                      "ComponentVersion=%@&"

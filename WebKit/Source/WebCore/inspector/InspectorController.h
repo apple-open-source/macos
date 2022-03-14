@@ -106,6 +106,7 @@ public:
     void setIsUnderTest(bool isUnderTest) { m_isUnderTest = isUnderTest; }
     WEBCORE_EXPORT void evaluateForTestInFrontend(const String& script);
     WEBCORE_EXPORT unsigned gridOverlayCount() const;
+    WEBCORE_EXPORT unsigned paintRectCount() const;
 
     InspectorClient* inspectorClient() const { return m_inspectorClient; }
     InspectorFrontendClient* inspectorFrontendClient() const { return m_inspectorFrontendClient; }
@@ -120,7 +121,7 @@ public:
     Inspector::InspectorFunctionCallHandler functionCallHandler() const override;
     Inspector::InspectorEvaluateHandler evaluateHandler() const override;
     void frontendInitialized() override;
-    WTF::Stopwatch& executionStopwatch() const final;
+    Stopwatch& executionStopwatch() const final;
     PageDebugger& debugger() override;
     JSC::VM& vm() override;
 
@@ -135,7 +136,7 @@ private:
     Ref<Inspector::FrontendRouter> m_frontendRouter;
     Ref<Inspector::BackendDispatcher> m_backendDispatcher;
     std::unique_ptr<InspectorOverlay> m_overlay;
-    Ref<WTF::Stopwatch> m_executionStopwatch;
+    Ref<Stopwatch> m_executionStopwatch;
     PageDebugger m_debugger;
     Inspector::AgentRegistry m_agents;
 

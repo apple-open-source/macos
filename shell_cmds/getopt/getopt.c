@@ -1,6 +1,16 @@
 #include <sys/cdefs.h>
-__RCSID("$FreeBSD: src/usr.bin/getopt/getopt.c,v 1.10 2002/09/04 23:29:01 dwmalone Exp $");
+__FBSDID("$FreeBSD$");
 
+/*
+ * This material, written by Henry Spencer, was released by him
+ * into the public domain and is thus not subject to any copyright.
+ */
+
+#ifndef __APPLE__
+#include <capsicum_helpers.h>
+#include <err.h>
+#include <errno.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -10,6 +20,11 @@ main(int argc, char *argv[])
 {
 	int c;
 	int status = 0;
+
+#ifndef __APPLE__
+	if (caph_limit_stdio() < 0 || caph_enter() < 0)
+		err(1, "capsicum");
+#endif
 
 	optind = 2;	/* Past the program name and the option letters. */
 	while ((c = getopt(argc, argv, argv[1])) != -1)

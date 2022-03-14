@@ -34,6 +34,7 @@
 #include "AuthenticatorCoordinatorClient.h"
 #include "AuthenticatorResponseData.h"
 #include "Document.h"
+#include "FeaturePolicy.h"
 #include "JSBasicCredential.h"
 #include "JSDOMPromiseDeferred.h"
 #include "PublicKeyCredential.h"
@@ -41,42 +42,14 @@
 #include "PublicKeyCredentialRequestOptions.h"
 #include "RegistrableDomain.h"
 #include "LegacySchemeRegistry.h"
-#include "SecurityOrigin.h"
 #include "WebAuthenticationConstants.h"
+#include "WebAuthenticationUtils.h"
 #include <pal/crypto/CryptoDigest.h>
-#include <wtf/JSONValues.h>
 #include <wtf/NeverDestroyed.h>
-#include <wtf/text/Base64.h>
 
 namespace WebCore {
 
 namespace AuthenticatorCoordinatorInternal {
-
-// FIXME(181948): Add token binding ID.
-static Ref<ArrayBuffer> produceClientDataJson(ClientDataType type, const BufferSource& challenge, const SecurityOrigin& origin)
-{
-    auto object = JSON::Object::create();
-    switch (type) {
-    case ClientDataType::Create:
-        object->setString("type"_s, "webauthn.create"_s);
-        break;
-    case ClientDataType::Get:
-        object->setString("type"_s, "webauthn.get"_s);
-        break;
-    }
-    object->setString("challenge"_s, base64URLEncodeToString(challenge.data(), challenge.length()));
-    object->setString("origin"_s, origin.toRawString());
-
-    auto utf8JSONString = object->toJSONString().utf8();
-    return ArrayBuffer::create(utf8JSONString.data(), utf8JSONString.length());
-}
-
-static Vector<uint8_t> produceClientDataJsonHash(const ArrayBuffer& clientDataJson)
-{
-    auto crypto = PAL::CryptoDigest::create(PAL::CryptoDigest::Algorithm::SHA_256);
-    crypto->addBytes(clientDataJson.data(), clientDataJson.byteLength());
-    return crypto->computeHash();
-}
 
 static bool needsAppIdQuirks(const String& host, const String& appId)
 {
@@ -132,7 +105,7 @@ void AuthenticatorCoordinator::setClient(std::unique_ptr<AuthenticatorCoordinato
     m_client = WTFMove(client);
 }
 
-void AuthenticatorCoordinator::create(const Document& document, const PublicKeyCredentialCreationOptions& options, bool sameOriginWithAncestors, RefPtr<AbortSignal>&& abortSignal, CredentialPromise&& promise) const
+void AuthenticatorCoordinator::create(const Document& document, const PublicKeyCredentialCreationOptions& options, WebAuthn::Scope scope, RefPtr<AbortSignal>&& abortSignal, CredentialPromise&& promise) const
 {
     using namespace AuthenticatorCoordinatorInternal;
 
@@ -142,7 +115,7 @@ void AuthenticatorCoordinator::create(const Document& document, const PublicKeyC
     // The following implements https://www.w3.org/TR/webauthn/#createCredential as of 5 December 2017.
     // Step 1, 3, 16 are handled by the caller.
     // Step 2.
-    if (!sameOriginWithAncestors) {
+    if (scope != WebAuthn::Scope::SameOrigin) {
         promise.reject(Exception { NotAllowedError, "The origin of the document is not the same as its ancestors."_s });
         return;
     }
@@ -176,8 +149,8 @@ void AuthenticatorCoordinator::create(const Document& document, const PublicKeyC
     options.extensions = AuthenticationExtensionsClientInputs { String(), processGoogleLegacyAppIdSupportExtension(options.extensions, options.rp.id) };
 
     // Step 13-15.
-    auto clientDataJson = produceClientDataJson(ClientDataType::Create, options.challenge, callerOrigin);
-    auto clientDataJsonHash = produceClientDataJsonHash(clientDataJson);
+    auto clientDataJson = buildClientDataJson(ClientDataType::Create, options.challenge, callerOrigin, scope);
+    auto clientDataJsonHash = buildClientDataJsonHash(clientDataJson);
 
     // Step 4, 17-21.
     if (!m_client) {
@@ -203,7 +176,7 @@ void AuthenticatorCoordinator::create(const Document& document, const PublicKeyC
     m_client->makeCredential(*frame, callerOrigin, clientDataJsonHash, options, WTFMove(callback));
 }
 
-void AuthenticatorCoordinator::discoverFromExternalSource(const Document& document, const PublicKeyCredentialRequestOptions& options, bool sameOriginWithAncestors, RefPtr<AbortSignal>&& abortSignal, CredentialPromise&& promise) const
+void AuthenticatorCoordinator::discoverFromExternalSource(const Document& document, const PublicKeyCredentialRequestOptions& options, WebAuthn::Scope scope, RefPtr<AbortSignal>&& abortSignal, CredentialPromise&& promise) const
 {
     using namespace AuthenticatorCoordinatorInternal;
 
@@ -213,7 +186,8 @@ void AuthenticatorCoordinator::discoverFromExternalSource(const Document& docume
     // The following implements https://www.w3.org/TR/webauthn/#createCredential as of 5 December 2017.
     // Step 1, 3, 13 are handled by the caller.
     // Step 2.
-    if (!sameOriginWithAncestors) {
+    // This implements https://www.w3.org/TR/webauthn-2/#sctn-permissions-policy except only same-site, cross-origin is permitted.
+    if (scope != WebAuthn::Scope::SameOrigin && !(scope == WebAuthn::Scope::SameSite && isFeaturePolicyAllowedByDocumentAndAllOwners(FeaturePolicy::Type::PublickeyCredentialsGetRule, document, LogFeaturePolicyFailure::No))) {
         promise.reject(Exception { NotAllowedError, "The origin of the document is not the same as its ancestors."_s });
         return;
     }
@@ -247,8 +221,8 @@ void AuthenticatorCoordinator::discoverFromExternalSource(const Document& docume
     }
 
     // Step 10-12.
-    auto clientDataJson = produceClientDataJson(ClientDataType::Get, options.challenge, callerOrigin);
-    auto clientDataJsonHash = produceClientDataJsonHash(clientDataJson);
+    auto clientDataJson = buildClientDataJson(ClientDataType::Get, options.challenge, callerOrigin, scope);
+    auto clientDataJsonHash = buildClientDataJsonHash(clientDataJson);
 
     // Step 4, 14-19.
     if (!m_client) {

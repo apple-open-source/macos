@@ -653,6 +653,7 @@ for command in commands {
                          policySecrets: policySecrets,
                          syncUserControllableViews: .UNKNOWN,
                          secureElementIdentity: nil,
+                         setting: nil,
                          signingPrivKeyPersistentRef: nil,
                          encPrivKeyPersistentRef: nil) { peerID, permanentInfo, permanentInfoSig, stableInfo, stableInfoSig, syncingPolicy, error in
                             guard error == nil else {

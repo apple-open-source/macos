@@ -57,7 +57,7 @@
 
         if(self.error) {
             if ([self.error isRetryable]) {
-                NSTimeInterval delay = [self.error overallCuttlefishRetry];
+                NSTimeInterval delay = [self.error retryInterval];
                 secnotice("octagon-sos", "SOS update preapproval error is not fatal: requesting retry in %0.2fs: %@", delay, self.error);
                 [self.deps.flagHandler handlePendingFlag:[[OctagonPendingFlag alloc] initWithFlag:OctagonFlagAttemptSOSUpdatePreapprovals
                                                                                    delayInSeconds:delay]];

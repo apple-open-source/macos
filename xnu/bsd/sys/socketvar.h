@@ -564,10 +564,6 @@ struct sockopt {
 	struct  proc *sopt_p;   /* calling process or null if kernel */
 };
 
-#ifdef MALLOC_DECLARE
-MALLOC_DECLARE(M_PCB);
-#endif /* MALLOC_DECLARE */
-
 #ifdef BSD_KERNEL_PRIVATE
 struct cmsghdr;
 extern boolean_t is_cmsg_valid(struct mbuf *control, struct cmsghdr *cmsg);

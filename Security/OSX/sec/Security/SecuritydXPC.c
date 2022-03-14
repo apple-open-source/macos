@@ -174,8 +174,6 @@ CFStringRef SOSCCGetOperationDescription(enum SecXPCOperation op)
             return CFSTR("View");
         case sec_add_shared_web_credential_id:
             return CFSTR("add_shared_web_credential");
-        case sec_copy_shared_web_credential_id:
-            return CFSTR("copy_shared_web_credential");
         case sec_delete_all_id:
             return CFSTR("delete_all");
         case sec_get_log_settings_id:

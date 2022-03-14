@@ -502,8 +502,7 @@ autofs_trigger_get_mount_args(__unused vnode_t vp, vfs_context_t ctx, int *errp)
 	/*
 	 * Allocate the args structure.
 	 */
-	MALLOC(argsp, struct autofs_callargs *, sizeof (*argsp), M_AUTOFS,
-	    M_WAITOK);
+	argsp = kalloc_type(struct autofs_callargs, Z_WAITOK);
 
 	/*
 	 * Get the UID for the process that triggered the mount, so
@@ -617,7 +616,7 @@ autofs_trigger_rel_mount_args(void *data)
 {
 	struct autofs_callargs *argsp = data;
 
-	FREE(argsp, M_AUTOFS);
+	kfree_type(struct autofs_callargs, argsp);
 }
 
 /*
@@ -702,17 +701,13 @@ auto_mount_subtrigger_request(
  * For doing mounts atop an autofs node that's a trigger.
  */
 static void *
-autofs_subtrigger_get_mount_args(__unused vnode_t vp,
-    __unused vfs_context_t ctx, int *errp)
+autofs_subtrigger_get_mount_args(__unused vnode_t vp, __unused vfs_context_t ctx, int *errp)
 {
 	struct trigger_callargs *argsp;
 
-	/*
-	 * Allocate the args structure.
-	 */
-	MALLOC(argsp, struct trigger_callargs *, sizeof (*argsp), M_AUTOFS,
-	    M_WAITOK);
+	argsp = kalloc_type(struct trigger_callargs, Z_WAITOK);
 	*errp = 0;
+
 	return (argsp);
 }
 
@@ -752,8 +747,7 @@ static void
 autofs_subtrigger_rel_mount_args(void *data)
 {
 	struct trigger_callargs *argsp = data;
-
-	FREE(argsp, M_AUTOFS);
+	kfree_type(struct trigger_callargs, argsp);
 }
 
 static void
@@ -791,7 +785,7 @@ getstring(char **strp, uint8_t **inbufp, mach_msg_type_number_t *bytes_leftp)
 			IOLog("Action list too short for string data");
 			return (EIO);
 		}
-		MALLOC(*strp, char *, stringlen + 1, M_AUTOFS, M_WAITOK);
+		strp = kalloc_data(stringlen + 1, Z_WAITOK);
 		if (*strp == NULL) {
 			IOLog("No space for string data in action list");
 			return (ENOMEM);
@@ -837,19 +831,19 @@ static void
 free_mounta_strings(struct mounta *m)
 {
 	if (m->dir != NULL)
-		FREE(m->dir, M_AUTOFS);
+		kfree_data(m->dir, strlen(m->dir) + 1);
 	if (m->opts != NULL)
-		FREE(m->opts, M_AUTOFS);
+		kfree_data(m->opts, strlen(m->opts) + 1);
 	if (m->path != NULL)
-		FREE(m->path, M_AUTOFS);
+		kfree_data(m->path, strlen(m->path) + 1);
 	if (m->map != NULL)
-		FREE(m->map, M_AUTOFS);
+		kfree_data(m->map, strlen(m->map) + 1);
 	if (m->subdir != NULL)
-		FREE(m->subdir, M_AUTOFS);
+		kfree_data(m->subdir, strlen(m->subdir) + 1);
 	if (m->trig_mntpnt != NULL)
-		FREE(m->trig_mntpnt, M_AUTOFS);
+		kfree_data(m->trig_mntpnt, strlen(m->trig_mntpnt) + 1);
 	if (m->key != NULL)
-		FREE(m->key, M_AUTOFS);
+		kfree_data(m->key, strlen(m->key) + 1);
 }
 
 static void
@@ -860,7 +854,7 @@ free_action_list(action_list *alp)
 	for (action = alp; action != NULL; action = next_action) {
 		next_action = action->next;
 		free_mounta_strings(&action->mounta);
-		FREE(action, M_AUTOFS);
+		kfree_type(struct action_list, action);
 	}
 }
 
@@ -933,8 +927,7 @@ auto_mount_request(
 			inbuf = (uint8_t *)data;
 			bytes_left = actions_bufcount;
 			while (bytes_left != 0) {
-				MALLOC(alp, action_list *, sizeof(*alp),
-				    M_AUTOFS, M_WAITOK);
+				alp = kalloc_type(struct action_list, Z_WAITOK);
 				if (prevalp == NULL)
 					alphead = alp;
 				else
@@ -1128,8 +1121,7 @@ auto_make_subtriggers(action_list *alp)
 
 	for (p = alp; p != NULL; p = pnext) {
 		pnext = p->next;
-		MALLOC(subtrigger, subtrigger_t *, sizeof(subtrigger_t),
-		    M_AUTOFS, M_WAITOK);
+		subtrigger = kalloc_type(struct subtrigger, Z_WAITOK);
 		subtrigger->mounta = p->mounta;	/* copies pointers */
 		subtrigger->inplace = 0;	/* not planted yet */
 		subtrigger->next = NULL;	/* end of the list, so far */
@@ -1141,8 +1133,9 @@ auto_make_subtriggers(action_list *alp)
 			prev_subtrigger->next = subtrigger;
 		}
 		prev_subtrigger = subtrigger;
-		FREE(p, M_AUTOFS);
+		kfree_type(struct action_list, p); /* XXXab: is this ok? */
 	}
+
 	return (subtriggers);
 }
 
@@ -1158,7 +1151,7 @@ auto_free_subtriggers(subtrigger_t *subtriggers)
 	    subtrigger = next_subtrigger) {
 		next_subtrigger = subtrigger->next;
 		free_mounta_strings(&subtrigger->mounta);
-		FREE(subtrigger, M_AUTOFS);
+		kfree_type(struct subtrigger, subtrigger);
 	}
 }
 
@@ -1354,13 +1347,12 @@ auto_makefnnode(
 	} else
 		namelen = (int)strlen(name);
 
-	MALLOC(fnp, fnnode_t *, sizeof(fnnode_t), M_AUTOFS, M_WAITOK);
-	bzero(fnp, sizeof(*fnp));
+	fnp = kalloc_type(struct fnnode, Z_WAITOK | Z_ZERO);
 	fnp->fn_namelen = namelen;
-	MALLOC(tmpname, char *, fnp->fn_namelen + 1, M_AUTOFS, M_WAITOK);
+	tmpname = kalloc_data(fnp->fn_namelen + 1, Z_WAITOK | Z_ZERO);
 	bcopy(name, tmpname, namelen);
-	tmpname[namelen] = '\0';
 	fnp->fn_name = tmpname;
+
 	/*
 	 * ".." is added in auto_enter and auto_mount.
 	 * "." is added in auto_mkdir and auto_mount.
@@ -1434,10 +1426,11 @@ auto_makefnnode(
 		/*
 		 * All autofs symlinks are links to "/".
 		 */
-		MALLOC(tmp, char *, 1, M_AUTOFS, M_WAITOK);
+		fnp->fn_symlinklen = 1;
+		tmp = kalloc_data(fnp->fn_symlinklen + 1, Z_WAITOK | Z_ZERO);
 		bcopy("/", tmp, 1);
 		fnp->fn_symlink = tmp;
-		fnp->fn_symlinklen = 1;
+		/* XXXab: Why so comlicated? Why can't just point to string literal?! */
 	}
 
 	fnp->fn_vnode = vp;
@@ -1512,15 +1505,16 @@ auto_freefnnode(fnnode_t *fnp, int is_symlink)
 	assert(is_symlink || fnp->fn_dirents == NULL);
 	assert(fnp->fn_parent == NULL);
 
-	FREE(fnp->fn_name, M_AUTOFS);
+	kfree_data(fnp->fn_name, fnp->fn_namelen + 1);
 	/*
 	 * fn_symlink is a union with dirents. If a parent gets reclaimed
 	 * before the child, dirents might not be NULL i.e. this could
 	 * be trying to free memory it hasn't allocated. So only attempt
 	 * to free this if we actaully are a symlink ...
 	 */
-	if (is_symlink && fnp->fn_symlink != NULL)
-		FREE(fnp->fn_symlink, M_AUTOFS);
+	if (is_symlink && fnp->fn_symlink != NULL) {
+		kfree_data(fnp->fn_symlink, fnp->fn_symlinklen + 1);
+	}
 	lck_mtx_free(fnp->fn_lock, autofs_lck_grp);
 	lck_rw_free(fnp->fn_rwlock, autofs_lck_grp);
 	lck_mtx_free(fnp->fn_mnt_lock, autofs_lck_grp);
@@ -1528,7 +1522,7 @@ auto_freefnnode(fnnode_t *fnp, int is_symlink)
 	lck_mtx_lock(autofs_nodeid_lock);
 	fnp->fn_globals->fng_fnnode_count--;
 	lck_mtx_unlock(autofs_nodeid_lock);
-	FREE(fnp, M_AUTOFS);
+	kfree_type(struct fnnode, fnp);
 }
 
 /*

@@ -46,7 +46,7 @@
 #endif
 
 #ifndef PROTO
-# if defined(FEAT_TITLE) && !defined(FEAT_GUI_MSWIN)
+# if !defined(FEAT_GUI_MSWIN)
 #  include <shellapi.h>
 # endif
 #endif
@@ -529,6 +529,10 @@ vimLoadLib(char *name)
 {
     HINSTANCE	dll = NULL;
 
+    // No need to load any library when registering OLE.
+    if (found_register_arg)
+	return dll;
+
     // NOTE: Do not use mch_dirname() and mch_chdir() here, they may call
     // vimLoadLib() recursively, which causes a stack overflow.
     if (exe_path == NULL)
@@ -712,7 +716,7 @@ dyn_libintl_init(void)
 	if (p_verbose > 0)
 	{
 	    verbose_enter();
-	    semsg(_(e_loadlib), GETTEXT_DLL);
+	    semsg(_(e_could_not_load_library_str_str), GETTEXT_DLL, GetWin32Error());
 	    verbose_leave();
 	}
 	return 0;
@@ -727,7 +731,7 @@ dyn_libintl_init(void)
 	    if (p_verbose > 0)
 	    {
 		verbose_enter();
-		semsg(_(e_loadfunc), libintl_entry[i].name);
+		semsg(_(e_could_not_load_library_function_str), libintl_entry[i].name);
 		verbose_leave();
 	    }
 	    return 0;
@@ -1101,7 +1105,7 @@ decode_key_event(
 	return TRUE;
     }
 
-    for (i = sizeof(VirtKeyMap) / sizeof(VirtKeyMap[0]);  --i >= 0;  )
+    for (i = ARRAY_LENGTH(VirtKeyMap);  --i >= 0;  )
     {
 	if (VirtKeyMap[i].wVirtKey == pker->wVirtualKeyCode)
 	{
@@ -1176,6 +1180,8 @@ static int g_fMouseActive = FALSE;  // mouse enabled
 static int g_nMouseClick = -1;	    // mouse status
 static int g_xMouse;		    // mouse x coordinate
 static int g_yMouse;		    // mouse y coordinate
+static DWORD g_cmodein = 0;         // Original console input mode
+static DWORD g_cmodeout = 0;        // Original console output mode
 
 /*
  * Enable or disable mouse input
@@ -1196,11 +1202,17 @@ mch_setmouse(int on)
     GetConsoleMode(g_hConIn, &cmodein);
 
     if (g_fMouseActive)
+    {
 	cmodein |= ENABLE_MOUSE_INPUT;
+	cmodein &= ~ENABLE_QUICK_EDIT_MODE;
+    }
     else
+    {
 	cmodein &= ~ENABLE_MOUSE_INPUT;
+	cmodein |= g_cmodein & ENABLE_QUICK_EDIT_MODE;
+    }
 
-    SetConsoleMode(g_hConIn, cmodein);
+    SetConsoleMode(g_hConIn, cmodein | ENABLE_EXTENDED_FLAGS);
 }
 
 
@@ -1644,7 +1656,9 @@ WaitForChar(long msec, int ignore_input)
 	peek_console_input(g_hConIn, &ir, 1, &cRecords);
 
 # ifdef FEAT_MBYTE_IME
-	if (State & CMDLINE && msg_row == Rows - 1)
+	// May have to redraw if the cursor ends up in the wrong place.
+	// Only when not peeking.
+	if (State & CMDLINE && msg_row == Rows - 1 && msec != 0)
 	{
 	    CONSOLE_SCREEN_BUFFER_INFO csbi;
 
@@ -1652,10 +1666,10 @@ WaitForChar(long msec, int ignore_input)
 	    {
 		if (csbi.dwCursorPosition.Y != msg_row)
 		{
-		    // The screen is now messed up, must redraw the
-		    // command line and later all the windows.
+		    // The screen is now messed up, must redraw the command
+		    // line and later all the windows.
 		    redraw_all_later(CLEAR);
-		    cmdline_row -= (msg_row - csbi.dwCursorPosition.Y);
+		    compute_cmdrow();
 		    redrawcmd();
 		}
 	    }
@@ -2121,6 +2135,7 @@ executable_exists(char *name, char_u **path, int use_path, int use_pathext)
     char_u	*pathbuf = NULL;
     char_u	*pathext = NULL;
     char_u	*pathextbuf = NULL;
+    char_u	*shname = NULL;
     int		noext = FALSE;
     int		retval = FALSE;
 
@@ -2128,7 +2143,10 @@ executable_exists(char *name, char_u **path, int use_path, int use_pathext)
 	return FALSE;
 
     // Using the name directly when a Unix-shell like 'shell'.
-    if (strstr((char *)gettail(p_sh), "sh") != NULL)
+    shname = gettail(p_sh);
+    if (strstr((char *)shname, "sh") != NULL &&
+	!(strstr((char *)shname, "powershell") != NULL
+				    || strstr((char *)shname, "pwsh") != NULL))
 	noext = TRUE;
 
     if (use_pathext)
@@ -2169,7 +2187,7 @@ executable_exists(char *name, char_u **path, int use_path, int use_pathext)
 	}
     }
 
-    // Prepend single "." to pathext, it's means no extension added.
+    // Prepend single "." to pathext, it means no extension added.
     if (pathext == NULL)
 	pathext = (char_u *)".";
     else if (noext == TRUE)
@@ -2665,7 +2683,6 @@ static ConsoleBuffer g_cbOrig = { 0 };
 static ConsoleBuffer g_cbNonTermcap = { 0 };
 static ConsoleBuffer g_cbTermcap = { 0 };
 
-# ifdef FEAT_TITLE
 char g_szOrigTitle[256] = { 0 };
 HWND g_hWnd = NULL;	// also used in os_mswin.c
 static HICON g_hOrigIconSmall = NULL;
@@ -2674,12 +2691,12 @@ static HICON g_hVimIcon = NULL;
 static BOOL g_fCanChangeIcon = FALSE;
 
 // ICON* are not defined in VC++ 4.0
-#  ifndef ICON_SMALL
-#   define ICON_SMALL 0
-#  endif
-#  ifndef ICON_BIG
-#   define ICON_BIG 1
-#  endif
+# ifndef ICON_SMALL
+#  define ICON_SMALL 0
+# endif
+# ifndef ICON_BIG
+#  define ICON_BIG 1
+# endif
 /*
  * GetConsoleIcon()
  * Description:
@@ -2771,13 +2788,10 @@ SaveConsoleTitleAndIcon(void)
     if (g_hVimIcon != NULL)
 	g_fCanChangeIcon = TRUE;
 }
-# endif
 
 static int g_fWindInitCalled = FALSE;
 static int g_fTermcapMode = FALSE;
 static CONSOLE_CURSOR_INFO g_cci;
-static DWORD g_cmodein = 0;
-static DWORD g_cmodeout = 0;
 
 /*
  * non-GUI version of mch_init().
@@ -2834,7 +2848,6 @@ mch_init_c(void)
     GetConsoleMode(g_hConIn,  &g_cmodein);
     GetConsoleMode(g_hConOut, &g_cmodeout);
 
-# ifdef FEAT_TITLE
     SaveConsoleTitleAndIcon();
     /*
      * Set both the small and big icons of the console window to Vim's icon.
@@ -2843,7 +2856,6 @@ mch_init_c(void)
      */
     if (g_fCanChangeIcon)
 	SetConsoleIcon(g_hWnd, g_hVimIcon, g_hVimIcon);
-# endif
 
     ui_get_shellsize();
 
@@ -2893,7 +2905,6 @@ mch_exit_c(int r)
 
     if (g_fWindInitCalled)
     {
-# ifdef FEAT_TITLE
 	mch_restore_title(SAVE_RESTORE_BOTH);
 	/*
 	 * Restore both the small and big icons of the console window to
@@ -2902,7 +2913,6 @@ mch_exit_c(int r)
 	 */
 	if (g_fCanChangeIcon && !g_fForceExit)
 	    SetConsoleIcon(g_hWnd, g_hOrigIconSmall, g_hOrigIcon);
-# endif
 
 # ifdef MCH_WRITE_DUMP
 	if (fdDump)
@@ -2918,7 +2928,7 @@ mch_exit_c(int r)
     }
 
     SetConsoleCursorInfo(g_hConOut, &g_cci);
-    SetConsoleMode(g_hConIn,  g_cmodein);
+    SetConsoleMode(g_hConIn,  g_cmodein | ENABLE_EXTENDED_FLAGS);
     SetConsoleMode(g_hConOut, g_cmodeout);
 
 # ifdef DYNAMIC_GETTEXT
@@ -3033,7 +3043,7 @@ mch_get_user_name(
     int	    len)
 {
     WCHAR wszUserName[256 + 1];	// UNLEN is 256
-    DWORD wcch = sizeof(wszUserName) / sizeof(WCHAR);
+    DWORD wcch = ARRAY_LENGTH(wszUserName);
 
     if (GetUserNameW(wszUserName, &wcch))
     {
@@ -3060,7 +3070,7 @@ mch_get_host_name(
     int		len)
 {
     WCHAR wszHostName[256 + 1];
-    DWORD wcch = sizeof(wszHostName) / sizeof(WCHAR);
+    DWORD wcch = ARRAY_LENGTH(wszHostName);
 
     if (GetComputerNameW(wszHostName, &wcch))
     {
@@ -3741,7 +3751,14 @@ mch_settmode(tmode_T tmode)
 	cmodein &= ~(ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT |
 		     ENABLE_ECHO_INPUT);
 	if (g_fMouseActive)
+	{
 	    cmodein |= ENABLE_MOUSE_INPUT;
+	    cmodein &= ~ENABLE_QUICK_EDIT_MODE;
+	}
+	else
+	{
+	    cmodein |= g_cmodein & ENABLE_QUICK_EDIT_MODE;
+	}
 	cmodeout &= ~(
 # ifdef FEAT_TERMGUICOLORS
 	    // Do not turn off the ENABLE_PROCESSED_OUTPUT flag when using
@@ -3760,7 +3777,7 @@ mch_settmode(tmode_T tmode)
 	cmodeout |= (ENABLE_PROCESSED_OUTPUT | ENABLE_WRAP_AT_EOL_OUTPUT);
 	bEnableHandler = FALSE;
     }
-    SetConsoleMode(g_hConIn, cmodein);
+    SetConsoleMode(g_hConIn, cmodein | ENABLE_EXTENDED_FLAGS);
     SetConsoleMode(g_hConOut, cmodeout);
     SetConsoleCtrlHandler(handler_routine, bEnableHandler);
 
@@ -4734,12 +4751,10 @@ mch_call_shell(
 {
     int		x = 0;
     int		tmode = cur_tmode;
-#ifdef FEAT_TITLE
     WCHAR	szShellTitle[512];
 
     // Change the title to reflect that we are in a subshell.
-    if (GetConsoleTitleW(szShellTitle,
-		sizeof(szShellTitle)/sizeof(WCHAR) - 4) > 0)
+    if (GetConsoleTitleW(szShellTitle, ARRAY_LENGTH(szShellTitle) - 4) > 0)
     {
 	if (cmd == NULL)
 	    wcscat(szShellTitle, L" :sh");
@@ -4751,14 +4766,13 @@ mch_call_shell(
 	    {
 		wcscat(szShellTitle, L" - !");
 		if ((wcslen(szShellTitle) + wcslen(wn) <
-			    sizeof(szShellTitle)/sizeof(WCHAR)))
+			    ARRAY_LENGTH(szShellTitle)))
 		    wcscat(szShellTitle, wn);
 		SetConsoleTitleW(szShellTitle);
 		vim_free(wn);
 	    }
 	}
     }
-#endif
 
     out_flush();
 
@@ -4791,9 +4805,7 @@ mch_call_shell(
 	{
 	    // Use a terminal window to run the command in.
 	    x = mch_call_shell_terminal(cmd, options);
-# ifdef FEAT_TITLE
 	    resettitle();
-# endif
 	    return x;
 	}
     }
@@ -4942,7 +4954,7 @@ mch_call_shell(
 # ifdef VIMDLL
 		if (gui.in_use)
 # endif
-		    emsg(_("E371: Command not found"));
+		    emsg(_(e_command_not_found));
 #endif
 	    }
 
@@ -5040,9 +5052,7 @@ mch_call_shell(
 	smsg(_("shell returned %d"), x);
 	msg_putchar('\n');
     }
-#ifdef FEAT_TITLE
     resettitle();
-#endif
 
     signal(SIGINT, SIG_DFL);
 #if defined(__GNUC__) && !defined(__MINGW32__)
@@ -5270,7 +5280,7 @@ mch_job_start(char *cmd, job_T *job, jobopt_T *options)
     ofd[1] = INVALID_HANDLE_VALUE;
     efd[0] = INVALID_HANDLE_VALUE;
     efd[1] = INVALID_HANDLE_VALUE;
-    ga_init2(&ga, (int)sizeof(wchar_t), 500);
+    ga_init2(&ga, sizeof(wchar_t), 500);
 
     jo = CreateJobObject(NULL, NULL);
     if (jo == NULL)
@@ -5301,7 +5311,7 @@ mch_job_start(char *cmd, job_T *job, jobopt_T *options)
 		&saAttr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL);
 	if (ifd[0] == INVALID_HANDLE_VALUE)
 	{
-	    semsg(_(e_notopen), fname);
+	    semsg(_(e_cant_open_file_str), fname);
 	    goto failed;
 	}
     }
@@ -5319,7 +5329,7 @@ mch_job_start(char *cmd, job_T *job, jobopt_T *options)
 		&saAttr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL);
 	if (ofd[1] == INVALID_HANDLE_VALUE)
 	{
-	    semsg(_(e_notopen), fname);
+	    semsg(_(e_cant_open_file_str), fname);
 	    goto failed;
 	}
     }
@@ -5337,7 +5347,7 @@ mch_job_start(char *cmd, job_T *job, jobopt_T *options)
 		&saAttr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL);
 	if (efd[1] == INVALID_HANDLE_VALUE)
 	{
-	    semsg(_(e_notopen), fname);
+	    semsg(_(e_cant_open_file_str), fname);
 	    goto failed;
 	}
     }
@@ -5609,17 +5619,21 @@ termcap_mode_start(void)
 	ResizeConBufAndWindow(g_hConOut, Columns, Rows);
     }
 
-# ifdef FEAT_TITLE
     resettitle();
-# endif
 
     GetConsoleMode(g_hConIn, &cmodein);
     if (g_fMouseActive)
+    {
 	cmodein |= ENABLE_MOUSE_INPUT;
+	cmodein &= ~ENABLE_QUICK_EDIT_MODE;
+    }
     else
+    {
 	cmodein &= ~ENABLE_MOUSE_INPUT;
+	cmodein |= g_cmodein & ENABLE_QUICK_EDIT_MODE;
+    }
     cmodein |= ENABLE_WINDOW_INPUT;
-    SetConsoleMode(g_hConIn, cmodein);
+    SetConsoleMode(g_hConIn, cmodein | ENABLE_EXTENDED_FLAGS);
 
     redraw_later_clear();
     g_fTermcapMode = TRUE;
@@ -5644,7 +5658,8 @@ termcap_mode_end(void)
 
     GetConsoleMode(g_hConIn, &cmodein);
     cmodein &= ~(ENABLE_MOUSE_INPUT | ENABLE_WINDOW_INPUT);
-    SetConsoleMode(g_hConIn, cmodein);
+    cmodein |= g_cmodein & ENABLE_QUICK_EDIT_MODE;
+    SetConsoleMode(g_hConIn, cmodein | ENABLE_EXTENDED_FLAGS);
 
 # ifdef FEAT_RESTORE_ORIG_SCREEN
     cb = exiting ? &g_cbOrig : &g_cbNonTermcap;
@@ -6406,12 +6421,12 @@ mch_write(
     char_u  *s,
     int	    len)
 {
+    char_u  *end = s + len;
+
 # ifdef VIMDLL
     if (gui.in_use)
 	return;
 # endif
-
-    s[len] = NUL;
 
     if (!term_console)
     {
@@ -6433,10 +6448,13 @@ mch_write(
 	    return;
 	}
 
-	while((ch = s[++prefix]))
+	while (s + ++prefix < end)
+	{
+	    ch = s[prefix];
 	    if (ch <= 0x1e && !(ch != '\n' && ch != '\r' && ch != '\b'
 						&& ch != '\a' && ch != '\033'))
 		break;
+	}
 
 	if (p_wd)
 	{
@@ -7530,7 +7548,7 @@ myresetstkoflw(void)
 
 
 /*
- * The command line arguments in UCS2
+ * The command line arguments in UTF-16
  */
 static int	nArgsW = 0;
 static LPWSTR	*ArglistW = NULL;
@@ -7573,8 +7591,8 @@ get_cmd_argsW(char ***argvp)
 	    {
 		int	len;
 
-		// Convert each Unicode argument to the current codepage.
-		WideCharToMultiByte_alloc(GetACP(), 0,
+		// Convert each Unicode argument to UTF-8.
+		WideCharToMultiByte_alloc(CP_UTF8, 0,
 				ArglistW[i], (int)wcslen(ArglistW[i]) + 1,
 				(LPSTR *)&argv[i], &len, 0, 0);
 		if (argv[i] == NULL)
@@ -7650,7 +7668,7 @@ set_alist_count(void)
 
 /*
  * Fix the encoding of the command line arguments.  Invoked when 'encoding'
- * has been changed while starting up.  Use the UCS-2 command line arguments
+ * has been changed while starting up.  Use the UTF-16 command line arguments
  * and convert them to 'encoding'.
  */
     void
@@ -7732,15 +7750,18 @@ fix_arg_enc(void)
 	// Now expand wildcards in the arguments.
 	// Temporarily add '(' and ')' to 'isfname'.  These are valid
 	// filename characters but are excluded from 'isfname' to make
-	// "gf" work on a file name in parenthesis (e.g.: see vim.h).
+	// "gf" work on a file name in parentheses (e.g.: see vim.h).
 	// Also, unset wildignore to not be influenced by this option.
 	// The arguments specified in command-line should be kept even if
 	// encoding options were changed.
-	do_cmdline_cmd((char_u *)":let SaVe_ISF = &isf|set isf+=(,)");
-	do_cmdline_cmd((char_u *)":let SaVe_WIG = &wig|set wig=");
+	// Use :legacy so that it also works when in Vim9 script.
+	do_cmdline_cmd((char_u *)":legacy let g:SaVe_ISF = &isf|set isf+=(,)");
+	do_cmdline_cmd((char_u *)":legacy let g:SaVe_WIG = &wig|set wig=");
 	alist_expand(fnum_list, used_alist_count);
-	do_cmdline_cmd((char_u *)":let &isf = SaVe_ISF|unlet SaVe_ISF");
-	do_cmdline_cmd((char_u *)":let &wig = SaVe_WIG|unlet SaVe_WIG");
+	do_cmdline_cmd(
+		(char_u *)":legacy let &isf = g:SaVe_ISF|unlet g:SaVe_ISF");
+	do_cmdline_cmd(
+		(char_u *)":legacy let &wig = g:SaVe_WIG|unlet g:SaVe_WIG");
     }
 
     // If wildcard expansion failed, we are editing the first file of the
@@ -7748,8 +7769,9 @@ fix_arg_enc(void)
     if (curwin->w_arg_idx == 0 && curbuf->b_fname == NULL)
     {
 	do_cmdline_cmd((char_u *)":rewind");
-	if (GARGCOUNT == 1 && used_file_full_path)
-	    (void)vim_chdirfile(alist_name(&GARGLIST[0]), "drop");
+	if (GARGCOUNT == 1 && used_file_full_path
+		&& vim_chdirfile(alist_name(&GARGLIST[0]), "drop") == OK)
+	    last_chdir_reason = "drop";
     }
 
     set_alist_count();
@@ -8321,3 +8343,19 @@ resize_console_buf(void)
     }
 }
 #endif
+
+    char *
+GetWin32Error(void)
+{
+    char *msg = NULL;
+    FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
+	    NULL, GetLastError(), 0, (LPSTR)&msg, 0, NULL);
+    if (msg != NULL)
+    {
+	// remove trailing \r\n
+	char *pcrlf = strstr(msg, "\r\n");
+	if (pcrlf != NULL)
+	    *pcrlf = '\0';
+    }
+    return msg;
+}

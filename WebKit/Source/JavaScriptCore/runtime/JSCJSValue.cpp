@@ -96,7 +96,7 @@ JSValue JSValue::toBigInt(JSGlobalObject* globalObject) const
     VM& vm = globalObject->vm();
     auto scope = DECLARE_THROW_SCOPE(vm);
 
-    JSValue primitive = toPrimitive(globalObject);
+    JSValue primitive = toPrimitive(globalObject, PreferNumber);
     RETURN_IF_EXCEPTION(scope, { });
 
     if (primitive.isBigInt())
@@ -313,7 +313,7 @@ void JSValue::dumpInContextAssumingStructure(
             out.print("BigInt[heap-allocated]: addr=", RawPointer(asCell()), ", length=", jsCast<JSBigInt*>(asCell())->length(), ", sign=", jsCast<JSBigInt*>(asCell())->sign());
         else if (structure->classInfo()->isSubClassOf(JSObject::info())) {
             out.print("Object: ", RawPointer(asCell()));
-            out.print(" with butterfly ", RawPointer(asObject(asCell())->butterfly()));
+            out.print(" with butterfly ", RawPointer(asObject(asCell())->butterfly()), "(base=", RawPointer(asObject(asCell())->butterfly()->base(structure)), ")");
             out.print(" (Structure ", inContext(*structure, context), ")");
         } else {
             out.print("Cell: ", RawPointer(asCell()));
@@ -470,5 +470,20 @@ NEVER_INLINE void ensureStillAliveHere(JSValue)
 {
 }
 #endif
+
+WTF::String JSValue::toWTFStringForConsole(JSGlobalObject* globalObject) const
+{
+    VM& vm = globalObject->vm();
+    auto scope = DECLARE_THROW_SCOPE(vm);
+    JSString* string = toString(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+    String result = string->value(globalObject);
+    RETURN_IF_EXCEPTION(scope, { });
+    if (isString())
+        return tryMakeString("\"", result, "\"");
+    if (jsDynamicCast<JSArray*>(vm, *this))
+        return tryMakeString("[", result, "]");
+    return result;
+}
 
 } // namespace JSC

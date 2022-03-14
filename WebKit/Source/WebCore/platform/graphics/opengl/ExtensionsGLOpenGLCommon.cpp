@@ -190,7 +190,8 @@ String ExtensionsGLOpenGLCommon::getTranslatedShaderSourceANGLE(PlatformGLObject
 
     String translatedShaderSource;
     String shaderInfoLog;
-    GCGLuint64 extraCompileOptions = SH_CLAMP_INDIRECT_ARRAY_BOUNDS | SH_UNFOLD_SHORT_CIRCUIT | SH_INIT_OUTPUT_VARIABLES | SH_ENFORCE_PACKING_RESTRICTIONS | SH_LIMIT_EXPRESSION_COMPLEXITY | SH_LIMIT_CALL_STACK_DEPTH | SH_INITIALIZE_UNINITIALIZED_LOCALS;
+
+    GCGLuint64 extraCompileOptions = SH_CLAMP_INDIRECT_ARRAY_BOUNDS | SH_INIT_OUTPUT_VARIABLES | SH_ENFORCE_PACKING_RESTRICTIONS | SH_LIMIT_EXPRESSION_COMPLEXITY | SH_LIMIT_CALL_STACK_DEPTH | SH_INITIALIZE_UNINITIALIZED_LOCALS;
 
     if (m_requiresBuiltInFunctionEmulation)
         extraCompileOptions |= SH_EMULATE_ABS_INT_FUNCTION;
@@ -203,7 +204,7 @@ String ExtensionsGLOpenGLCommon::getTranslatedShaderSourceANGLE(PlatformGLObject
 
     for (const std::pair<ANGLEShaderSymbolType, sh::ShaderVariable>& pair : symbols) {
         const std::string& name = pair.second.name;
-        entry.symbolMap(pair.first).set(String(name.c_str(), name.length()), WTF::makeUniqueRefWithoutFastMallocCheck<sh::ShaderVariable>(pair.second));
+        entry.symbolMap(pair.first).set(String(name.c_str(), name.length()), makeUniqueRefWithoutFastMallocCheck<sh::ShaderVariable>(pair.second));
     }
 
     if (!isValid)

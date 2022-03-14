@@ -1,228 +1,1443 @@
-2021-11-09  Alan Coon  <alancoon@apple.com>
+2022-02-17  Russell Epstein  <repstein@apple.com>
 
-        Cherry-pick r284453. rdar://problem/85034820
+        Cherry-pick r290005. rdar://problem/87596724
 
-    cachedCGColor() and nsColor() should return smart pointers
-    https://bugs.webkit.org/show_bug.cgi?id=231909
+    CrashTracer: com.apple.WebKit.WebContent at JavaScriptCore: bmalloc_allocate_impl_impl_slow
+    https://bugs.webkit.org/show_bug.cgi?id=236695
+    rdar://87596724
     
-    Reviewed by Tim Horton.
-    
-    r276283 attempted to make cachedCGColor() and nsColor() thread-safe but the fix was incomplete
-    since those functions return unretained objects that can be released from the cache on any
-    other thread. This patch updates cachedCGColor() and nsColor() to return a RetainPtr to address
-    the issue.
+    Reviewed by Jer Noble.
     
     Source/WebCore:
     
-    * accessibility/mac/WebAccessibilityObjectWrapperMac.mm:
-    (AXAttributeStringSetStyle):
-    * editing/cocoa/FontAttributesCocoa.mm:
-    (WebCore::FontAttributes::createDictionary const):
-    * editing/cocoa/FontShadowCocoa.mm:
-    (WebCore::FontShadow::createShadow const):
-    * editing/cocoa/HTMLConverter.mm:
-    (HTMLConverter::convert):
-    (HTMLConverter::_colorForElement):
-    (HTMLConverter::computedAttributesForElement):
-    (HTMLConverter::_fillInBlock):
-    (HTMLConverter::_processElement):
-    (WebCore::editingAttributedString):
-    * platform/graphics/Color.h:
-    * platform/graphics/avfoundation/objc/LocalSampleBufferDisplayLayer.mm:
-    (WebCore::LocalSampleBufferDisplayLayer::initialize):
-    * platform/graphics/ca/PlatformCALayer.cpp:
-    (WebCore::PlatformCALayer::drawTextAtPoint const):
-    * platform/graphics/ca/cocoa/PlatformCAFiltersCocoa.mm:
-    (WebCore::PlatformCAFilters::setFiltersOnLayer):
-    * platform/graphics/ca/cocoa/PlatformCALayerCocoa.mm:
-    (WebCore::PlatformCALayerCocoa::setBackgroundColor):
-    (WebCore::PlatformCALayerCocoa::setBorderColor):
-    * platform/graphics/cg/ColorCG.cpp:
-    (WebCore::cachedCGColor):
-    * platform/graphics/cg/GradientCG.cpp:
-    (WebCore::Gradient::createCGGradient):
-    * platform/graphics/cg/GraphicsContextCG.cpp:
-    (WebCore::setCGFillColor):
-    (WebCore::setCGShadow):
-    (WebCore::GraphicsContextCG::didUpdateState):
-    * platform/graphics/cocoa/ColorCocoa.h:
-    * platform/graphics/cocoa/ColorCocoa.mm:
-    (WebCore::platformColor):
-    * platform/graphics/cocoa/FontCacheCoreText.cpp:
-    (WebCore::addAttributesForCustomFontPalettes):
-    * platform/graphics/cocoa/GraphicsContextCocoa.mm:
-    (WebCore::drawFocusRingAtTime):
-    (WebCore::colorForMarkerLineStyle):
-    (WebCore::GraphicsContextCG::drawDotsForDocumentMarker):
-    * platform/graphics/mac/ColorMac.h:
-    * platform/graphics/mac/ColorMac.mm:
-    (WTF::RetainPtr<NSColor>>::createValueForKey):
-    (WebCore::nsColor):
-    * platform/mac/LocalDefaultSystemAppearance.mm:
-    (WebCore::LocalDefaultSystemAppearance::LocalDefaultSystemAppearance):
-    * platform/mac/PlatformPasteboardMac.mm:
-    (WebCore::PlatformPasteboard::setColor):
-    * platform/mac/ScrollbarThemeMac.mm:
-    (WebCore::ScrollbarThemeMac::setUpOverhangAreaBackground):
-    * platform/mac/ThemeMac.mm:
-    (WebCore::drawCellFocusRingWithFrameAtTime):
-    * rendering/RenderThemeMac.mm:
-    (WebCore::AttachmentLayout::layOutTitle):
-    (WebCore::AttachmentLayout::layOutSubtitle):
-    * testing/cocoa/WebViewVisualIdentificationOverlay.mm:
-    (-[WebViewVisualIdentificationOverlay initWithWebView:kind:deprecated:]):
-    (drawPattern):
+    When a new FragmentedSharedBuffer is received from the network process, it is proactively coalesced
+    into a SharedBuffer during each call to CachedResource::updateBuffer(). This causes a large number
+    of re-allocations and copies; essentially re-allocating each time the resource's buffer receives
+    one more chunk of data.
+    Instead we only flatten the data buffer once all data have been received.
+    
+    Running speedtest.net with a gigabit link, we see a reduction of peak
+    memory use in the content process by about 40% (from 740MB to under 440MB of
+    physical memory, 1.7GB of memory allocation vs 535MB)
+    
+    Covered by existing tests.
+    
+    * editing/ios/EditorIOS.mm:
+    (WebCore::Editor::writeImageToPasteboard):
+    * editing/mac/EditorMac.mm:
+    (WebCore::Editor::writeImageToPasteboard):
+    * loader/DocumentThreadableLoader.cpp:
+    (WebCore::DocumentThreadableLoader::didFinishLoading):
+    * loader/cache/CachedApplicationManifest.cpp:
+    (WebCore::CachedApplicationManifest::finishLoading):
+    * loader/cache/CachedCSSStyleSheet.cpp:
+    (WebCore::CachedCSSStyleSheet::finishLoading):
+    * loader/cache/CachedFont.cpp:
+    (WebCore::CachedFont::ensureCustomFontData):
+    * loader/cache/CachedImage.cpp:
+    (WebCore::CachedImage::updateImageData):
+    * loader/cache/CachedRawResource.cpp:
+    (WebCore::CachedRawResource::calculateIncrementalDataChunk const):
+    (WebCore::CachedRawResource::updateBuffer):
+    (WebCore::CachedRawResource::finishLoading):
+    * loader/cache/CachedRawResource.h:
+    * loader/cache/CachedResource.h:
+    (WebCore::CachedResource::resourceBuffer const):
+    * loader/cache/CachedScript.cpp:
+    (WebCore::CachedScript::script):
+    * loader/cache/CachedXSLStyleSheet.cpp:
+    (WebCore::CachedXSLStyleSheet::finishLoading):
     
     Source/WebKit:
     
-    * Shared/RemoteLayerTree/RemoteLayerTreePropertyApplier.mm:
-    (WebKit::cgColorFromColor):
-    (WebKit::RemoteLayerTreePropertyApplier::applyPropertiesToLayer):
-    * UIProcess/API/Cocoa/WKWebView.mm:
-    (-[WKWebView themeColor]):
-    (-[WKWebView underPageBackgroundColor]):
-    (-[WKWebView _pageExtendedBackgroundColor]):
-    (-[WKWebView _sampledPageTopColor]):
-    * UIProcess/API/Cocoa/_WKApplicationManifest.mm:
-    (-[_WKApplicationManifest themeColor]):
-    * UIProcess/API/mac/WKView.mm:
-    (-[WKView underlayColor]):
-    (-[WKView _pageExtendedBackgroundColor]):
-    * UIProcess/API/mac/WKWebViewMac.mm:
-    (-[WKWebView _underlayColor]):
-    * UIProcess/Cocoa/WebViewImpl.h:
-    * UIProcess/Cocoa/WebViewImpl.mm:
-    (WebKit::WebViewImpl::updateTextTouchBar):
-    (WebKit::WebViewImpl::underlayColor const):
-    (WebKit::WebViewImpl::pageExtendedBackgroundColor const):
-    * UIProcess/PDF/WKPDFHUDView.mm:
-    (-[WKPDFHUDView _setupLayer:]):
-    * UIProcess/mac/WebColorPickerMac.mm:
-    (WebKit::WebColorPickerMac::setSelectedColor):
-    (WebKit::WebColorPickerMac::showColorPicker):
-    (-[WKColorPopoverMac setAndShowPicker:withColor:suggestions:]):
-    * WebProcess/WebPage/mac/WebPageMac.mm:
-    (WebKit::WebPage::setAccentColor):
-    * WebProcess/cocoa/VideoFullscreenManager.mm:
-    (WebKit::VideoFullscreenManager::enterVideoFullscreenForVideoElement):
-    
-    Source/WebKitLegacy/mac:
-    
-    * DOM/DOMRGBColor.mm:
-    (-[DOMRGBColor color]):
-    * WebView/WebFrame.mm:
-    (-[WebFrame _bodyBackgroundColor]):
-    * WebView/WebView.mm:
-    (-[WebView updateTextTouchBar]):
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@284453 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2021-10-19  Chris Dumez  <cdumez@apple.com>
-
-            cachedCGColor() and nsColor() should return smart pointers
-            https://bugs.webkit.org/show_bug.cgi?id=231909
-
-            Reviewed by Tim Horton.
-
-            r276283 attempted to make cachedCGColor() and nsColor() thread-safe but the fix was incomplete
-            since those functions return unretained objects that can be released from the cache on any
-            other thread. This patch updates cachedCGColor() and nsColor() to return a RetainPtr to address
-            the issue.
-
-            * DOM/DOMRGBColor.mm:
-            (-[DOMRGBColor color]):
-            * WebView/WebFrame.mm:
-            (-[WebFrame _bodyBackgroundColor]):
-            * WebView/WebView.mm:
-            (-[WebView updateTextTouchBar]):
-
-2021-11-04  Russell Epstein  <repstein@apple.com>
-
-        Cherry-pick r285148. rdar://problem/81053743
-
-    Make WebChromeClient's m_webView pointer weak.
-    https://bugs.webkit.org/show_bug.cgi?id=232588
-    
-    Reviewed by David Kilzer.
-    
-    * WebCoreSupport/WebChromeClient.h:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@285148 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2021-11-01  Brady Eidson  <beidson@apple.com>
-
-            Make WebChromeClient's m_webView pointer weak.
-            https://bugs.webkit.org/show_bug.cgi?id=232588
-
-            Reviewed by David Kilzer.
-
-            * WebCoreSupport/WebChromeClient.h:
-
-2021-11-04  Russell Epstein  <repstein@apple.com>
-
-        Cherry-pick r282313. rdar://problem/82987695
-
-    CFNotificationCenterAddObserver() should use weak observers
-    <https://webkit.org/b/230168>
-    <rdar://problem/82987695>
-    
-    Reviewed by Darin Adler.
-    
-    Source/WebCore/PAL:
-    
-    * PAL.xcodeproj/project.pbxproj:
-    - Add CFNotificationCenterSPI.h to the project.
-    * pal/spi/cf/CFNotificationCenterSPI.h: Add.
-    
-    Source/WebKit:
-    
-    * UIProcess/API/Cocoa/WKWebView.mm:
-    (hardwareKeyboardAvailabilityChangedCallback):
-    - Use RetainPtr to store `observer` for the duration of the
-      function, and add an early return if it is nil.
-    (-[WKWebView _initializeWithConfiguration:]):
-    - Use _CFNotificationObserverIsObjC to fix the bug.
-    - Extract local variables and change notificationName cast to be
-      ARC-ready.  Remove notificationName from autoreleasePool.
-    (-[WKWebView dealloc]):
-    - Extract local variable and change notificationName cast to be
-      ARC-ready.  Remove notificationName from autoreleasePool.
+    * WebProcess/WebCoreSupport/WebFrameLoaderClient.cpp:
+    (WebKit::WebFrameLoaderClient::finishedLoading): Fly-by fix, the
+    IPC::DataReference would reference a SharedBuffer going
+    out of scope before it was sent over IPC.
     
     Source/WebKitLegacy/mac:
     
     * WebView/WebHTMLView.mm:
-    (hardwareKeyboardAvailabilityChangedCallback):
-    - Modernize syntax for WeakObjCPtr constructor.
-    (-[WebHTMLView initWithFrame:]):
-    - Use _CFNotificationObserverIsObjC to fix the bug.
-    - Extract local variables and change notificationName cast to be
-      ARC-ready.  Remove notificationName from autoreleasePool.
-    (-[WebHTMLView dealloc]):
-    - Extract local variable and change notificationName cast to be
-      ARC-ready.  Remove notificationName from autoreleasePool.
+    (-[WebHTMLView namesOfPromisedFilesDroppedAtDestination:]):
     
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282313 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290005 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2021-09-11  David Kilzer  <ddkilzer@apple.com>
+    2022-02-17  Jean-Yves Avenard  <jya@apple.com>
 
-            CFNotificationCenterAddObserver() should use weak observers
-            <https://webkit.org/b/230168>
-            <rdar://problem/82987695>
+            CrashTracer: com.apple.WebKit.WebContent at JavaScriptCore: bmalloc_allocate_impl_impl_slow
+            https://bugs.webkit.org/show_bug.cgi?id=236695
+            rdar://87596724
 
-            Reviewed by Darin Adler.
+            Reviewed by Jer Noble.
 
             * WebView/WebHTMLView.mm:
-            (hardwareKeyboardAvailabilityChangedCallback):
-            - Modernize syntax for WeakObjCPtr constructor.
-            (-[WebHTMLView initWithFrame:]):
-            - Use _CFNotificationObserverIsObjC to fix the bug.
-            - Extract local variables and change notificationName cast to be
-              ARC-ready.  Remove notificationName from autoreleasePool.
-            (-[WebHTMLView dealloc]):
-            - Extract local variable and change notificationName cast to be
-              ARC-ready.  Remove notificationName from autoreleasePool.
+            (-[WebHTMLView namesOfPromisedFilesDroppedAtDestination:]):
+
+2022-02-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287951. rdar://problem/83501315
+
+    _paintBehaviorForDestinationContext should consider kCGContextTypeDisplayList type contexts as potentially being snapshots
+    https://bugs.webkit.org/show_bug.cgi?id=234626
+    <rdar://83501315>
+    
+    Patch by Matt Woodrow <mattwoodrow@apple.com> on 2022-01-12
+    Reviewed by Simon Fraser.
+    
+    _paintBehaviorForDestinationContext currently always returns `Normal` for contexts that aren't a bitmap context.
+    AppKit now provides a context that is of type kCGContextTypeDisplayList, and we want to still potentially consider it a
+    snapshot paint (if the other conditions below are met). This ensure images are sync decoded for consumers that just
+    want a single paint.
+    
+    * WebView/WebFrame.mm:
+    (-[WebFrame _paintBehaviorForDestinationContext:]):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287951 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-12  Matt Woodrow  <mattwoodrow@apple.com>
+
+            _paintBehaviorForDestinationContext should consider kCGContextTypeDisplayList type contexts as potentially being snapshots
+            https://bugs.webkit.org/show_bug.cgi?id=234626
+            <rdar://83501315>
+
+            Reviewed by Simon Fraser.
+
+            _paintBehaviorForDestinationContext currently always returns `Normal` for contexts that aren't a bitmap context.
+            AppKit now provides a context that is of type kCGContextTypeDisplayList, and we want to still potentially consider it a
+            snapshot paint (if the other conditions below are met). This ensure images are sync decoded for consumers that just
+            want a single paint.
+
+            * WebView/WebFrame.mm:
+            (-[WebFrame _paintBehaviorForDestinationContext:]):
+
+2022-01-11  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287884. rdar://problem/87206692
+
+    Fixed installhdr build failures in WebCore and WebKitLegacy
+    https://bugs.webkit.org/show_bug.cgi?id=235059
+    
+    Reviewed by Filip Pizlo.
+    
+    Source/WebCore:
+    
+    Reworked how SYSTEM_CONTENT_PATH is added to values to the minimum that is required for the build system.
+    Before this change, SYSTEM_CONTENT_PATH was added twice to some configuration variables due to is
+    incorrectly being added to NORMAL_WEBCORE_FRAMEWORKS_DIR.
+    
+    Also refactored the computation of JAVASCRIPTCORE_PRIVATE_HEADERS_DIR to use the newly added
+    INSTALL_PATH_PREFIX value.
+    
+    * Configurations/WebCore.xcconfig:
+    
+    Source/WebKitLegacy:
+    
+    On iOS, we need to create symbolic links for WebKitLegacy when using the SYSTEM_CONTENT_PATH.
+    Copied the creation script to the project and updated the configuration file accordingly.
+     
+    * WebKitLegacy.xcodeproj/project.pbxproj:
+    * scripts/create-symlink-to-altroot.sh: Added.
+    
+    Source/WebKitLegacy/mac:
+    
+    Refactored how INSTALL_PATH is calculated to simplify the logic for the macOS / iOS
+    location difference for the WebKitLegacy framework.  In WebKitLegacy.xcconfig, that
+    required changing NORMAL_PRODUCTION_FRAMEWORKS_DIR.
+    
+    Added the configuration values, ALTERNATE_ROOT_PATH and OUTPUT_ALTERNATE_ROOT_PATH, for
+    iOS builds to drive the newly added create symlinks script.
+    
+    Did the same rework as in WebCore configuration to eliminate using SYSTEM_CONTENT_PATH 
+    twice for some paths.
+    
+    * Configurations/WebKitLegacy.xcconfig:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287884 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-11  Michael Saboff  <msaboff@apple.com>
+
+            Fixed installhdr build failures in WebCore and WebKitLegacy
+            https://bugs.webkit.org/show_bug.cgi?id=235059
+
+            Reviewed by Filip Pizlo.
+
+            Refactored how INSTALL_PATH is calculated to simplify the logic for the macOS / iOS
+            location difference for the WebKitLegacy framework.  In WebKitLegacy.xcconfig, that
+            required changing NORMAL_PRODUCTION_FRAMEWORKS_DIR.
+
+            Added the configuration values, ALTERNATE_ROOT_PATH and OUTPUT_ALTERNATE_ROOT_PATH, for
+            iOS builds to drive the newly added create symlinks script.
+
+            Did the same rework as in WebCore configuration to eliminate using SYSTEM_CONTENT_PATH
+            twice for some paths.
+
+            * Configurations/WebKitLegacy.xcconfig:
+
+2022-01-07  Alex Christensen  <achristensen@webkit.org>
+
+        Unreviewed, reverting r287698.
+
+        Broke an internal build
+
+        Reverted changeset:
+
+        "Start using C++20"
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+        https://commits.webkit.org/r287698
+
+2022-01-06  Tim Horton  <timothy_horton@apple.com>
+
+        Move linkedOnOrAfter() to WTF
+        https://bugs.webkit.org/show_bug.cgi?id=234942
+
+        Reviewed by Darin Adler.
+
+        * DefaultDelegates/WebDefaultUIDelegate.mm:
+        (-[WebDefaultUIDelegate webView:dragDestinationActionMaskForDraggingInfo:]):
+        * Misc/WebDownload.mm:
+        (shouldCallOnNetworkThread):
+        * Misc/WebIconDatabase.mm:
+        (+[WebIconDatabase sharedIconDatabase]):
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultAllowsPictureInPictureMediaPlayback):
+        (WebKit::defaultJavaScriptCanOpenWindowsAutomatically):
+        (WebKit::defaultPassiveTouchListenersAsDefaultOnDocument):
+        (WebKit::defaultRequiresUserGestureToLoadVideo):
+        (WebKit::defaultWebSQLEnabled):
+        (WebKit::defaultShouldRestrictBaseURLSchemes):
+        (WebKit::defaultShouldConvertInvalidURLsToBlank):
+        (WebKit::defaultPassiveWheelListenersAsDefaultOnDocument):
+        (WebKit::defaultWheelEventGesturesBecomeNonBlocking):
+        * WebView/WebView.mm:
+        (needsLaBanquePostaleQuirks):
+
+2022-01-06  Alex Christensen  <achristensen@webkit.org>
+
+        Start using C++20
+        https://bugs.webkit.org/show_bug.cgi?id=233963
+
+        Reviewed by Yusuke Suzuki.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+        * MigrateHeaders.make:
+
+2022-01-06  Jean-Yves Avenard  <jya@apple.com>
+
+        Have CachedRawResourceClient and related networking actors use SharedBuffer.
+        https://bugs.webkit.org/show_bug.cgi?id=232424
+        rdar://84744687
+
+        Reviewed by Youenn Fablet.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::committedLoad):
+        (WebFrameLoaderClient::createPreviewLoaderClient):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _commitData:]):
+
+2022-01-05  Tim Horton  <timothy_horton@apple.com>
+
+        Move more SDK checks to linkedOnOrAfter()
+        https://bugs.webkit.org/show_bug.cgi?id=234875
+
+        Reviewed by Sam Weinig.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultJavaScriptCanOpenWindowsAutomatically):
+        * WebView/WebView.mm:
+        (needsLaBanquePostaleQuirks):
+
+2022-01-02  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [WebKit2] Camera continuity is disabled in richly editable content
+        https://bugs.webkit.org/show_bug.cgi?id=234773
+        rdar://46323417
+
+        Reviewed by Darin Adler.
+
+        Drive-by fix: add a missing `ALLOW_DEPRECATED_DECLARATIONS_END` for the unbalanced BEGIN declaration.
+
+        * WebView/WebHTMLView.mm:
+        (+[WebHTMLView _insertablePasteboardTypes]):
+
+2022-01-01  Jeff Miller  <jeffm@apple.com>
+
+        Update user-visible copyright strings to include 2022
+        https://bugs.webkit.org/show_bug.cgi?id=234263
+
+        Reviewed by Anders Carlsson.
+
+        * Info.plist:
+
+2021-12-22  Michael Saboff  <msaboff@apple.com>
+
+        Fix WebKit Build issues when using system content path
+        https://bugs.webkit.org/show_bug.cgi?id=234624
+
+        Reviewed by Filip Pizlo.
+
+        Added SYSTEM_CONTENT_PATH processing to NORMAL_PRODUCTION_FRAMEWORKS_DIR.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-21  Brady Eidson  <beidson@apple.com>
+
+        Make Notification identifiers be a UUID string instead of a uint64_t
+        https://bugs.webkit.org/show_bug.cgi?id=234534
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebNotificationClient.h:
+        * WebCoreSupport/WebNotificationClient.mm:
+        (WebNotificationClient::show):
+        (WebNotificationClient::cancel):
+        (WebNotificationClient::notificationObjectDestroyed):
+        (WebNotificationClient::clearNotifications): Deleted.
+
+2021-12-21  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add support for a UI delegate method to decide how to handle detected modal containers
+        https://bugs.webkit.org/show_bug.cgi?id=234440
+        rdar://77073735
+
+        Reviewed by Darin Adler.
+
+        See WebKit ChangeLog for more details.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::decidePolicyForModalContainer):
+
+2021-12-19  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add client layer plumbing for classifying modal container controls
+        https://bugs.webkit.org/show_bug.cgi?id=234320
+
+        Reviewed by Dean Jackson.
+
+        See WebCore/ChangeLog for more details.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::classifyModalContainerControls):
+
+2021-12-17  Simon Fraser  <simon.fraser@apple.com>
+
+        Read the default value of the ScrollAnimatorEnabled setting from NSUserDefaults
+        https://bugs.webkit.org/show_bug.cgi?id=234456
+
+        Reviewed by Tim Horton.
+
+        It's impossible for a test to run with an animated keyboard scroll because platformAllowsScrollAnimation(),
+        which reads from NSUserDefaults, always trumps the Setting.
+
+        Fix by initializing the setting from NSUserDefaults and removing the platformAllowsScrollAnimation()
+        check. This allows for a WebKitTestRunner test override the setting.
+
+        Unfortunately in WebKitLegacy AppKit code consults the @"NSScrollAnimationEnabled" key, so
+        DumpRenderTree has to continue to initialize this NSUserDefault to @NO and tests that
+        try to change the Setting will fail.
+
+        * WebView/WebPreferencesDefaultValues.h:
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultScrollAnimatorEnabled):
+
+2021-12-18  Chris Dumez  <cdumez@apple.com>
+
+        Convert ProtectionSpace enums into enum classes
+        https://bugs.webkit.org/show_bug.cgi?id=234455
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace):
+
+2021-12-16  Alex Christensen  <achristensen@webkit.org>
+
+        Fix iOS debug build
+        https://bugs.webkit.org/show_bug.cgi?id=234365
+
+        * WebView/WebView.mm:
+        (-[WebView _preferencesChanged:]):
+
+2021-12-15  Darin Adler  <darin@apple.com>
+
+        Many call sites use makeNeverDestroyed, but could instead take advantage of the NeverDestroyed deduction guide
+        https://bugs.webkit.org/show_bug.cgi?id=234350
+
+        Reviewed by Sam Weinig.
+
+        * Misc/WebNSPasteboardExtras.mm:
+        (writableTypesForImageWithoutArchive): Use deduction.
+        (writableTypesForImageWithArchive):
+        * Misc/WebNSURLExtras.mm:
+        (-[NSString _webkit_rangeOfURLScheme]): Ditto.
+        * WebView/WebDataSource.mm:
+        (+[WebDataSource _repTypesAllowImageTypeOmission:]): Ditto.
+        * WebView/WebFrameView.mm:
+        (+[WebFrameView _viewTypesAllowImageTypeOmission:]): Ditto.
+
+2021-12-14  Jean-Yves Avenard  <jya@apple.com>
+
+        Rename SharedBuffer classes.
+        https://bugs.webkit.org/show_bug.cgi?id=233677
+        rdar://problem/85963900
+
+        Reviewed by Youenn Fablet.
+
+        SharedBuffer are renamed FragmentedSharedBuffer and
+        ContiguousSharedBuffer to SharedBuffer to better reflect their actual
+        types.
+
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebView/WebDataSource.mm:
+        * WebView/WebHTMLView.mm:
+        * WebView/WebResource.mm:
+
+2021-12-13  Jean-Yves Avenard  <jya@apple.com>
+
+        Distinguish contiguous SharedBuffer from non-contiguous one and guarantee immutability
+        https://bugs.webkit.org/show_bug.cgi?id=233030
+        rdar://85333814
+
+        Reviewed by Darin Adler.
+
+        * DOM/DOMUIKitExtensions.mm:
+        (-[DOMHTMLImageElement dataRepresentation:]):
+        * WebCoreSupport/WebEditorClient.h:
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::getClientPasteboardData):
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::bufferForType):
+        (WebPlatformStrategies::readBufferFromPasteboard):
+        * WebView/WebDataSource.mm:
+        (-[WebDataSource data]):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation documentSource]):
+        * WebView/WebHTMLView.mm:
+        (createShareMenuItem):
+        * WebView/WebResource.mm:
+        (-[WebResource encodeWithCoder:]):
+        (-[WebResource data]):
+        (-[WebResource _stringValue]):
+
+2021-12-11  Antti Koivisto  <antti@apple.com>
+
+        Remove redundant StyleRule::Type enum
+        https://bugs.webkit.org/show_bug.cgi?id=234156
+
+        Reviewed by Alan Bujtas.
+
+        * DOM/DOMCSS.mm:
+        (kitClass):
+        * DOM/DOMCSSRule.mm:
+        (-[DOMCSSRule type]):
+
+2021-12-10  Michael Saboff  <msaboff@apple.com>
+
+        https://bugs.webkit.org/show_bug.cgi?id=234173
+        Update Install Paths for build system changes
+
+        Reviewed by Yusuke Suzuki.
+
+        Updated install paths for changes in the build system that use a system path prefix.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-10  Devin Rousso  <drousso@apple.com>
+
+        Allow `Pasteboard::readBuffer` to read from the pasteboard as a whole instead of a specific item
+        https://bugs.webkit.org/show_bug.cgi?id=233940
+
+        Reviewed by Wenson Hsieh.
+
+        In order to match the WK1 implementation of `-pasteFont:` <https://webkit.org/b/191379>, we
+        need to read from the font pasteboard as a whole, not a specific item. Make the `index` into
+        an `std::optional` so that we can have this behavior without needing to have a new method.
+
+        No change in behavior.
+
+        * WebCoreSupport/WebPlatformStrategies.h:
+        * WebCoreSupport/WebPlatformStrategies.mm:
+        (WebPlatformStrategies::readBufferFromPasteboard):
+
+2021-12-09  Devin Rousso  <drousso@apple.com>
+
+        Add a `DOMPasteAccessCategory` to control which pasteboard the WebProcess is granted access to when pasting
+        https://bugs.webkit.org/show_bug.cgi?id=233939
+
+        Reviewed by Wenson Hsieh.
+
+        Implementing `-pasteFont:` <https://webkit.org/b/191379> requires that we read from the font
+        pasteboard instead of the general pasteboard. In order to allow web content to trigger this
+        (e.g. `document.execCommand("PasteFont"))`) we must have a way for the WebProcess to signal
+        that it wishes to read from the font pasteboard instead of the general pasteboard. As such,
+        create and pass along a `DOMPasteAccessCategory` to `requestDOMPasteAccess`.
+
+        No change in behavior.
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::requestDOMPasteAccess):
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com> and Don Olmstead  <don.olmstead@sony.com>
+
+        Move TextCodec files from WebCore/platform/text to WebCore/PAL/text
+        https://bugs.webkit.org/show_bug.cgi?id=233683
+
+        Reviewed by Yusuke Suzuki.
+
+        Update to use the new PAL files.
+
+        * Misc/WebNSURLExtras.mm:
+        (-[NSString _webkit_stringByReplacingValidPercentEscapes]):
+        * WebView/WebFrame.mm:
+        (+[WebFrame stringWithData:textEncodingName:]):
+        * WebView/WebPreferences.mm:
+        (+[WebPreferences _systemCFStringEncoding]):
+        (+[WebPreferences _setInitialDefaultTextEncodingToSystemEncoding]):
+        * WebView/WebResource.mm:
+        (-[WebResource _stringValue]):
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] [MacCatalyst] Fix WebGPU Mac Catalyst build in Apple's internal build system
+        https://bugs.webkit.org/show_bug.cgi?id=234072
+
+        Unreviewed.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-09  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Fix WebGPU build in Apple's internal build system
+        https://bugs.webkit.org/show_bug.cgi?id=234070
+
+        Unreviewed.
+
+        The PAL headers get put in a different place.
+
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-12-08  Truitt Savell  <tsavell@apple.com>
+
+        Unreviewed, reverting r286632.
+
+        Broke 3 tests on iOS
+
+        Reverted changeset:
+
+        "Add a `DOMPasteAccessCategory` to control which pasteboard
+        the WebProcess is granted access to when pasting"
+        https://bugs.webkit.org/show_bug.cgi?id=233939
+        https://commits.webkit.org/r286632
+
+2021-12-07  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Add support for `navigator.requestCookieConsent()` behind a disabled feature flag
+        https://bugs.webkit.org/show_bug.cgi?id=233890
+        rdar://86117718
+
+        Reviewed by Darin Adler.
+
+        Add an implementation stub for the new chrome client hook, `requestCookieConsent()`.
+
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::requestCookieConsent):
+
+2021-12-07  Devin Rousso  <drousso@apple.com>
+
+        Add a `DOMPasteAccessCategory` to control which pasteboard the WebProcess is granted access to when pasting
+        https://bugs.webkit.org/show_bug.cgi?id=233939
+
+        Reviewed by Wenson Hsieh.
+
+        Implementing `-pasteFont:` <https://webkit.org/b/191379> requires that we read from the font
+        pasteboard instead of the general pasteboard. In order to allow web content to trigger this
+        (e.g. `document.execCommand("PasteFont"))`) we must have a way for the WebProcess to signal
+        that it wishes to read from the font pasteboard instead of the general pasteboard. As such,
+        create and pass along a `DOMPasteAccessCategory` to `requestDOMPasteAccess`.
+
+        No change in behavior.
+
+        * WebCoreSupport/WebEditorClient.h:
+        (WebEditorClient::requestDOMPasteAccess):
+
+2021-12-07  Cameron McCormack  <heycam@apple.com>
+
+        Move FontCache singleton and instance on WorkerGlobalScope to ThreadGlobalData
+        https://bugs.webkit.org/show_bug.cgi?id=233747
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebCoreStatistics.mm:
+        (+[WebCoreStatistics cachedFontDataCount]):
+        (+[WebCoreStatistics cachedFontDataInactiveCount]):
+        (+[WebCoreStatistics purgeInactiveFontData]):
+        Update existing main thread callers of FontCache::singleton() to use
+        FontCache::forCurrentThread().
+
+2021-12-06  Devin Rousso  <drousso@apple.com>
+
+        Change IDL `Date` to be backed by `WallTime` to avoid confusion when converting to native dates
+        https://bugs.webkit.org/show_bug.cgi?id=233781
+
+        Reviewed by Darin Adler.
+
+        JS `Date` is milliseconds-based, but some native dates (e.g. `NSDate`) are seconds-based.
+        `WallTime` will help avoid confusion since not a generic type (e.g. `double`) and instead
+        has explicitly defined conversion methods to seconds, milliseconds, etc..
+
+        * DOM/DOMInternal.h:
+        (kit):
+        (core):
+
+        * DOM/DOMHTMLMediaElement.mm:
+        (-[DOMHTMLMediaElement getStartDate]):
+
+2021-12-02  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        [WebGPU] Hook up navigator.gpu.requestAdapter()
+        https://bugs.webkit.org/show_bug.cgi?id=233619
+
+        Reviewed by Dean Jackson.
+
+        * Configurations/WebKitLegacy.xcconfig: We have to be able to #include files from WebGPU.
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::createGPUForWebGPU const): Hook up GPUImpl to WebCore.
+
+2021-12-02  Chris Dumez  <cdumez@apple.com>
+
+        [WK2] Make Web Lock API work across multiple WebProcesses
+        https://bugs.webkit.org/show_bug.cgi?id=233719
+
+        Reviewed by Alex Christensen.
+
+        See WebCore changelog.
+
+        * WebView/WebView.mm:
+        (getOrCreateWebLockRegistry):
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
+2021-12-01  Chris Dumez  <cdumez@apple.com>
+
+        Regression(r283912) Broke backward compatibility for Swift bindings
+        https://bugs.webkit.org/show_bug.cgi?id=233701
+        <rdar://85627701>
+
+        Reviewed by Darin Adler.
+
+        Rename EpochTimeStamp back to DOMTimeStamp in DOMObject.h & DOMEvent.h
+        since those are API headers and we need to maintain backward compatibility.
+
+        * DOM/DOMEvent.h:
+        * DOM/DOMEvent.mm:
+        (-[DOMEvent timeStamp]):
+        * DOM/DOMObject.h:
+
+2021-11-24  David Kilzer  <ddkilzer@apple.com>
+
+        Compiler should be able to check localized format strings for consistency
+        <https://webkit.org/b/232686>
+        <rdar://problem/84994345>
+
+        Reviewed by Darin Adler.
+
+        * Misc/WebLocalizableStringsInternal.mm:
+        (WebLocalizedStringInternal):
+        - Use localizedNSString() instead of localizedString() to
+          eliminate the need to convert from
+          CFString -> String -> NSString.
+
+2021-11-16  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Rename TextDecoration to TextDecorationLine
+        https://bugs.webkit.org/show_bug.cgi?id=232729
+
+        Reviewed by Myles C. Maxfield.
+
+        * WebView/WebView.mm:
+        (-[WebView updateTextTouchBar]):
+
+2021-11-11  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Make scroll granularity an enum class
+        https://bugs.webkit.org/show_bug.cgi?id=232641
+
+        Reviewed by Cameron McCormack.
+
+        * WebView/WebFrameView.mm:
+        (-[WebFrameView _scrollToBeginningOfDocument]):
+        (-[WebFrameView _scrollToEndOfDocument]):
+        (-[WebFrameView _pageVertically:]):
+        (-[WebFrameView _pageHorizontally:]):
+        (-[WebFrameView _scrollLineVertically:]):
+        (-[WebFrameView _scrollLineHorizontally:]):
+
+2021-11-11  Sam Weinig  <weinig@apple.com>
+
+        Factor platform specific code out of HTMLModelElement
+        https://bugs.webkit.org/show_bug.cgi?id=232848
+
+        Reviewed by Dean Jackson.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+        Use DummyModelPlayerProvider for the DummyModelPlayerProvider since the feature
+        is not supported for WebKitLegacy at the moment.
+
+2021-11-10  Darin Adler  <darin@apple.com>
+
+        [CF] Reduce duplication and unneeded buffer allocations and copying in URL code, also remove unused methods and functions
+        https://bugs.webkit.org/show_bug.cgi?id=232220
+
+        Reviewed by Alex Christensen.
+
+        * Misc/WebNSURLExtras.h: Tweaked comments a bit. No need to say methods are "new", since
+        that won't be true in the future. Removed unused methods
+        +[NSURL _web_URLWithUserTypedString:relativeToURL:],
+        +[NSURL _webkit_URLWithUserTypedString:relativeToURL:],
+        +[NSURL _web_URLWithData:], +[NSURL _web_URLWithData:relatveToURL:].
+        Wanted to remove even more nearly unused methods: many were used only
+        inside the WebKit project, in legacy plug-in code, and some seemed unused,
+        but it wasn't easy for me to quickly verify that.
+
+        * Misc/WebNSURLExtras.mm: Removed "using namespace WebCore" and
+        "using namespace WTF".
+        (+[NSURL _web_URLWithUserTypedString:relativeToURL:]): Deleted.
+        (+[NSURL _web_URLWithUserTypedString:]): Use WTF prefix explicitly.
+        (+[NSURL _webkit_URLWithUserTypedString:relativeToURL:]): Deleted.
+        (+[NSURL _webkit_URLWithUserTypedString:]): Use WTF prefix explicitly.
+        (+[NSURL _web_URLWithDataAsString:]): Removed special case for nil since the code
+        will do the right thing with nil without an explicit check.
+        (+[NSURL _web_URLWithDataAsString:relativeToURL]): Ditto. Also formatted the code
+        as a one-liner.
+        (+[NSURL _web_URLWithData:]): Deleted.
+        (+[NSURL _web_URLWithData:relativeToURL:]): Deleted.
+        (-[NSURL _web_originalData]): Use WTF prefix explicitly.
+        (-[NSURL _web_originalDataAsString]): Ditto.
+        (-[NSURL _web_isEmpty]): Use bridge_cast and make code style checker happy by using
+        "!" instead of "== 0".
+        (-[NSURL _web_URLCString]): Use WTF prefix explicitly.
+        (-[NSURL _webkit_canonicalize]): Use WebCore prefix explicitly.
+        (-[NSURL _webkit_URLByRemovingFragment]): Use WTF prefix explicitly.
+        (-[NSURL _web_schemeSeparatorWithoutColon]): Deleted.
+        (-[NSURL _web_dataForURLComponentType:]): Deleted.
+        (-[NSURL _web_hostData]): Use WTF prefix explicitly. Rearranged for clarity and
+        slightly improved efficiency as well.
+        (-[NSString _web_isUserVisibleURL]): Use WTF prefix explicitly.
+        (-[NSString _webkit_stringByReplacingValidPercentEscapes]): Use WebCore prefix
+        explicitly.
+        (-[NSString _web_decodeHostName]): Use WTF prefix explicitly.
+        (-[NSString _web_encodeHostName]): Ditto.
+        (-[NSString _webkit_decodeHostName]): Ditto.
+        (-[NSString _webkit_encodeHostName]): Ditto.
+
+2021-11-10  Tim Nguyen  <ntim@apple.com>
+
+        Migrate DialogElementEnabled from RuntimeFlags to Settings
+        https://bugs.webkit.org/show_bug.cgi?id=232926
+
+        Reviewed by Youenn Fablet.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences dialogElementEnabled]): Deleted.
+        (-[WebPreferences setDialogElementEnabled:]): Deleted.
+        * WebView/WebPreferencesPrivate.h:
+
+2021-11-09  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r285536.
+        https://bugs.webkit.org/show_bug.cgi?id=232915
+
+        causes API test crashes
+
+        Reverted changeset:
+
+        "[CF] Reduce duplication and unneeded buffer allocations and
+        copying in URL code, also remove unused methods and functions"
+        https://bugs.webkit.org/show_bug.cgi?id=232220
+        https://commits.webkit.org/r285536
+
+2021-10-28  Darin Adler  <darin@apple.com>
+
+        [CF] Reduce duplication and unneeded buffer allocations and copying in URL code, also remove unused methods and functions
+        https://bugs.webkit.org/show_bug.cgi?id=232220
+
+        Reviewed by Alex Christensen.
+
+        * Misc/WebNSURLExtras.h: Tweaked comments a bit. No need to say methods are "new", since
+        that won't be true in the future. Removed unused methods
+        +[NSURL _web_URLWithUserTypedString:relativeToURL:],
+        +[NSURL _webkit_URLWithUserTypedString:relativeToURL:],
+        +[NSURL _web_URLWithData:], +[NSURL _web_URLWithData:relatveToURL:].
+        Wanted to remove even more nearly unused methods: many were used only
+        inside the WebKit project, in legacy plug-in code, and some seemed unused,
+        but it wasn't easy for me to quickly verify that.
+
+        * Misc/WebNSURLExtras.mm: Removed "using namespace WebCore" and
+        "using namespace WTF".
+        (+[NSURL _web_URLWithUserTypedString:relativeToURL:]): Deleted.
+        (+[NSURL _web_URLWithUserTypedString:]): Use WTF prefix explicitly.
+        (+[NSURL _webkit_URLWithUserTypedString:relativeToURL:]): Deleted.
+        (+[NSURL _webkit_URLWithUserTypedString:]): Use WTF prefix explicitly.
+        (+[NSURL _web_URLWithDataAsString:]): Removed special case for nil since the code
+        will do the right thing with nil without an explicit check.
+        (+[NSURL _web_URLWithDataAsString:relativeToURL]): Ditto. Also formatted the code
+        as a one-liner.
+        (+[NSURL _web_URLWithData:]): Deleted.
+        (+[NSURL _web_URLWithData:relativeToURL:]): Deleted.
+        (-[NSURL _web_originalData]): Use WTF prefix explicitly.
+        (-[NSURL _web_originalDataAsString]): Ditto.
+        (-[NSURL _web_isEmpty]): Use bridge_cast and make code style checker happy by using
+        "!" instead of "== 0".
+        (-[NSURL _web_URLCString]): Use WTF prefix explicitly.
+        (-[NSURL _webkit_canonicalize]): Use WebCore prefix explicitly.
+        (-[NSURL _webkit_URLByRemovingFragment]): Use WTF prefix explicitly.
+        (-[NSURL _web_schemeSeparatorWithoutColon]): Deleted.
+        (-[NSURL _web_dataForURLComponentType:]): Deleted.
+        (-[NSURL _web_hostData]): Use WTF prefix explicitly. Rearranged for clarity and
+        slightly improved efficiency as well.
+        (-[NSString _web_isUserVisibleURL]): Use WTF prefix explicitly.
+        (-[NSString _webkit_stringByReplacingValidPercentEscapes]): Use WebCore prefix
+        explicitly.
+        (-[NSString _web_decodeHostName]): Use WTF prefix explicitly.
+        (-[NSString _web_encodeHostName]): Ditto.
+        (-[NSString _webkit_decodeHostName]): Ditto.
+        (-[NSString _webkit_encodeHostName]): Ditto.
+
+2021-11-06  David Kilzer  <ddkilzer@apple.com>
+
+        Remove empty directories from from svn.webkit.org repository as of r285357
+        <https://webkit.org/b/232773>
+
+        Unreviewed clean up.
+
+        * Plugins/Hosted: Removed.
+
+2021-11-05  Nikolaos Mouchtaris  <nmouchtaris@apple.com>
+
+        Make scroll bar mode an enum class
+        https://bugs.webkit.org/show_bug.cgi?id=232651
+
+        Reviewed by Simon Fraser.
+
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::transitionToCommittedForNewPage):
+        * WebView/WebDynamicScrollBarsView.mm:
+        (-[WebDynamicScrollBarsView setAllowsHorizontalScrolling:]):
+        (-[WebDynamicScrollBarsView updateScrollers]):
+        (-[WebDynamicScrollBarsView allowsHorizontalScrolling]):
+        (-[WebDynamicScrollBarsView allowsVerticalScrolling]):
+        * WebView/WebView.mm:
+        (-[WebView setAlwaysShowVerticalScroller:]):
+        (-[WebView alwaysShowVerticalScroller]):
+        (-[WebView setAlwaysShowHorizontalScroller:]):
+        (-[WebView alwaysShowHorizontalScroller]):
+
+2021-11-03  Chris Dumez  <cdumez@apple.com>
+
+        Unreviewed iOS build fix.
+
+        * WebCoreSupport/WebNotificationClient.mm:
+        (-[WebNotificationPolicyListener NO_RETURN_DUE_TO_ASSERT]):
+        (-[WebNotificationPolicyListener denyOnlyThisRequest]): Deleted.
+        (-[WebNotificationPolicyListener shouldClearCache]): Deleted.
+
+2021-11-01  Brady Eidson  <beidson@apple.com>
+
+        Make WebChromeClient's m_webView pointer weak.
+        https://bugs.webkit.org/show_bug.cgi?id=232588
+
+        Reviewed by David Kilzer.
+
+        * WebCoreSupport/WebChromeClient.h:
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Fix internal macOS build after r285047
+        https://bugs.webkit.org/show_bug.cgi?id=232462
+
+        * MigrateHeaders.make:
+
+2021-10-29  David Kilzer  <ddkilzer@apple.com>
+
+        [WebKitLegacy] Enable -Wformat=2 warnings
+        <https://webkit.org/b/232333>
+        <rdar://problem/84681560>
+
+        Reviewed by Darin Adler.
+
+        * Configurations/Base.xcconfig:
+        (WARNING_CFLAGS):
+        - Replace -Wformat-security with -Wformat=2, which enables more
+          warnings like -Wformat-nonliteral.
+        * Misc/WebLocalizableStringsInternal.h:
+        (WebLocalizedStringInternal):
+        - Add NS_FORMAT_ARGUMENT() macro to fix -Wformat-nonliteral
+          warnings.
+
+2021-10-29  Alex Christensen  <achristensen@webkit.org>
+
+        Remove code inside ENABLE(NETSCAPE_PLUGIN_API)
+        https://bugs.webkit.org/show_bug.cgi?id=232462
+
+        Reviewed by Anders Carlsson.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.h: Removed.
+        * Plugins/Hosted/HostedNetscapePluginStream.mm: Removed.
+        * Plugins/Hosted/NetscapePluginHostManager.h: Removed.
+        * Plugins/Hosted/NetscapePluginHostManager.mm: Removed.
+        * Plugins/Hosted/NetscapePluginHostProxy.h: Removed.
+        * Plugins/Hosted/NetscapePluginHostProxy.mm: Removed.
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h: Removed.
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm: Removed.
+        * Plugins/Hosted/ProxyInstance.h: Removed.
+        * Plugins/Hosted/ProxyInstance.mm: Removed.
+        * Plugins/Hosted/ProxyRuntimeObject.h: Removed.
+        * Plugins/Hosted/ProxyRuntimeObject.mm: Removed.
+        * Plugins/Hosted/WebHostedNetscapePluginView.h: Removed.
+        * Plugins/Hosted/WebHostedNetscapePluginView.mm: Removed.
+        * Plugins/Hosted/WebKitPluginAgent.defs: Removed.
+        * Plugins/Hosted/WebKitPluginAgentReply.defs: Removed.
+        * Plugins/Hosted/WebKitPluginClient.defs: Removed.
+        * Plugins/Hosted/WebKitPluginHost.defs: Removed.
+        * Plugins/Hosted/WebKitPluginHostTypes.defs: Removed.
+        * Plugins/Hosted/WebKitPluginHostTypes.h: Removed.
+        * Plugins/Hosted/WebTextInputWindowController.h: Removed.
+        * Plugins/Hosted/WebTextInputWindowController.m: Removed.
+        * Plugins/WebBaseNetscapePluginView.h: Removed.
+        * Plugins/WebBaseNetscapePluginView.mm: Removed.
+        * Plugins/WebBasePluginPackage.h:
+        * Plugins/WebBasePluginPackage.mm:
+        (+[WebBasePluginPackage pluginWithPath:]):
+        * Plugins/WebNetscapePluginEventHandler.h: Removed.
+        * Plugins/WebNetscapePluginEventHandler.mm: Removed.
+        * Plugins/WebNetscapePluginEventHandlerCocoa.h: Removed.
+        * Plugins/WebNetscapePluginEventHandlerCocoa.mm: Removed.
+        * Plugins/WebNetscapePluginPackage.h: Removed.
+        * Plugins/WebNetscapePluginPackage.mm: Removed.
+        * Plugins/WebNetscapePluginStream.h: Removed.
+        * Plugins/WebNetscapePluginStream.mm: Removed.
+        * Plugins/WebNetscapePluginView.h: Removed.
+        * Plugins/WebNetscapePluginView.mm: Removed.
+        * Plugins/WebPluginController.mm:
+        (-[WebPluginController destroyPlugin:]):
+        (-[WebPluginController destroyAllPlugins]):
+        * Plugins/WebPluginDatabase.mm:
+        (PluginPackageCandidates::update):
+        (-[WebPluginDatabase removePluginInstanceViewsFor:]):
+        (-[WebPluginDatabase destroyAllPluginInstanceViews]):
+        * Plugins/WebPluginRequest.h: Removed.
+        * Plugins/WebPluginRequest.m: Removed.
+        * Plugins/npapi.mm: Removed.
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::createWindow):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::dispatchCreatePage):
+        (WebFrameLoaderClient::createPlugin):
+        (WebFrameLoaderClient::redirectDataToPlugin):
+        (NetscapePluginWidget::NetscapePluginWidget): Deleted.
+        (NetscapePluginWidget::platformLayer const): Deleted.
+        (NetscapePluginWidget::getFormValue): Deleted.
+        (NetscapePluginWidget::handleEvent): Deleted.
+        (NetscapePluginWidget::clipRectChanged): Deleted.
+        (NetscapePluginWidget::notifyWidget): Deleted.
+        * WebView/WebFrame.mm:
+        (-[WebFrame _recursive_resumeNullEventsForAllNetscapePlugins]): Deleted.
+        (-[WebFrame _recursive_pauseNullEventsForAllNetscapePlugins]): Deleted.
+        * WebView/WebFramePrivate.h:
+        * WebView/WebHTMLView.mm:
+        (needsCursorRectsSupportAtPoint):
+        (-[WebHTMLView viewWillMoveToHostWindow:]):
+        (-[WebHTMLView viewDidMoveToHostWindow]):
+        (-[WebHTMLView _web_makePluginSubviewsPerformSelector:withObject:]): Deleted.
+        (-[WebHTMLView _pauseNullEventsForAllNetscapePlugins]): Deleted.
+        (-[WebHTMLView _resumeNullEventsForAllNetscapePlugins]): Deleted.
+        * WebView/WebHTMLViewPrivate.h:
+        * WebView/WebView.mm:
+
+2021-10-28  Per Arne Vollan <pvollan@apple.com>
+
+        Layout test is crashing inside WebChromeClient::createWindow
+        https://bugs.webkit.org/show_bug.cgi?id=232460
+        <rdar://81344393>
+
+        Reviewed by Brent Fulgham.
+
+        Add null check for local NetscapePluginHostProxy pointer variable.
+
+        * Plugins/Hosted/NetscapePluginHostManager.mm:
+        (WebKit::NetscapePluginHostManager::didCreateWindow):
+
+2021-10-28  Alex Christensen  <achristensen@webkit.org>
+
+        Disable NETSCAPE_PLUGIN_API at build time on macOS and Windows
+        https://bugs.webkit.org/show_bug.cgi?id=232396
+
+        Reviewed by Geoff Garen.
+
+        * WebView/WebFramePrivate.h:
+        * WebView/WebHTMLViewPrivate.h:
+
+2021-10-28  Youenn Fablet  <youenn@apple.com>
+
+        [ Mac wk1 ] 2 media-capabilities/webrtc tests are flaky failures
+        https://bugs.webkit.org/show_bug.cgi?id=232283
+        <rdar://problem/84637007>
+
+        Reviewed by Eric Carlson.
+
+        * WebView/WebView.mm:
+
+2021-10-24  Ian Anderson  <iana@apple.com>
+
+        Enable the modules verifier for WebKitLegacy in Apple internal when using a new enough Xcode
+        https://bugs.webkit.org/show_bug.cgi?id=232190
+
+        Reviewed by David Kilzer.
+
+        Add WK_XCODE_VERSION_BEFORE_13_1 build settings to WebKitLegacy and then
+        use them to enable the modules verifier in Xcode 13.1 and later.
+
+        * Configurations/Base.xcconfig:
+        * Configurations/WebKitLegacy.xcconfig:
+
+2021-10-22  Ian Anderson  <iana@apple.com>
+
+        Add a module map file for PrivateFrameworks/WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=230735
+
+        Reviewed by David Kilzer.
+
+        Define modules for the Cocoa Touch environment. macOS can't define
+        modules in WebKitLegacy because it's a nested framework on that
+        platform.
+        Set up the modules verifier tool for Apple Internal (it's not supported
+        in the public Xcode). Don't enable it yet because some of the Safari
+        builders use too old of an Xcode.
+        Add the Apple Internal guards for NSURLDownload from WebDownload.h
+        NSURLDownloadSPI.h so it can be included in the module.
+        WebCreateFragmentInternal.h is an Objective-C++ header, but the
+        WebKitLegacy module should be usable by plain Objective-C clients.
+        C++ guards so that it can be included in the module.
+        Switch a few quoted includes to framework style angle includes, which
+        are required for modules.
+        Add some missing includes.
+
+        * Configurations/WebKitLegacy.xcconfig:
+        * DOM/DOMEventListener.h:
+        * DOM/DOMEventTarget.h:
+        * DOM/DOMNodeFilter.h:
+        * DOM/DOMXPathNSResolver.h:
+        * DOM/WebDOMOperationsPrivate.h:
+        * History/WebHistoryItemPrivate.h:
+        * Misc/NSURLDownloadSPI.h:
+        * Misc/WebCache.h:
+        * Misc/WebDownload.h:
+        * Misc/WebKitErrorsPrivate.h:
+        * Misc/WebLocalizableStrings.h:
+        * Misc/WebUserContentURLPattern.h:
+        * Plugins/Hosted/WebKitPluginHostTypes.h:
+        * Plugins/WebPlugin.h:
+        * Plugins/WebPluginContainer.h:
+        * Storage/WebDatabaseManagerPrivate.h:
+        * Storage/WebDatabaseQuotaManager.h:
+        * Storage/WebStorageManagerPrivate.h:
+        * WebCoreSupport/WebCreateFragmentInternal.h:
+        * WebCoreSupport/WebSecurityOriginPrivate.h:
+        * WebView/WebDeviceOrientation.h:
+        * WebView/WebDeviceOrientationProvider.h:
+        * WebView/WebDeviceOrientationProviderMock.h:
+        * WebView/WebEditingDelegatePrivate.h:
+        * WebView/WebFormDelegatePrivate.h:
+        * WebView/WebGeolocationPosition.h:
+        * WebView/WebResourceLoadDelegatePrivate.h:
+
+2021-10-22  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r284713.
+        https://bugs.webkit.org/show_bug.cgi?id=232187
+
+        Broke some Apple internal builds
+
+        Reverted changeset:
+
+        "Add a module map file for PrivateFrameworks/WebKitLegacy"
+        https://bugs.webkit.org/show_bug.cgi?id=230735
+        https://commits.webkit.org/r284713
+
+2021-10-22  Ian Anderson  <iana@apple.com>
+
+        Add a module map file for PrivateFrameworks/WebKitLegacy
+        https://bugs.webkit.org/show_bug.cgi?id=230735
+
+        Reviewed by David Kilzer.
+
+        Define modules for the Cocoa Touch environment. macOS can't define
+        modules in WebKitLegacy because it's a nested framework on that
+        platform.
+        Enable the modules verifier tool for Apple Internal (it's not supported
+        in the public Xcode).
+        Add the Apple Internal guards for NSURLDownload from WebDownload.h to
+        NSURLDownloadSPI.h so it can be included in the module.
+        WebCreateFragmentInternal.h is an Objective-C++ header, but the
+        WebKitLegacy module should be usable by plain Objective-C clients. Add
+        C++ guards so that it can be included in the module.
+        Switch a few quoted includes to framework style angle includes, which
+        are required for modules.
+        Add some missing includes.
+
+        * Configurations/WebKitLegacy.xcconfig:
+        * DOM/DOMEventListener.h:
+        * DOM/DOMEventTarget.h:
+        * DOM/DOMNodeFilter.h:
+        * DOM/DOMXPathNSResolver.h:
+        * DOM/WebDOMOperationsPrivate.h:
+        * History/WebHistoryItemPrivate.h:
+        * Misc/NSURLDownloadSPI.h:
+        * Misc/WebCache.h:
+        * Misc/WebDownload.h:
+        * Misc/WebKitErrorsPrivate.h:
+        * Misc/WebLocalizableStrings.h:
+        * Misc/WebUserContentURLPattern.h:
+        * Plugins/Hosted/WebKitPluginHostTypes.h:
+        * Plugins/WebPlugin.h:
+        * Plugins/WebPluginContainer.h:
+        * Storage/WebDatabaseManagerPrivate.h:
+        * Storage/WebDatabaseQuotaManager.h:
+        * Storage/WebStorageManagerPrivate.h:
+        * WebCoreSupport/WebCreateFragmentInternal.h:
+        * WebCoreSupport/WebSecurityOriginPrivate.h:
+        * WebView/WebDeviceOrientation.h:
+        * WebView/WebDeviceOrientationProvider.h:
+        * WebView/WebDeviceOrientationProviderMock.h:
+        * WebView/WebEditingDelegatePrivate.h:
+        * WebView/WebFormDelegatePrivate.h:
+        * WebView/WebGeolocationPosition.h:
+        * WebView/WebResourceLoadDelegatePrivate.h:
+
+2021-10-19  Darin Adler  <darin@apple.com>
+
+        [Cocoa] Merge and simplify the nsColor family of functions
+        https://bugs.webkit.org/show_bug.cgi?id=231992
+
+        Reviewed by Anders Carlsson.
+
+        * DOM/DOMRGBColor.mm:
+        (-[DOMRGBColor color]): Use cocoaColor instead of nsColor.
+
+        * Misc/WebKitNSStringExtras.mm:
+        (-[NSString _web_drawAtPoint:font:textColor:]): Use colorFromCocoaColor
+        instead of colorFromNSColor.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame _updateBackgroundAndUpdatesWhileOffscreen]): Use
+        colorFromCocoaColor instead of colorFromNSColor.
+        (-[WebFrame _bodyBackgroundColor]): Use cocoaColor instead of
+        nsColor.
+
+        * WebView/WebHTMLView.mm:
+        (extractUnderlines): Use colorFromCocoaColor instead of
+        colorFromNSColor.
+
+        * WebView/WebView.mm:
+        (-[WebUITextIndicatorData initWithImage:textIndicatorData:scale:]):
+        Use cocoaColor instead of -[UIColor initWithCGColor:] and cachedCGColor.
+        (-[WebTextTouchBarItemController _webChangeColor:]): Use colorFromCocoaColor
+        instead of colorFromNSColor.
+        (-[WebView updateTextTouchBar]): Use cocoaColor instead of nsColor.
+
+2021-10-19  Chris Dumez  <cdumez@apple.com>
+
+        cachedCGColor() and nsColor() should return smart pointers
+        https://bugs.webkit.org/show_bug.cgi?id=231909
+
+        Reviewed by Tim Horton.
+
+        r276283 attempted to make cachedCGColor() and nsColor() thread-safe but the fix was incomplete
+        since those functions return unretained objects that can be released from the cache on any
+        other thread. This patch updates cachedCGColor() and nsColor() to return a RetainPtr to address
+        the issue.
+
+        * DOM/DOMRGBColor.mm:
+        (-[DOMRGBColor color]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _bodyBackgroundColor]):
+        * WebView/WebView.mm:
+        (-[WebView updateTextTouchBar]):
+
+2021-10-18  Commit Queue  <commit-queue@webkit.org>
+
+        Unreviewed, reverting r284240.
+        https://bugs.webkit.org/show_bug.cgi?id=231931
+
+        NeedDifferentArchitectureToWorkWithWebpushd
+
+        Reverted changeset:
+
+        "WebKit Managed Notifications: Skeleton NotificationProvider."
+        https://bugs.webkit.org/show_bug.cgi?id=231786
+        https://commits.webkit.org/r284240
+
+2021-10-15  Brady Eidson  <beidson@apple.com>
+
+        WebKit Managed Notifications: Skeleton NotificationProvider.
+        <rdar://84275562> and https://bugs.webkit.org/show_bug.cgi?id=231786
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebNotificationClient.mm:
+        (-[WebNotificationPolicyListener NO_RETURN_DUE_TO_ASSERT]):
+        (-[WebNotificationPolicyListener denyOnlyThisRequest]): Deleted.
+
+2021-10-14  Alex Christensen  <achristensen@webkit.org>
+
+        Remove Variant.h
+        https://bugs.webkit.org/show_bug.cgi?id=231744
+
+        Reviewed by Darin Adler.
+
+        * DOM/DOMHTMLOptionsCollection.mm:
+
+2021-10-14  Myles C. Maxfield  <mmaxfield@apple.com>
+
+        All the SDKVariant.xcconfig files should match
+        https://bugs.webkit.org/show_bug.cgi?id=231663
+
+        Reviewed by Youenn Fablet.
+
+        * Configurations/SDKVariant.xcconfig:
+
+2021-10-14  David Kilzer  <ddkilzer@apple.com>
+
+        Modernize WebDatabaseManagerClient
+        <https://webkit.org/b/231549>
+        <rdar://problem/84129168>
+
+        Reviewed by Sihui Liu.
+
+        * Storage/WebDatabaseManager.mm:
+        (-[WebDatabaseManager init]):
+        - Add WebKit namespace to
+          WebDatabaseManagerClient::sharedWebDatabaseManagerClient()
+          and convert reference into pointer.
+
+        * Storage/WebDatabaseManagerClient.h:
+        (WebKit::WebDatabaseManagerClient):
+        - Put WebDatabaseManagerClient in WebKit namespace.
+
+        * Storage/WebDatabaseManagerClient.mm:
+        - Put WebDatabaseManagerClient in WebKit namespace.
+        (WebKit::WebDatabaseManagerClient::sharedWebDatabaseManagerClient):
+        - Update to use NeverDestroyed<> and to return a reference.
+
+2021-10-13  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeWeakPtr() and use WeakPtr { } directly
+        https://bugs.webkit.org/show_bug.cgi?id=231679
+
+        Reviewed by Darin Adler.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::requestCandidatesForSelection):
+
+2021-10-13  Megan Gardner  <megan_gardner@apple.com>
+
+        Remove adjustForIOSCaretWhenScrolling() code
+        https://bugs.webkit.org/show_bug.cgi?id=230454
+
+        Reviewed by Simon Fraser.
+
+        The "adjustForIOSCaretWhenScrolling" code attempted to over-scroll horizontally at the start
+        or end of an overflow scroll in order to make space for the caret to show. However, it was
+        wrong in various ways. It always did this, even for scrollers with no visible caret. It was
+        web-detectable that the scrollX for a scroller could end up as -2. And removing the code
+        doesn't result in obviously incorrect behavior.
+
+        * DOM/DOMHTML.mm:
+        (-[DOMHTMLElement setScrollXOffset:scrollYOffset:adjustForIOSCaret:]):
+        * WebView/WebFrame.mm:
+        (-[WebFrame _scrollDOMRangeToVisible:]):
+        (-[WebFrame _scrollDOMRangeToVisible:withInset:]):
+
+2021-10-13  Alex Christensen  <achristensen@webkit.org>
+
+        Remove WTF::Variant and WTF::get
+        https://bugs.webkit.org/show_bug.cgi?id=231675
+
+        Reviewed by Chris Dumez.
+
+        * WebView/WebFrame.mm:
+        (-[WebFrame getDictationResultRanges:andMetadatas:]):
+        (-[WebFrame dictationResultMetadataForRange:]):
+
+2021-10-12  Jer Noble  <jer.noble@apple.com>
+
+        [Build-time perf] Forward-declare more things in Document.h
+        https://bugs.webkit.org/show_bug.cgi?id=231489
+
+        Reviewed by Myles C. Maxfield.
+
+        Move the folowing enumerations outside their classes so that they can be forward-declared:
+        - MediaProducer::MediaStateFlags -> MediaProducerMediaStateFlags
+        - MediaProducer::MediaCaptureKind -> MediaProducerMediaCaptureKind
+        - MediaProducer::MutedState -> MediaProducerMutedState
+
+        * DOM/DOMDocument.mm:
+        * WebCoreSupport/WebChromeClient.h:
+        * WebCoreSupport/WebChromeClient.mm:
+        (WebChromeClient::playbackTargetPickerClientStateDidChange):
+        * WebView/WebMediaPlaybackTargetPicker.h:
+        * WebView/WebMediaPlaybackTargetPicker.mm:
+        (WebMediaPlaybackTargetPicker::playbackTargetPickerClientStateDidChange):
+        * WebView/WebView.mm:
+        (-[WebView _playbackTargetPickerClientStateDidChange:state:]):
+        * WebView/WebViewInternal.h:
+
+2021-10-12  Alex Christensen  <achristensen@webkit.org>
+
+        Use std::variant instead of WTF::Variant
+        https://bugs.webkit.org/show_bug.cgi?id=231629
+
+        Reviewed by Chris Dumez.
+
+        * DOM/DOMHTMLSelectElement.mm:
+        (-[DOMHTMLSelectElement add:before:]):
+
+2021-10-12  Chris Dumez  <cdumez@apple.com>
+
+        Allow direct construction of WeakPtr without makeWeakPtr()
+        https://bugs.webkit.org/show_bug.cgi?id=231580
+
+        Reviewed by Darin Adler.
+
+        Allow direct construction of WeakPtr without makeWeakPtr(), and deprecate makeWeakPtr().
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::requestCheckingOfString):
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::getLoadDecisionForIcons):
+
+2021-10-11  Chris Dumez  <cdumez@apple.com>
+
+        DOMTimeStamp is now EpochTimeStamp
+        https://bugs.webkit.org/show_bug.cgi?id=231496
+
+        Reviewed by Sam Weinig.
+
+        * DOM/DOMEvent.h:
+        * DOM/DOMEvent.mm:
+        (-[DOMEvent timeStamp]):
+        * DOM/DOMObject.h:
+
+2021-10-08  Jer Noble  <jer.noble@apple.com>
+
+        [Build-time perf] Forward-declare more things in Element.h
+        https://bugs.webkit.org/show_bug.cgi?id=231283
+
+        Reviewed by Myles C. Maxfield.
+
+        Include ElementInlines.h in various necessary places.        
+
+        * WebView/WebHTMLRepresentation.mm:
+
+2021-10-07  Darin Adler  <darin@apple.com>
+
+        Get rid of the deviceClass function, up-leveling to deviceClassIsSmallScreen
+        https://bugs.webkit.org/show_bug.cgi?id=231344
+
+        Reviewed by Tim Horton.
+
+        * WebView/WebPreferences.mm: Removed uneeded Device.h include.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultAllowsInlineMediaPlayback): Use !deviceClassIsSmallScreen
+        instead of deviceClass == iPad.
+        (WebKit::defaultAllowsInlineMediaPlaybackAfterFullscreen): Use
+        deviceClassIsSmallScreen instead of deviceClass != iPad.
+        (WebKit::defaultInlineMediaPlaybackRequiresPlaysInlineAttribute): Ditto.
+        (WebKit::defaultMediaSourceEnabled): Use !deviceClassIsSmallScreen instead of
+        deviceClass != iPhone and != iPod, and also remove unneeded compile time conditionals.
+
+2021-10-05  Tim Horton  <timothy_horton@apple.com>
+
+        <model> should be draggable, similar to <img>
+        https://bugs.webkit.org/show_bug.cgi?id=229246
+
+        Reviewed by Wenson Hsieh.
+
+        * WebView/WebView.mm:
+        (kit):
+        Do nothing for <model> drags in legacy WebKit.
+
+2021-10-03  David Kilzer  <ddkilzer@apple.com>
+
+        WTF::RetainPtr<> allows assignment of two pointer types that are not assignable
+        <https://webkit.org/b/230406>
+        <rdar://problem/83241893>
+
+        Reviewed by Darin Adler.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (+[WebBasePluginPackage pluginWithPath:]):
+        - Use explicit type with RetainPtr<> to match return type.
+
+2021-10-01  Chris Dumez  <cdumez@apple.com>
+
+        Drop support for macOS < 10.15
+        https://bugs.webkit.org/show_bug.cgi?id=231085
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebHTMLView.mm:
+        (-[WebHTMLView _recursive:displayRectIgnoringOpacity:inContext:stopAtLayerBackedViews:]):
+        (-[WebHTMLView _recursive:displayRectIgnoringOpacity:inContext:stopAtLayerBackedViews:_recursive:displayRectIgnoringOpacity:inContext:shouldChangeFontReferenceColor:stopAtLayerBackedViews:]): Deleted.
+
+2021-10-01  Ian Anderson  <iana@apple.com>
+
+        WebKitLegacy's module map files don't get installed
+        https://bugs.webkit.org/show_bug.cgi?id=230736
+
+        Reviewed by David Kilzer.
+
+        Revert r271607 because it doesn't work and isn't the right approach.
+
+        * Configurations/WebKitLegacy.xcconfig:
+        * History/WebBackForwardListPrivate.h:
+        * Misc/WebKitLegacy_Private.h: Removed.
+        * Misc/WebKitLegacy_iOS_Private.h: Removed.
+        * Misc/WebKitLegacy_macOS_Private.h: Removed.
+
+2021-09-29  Chris Dumez  <cdumez@apple.com>
+
+        Make WebLocalizedString() thread-safe
+        https://bugs.webkit.org/show_bug.cgi?id=230954
+
+        Reviewed by Alexey Proskuryakov.
+
+        Make WebLocalizedString() thread-safe. It takes minimal effort to make it thread-safe given
+        that the NSBundle API is thread-safe [1] and clients keep calling it on the background thread.
+
+        [1] https://developer.apple.com/documentation/foundation/nslocalizedstringwithdefaultvalue
+        "As of OS X 10.11 and iOS 9, NSBundle is thread-safe. As such, you can safely call
+         NSLocalizedStringWithDefaultValue from any execution context."
+
+        * Misc/WebLocalizableStrings.mm:
 
 2021-09-28  Chris Dumez  <cdumez@apple.com>
 
@@ -236,6 +1451,200 @@
         * WebCoreSupport/WebFrameLoaderClient.mm:
         (WebFrameLoaderClient::dispatchDecidePolicyForResponse):
 
+2021-09-23  Tim Horton  <timothy_horton@apple.com>
+
+        Move more linked-on-or-after checks to WebCore::linkedOnOrAfter()
+        https://bugs.webkit.org/show_bug.cgi?id=230694
+
+        Reviewed by Wenson Hsieh.
+
+        * Misc/WebDownload.mm:
+        (shouldCallOnNetworkThread):
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultRequiresUserGestureToLoadVideo):
+        (WebKit::defaultWebSQLEnabled):
+        (WebKit::defaultShouldConvertInvalidURLsToBlank):
+
+2021-09-23  Tim Horton  <timothy_horton@apple.com>
+
+        shouldAllowPictureInPictureMediaPlayback should use WebCore's linkedOnOrAfter()
+        https://bugs.webkit.org/show_bug.cgi?id=230674
+
+        Reviewed by Simon Fraser.
+
+        * WebView/WebPreferencesDefaultValues.mm:
+        (WebKit::defaultAllowsPictureInPictureMediaPlayback):
+        Adopt the WebCore API (which supports overrides for Safari and for testing).
+
+2021-09-23  Brent Fulgham  <bfulgham@apple.com>
+
+        Remove XSS Auditor: Part 3 (Deprecate API)
+        https://bugs.webkit.org/show_bug.cgi?id=230661
+        <rdar://problem/83428911>
+
+        Reviewed by Mark Lam.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences isXSSAuditorEnabled]):
+        (-[WebPreferences setXSSAuditorEnabled:]):
+        * WebView/WebPreferencesPrivate.h:
+
+2021-09-22  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeRef() and use Ref { } instead
+        https://bugs.webkit.org/show_bug.cgi?id=230626
+
+        Reviewed by Alex Christensen.
+
+        * WebCoreSupport/WebEditorClient.mm:
+        (WebEditorClient::requestCheckingOfString):
+
+2021-09-21  Chris Dumez  <cdumez@apple.com>
+
+        Drop makeRefPtr() and use RefPtr { } directly instead
+        https://bugs.webkit.org/show_bug.cgi?id=230564
+
+        Reviewed by Alex Christensen.
+
+        * DOM/DOM.mm:
+        (-[DOMRange renderedImageForcingBlackText:renderedImageForcingBlackText:]):
+        * WebCoreSupport/WebContextMenuClient.mm:
+        (WebContextMenuClient::imageForCurrentSharingServicePickerItem):
+        * WebCoreSupport/WebDragClient.mm:
+        (WebDragClient::declareAndWriteDragImage):
+        * WebView/WebHTMLRepresentation.mm:
+        (-[WebHTMLRepresentation elementWithName:inForm:]):
+        (-[WebHTMLRepresentation controlsInForm:]):
+        * WebView/WebView.mm:
+        (-[WebView updateTextTouchBar]):
+
+2021-09-21  David Kilzer  <ddkilzer@apple.com>
+
+        Rename {checked,dynamic}_ns_cast<> to {checked,dynamic}_objc_cast<>
+        <https://webkit.org/b/230508>
+        <rdar://problem/83323145>
+
+        Reviewed by Brent Fulgham.
+
+        * WebCoreSupport/WebDragClient.mm:
+        * WebView/WebHTMLView.mm:
+        - Import <wtf/cocoa/TypeCastsCocoa.h> for future move of
+          WTF::dynamic_objc_cast<> from RetainPtr.h to that header.
+
+2021-09-20  Chris Dumez  <cdumez@apple.com>
+
+        Stop using makeRef(*this) / makeRefPtr(this)
+        https://bugs.webkit.org/show_bug.cgi?id=230464
+
+        Reviewed by Alex Christensen.
+
+        * Plugins/Hosted/HostedNetscapePluginStream.mm:
+        (WebKit::HostedNetscapePluginStream::start):
+        * Plugins/WebNetscapePluginStream.mm:
+        (WebNetscapePluginStream::start):
+
+2021-09-17  Alex Christensen  <achristensen@webkit.org>
+
+        Use ObjectIdentifier for ResourceLoader
+        https://bugs.webkit.org/show_bug.cgi?id=230278
+
+        Reviewed by Michael Catanzaro.
+
+        * WebCoreSupport/WebFrameLoaderClient.h:
+        * WebCoreSupport/WebFrameLoaderClient.mm:
+        (WebFrameLoaderClient::assignIdentifierToInitialRequest):
+        (WebFrameLoaderClient::dispatchWillSendRequest):
+        (WebFrameLoaderClient::shouldUseCredentialStorage):
+        (WebFrameLoaderClient::dispatchDidReceiveAuthenticationChallenge):
+        (WebFrameLoaderClient::canAuthenticateAgainstProtectionSpace):
+        (WebFrameLoaderClient::connectionProperties):
+        (WebFrameLoaderClient::dispatchDidReceiveResponse):
+        (WebFrameLoaderClient::willCacheResponse const):
+        (WebFrameLoaderClient::dispatchDidReceiveContentLength):
+        (WebFrameLoaderClient::dispatchDidFinishLoading):
+        (WebFrameLoaderClient::dispatchDidFailLoading):
+        * WebView/WebDocumentLoaderMac.h:
+        * WebView/WebDocumentLoaderMac.mm:
+        (WebDocumentLoaderMac::increaseLoadCount):
+        (WebDocumentLoaderMac::decreaseLoadCount):
+        * WebView/WebViewInternal.h:
+
+2021-09-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Add fast property enumeration mode for JSON.stringify
+        https://bugs.webkit.org/show_bug.cgi?id=230393
+
+        Reviewed by Mark Lam.
+
+        * Plugins/Hosted/NetscapePluginInstanceProxy.h:
+        * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
+        (WebKit::NetscapePluginInstanceProxy::demarshalValues):
+
+2021-09-14  Chris Dumez  <cdumez@apple.com>
+
+        [Hardening] Validate IDBValue's blob paths in WebIDBServer::putOrAdd()
+        https://bugs.webkit.org/show_bug.cgi?id=230233
+        <rdar://79562514>
+
+        Reviewed by Brady Eidson.
+
+        * WebCoreSupport/WebPlatformStrategies.mm:
+
+2021-09-13  Youenn Fablet  <youenn@apple.com>
+
+        Remove WritableStream runtime flag
+        https://bugs.webkit.org/show_bug.cgi?id=230148
+
+        Reviewed by Sihui Liu.
+
+        * WebView/WebPreferenceKeysPrivate.h:
+        * WebView/WebPreferences.mm:
+        (-[WebPreferences writableStreamAPIEnabled]): Deleted.
+        (-[WebPreferences setWritableStreamAPIEnabled:]): Deleted.
+        * WebView/WebPreferencesPrivate.h:
+
+2021-09-11  David Kilzer  <ddkilzer@apple.com>
+
+        CFNotificationCenterAddObserver() should use weak observers
+        <https://webkit.org/b/230168>
+        <rdar://problem/82987695>
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebHTMLView.mm:
+        (hardwareKeyboardAvailabilityChangedCallback):
+        - Modernize syntax for WeakObjCPtr constructor.
+        (-[WebHTMLView initWithFrame:]):
+        - Use _CFNotificationObserverIsObjC to fix the bug.
+        - Extract local variables and change notificationName cast to be
+          ARC-ready.  Remove notificationName from autoreleasePool.
+        (-[WebHTMLView dealloc]):
+        - Extract local variable and change notificationName cast to be
+          ARC-ready.  Remove notificationName from autoreleasePool.
+
+2021-09-08  Jean-Yves Avenard  <jya@apple.com>
+
+        Safari TP 131 audio canPlayType() reports false negatives
+        https://bugs.webkit.org/show_bug.cgi?id=229799
+        rdar://problem/82776747
+
+        Reviewed by Youenn Fablet.
+
+        * WebView/WebPreferencesDefaultValues.h:
+        * WebView/WebPreferencesDefaultValues.mm: Remove no longer used method.
+
+2021-09-07  Sihui Liu  <sihui_liu@apple.com>
+
+        Add basic support for Storage API
+        https://bugs.webkit.org/show_bug.cgi?id=229925
+
+        Reviewed by Darin Adler.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
 2021-08-31  Chris Dumez  <cdumez@apple.com>
 
         Enable SharedArrayBuffer support when COOP/COEP headers are used
@@ -247,6 +1656,40 @@
         * WebCoreSupport/WebFrameLoaderClient.h:
         * WebCoreSupport/WebFrameLoaderClient.mm:
         (WebFrameLoaderClient::dispatchDecidePolicyForResponse):
+
+2021-08-31  Sihui Liu  <sihui_liu@apple.com>
+
+        REGRESSION (r281771): ASSERTION FAILED: !m_deletionHasBegun under WebCore::Permissions::~Permissions()
+        https://bugs.webkit.org/show_bug.cgi?id=229714
+        <rdar://problem/82581552>
+
+        Reviewed by Chris Dumez.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
+
+2021-08-26  Darin Adler  <darin@apple.com>
+
+        Cut down on use of CFGetTypeID, using dynamic_cf_cast instead; related streamlining
+        https://bugs.webkit.org/show_bug.cgi?id=229414
+
+        Reviewed by Tim Horton.
+
+        * Plugins/WebBasePluginPackage.mm:
+        (-[WebBasePluginPackage bundleVersion]): Use dynamic_cf_cast.
+
+2021-08-30  Sihui Liu  <sihui_liu@apple.com>
+
+        Add stubs for Permissions API
+        https://bugs.webkit.org/show_bug.cgi?id=229339
+        <rdar://problem/82442205>
+
+        Reviewed by Chris Dumez.
+
+        * WebView/WebView.mm:
+        (-[WebView _commonInitializationWithFrameName:groupName:]):
+        (-[WebView initSimpleHTMLDocumentWithStyle:frame:preferences:groupName:]):
 
 2021-08-24  Chris Dumez  <cdumez@apple.com>
 
@@ -260,248 +1703,55 @@
         * WebCoreSupport/WebFrameLoaderClient.mm:
         (WebFrameLoaderClient::dispatchDecidePolicyForResponse):
 
-2021-10-06  Russell Epstein  <repstein@apple.com>
+2021-08-19  Megan Gardner  <megan_gardner@apple.com>
 
-        Cherry-pick r283225. rdar://problem/83953851
+        Remove old unused code and out of date comments.
+        https://bugs.webkit.org/show_bug.cgi?id=229210
 
-    Make WebLocalizedString() thread-safe
-    https://bugs.webkit.org/show_bug.cgi?id=230954
-    
-    Reviewed by Alexey Proskuryakov.
-    
-    Make WebLocalizedString() thread-safe. It takes minimal effort to make it thread-safe given
-    that the NSBundle API is thread-safe [1] and clients keep calling it on the background thread.
-    
-    [1] https://developer.apple.com/documentation/foundation/nslocalizedstringwithdefaultvalue
-    "As of OS X 10.11 and iOS 9, NSBundle is thread-safe. As such, you can safely call
-     NSLocalizedStringWithDefaultValue from any execution context."
-    
-    * Misc/WebLocalizableStrings.mm:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@283225 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        Reviewed by Anders Carlsson.
 
-    2021-09-29  Chris Dumez  <cdumez@apple.com>
+        * WebView/WebView.mm:
+        * WebView/WebViewPrivate.h:
 
-            Make WebLocalizedString() thread-safe
-            https://bugs.webkit.org/show_bug.cgi?id=230954
+2021-08-19  Alex Christensen  <achristensen@webkit.org>
 
-            Reviewed by Alexey Proskuryakov.
+        Remove more non-inclusive language from Source
+        https://bugs.webkit.org/show_bug.cgi?id=229230
 
-            Make WebLocalizedString() thread-safe. It takes minimal effort to make it thread-safe given
-            that the NSBundle API is thread-safe [1] and clients keep calling it on the background thread.
+        Reviewed by Myles C. Maxfield.
 
-            [1] https://developer.apple.com/documentation/foundation/nslocalizedstringwithdefaultvalue
-            "As of OS X 10.11 and iOS 9, NSBundle is thread-safe. As such, you can safely call
-             NSLocalizedStringWithDefaultValue from any execution context."
+        * WebKit.order:
+        * WebView/WebViewPrivate.h:
 
-            * Misc/WebLocalizableStrings.mm:
+2021-08-19  Simon Fraser  <simon.fraser@apple.com>
 
-2021-09-22  Alan Coon  <alancoon@apple.com>
+        Rename Element::clientRect() which does not return a value in web-exposed "client" coordinates
+        https://bugs.webkit.org/show_bug.cgi?id=229243
 
-        Cherry-pick r282707. rdar://problem/83429953
+        Reviewed by Wenson Hsieh.
 
-    [JSC] Add fast property enumeration mode for JSON.stringify
-    https://bugs.webkit.org/show_bug.cgi?id=230393
-    
-    Reviewed by Mark Lam.
-    
-    JSTests:
-    
-    * stress/json-stringify-object-modify.js: Added.
-    (shouldBe):
-    (throw.new.Error.let.object.hello.get inner):
-    (throw.new.Error):
-    (shouldBe.let.object.hello.get inner):
-    
-    Source/JavaScriptCore:
-    
-    We collected profiles and found several subtests are using JSON.stringify enough. And generated strings are many serialized leaf objects.
-    
-    This patch adds fast object property enumeration. When we know that source object meets some conditions, we can say that,
-    as long as structure is not changed, we can continue using property names and offset collected from the structure.
-    This way removes non observable [[Get]] operations to accelerate JSON.stringify performance for major object iteration cases.
-    
-    We also extend MarkedArgumentBuffer: introducing MarkedArgumentBufferWithSize which can take default inline capacity as a template
-    parameter. This is used in JSON.stringify to increase the buffer because now we also need to record structures in MarkedArgumentBuffer.
-    
-    This offers 0.4% improvement in Speedometer2 (EmberJS-TodoMVC, Vanilla-XXX, EmberJS-Debug-TodoMVC, they have enough amount of JSON.stringify
-    time).
-    
-    ----------------------------------------------------------------------------------------------------------------------------------
-    |               subtest                |     ms      |     ms      |  b / a   | pValue (significance using False Discovery Rate) |
-    ----------------------------------------------------------------------------------------------------------------------------------
-    | Elm-TodoMVC                          |117.710000   |117.751667   |1.000354  | 0.883246                                         |
-    | VueJS-TodoMVC                        |24.500000    |24.311667    |0.992313  | 0.365130                                         |
-    | EmberJS-TodoMVC                      |126.646667   |125.738333   |0.992828  | 0.002587 (significant)                           |
-    | BackboneJS-TodoMVC                   |47.873333    |47.911667    |1.000801  | 0.762509                                         |
-    | Preact-TodoMVC                       |17.020000    |17.070000    |1.002938  | 0.786799                                         |
-    | AngularJS-TodoMVC                    |129.856667   |129.353333   |0.996124  | 0.177632                                         |
-    | Vanilla-ES2015-TodoMVC               |61.698333    |61.120000    |0.990626  | 0.000003 (significant)                           |
-    | Inferno-TodoMVC                      |62.840000    |62.496667    |0.994536  | 0.312340                                         |
-    | Flight-TodoMVC                       |77.095000    |76.936667    |0.997946  | 0.702724                                         |
-    | Angular2-TypeScript-TodoMVC          |39.740000    |39.191667    |0.986202  | 0.053485                                         |
-    | VanillaJS-TodoMVC                    |49.008333    |48.346667    |0.986499  | 0.000638 (significant)                           |
-    | jQuery-TodoMVC                       |216.785000   |217.188333   |1.001861  | 0.270747                                         |
-    | EmberJS-Debug-TodoMVC                |344.230000   |342.993333   |0.996407  | 0.012262 (significant)                           |
-    | React-TodoMVC                        |85.461667    |85.411667    |0.999415  | 0.758049                                         |
-    | React-Redux-TodoMVC                  |140.681667   |140.640000   |0.999704  | 0.871277                                         |
-    | Vanilla-ES2015-Babel-Webpack-TodoMVC |59.928333    |59.351667    |0.990377  | 0.000000 (significant)                           |
-    ----------------------------------------------------------------------------------------------------------------------------------
-    a mean = 264.40650
-    b mean = 265.51533
-    pValue = 0.0005567357
-    (Bigger means are better.)
-    1.004 times better
-    Results ARE significant
-    
-    * heap/Heap.cpp:
-    (JSC::Heap::addCoreConstraints):
-    * heap/Heap.h:
-    * heap/HeapInlines.h:
-    * runtime/ArgList.cpp:
-    (JSC::MarkedArgumentBufferBase::addMarkSet):
-    (JSC::MarkedArgumentBufferBase::markLists):
-    (JSC::MarkedArgumentBufferBase::slowEnsureCapacity):
-    (JSC::MarkedArgumentBufferBase::expandCapacity):
-    (JSC::MarkedArgumentBufferBase::slowAppend):
-    (JSC::MarkedArgumentBuffer::addMarkSet): Deleted.
-    (JSC::MarkedArgumentBuffer::markLists): Deleted.
-    (JSC::MarkedArgumentBuffer::slowEnsureCapacity): Deleted.
-    (JSC::MarkedArgumentBuffer::expandCapacity): Deleted.
-    (JSC::MarkedArgumentBuffer::slowAppend): Deleted.
-    * runtime/ArgList.h:
-    (JSC::MarkedArgumentBufferWithSize::MarkedArgumentBufferWithSize):
-    (JSC::MarkedArgumentBuffer::MarkedArgumentBuffer): Deleted.
-    (JSC::MarkedArgumentBuffer::~MarkedArgumentBuffer): Deleted.
-    (JSC::MarkedArgumentBuffer::size const): Deleted.
-    (JSC::MarkedArgumentBuffer::isEmpty const): Deleted.
-    (JSC::MarkedArgumentBuffer::at const): Deleted.
-    (JSC::MarkedArgumentBuffer::clear): Deleted.
-    (JSC::MarkedArgumentBuffer::appendWithAction): Deleted.
-    (JSC::MarkedArgumentBuffer::append): Deleted.
-    (JSC::MarkedArgumentBuffer::appendWithCrashOnOverflow): Deleted.
-    (JSC::MarkedArgumentBuffer::removeLast): Deleted.
-    (JSC::MarkedArgumentBuffer::last): Deleted.
-    (JSC::MarkedArgumentBuffer::takeLast): Deleted.
-    (JSC::MarkedArgumentBuffer::ensureCapacity): Deleted.
-    (JSC::MarkedArgumentBuffer::hasOverflowed): Deleted.
-    (JSC::MarkedArgumentBuffer::overflowCheckNotNeeded): Deleted.
-    (JSC::MarkedArgumentBuffer::fill): Deleted.
-    (JSC::MarkedArgumentBuffer::slotFor const): Deleted.
-    (JSC::MarkedArgumentBuffer::mallocBase): Deleted.
-    (JSC::MarkedArgumentBuffer::setNeedsOverflowCheck): Deleted.
-    (JSC::MarkedArgumentBuffer::clearNeedsOverflowCheck): Deleted.
-    * runtime/JSONObject.cpp:
-    (JSC::Stringifier::Holder::hasFastObjectProperties const):
-    (JSC::Stringifier::appendStringifiedValue):
-    (JSC::Stringifier::Holder::Holder):
-    (JSC::Stringifier::Holder::appendNextProperty):
-    * runtime/ObjectConstructorInlines.h:
-    (JSC::canPerformFastPropertyEnumerationForJSONStringify):
-    
-    Source/WebCore:
-    
-    * Modules/webaudio/AudioWorkletProcessor.cpp:
-    (WebCore::AudioWorkletProcessor::buildJSArguments):
-    * Modules/webaudio/AudioWorkletProcessor.h:
-    
-    Source/WebKitLegacy/mac:
-    
-    * Plugins/Hosted/NetscapePluginInstanceProxy.h:
-    * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
-    (WebKit::NetscapePluginInstanceProxy::demarshalValues):
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282707 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+        The result of Element::clientRect() is in the coordinate space of the root view,
+        not in the space of the Element's Frame, so does not match the other functions on Element
+        with "client" in the name.
 
-    2021-09-17  Yusuke Suzuki  <ysuzuki@apple.com>
+        Rename to Element::boundingBoxInRootViewCoordinates() for clarity.
 
-            [JSC] Add fast property enumeration mode for JSON.stringify
-            https://bugs.webkit.org/show_bug.cgi?id=230393
+        * WebCoreSupport/WebValidationMessageClient.mm:
+        (WebValidationMessageClient::showValidationMessage):
+        (WebValidationMessageClient::updateValidationBubbleStateIfNeeded):
 
-            Reviewed by Mark Lam.
+2021-08-19  Simon Fraser  <simon.fraser@apple.com>
 
-            * Plugins/Hosted/NetscapePluginInstanceProxy.h:
-            * Plugins/Hosted/NetscapePluginInstanceProxy.mm:
-            (WebKit::NetscapePluginInstanceProxy::demarshalValues):
+        Rename EventHandler::sendScrollEvent() to scheduleScrollEvent() since the event is not sent synchronously
+        https://bugs.webkit.org/show_bug.cgi?id=229256
 
-2021-09-22  Alan Coon  <alancoon@apple.com>
+        Reviewed by Geoffrey Garen.
 
-        Cherry-pick r282393. rdar://problem/83429703
+        Rename EventHandler::sendScrollEvent() and FrameView::sendScrollEvent()
+        to scheduleScrollEvent() since the event dispatch happens via the next rendering update.
 
-    [Hardening] Validate IDBValue's blob paths in WebIDBServer::putOrAdd()
-    https://bugs.webkit.org/show_bug.cgi?id=230233
-    <rdar://79562514>
-    
-    Reviewed by Brady Eidson.
-    
-    Source/WebCore:
-    
-    Rename writeBlobsToTemporaryFiles() to writeBlobsToTemporaryFilesForIndexedDB() for clarity
-    since it is currently only used for IndexedDB and we wouldn't want to expand usage to
-    other things.
-    
-    * bindings/js/SerializedScriptValue.cpp:
-    (WebCore::SerializedScriptValue::writeBlobsToDiskForIndexedDB):
-    * platform/network/BlobRegistry.h:
-    * platform/network/BlobRegistryImpl.cpp:
-    (WebCore::BlobRegistryImpl::writeBlobsToTemporaryFilesForIndexedDB):
-    * platform/network/BlobRegistryImpl.h:
-    
-    Source/WebKit:
-    
-    When the SerializedScriptValue contains BlobURLs, IDBTransaction::putOrAddOnServer()
-    calls SerializedScriptValue::writeBlobsToDiskForIndexedDB() before sending the
-    WebIDBServer::PutOrAdd IPC to the network process. writeBlobsToDiskForIndexedDB()
-    sends a NetworkProcessConnection::writeBlobsToTemporaryFilesForIndexedDB IPC to the
-    network process and the network process will write the blobs to temporary files and
-    then return the file paths to those temporary files to the WebProcess. The file paths
-    are then stored inside the IDBValue object that gets sent in the WebIDBServer::PutOrAdd
-    IPC.
-    
-    This patch hardens our IPC by validating in WebIDBServer::PutOrAdd() that the IDBValue's
-    Blob file paths were indeed file paths previously created by the network process on behalf
-    of the WebProcess sending the IPC. If it is not, we ignore the IPC.
-    
-    * NetworkProcess/IndexedDB/WebIDBServer.cpp:
-    (WebKit::WebIDBServer::putOrAdd):
-    (WebKit::WebIDBServer::removeConnection):
-    (WebKit::WebIDBServer::registerTemporaryBlobFilePaths):
-    * NetworkProcess/IndexedDB/WebIDBServer.h:
-    * NetworkProcess/IndexedDB/WebIDBServer.messages.in:
-    * NetworkProcess/NetworkConnectionToWebProcess.cpp:
-    (WebKit::NetworkConnectionToWebProcess::writeBlobsToTemporaryFilesForIndexedDB):
-    * NetworkProcess/NetworkConnectionToWebProcess.h:
-    * NetworkProcess/NetworkConnectionToWebProcess.messages.in:
-    * NetworkProcess/NetworkProcessPlatformStrategies.cpp:
-    (WebKit::NetworkProcessPlatformStrategies::createBlobRegistry):
-    * WebProcess/FileAPI/BlobRegistryProxy.cpp:
-    (WebKit::BlobRegistryProxy::writeBlobsToTemporaryFilesForIndexedDB):
-    * WebProcess/FileAPI/BlobRegistryProxy.h:
-    * WebProcess/Network/NetworkProcessConnection.cpp:
-    (WebKit::NetworkProcessConnection::writeBlobsToTemporaryFilesForIndexedDB):
-    * WebProcess/Network/NetworkProcessConnection.h:
-    
-    Source/WebKitLegacy/mac:
-    
-    * WebCoreSupport/WebPlatformStrategies.mm:
-    
-    Source/WebKitLegacy/win:
-    
-    * WebCoreSupport/WebPlatformStrategies.cpp:
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@282393 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2021-09-14  Chris Dumez  <cdumez@apple.com>
-
-            [Hardening] Validate IDBValue's blob paths in WebIDBServer::putOrAdd()
-            https://bugs.webkit.org/show_bug.cgi?id=230233
-            <rdar://79562514>
-
-            Reviewed by Brady Eidson.
-
-            * WebCoreSupport/WebPlatformStrategies.mm:
+        * WebView/WebFrame.mm:
+        (-[WebFrame sendScrollEvent]):
 
 2021-08-16  David Kilzer  <ddkilzer@apple.com>
 

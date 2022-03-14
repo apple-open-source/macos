@@ -49,8 +49,6 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
     __DAProbeCallbackContext * context = parameter;
 
-    DALogDebugHeader( "%s -> %s", gDAProcessNameID, gDAProcessNameID );
-
     if ( status )
     {
         /*
@@ -63,7 +61,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
             kind = DAFileSystemGetKind( context->filesystem );
 
-            DALogDebug( "  probed disk, id = %@, with %@, failure.", context->disk, kind );
+            DALogInfo( "probed disk, id = %@, with %@, failure.", context->disk, kind );
 
             if ( status != FSUR_UNRECOGNIZED )
             {
@@ -125,7 +123,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
                             CFArrayRemoveValueAtIndex( context->candidates, 0 );
 
-                            DALogDebug( "  probed disk, id = %@, with %@, ongoing.", context->disk, kind );
+                            DALogInfo( "probed disk, id = %@, with %@, ongoing.", context->disk, kind );
 
                             DAFileSystemProbe( filesystem, DADiskGetDevice( context->disk ), __DAProbeCallback, context );
 
@@ -148,7 +146,7 @@ static void __DAProbeCallback( int status, int cleanStatus, CFStringRef name, CF
 
         kind = DAFileSystemGetKind( context->filesystem );
 
-        DALogDebug( "  probed disk, id = %@, with %@, success.", context->disk, kind );
+        DALogInfo( "probed disk, id = %@, with %@, success.", context->disk, kind );
     }
 
     if ( context->callback )

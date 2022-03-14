@@ -222,11 +222,6 @@ pktap_clone_create(struct if_clone *ifc, u_int32_t unit, __unused void *params)
 	PKTAP_LOG(PKTP_LOG_FUNC, "unit %u\n", unit);
 
 	pktap = if_clone_softc_allocate(&pktap_cloner);
-	if (pktap == NULL) {
-		printf("%s: _MALLOC failed\n", __func__);
-		error = ENOMEM;
-		goto done;
-	}
 	pktap->pktp_unit = unit;
 
 	/*

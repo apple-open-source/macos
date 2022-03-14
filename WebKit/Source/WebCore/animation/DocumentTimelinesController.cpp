@@ -133,7 +133,7 @@ void DocumentTimelinesController::updateAnimationsAndSendEvents(ReducedResolutio
         timeline->removeReplacedAnimations();
 
     // 3. Perform a microtask checkpoint.
-    makeRef(m_document)->eventLoop().performMicrotaskCheckpoint();
+    Ref { m_document }->eventLoop().performMicrotaskCheckpoint();
 
     // 4. Let events to dispatch be a copy of doc's pending animation event queue.
     // 5. Clear doc's pending animation event queue.
@@ -236,7 +236,7 @@ void DocumentTimelinesController::cacheCurrentTime(ReducedResolutionSeconds newC
     }
     // We extent the associated Document's lifecycle until the VM became idle since the DocumentTimelinesController
     // is owned by the Document.
-    m_document.vm().whenIdle([this, protectedDocument = makeRefPtr(m_document)]() {
+    m_document.vm().whenIdle([this, protectedDocument = Ref { m_document }]() {
         m_waitingOnVMIdle = false;
         maybeClearCachedCurrentTime();
     });

@@ -117,7 +117,7 @@ post-install:
 	$(MV) $(DSTROOT)/usr/sbin/apxs $(DSTROOT)/usr/local/bin/apxs
 	sed -e "/get_config_vars/s,\".installbuilddir,\"$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build," < $(DSTROOT)/usr/local/bin/apxs > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
 	$(CHMOD) 0755 $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/local/bin/apxs
-	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/AppleInternal/BuildRoot,,g' -e 's,/System/Volumes/Data/SWE/[^/]*/BuildRoots/[^/]*/,/,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
+	sed -e "55s,.*,includedir = $(SDKROOT)/usr/include/apache2," -e 's,/AppleInternal/Library/BuildRoots/[^/]*/,/,g' -e 's,/AppleInternal/BuildRoot,,g' -e 's,/System/Volumes/Data/SWE/[^/]*/BuildRoots/[^/]*/,/,g' < $(DSTROOT)/usr/share/httpd/build/config_vars.mk > $(DSTROOT)$(TOOLCHAIN_INSTALL_DIR)/usr/share/httpd/build/config_vars.mk
 	$(RM) $(DSTROOT)/usr/share/httpd/build/config_vars.mk
 	$(RM) $(DSTROOT)/usr/share/httpd/build/config.nice
 	$(RM) $(DSTROOT)/usr/local/bin/apxs

@@ -170,7 +170,7 @@ int ppp_comp_dispose()
 
     while ((comp = TAILQ_FIRST(&ppp_comp_head))) {
         TAILQ_REMOVE(&ppp_comp_head, comp, next);
-    	FREE(comp, M_TEMP);
+        kfree_type(struct ppp_comp, comp);
     }
     
     return 0;
@@ -216,12 +216,7 @@ int ppp_comp_register(struct ppp_comp_reg *compreg, ppp_comp_ref *compref)
     if (comp != NULL)
         return(EEXIST);
 
-    MALLOC(comp, struct ppp_comp *, sizeof(*comp), M_TEMP, M_WAITOK);
-    if (comp == NULL)
-        return(ENOMEM);
-        
-    bzero((char *)comp, sizeof(*comp));
-
+    comp = kalloc_type(struct ppp_comp, Z_WAITOK | Z_ZERO | Z_NOFAIL);
     comp->protocol = compreg->compress_proto;
     comp->comp_alloc = compreg->comp_alloc;
     comp->comp_free = compreg->comp_free;
@@ -254,7 +249,7 @@ int ppp_comp_deregister(ppp_comp_ref *compref)
 
     TAILQ_REMOVE(&ppp_comp_head, comp, next);
     
-    FREE(comp, M_TEMP);
+    kfree_type(struct ppp_comp, comp);
     return(0);
 }
 

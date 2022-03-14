@@ -142,6 +142,10 @@ static ExceptionOr<Vector<ApplePayShippingMethod>> convertAndValidate(Vector<App
     return WTFMove(result);
 }
 
+#if !USE(APPLE_INTERNAL_SDK)
+static ExceptionOr<void> merge(ApplePaySessionPaymentRequest&, ApplePayPaymentRequest&) { return { }; }
+#endif
+
 static ExceptionOr<ApplePaySessionPaymentRequest> convertAndValidate(Document& document, unsigned version, ApplePayPaymentRequest&& paymentRequest, const PaymentCoordinator& paymentCoordinator)
 {
     auto convertedRequest = convertAndValidate(document, version, paymentRequest, paymentCoordinator);
@@ -171,12 +175,19 @@ static ExceptionOr<ApplePaySessionPaymentRequest> convertAndValidate(Document& d
         result.setShippingMethods(shippingMethods.releaseReturnValue());
     }
 
-#if defined(ApplePaySessionAdditions_convertAndValidate_request)
-    ApplePaySessionAdditions_convertAndValidate_request
-#endif
+    if (auto mergeResult = merge(result, paymentRequest); mergeResult.hasException())
+        return mergeResult.releaseException();
 
     // FIXME: Merge this validation into the validation we are doing above.
-    auto validatedPaymentRequest = PaymentRequestValidator::validate(result);
+    constexpr OptionSet fieldsToValidate = {
+        PaymentRequestValidator::Field::MerchantCapabilities,
+        PaymentRequestValidator::Field::SupportedNetworks,
+        PaymentRequestValidator::Field::CountryCode,
+        PaymentRequestValidator::Field::CurrencyCode,
+        PaymentRequestValidator::Field::Total,
+        PaymentRequestValidator::Field::ShippingMethods,
+    };
+    auto validatedPaymentRequest = PaymentRequestValidator::validate(result, fieldsToValidate);
     if (validatedPaymentRequest.hasException())
         return validatedPaymentRequest.releaseException();
 
@@ -322,7 +333,9 @@ ExceptionOr<Ref<ApplePaySession>> ApplePaySession::create(Document& document, un
     if (convertedPaymentRequest.hasException())
         return convertedPaymentRequest.releaseException();
 
-    return adoptRef(*new ApplePaySession(document, version, convertedPaymentRequest.releaseReturnValue()));
+    auto session = adoptRef(*new ApplePaySession(document, version, convertedPaymentRequest.releaseReturnValue()));
+    session->suspendIfNeeded();
+    return session;
 }
 
 ApplePaySession::ApplePaySession(Document& document, unsigned version, ApplePaySessionPaymentRequest&& paymentRequest)
@@ -331,7 +344,6 @@ ApplePaySession::ApplePaySession(Document& document, unsigned version, ApplePayS
     , m_version { version }
 {
     ASSERT(document.page()->paymentCoordinator().supportsVersion(document, version));
-    suspendIfNeeded();
 }
 
 ApplePaySession::~ApplePaySession() = default;

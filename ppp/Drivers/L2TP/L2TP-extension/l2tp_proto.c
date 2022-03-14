@@ -262,14 +262,14 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                     if (sopt->sopt_valsize < sizeof(struct sockaddr))
                         error = EMSGSIZE;
                     else {
-                        if ((addr = _MALLOC(sopt->sopt_valsize, M_TEMP, M_WAITOK)) == 0)
+                        if ((addr = kalloc_data(sopt->sopt_valsize, Z_WAITOK)) == 0)
                             error = ENOMEM;
                         else {
                             if ((error = sooptcopyin(sopt, addr, sopt->sopt_valsize, sopt->sopt_valsize)) == 0)
                                 error = l2tp_rfc_command(so->so_pcb, 
                                     sopt->sopt_name == L2TP_OPT_OURADDRESS ? L2TP_CMD_SETOURADDR : L2TP_CMD_SETPEERADDR,
                                     addr);
-                            _FREE(addr, M_TEMP);
+                            kfree_data(addr, sopt->sopt_valsize);
                         }
                     }
                     break;
@@ -341,7 +341,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                     break;
                 case L2TP_OPT_OURADDRESS:
                 case L2TP_OPT_PEERADDRESS:
-                    if ((addr = _MALLOC(sopt->sopt_valsize, M_TEMP, M_WAITOK)) == 0)
+                    if ((addr = kalloc_data(sopt->sopt_valsize, Z_WAITOK)) == 0)
                         error = ENOMEM;
                     else {
                         *addr = sopt->sopt_valsize; /* max size */
@@ -349,7 +349,7 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
                                 sopt->sopt_name == L2TP_OPT_OURADDRESS ? L2TP_CMD_GETOURADDR : L2TP_CMD_GETPEERADDR,
                                 addr)) == 0) {
                             error = sooptcopyout(sopt, addr, sopt->sopt_valsize);
-                            _FREE(addr, M_TEMP);
+                            kfree_data(addr, sopt->sopt_valsize);
                         }
                     }
                     break;

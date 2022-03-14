@@ -19,6 +19,8 @@ list(APPEND WebCore_UNIFIED_SOURCE_LIST_FILES
 list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/accessibility/atk"
     "${WEBCORE_DIR}/platform/adwaita"
+    "${WEBCORE_DIR}/platform/audio/glib"
+    "${WEBCORE_DIR}/platform/glib"
     "${WEBCORE_DIR}/platform/graphics/egl"
     "${WEBCORE_DIR}/platform/graphics/epoxy"
     "${WEBCORE_DIR}/platform/graphics/glx"
@@ -36,6 +38,8 @@ list(APPEND WebCore_PRIVATE_INCLUDE_DIRECTORIES
 )
 
 list(APPEND WebCore_PRIVATE_FRAMEWORK_HEADERS
+    platform/glib/ApplicationGLib.h
+
     platform/graphics/wayland/PlatformDisplayWayland.h
     platform/graphics/wayland/WlUniquePtr.h
 )
@@ -71,12 +75,6 @@ list(APPEND WebCore_SYSTEM_INCLUDE_DIRECTORIES
     ${LIBTASN1_INCLUDE_DIRS}
     ${UPOWERGLIB_INCLUDE_DIRS}
 )
-
-if (USE_LCMS)
-    list(APPEND WebCore_LIBRARIES
-        LCMS2::LCMS2
-    )
-endif ()
 
 if (USE_WPE_VIDEO_PLANE_DISPLAY_DMABUF OR USE_WPEBACKEND_FDO_AUDIO_EXTENSION)
     list(APPEND WebCore_LIBRARIES ${WPEBACKEND_FDO_LIBRARIES})

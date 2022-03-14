@@ -28,6 +28,7 @@
 #include "PageClientImpl.h"
 
 #include "DrawingAreaProxyCoordinatedGraphics.h"
+#include "DrawingAreaProxyWC.h"
 #include "WebContextMenuProxyWin.h"
 #include "WebPageProxy.h"
 #include "WebPopupMenuProxyWin.h"
@@ -47,6 +48,8 @@ PageClientImpl::PageClientImpl(WebView& view)
 // PageClient's pure virtual functions
 std::unique_ptr<DrawingAreaProxy> PageClientImpl::createDrawingAreaProxy(WebProcessProxy& process)
 {
+    if (m_view.page()->preferences().useGPUProcessForWebGLEnabled())
+        return makeUnique<DrawingAreaProxyWC>(*m_view.page(), process);
     return makeUnique<DrawingAreaProxyCoordinatedGraphics>(*m_view.page(), process);
 }
 
@@ -55,7 +58,7 @@ void PageClientImpl::setViewNeedsDisplay(const WebCore::Region& region)
     m_view.setViewNeedsDisplay(region);
 }
 
-void PageClientImpl::requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&)
+void PageClientImpl::requestScroll(const WebCore::FloatPoint&, const WebCore::IntPoint&, WebCore::ScrollIsAnimated)
 {
     notImplemented();
 }
@@ -370,7 +373,7 @@ HWND PageClientImpl::viewWidget()
     return m_view.window();
 }
 
-void PageClientImpl::requestDOMPasteAccess(const IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completionHandler)
+void PageClientImpl::requestDOMPasteAccess(WebCore::DOMPasteAccessCategory, const IntRect&, const String&, CompletionHandler<void(WebCore::DOMPasteAccessResponse)>&& completionHandler)
 {
     completionHandler(WebCore::DOMPasteAccessResponse::DeniedForGesture);
 }

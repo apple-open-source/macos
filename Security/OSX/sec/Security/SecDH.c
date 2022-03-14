@@ -115,7 +115,12 @@ OSStatus SecDHCreate(uint32_t g, const uint8_t *p, size_t p_len,
     ccdh_gp_t gp = context;
 
     const uint8_t gb[4] = { g >> 24, g >> 16, g >> 8, g };
-    if (ccdh_init_gp_from_bytes(gp, n, p_len, p, sizeof(gb), gb, 0, NULL, l)) {
+
+    int warning = CCERR_OK;
+    if (ccdh_init_safe_gp_from_bytes(gp, n, p_len, p, sizeof(gb), gb, 0, NULL, l, &warning)) {
+        if (warning) {
+            secwarning("SecDHCreate: called with non-safe DH prime");
+        }
         goto errOut;
     }
 
@@ -203,10 +208,14 @@ OSStatus SecDHCreateFromParameters(const uint8_t *params,
 
     ccdh_gp_t gp = context;
 
-    if (ccdh_init_gp_from_bytes(gp, n, decodedParams.p.length,
-                                       decodedParams.p.data,
-                                       decodedParams.g.length,
-                                       decodedParams.g.data, 0, NULL, l)) {
+    int warning = CCERR_OK;
+    if (ccdh_init_safe_gp_from_bytes(gp, n, decodedParams.p.length,
+                                            decodedParams.p.data,
+                                            decodedParams.g.length,
+                                            decodedParams.g.data, 0, NULL, l, &warning)) {
+        if (warning) {
+            secwarning("SecDHCreateFromParameters: called with non-safe DH prime");
+        }
         goto errOut;
     }
 

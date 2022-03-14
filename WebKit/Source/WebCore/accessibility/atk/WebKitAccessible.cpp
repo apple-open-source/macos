@@ -32,7 +32,7 @@
 #include "config.h"
 #include "WebKitAccessible.h"
 
-#if ENABLE(ACCESSIBILITY)
+#if ENABLE(ACCESSIBILITY) && USE(ATK)
 
 #include "AXObjectCache.h"
 #include "AccessibilityList.h"
@@ -42,6 +42,7 @@
 #include "AccessibilityTableRow.h"
 #include "Document.h"
 #include "Editing.h"
+#include "ElementInlines.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
@@ -389,7 +390,7 @@ static gint webkitAccessibleGetIndexInParent(AtkObject* object)
         return -1;
 
     size_t index = parent->children().find(coreObject);
-    return (index == WTF::notFound) ? -1 : index;
+    return (index == notFound) ? -1 : index;
 }
 
 static AtkAttributeSet* webkitAccessibleGetAttributes(AtkObject* object)
@@ -1382,4 +1383,4 @@ const char* webkitAccessibleCacheAndReturnAtkProperty(WebKitAccessible* accessib
     return (*propertyPtr).data();
 }
 
-#endif // ENABLE(ACCESSIBILITY)
+#endif // ENABLE(ACCESSIBILITY) && USE(ATK)

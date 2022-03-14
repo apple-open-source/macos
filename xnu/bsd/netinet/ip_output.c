@@ -2865,16 +2865,10 @@ imo_remref(struct ip_moptions *imo)
 		imo->imo_membership[i] = NULL;
 	}
 	imo->imo_num_memberships = 0;
-	if (imo->imo_mfilters != NULL) {
-		FREE(imo->imo_mfilters, M_INMFILTER);
-		imo->imo_mfilters = NULL;
-	}
-	if (imo->imo_membership != NULL) {
-		FREE(imo->imo_membership, M_IPMOPTS);
-		imo->imo_membership = NULL;
-	}
 	IMO_UNLOCK(imo);
 
+	kfree_type(struct in_multi *, imo->imo_max_memberships, imo->imo_membership);
+	kfree_type(struct in_mfilter, imo->imo_max_memberships, imo->imo_mfilters);
 	lck_mtx_destroy(&imo->imo_lock, &ifa_mtx_grp);
 
 	if (!(imo->imo_debug & IFD_ALLOC)) {

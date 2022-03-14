@@ -42,7 +42,8 @@
 #include <mach/vm_map.h>
 #include <mach/vm_types.h>
 
-#define DLOG(fmt, args...)          SK_DF(SK_VERB_IOSK, fmt, ##args)
+#define ELOG(fmt, args...)      SK_ERR(fmt, ##args)
+#define DLOG(fmt, args...)      SK_DF(SK_VERB_IOSK, fmt, ##args)
 #define IOSK_SIZE_OK(x)         (((x) != 0) && (round_page(x) == (x)))
 #define IOSK_OFFSET_OK(x)       (round_page(x) == (x))
 
@@ -297,7 +298,7 @@ private:
 
 	IOSKRegionSpec fSpec;
 	IOLock *    fRegionLock;
-	ArenaHead * fArenaHead;
+	ArenaHead   fArenaHead;
 	Segment *   fSegments;
 	IOSKCount   fSegmentCount;
 	IOSKSize    fSegmentSize;
@@ -920,6 +921,8 @@ IOSKRegion::initWithSpec( const IOSKRegionSpec * spec,
 			break;
 		}
 
+		SLIST_INIT(&fArenaHead);
+
 		fSegments = IONew(Segment, fSegmentCount);
 		if (fSegments == NULL) {
 			break;
@@ -940,15 +943,14 @@ IOSKRegion::free( void )
 {
 	DLOG("SKRegion %p", this);
 
-	if (fArenaHead) {
-		ArenaEntry *entry, *tentry;
-		SLIST_FOREACH_SAFE(entry, fArenaHead, link, tentry) {
-			// Arena didn't detach from the region before release()
-			assert(entry->fArena == NULL);
-			IOFreeType(entry, ArenaEntry);
-		}
-		IOFreeType(fArenaHead, ArenaHead);
+	ArenaEntry *entry, *tentry;
+	SLIST_FOREACH_SAFE(entry, &fArenaHead, link, tentry) {
+		SLIST_REMOVE(&fArenaHead, entry, ArenaEntry, link);
+		// Arena didn't detach from the region before release()
+		assert(entry->fArena == NULL);
+		IOFreeType(entry, ArenaEntry);
 	}
+	assert(SLIST_EMPTY(&fArenaHead));
 
 	if (fSegments != NULL) {
 		assert(fSegmentCount != 0);
@@ -993,17 +995,15 @@ IOSKRegion::_setSegmentBuffer(
 
 		// update mappings for all arenas containing this region,
 		// or none if no arena is attached.
-		if (fArenaHead != NULL) {
-			ArenaEntry * entry;
-			SLIST_FOREACH(entry, fArenaHead, link) {
-				if (entry->fArena != NULL) {
-					ret = entry->fArena->map(this,
-					    entry->fRegionOffset, entry->fRegionIndex,
-					    segmentIndex, buffer);
-					assert(kIOReturnSuccess == ret);
-					if (ret != kIOReturnSuccess) {
-						break;
-					}
+		ArenaEntry * entry;
+		SLIST_FOREACH(entry, &fArenaHead, link) {
+			if (entry->fArena != NULL) {
+				ret = entry->fArena->map(this,
+				    entry->fRegionOffset, entry->fRegionIndex,
+				    segmentIndex, buffer);
+				assert(kIOReturnSuccess == ret);
+				if (ret != kIOReturnSuccess) {
+					break;
 				}
 			}
 		}
@@ -1040,16 +1040,14 @@ IOSKRegion::_clearSegmentBuffer(
 
 		// update mappings for all arenas containing this region,
 		// or none if no arena is attached.
-		if (fArenaHead != NULL) {
-			vm_prot_t prot = VM_PROT_NONE;
-			ArenaEntry * entry;
+		vm_prot_t prot = VM_PROT_NONE;
+		ArenaEntry * entry;
 
-			SLIST_FOREACH(entry, fArenaHead, link) {
-				if (entry->fArena != NULL) {
-					entry->fArena->unmap(this,
-					    entry->fRegionOffset, entry->fRegionIndex,
-					    segmentIndex, prot, false, NULL);
-				}
+		SLIST_FOREACH(entry, &fArenaHead, link) {
+			if (entry->fArena != NULL) {
+				entry->fArena->unmap(this,
+				    entry->fRegionOffset, entry->fRegionIndex,
+				    segmentIndex, prot, false, NULL);
 			}
 		}
 
@@ -1094,13 +1092,11 @@ IOSKRegion::findArenaEntry( const IOSKArena * arena )
 
 	assert(arena != NULL);
 
-	if (fArenaHead) {
-		ArenaEntry * entry;
-		SLIST_FOREACH(entry, fArenaHead, link) {
-			if (entry->fArena == arena) {
-				found = entry;
-				break;
-			}
+	ArenaEntry * entry;
+	SLIST_FOREACH(entry, &fArenaHead, link) {
+		if (entry->fArena == arena) {
+			found = entry;
+			break;
 		}
 	}
 	return found;
@@ -1119,50 +1115,45 @@ IOSKRegion::attachArena(
 
 	IOLockLock(fRegionLock);
 
-	if (!fArenaHead) {
-		fArenaHead = IOMallocType(ArenaHead);
-		SLIST_INIT(fArenaHead);
+	ArenaEntry * entry = NULL;
+	ArenaEntry * empty = NULL;
+	ArenaEntry * dup = NULL;
+
+	SLIST_FOREACH(entry, &fArenaHead, link) {
+		// duplicates not allowed
+		assert(entry->fArena != arena);
+		if (entry->fArena == arena) {
+			dup = entry;
+			break;
+		}
+
+		if ((empty == NULL) && (entry->fArena == NULL)) {
+			empty = entry;
+		}
 	}
-	if (fArenaHead) {
-		ArenaEntry * entry = NULL;
-		ArenaEntry * empty = NULL;
-		ArenaEntry * dup = NULL;
 
-		SLIST_FOREACH(entry, fArenaHead, link) {
-			// duplicates not allowed
-			assert(entry->fArena != arena);
-			if (entry->fArena == arena) {
-				dup = entry;
-				break;
-			}
-
-			if ((empty == NULL) && (entry->fArena == NULL)) {
-				empty = entry;
-			}
-		}
-
-		if (dup != NULL) {
-			// do nothing
-		} else if (empty != NULL) {
-			// update the empty/available entry
-			empty->fArena = arena;
-			empty->fRegionOffset = regionOffset;
-			empty->fRegionIndex = regionIndex;
-			ok = true;
-		} else {
-			// append a new entry
-			ArenaEntry * newEntry = IOMallocType(ArenaEntry);
-			newEntry->fArena = arena;
-			newEntry->fRegionOffset = regionOffset;
-			newEntry->fRegionIndex = regionIndex;
-			SLIST_INSERT_HEAD(fArenaHead, newEntry, link);
-			ok = true;
-		}
+	if (dup != NULL) {
+		// do nothing
+	} else if (empty != NULL) {
+		// update the empty/available entry
+		empty->fArena = arena;
+		empty->fRegionOffset = regionOffset;
+		empty->fRegionIndex = regionIndex;
+		ok = true;
+	} else {
+		// append a new entry
+		ArenaEntry * newEntry = IOMallocType(ArenaEntry);
+		newEntry->fArena = arena;
+		newEntry->fRegionOffset = regionOffset;
+		newEntry->fRegionIndex = regionIndex;
+		SLIST_INSERT_HEAD(&fArenaHead, newEntry, link);
+		ok = true;
 	}
 
 	IOLockUnlock(fRegionLock);
 
-	DLOG("SKRegion %p attach arena %p offset 0x%x index %u ok %d",
+	SK_DF(ok ? SK_VERB_IOSK : SK_VERB_ERROR,
+	    "SKRegion %p attach arena %p offset 0x%x index %u ok %d",
 	    this, arena, regionOffset, regionIndex, ok);
 	return ok;
 }
@@ -1182,7 +1173,9 @@ IOSKRegion::detachArena( const IOSKArena * arena )
 
 	entry = findArenaEntry(arena);
 	if (entry != NULL) {
-		bzero(entry, sizeof(*entry));
+		entry->fArena = NULL;
+		entry->fRegionOffset = 0;
+		entry->fRegionIndex = 0;
 		detached = true;
 	}
 
@@ -1266,7 +1259,7 @@ IOSKMemoryArray::overwriteMappingInTask(
 					    i, *startAddr, (uint32_t)iomd->getLength());
 					rwMap->release();
 				} else {
-					DLOG("overwrite map failed");
+					ELOG("overwrite map failed");
 					ok = false;
 					break;
 				}
@@ -1474,7 +1467,7 @@ IOSKMemoryBufferCreate(
 		mb = NULL;
 	}
 	if (!mb) {
-		DLOG("create capacity=0x%llx failed", capacity);
+		ELOG("create capacity=0x%llx failed", capacity);
 		goto fail;
 	}
 
@@ -1521,7 +1514,7 @@ IOSKMemoryArrayCreate(
 		ma = NULL;
 	}
 	if (!ma) {
-		DLOG("create count=%u failed", count);
+		ELOG("create count=%u failed", count);
 	} else {
 		DLOG("array %p count=%u", ma, count);
 	}

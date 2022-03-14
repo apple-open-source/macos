@@ -51,8 +51,7 @@ public:
     const WebCore::IntPoint& menuLocation() const { return m_menuLocation; }
     const Vector<WebKit::WebContextMenuItemData>& menuItems() const { return m_menuItems; }
 
-    WebHitTestResultData& webHitTestResultData() { return m_webHitTestResultData; }
-    const WebHitTestResultData& webHitTestResultData() const { return m_webHitTestResultData; }
+    const std::optional<WebHitTestResultData>& webHitTestResultData() const { return m_webHitTestResultData; }
     const String& selectedText() const { return m_selectedText; }
 
 #if ENABLE(SERVICE_CONTROLS)
@@ -64,6 +63,8 @@ public:
         , m_selectionIsEditable(isEditable)
     {
     }
+    
+    ContextMenuContextData(const WebCore::IntPoint& menuLocation, WebCore::Image&, bool isEditable, const WebCore::IntRect& imageRect, const String& attachmentID);
 
     ShareableBitmap* controlledImage() const { return m_controlledImage.get(); }
     const Vector<uint8_t>& controlledSelectionData() const { return m_controlledSelectionData; }
@@ -71,6 +72,8 @@ public:
 
     bool isServicesMenu() const { return m_type == ContextMenuContextData::Type::ServicesMenu; }
     bool controlledDataIsEditable() const;
+    WebCore::IntRect controlledImageBounds() const { return m_controlledImageBounds; };
+    String controlledImageAttachmentID() const { return m_controlledImageAttachmentID; };
 #endif
 
     void encode(IPC::Encoder&) const;
@@ -82,14 +85,18 @@ private:
     WebCore::IntPoint m_menuLocation;
     Vector<WebKit::WebContextMenuItemData> m_menuItems;
 
-    WebHitTestResultData m_webHitTestResultData;
+    std::optional<WebHitTestResultData> m_webHitTestResultData;
     String m_selectedText;
 
 #if ENABLE(SERVICE_CONTROLS)
+    void setImage(WebCore::Image*);
+    
     RefPtr<ShareableBitmap> m_controlledImage;
     Vector<uint8_t> m_controlledSelectionData;
     Vector<String> m_selectedTelephoneNumbers;
     bool m_selectionIsEditable;
+    WebCore::IntRect m_controlledImageBounds;
+    String m_controlledImageAttachmentID;
 #endif
 };
 

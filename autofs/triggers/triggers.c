@@ -57,9 +57,6 @@ static lck_grp_t *triggers_lck_grp;
 __private_extern__ int triggers_start(kmod_info_t *, void *);
 __private_extern__ int triggers_stop(kmod_info_t *, void *);
 
-/* XXX Get rid of this as soon as sys/malloc.h can be updated to define a real M_AUTOFS */
-#define M_TRIGGERS M_TEMP
-
 /*
  * TRUE if two fsids are equal.
  */
@@ -881,7 +878,7 @@ trigger_new_autofs(struct vnode_trigger_param *vnt,
 
 	microtime(&now);
 
-	MALLOC(ti, trigger_info_t *, sizeof (*ti), M_TRIGGERS, M_WAITOK);
+	ti = kalloc_type(struct trigger_info, Z_WAITOK);
 	ti->ti_lock = lck_mtx_alloc_init(triggers_lck_grp, NULL);
 	ti->ti_seq = 0;
 	ti->ti_flags = flags;
@@ -936,7 +933,7 @@ trigger_free(trigger_info_t *ti)
 		TAILQ_REMOVE(&resolved_triggers, ti, ti_entries);
 	lck_rw_unlock_exclusive(resolved_triggers_rwlock);
 	lck_mtx_free(ti->ti_lock, triggers_lck_grp);
-	FREE(ti, M_TRIGGERS);
+	kfree_type(struct trigger_info, ti);
 }
 
 int
@@ -1122,8 +1119,7 @@ unmount_triggered_mounts(int unconditional)
 	 * Count how many resolved triggers we have.
 	 */
 	nmounts = 0;
-	TAILQ_FOREACH_REVERSE(ti, &resolved_triggers, resolved_triggers,
-	    ti_entries) {
+	TAILQ_FOREACH_REVERSE(ti, &resolved_triggers, resolved_triggers, ti_entries) {
 		nmounts++;
 	}
 
@@ -1131,8 +1127,7 @@ unmount_triggered_mounts(int unconditional)
 	 * Allocate an array of fsids and timeout information for
 	 * all those mounts.
 	 */
-	MALLOC(mounts, struct triggered_mount_info *, sizeof (*mounts)*nmounts,
-	    M_TRIGGERS, M_WAITOK);
+	mounts = kalloc_type(struct triggered_mount_info, nmounts, Z_WAITOK);
 
 	/*
 	 * Make a copy of the mount information for all the triggered
@@ -1275,7 +1270,7 @@ unmount_triggered_mounts(int unconditional)
 	/*
 	 * Release the Kraken^Wcopy.
 	 */
-	FREE(mounts, M_TRIGGERS);
+	kfree_type(struct triggered_mount_info, nmounts, mounts);
 }
 
 static lck_mtx_t *unmount_threads_lock;

@@ -2174,6 +2174,7 @@ _SecCreateXPCObjectWithCFError
 _SecItemVerifyBackupIntegrity
 
 _SecItemDeleteKeychainItemsForAppClip
+_SecItemPromoteAppClipItemsToParentApp
 
 //
 // File URL Overriding support

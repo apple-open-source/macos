@@ -103,7 +103,7 @@ void ntfs_inode_hash_deinit(void)
 	 * this means that if the implementation of hashinit() changes, this
 	 * code will need to be adapted.
 	 */
-	FREE(ntfs_inode_hash_table, M_TEMP);
+    hashdestroy(ntfs_inode_hash_table, M_TEMP, ntfs_inode_hash_mask);
 }
 
 /**

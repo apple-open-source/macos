@@ -149,6 +149,13 @@ DIROPS_CreateLinkAccordingToContent(FileSystemRecord_s* psFSRecord,uint32_t uClu
     {
         uint32_t uNextCluster = 0;
         uint32_t uExtentLength = FAT_Access_M_ContiguousClustersInChain(psFSRecord, uCluster, &uNextCluster, &iError);
+
+        if (iError)
+        {
+            MSDOS_LOG(LEVEL_ERROR, "DIROPS_CreateLinkAccordingToContent failed to get next cont clusers. Error [%d]\n", iError);
+            break;
+        }
+
         uint32_t uClusterBufferSize = uExtentLength*CLUSTER_SIZE(psFSRecord);
         void* pvClusterBuffer = malloc(uClusterBufferSize);
         if (pvClusterBuffer == NULL)
@@ -479,7 +486,20 @@ MSDOS_SetAtrrToDirEntry (NodeRecord_s* psNodeRecord, const UVFSFileAttributes *s
 
             if ( uNeedToTruncClusters > 0 )
             {
-                FAT_Access_M_TruncateLastClusters( psNodeRecord, (uint32_t)uNeedToTruncClusters );
+                iErr = FAT_Access_M_TruncateLastClusters( psNodeRecord, (uint32_t)uNeedToTruncClusters );
+
+                if (iErr)
+                {
+                    MSDOS_LOG(LEVEL_ERROR, "MSDOS_SetAtrrToDirEntry: failed to evict clusters\n");
+                    //Make sure the FS is still dirty
+                    if (!psFSRecord->sFATCache.bDriveDirtyBit && psNodeRecord->sExtraData.sFileData.bIsPreAllocated) {
+                        MSDOS_LOG(LEVEL_FAULT, "MSDOS_SetAtrrToDirEntry: expected the volume to be dirty\n");
+                        FSOPS_SetDirtyBitAndAcquireLck(psFSRecord);
+                        MultiReadSingleWrite_FreeRead(&psFSRecord->sDirtyBitLck);
+                    }
+                    goto exit;
+                }
+
                 if ( psNodeRecord->sRecordData.uFirstCluster == 0 )
                 {
                     DIROPS_SetStartCluster( GET_FSRECORD(psNodeRecord), &sDirEntry, 0 );

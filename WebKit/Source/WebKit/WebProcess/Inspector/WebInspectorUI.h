@@ -156,6 +156,8 @@ public:
     bool supportsWebExtensions() override;
     void didShowExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) override;
     void didHideExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&) override;
+    void didNavigateExtensionTab(const Inspector::ExtensionID&, const Inspector::ExtensionTabID&, const URL&) override;
+    void inspectedPageDidNavigate(const URL&) override;
 #endif
 
     void sendMessageToBackend(const String&) override;

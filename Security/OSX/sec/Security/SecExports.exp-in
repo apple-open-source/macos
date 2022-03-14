@@ -48,6 +48,7 @@ _SecBase64Decode2
 // Trust
 //
 _SecIsInternalRelease
+_SecAreQARootCertificatesEnabled
 
 // Policies
 // kSecPolicy constants

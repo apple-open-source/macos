@@ -41,7 +41,6 @@ static char_u *check_for_cryptkey(char_u *cryptkey, char_u *ptr, long *sizep, of
 #endif
 static linenr_T readfile_linenr(linenr_T linecnt, char_u *p, char_u *endp);
 static char_u *check_for_bom(char_u *p, long size, int *lenp, int flags);
-static char *e_auchangedbuf = N_("E812: Autocommands changed buffer or buffer name");
 
 #ifdef FEAT_EVAL
 static int readdirex_sort;
@@ -148,6 +147,8 @@ readfile(
     char_u	*p;
     off_T	filesize = 0;
     int		skip_read = FALSE;
+    off_T       filesize_disk = 0;      // file size read from disk
+    off_T       filesize_count = 0;     // counter
 #ifdef FEAT_CRYPT
     char_u	*cryptkey = NULL;
     int		did_ask_for_key = FALSE;
@@ -215,6 +216,7 @@ readfile(
     int		using_b_ffname;
     int		using_b_fname;
     static char *msg_is_a_directory = N_("is a directory");
+    int         eof;
 
     au_did_filetype = FALSE; // reset before triggering any autocommands
 
@@ -335,7 +337,7 @@ readfile(
 	    filemess(curbuf, fname, (char_u *)_(msg_is_a_directory), 0);
 	    msg_end();
 	    msg_scroll = msg_save;
-	    return FAIL;
+	    return NOTDONE;
 	}
     }
 
@@ -405,6 +407,8 @@ readfile(
 	{
 	    buf_store_time(curbuf, &st, fname);
 	    curbuf->b_mtime_read = curbuf->b_mtime;
+	    curbuf->b_mtime_read_ns = curbuf->b_mtime_ns;
+	    filesize_disk = st.st_size;
 #ifdef UNIX
 	    /*
 	     * Use the protection bits of the original file for the swap file.
@@ -428,7 +432,9 @@ readfile(
 	else
 	{
 	    curbuf->b_mtime = 0;
+	    curbuf->b_mtime_ns = 0;
 	    curbuf->b_mtime_read = 0;
+	    curbuf->b_mtime_read_ns = 0;
 	    curbuf->b_orig_size = 0;
 	    curbuf->b_orig_mode = 0;
 	}
@@ -520,7 +526,7 @@ readfile(
 				|| (using_b_fname
 					 && (old_b_fname != curbuf->b_fname)))
 			{
-			    emsg(_(e_auchangedbuf));
+			    emsg(_(e_autocommands_changed_buffer_or_buffer_name));
 			    return FAIL;
 			}
 		    }
@@ -598,7 +604,7 @@ readfile(
 		|| (using_b_ffname && (old_b_ffname != curbuf->b_ffname))
 		|| (using_b_fname && (old_b_fname != curbuf->b_fname))))
 	{
-	    emsg(_(e_auchangedbuf));
+	    emsg(_(e_autocommands_changed_buffer_or_buffer_name));
 	    if (!read_buffer)
 		close(fd);
 	    return FAIL;
@@ -720,9 +726,9 @@ readfile(
 	    --no_wait_return;
 	    msg_scroll = msg_save;
 	    if (fd < 0)
-		emsg(_("E200: *ReadPre autocommands made the file unreadable"));
+		emsg(_(e_readpre_autocommands_made_file_unreadable));
 	    else
-		emsg(_("E201: *ReadPre autocommands must not change current buffer"));
+		emsg(_(e_readpre_autocommands_must_not_change_current_buffer));
 	    curbuf->b_p_ro = TRUE;	// must use "w!" now
 	    return FAIL;
 	}
@@ -1046,7 +1052,7 @@ retry:
 		    if (fd < 0)
 		    {
 			// Re-opening the original file failed!
-			emsg(_("E202: Conversion made file unreadable!"));
+			emsg(_(e_conversion_mad_file_unreadable));
 			error = TRUE;
 			goto failed;
 		    }
@@ -1080,6 +1086,7 @@ retry:
     {
 	linerest = 0;
 	filesize = 0;
+	filesize_count = 0;
 	skip_count = lines_to_skip;
 	read_count = lines_to_read;
 	conv_restlen = 0;
@@ -1204,6 +1211,7 @@ retry:
 		     * Read bytes from curbuf.  Used for converting text read
 		     * from stdin.
 		     */
+		    eof = FALSE;
 		    if (read_buf_lnum > from)
 			size = 0;
 		    else
@@ -1252,6 +1260,7 @@ retry:
 				    if (!curbuf->b_p_eol)
 					--tlen;
 				    size = tlen;
+				    eof = TRUE;
 				    break;
 				}
 			    }
@@ -1263,7 +1272,23 @@ retry:
 		    /*
 		     * Read bytes from the file.
 		     */
+# ifdef FEAT_SODIUM
+		    // Let the crypt layer work with a buffer size of 8192
+		    if (filesize == 0)
+			// set size to 8K + Sodium Crypt Metadata
+			size = WRITEBUFSIZE + crypt_get_max_header_len()
+		     + crypto_secretstream_xchacha20poly1305_HEADERBYTES
+		     + crypto_secretstream_xchacha20poly1305_ABYTES;
+
+		    else if (filesize > 0 && (curbuf->b_cryptstate != NULL &&
+			 curbuf->b_cryptstate->method_nr == CRYPT_M_SOD))
+			size = WRITEBUFSIZE + crypto_secretstream_xchacha20poly1305_ABYTES;
+# endif
+		    eof = size;
 		    size = read_eintr(fd, ptr, size);
+		    filesize_count += size;
+		    // hit end of file
+		    eof = (size < eof || filesize_count == filesize_disk);
 		}
 
 #ifdef FEAT_CRYPT
@@ -1271,9 +1296,17 @@ retry:
 		 * At start of file: Check for magic number of encryption.
 		 */
 		if (filesize == 0 && size > 0)
+		{
 		    cryptkey = check_for_cryptkey(cryptkey, ptr, &size,
 						  &filesize, newfile, sfname,
 						  &did_ask_for_key);
+# ifdef CRYPT_NOT_INPLACE
+		    if (curbuf->b_cryptstate != NULL
+				 && !crypt_works_inplace(curbuf->b_cryptstate))
+			// reading undo file requires crypt_decode_inplace()
+			read_undo_file = FALSE;
+# endif
+		}
 		/*
 		 * Decrypt the read bytes.  This is done before checking for
 		 * EOF because the crypt layer may be buffering.
@@ -1285,7 +1318,8 @@ retry:
 		    if (crypt_works_inplace(curbuf->b_cryptstate))
 		    {
 # endif
-			crypt_decode_inplace(curbuf->b_cryptstate, ptr, size);
+			crypt_decode_inplace(curbuf->b_cryptstate, ptr,
+								    size, eof);
 # ifdef CRYPT_NOT_INPLACE
 		    }
 		    else
@@ -1294,8 +1328,16 @@ retry:
 			int	decrypted_size;
 
 			decrypted_size = crypt_decode_alloc(
-				    curbuf->b_cryptstate, ptr, size, &newptr);
+				    curbuf->b_cryptstate, ptr, size,
+								 &newptr, eof);
 
+			if (decrypted_size < 0)
+			{
+			    // error message already given
+			    error = TRUE;
+			    vim_free(newptr);
+			    break;
+			}
 			// If the crypt layer is buffering, not producing
 			// anything yet, need to read more.
 			if (decrypted_size == 0)
@@ -1325,6 +1367,7 @@ retry:
 			    if (newptr != NULL)
 				mch_memmove(new_buffer + linerest, newptr,
 							      decrypted_size);
+			    vim_free(newptr);
 			}
 
 			if (new_buffer != NULL)
@@ -1334,6 +1377,7 @@ retry:
 			    new_buffer = NULL;
 			    line_start = buffer;
 			    ptr = buffer + linerest;
+			    real_size = size;
 			}
 			size = decrypted_size;
 		    }
@@ -2372,7 +2416,7 @@ failed:
 	{
 	    if (!(flags & READ_DUMMY))
 	    {
-		filemess(curbuf, sfname, (char_u *)_(e_interr), 0);
+		filemess(curbuf, sfname, (char_u *)_(e_interrupted), 0);
 		if (newfile)
 		    curbuf->b_p_ro = TRUE;	// must use "w!" now
 	    }
@@ -2538,6 +2582,7 @@ failed:
 	{
 	    buf_store_time(curbuf, &st, fname);
 	    curbuf->b_mtime_read = curbuf->b_mtime;
+	    curbuf->b_mtime_read_ns = curbuf->b_mtime_ns;
 	}
 #endif
     }
@@ -2886,15 +2931,16 @@ check_for_cryptkey(
 	{
 	    int header_len;
 
-	    curbuf->b_cryptstate = crypt_create_from_header(
-						       method, cryptkey, ptr);
-	    crypt_set_cm_option(curbuf, method);
-
-	    // Remove cryptmethod specific header from the text.
 	    header_len = crypt_get_header_len(method);
 	    if (*sizep <= header_len)
 		// invalid header, buffer can't be encrypted
 		return NULL;
+
+	    curbuf->b_cryptstate = crypt_create_from_header(
+							method, cryptkey, ptr);
+	    crypt_set_cm_option(curbuf, method);
+
+	    // Remove cryptmethod specific header from the text.
 	    *filesizep += header_len;
 	    *sizep -= header_len;
 	    mch_memmove(ptr, ptr + header_len, (size_t)*sizep);
@@ -2976,7 +3022,7 @@ set_rw_fname(char_u *fname, char_u *sfname)
     if (curbuf != buf)
     {
 	// We are in another buffer now, don't do the renaming.
-	emsg(_(e_auchangedbuf));
+	emsg(_(e_autocommands_changed_buffer_or_buffer_name));
 	return FAIL;
     }
 
@@ -3083,16 +3129,21 @@ msg_add_eol(void)
 }
 
     int
-time_differs(long t1, long t2)
+time_differs(stat_T *st, long mtime, long mtime_ns UNUSED)
 {
-#if defined(__linux__) || defined(MSWIN)
-    // On a FAT filesystem, esp. under Linux, there are only 5 bits to store
-    // the seconds.  Since the roundoff is done when flushing the inode, the
-    // time may change unexpectedly by one second!!!
-    return (t1 - t2 > 1 || t2 - t1 > 1);
-#else
-    return (t1 != t2);
+    return
+#ifdef ST_MTIM_NSEC
+	(long)st->ST_MTIM_NSEC != mtime_ns ||
 #endif
+#if defined(__linux__) || defined(MSWIN)
+	// On a FAT filesystem, esp. under Linux, there are only 5 bits to store
+	// the seconds.  Since the roundoff is done when flushing the inode, the
+	// time may change unexpectedly by one second!!!
+	(long)st->st_mtime - mtime > 1 || mtime - (long)st->st_mtime > 1
+#else
+	(long)st->st_mtime != mtime
+#endif
+	;
 }
 
 /*
@@ -3744,7 +3795,7 @@ vim_rename(char_u *from, char_u *to)
 			return 0;
 		    // Strange, the second step failed.  Try moving the
 		    // file back and return failure.
-		    mch_rename(tempname, (char *)from);
+		    (void)mch_rename(tempname, (char *)from);
 		    return -1;
 		}
 		// If it fails for one temp name it will most likely fail
@@ -3832,17 +3883,17 @@ vim_rename(char_u *from, char_u *to)
     while ((n = read_eintr(fd_in, buffer, WRITEBUFSIZE)) > 0)
 	if (write_eintr(fd_out, buffer, n) != n)
 	{
-	    errmsg = _("E208: Error writing to \"%s\"");
+	    errmsg = _(e_error_writing_to_str);
 	    break;
 	}
 
     vim_free(buffer);
     close(fd_in);
     if (close(fd_out) < 0)
-	errmsg = _("E209: Error closing \"%s\"");
+	errmsg = _(e_error_closing_str);
     if (n < 0)
     {
-	errmsg = _("E210: Error reading \"%s\"");
+	errmsg = _(e_error_reading_str);
 	to = from;
     }
 #ifndef UNIX	    // for Unix mch_open() already set the permission
@@ -4040,7 +4091,7 @@ buf_check_timestamp(
     if (       !(buf->b_flags & BF_NOTEDITED)
 	    && buf->b_mtime != 0
 	    && ((stat_res = mch_stat((char *)buf->b_ffname, &st)) < 0
-		|| time_differs((long)st.st_mtime, buf->b_mtime)
+		|| time_differs(&st, buf->b_mtime, buf->b_mtime_ns)
 		|| st.st_size != buf->b_orig_size
 #ifdef HAVE_ST_MODE
 		|| (int)st.st_mode != buf->b_orig_mode
@@ -4114,7 +4165,7 @@ buf_check_timestamp(
 	    if (n)
 	    {
 		if (!bufref_valid(&bufref))
-		    emsg(_("E246: FileChangedShell autocommand deleted buffer"));
+		    emsg(_(e_filechangedshell_autocommand_deleted_buffer));
 #ifdef FEAT_EVAL
 		s = get_vim_var_str(VV_FCS_CHOICE);
 		if (STRCMP(s, "reload") == 0 && *reason != 'd')
@@ -4131,7 +4182,7 @@ buf_check_timestamp(
 		{
 		    // Only give the message once.
 		    if (prev_b_mtime != -1)
-			mesg = _("E211: File \"%s\" no longer available");
+			mesg = _(e_file_str_no_longer_available);
 		}
 		else
 		{
@@ -4155,9 +4206,12 @@ buf_check_timestamp(
 			mesg2 = _("See \":help W16\" for more info.");
 		    }
 		    else
+		    {
 			// Only timestamp changed, store it to avoid a warning
 			// in check_mtime() later.
 			buf->b_mtime_read = buf->b_mtime;
+			buf->b_mtime_read_ns = buf->b_mtime_ns;
+		    }
 		}
 	    }
 	}
@@ -4341,8 +4395,7 @@ buf_reload(buf_T *buf, int orig_mode)
 	    if (savebuf == NULL || saved == FAIL || buf != curbuf
 				      || move_lines(buf, savebuf) == FAIL)
 	    {
-		semsg(_("E462: Could not prepare for reloading \"%s\""),
-							    buf->b_fname);
+		semsg(_(e_could_not_prepare_for_reloading_str), buf->b_fname);
 		saved = FAIL;
 	    }
 	}
@@ -4358,7 +4411,7 @@ buf_reload(buf_T *buf, int orig_mode)
 #if defined(FEAT_EVAL)
 		if (!aborting())
 #endif
-		    semsg(_("E321: Could not reload \"%s\""), buf->b_fname);
+		    semsg(_(e_could_not_reload_str), buf->b_fname);
 		if (savebuf != NULL && bufref_valid(&bufref) && buf == curbuf)
 		{
 		    // Put the text back from the save buffer.  First
@@ -4436,6 +4489,11 @@ buf_reload(buf_T *buf, int orig_mode)
 buf_store_time(buf_T *buf, stat_T *st, char_u *fname UNUSED)
 {
     buf->b_mtime = (long)st->st_mtime;
+#ifdef ST_MTIM_NSEC
+    buf->b_mtime_ns = (long)st->ST_MTIM_NSEC;
+#else
+    buf->b_mtime_ns = 0;
+#endif
     buf->b_orig_size = st->st_size;
 #ifdef HAVE_ST_MODE
     buf->b_orig_mode = (int)st->st_mode;
@@ -4727,7 +4785,7 @@ readdir_core(
     struct dirent	*dp;
 # endif
 
-    ga_init2(gap, (int)sizeof(void *), 20);
+    ga_init2(gap, sizeof(void *), 20);
 
 # ifdef FEAT_EVAL
 #  define FREE_ITEM(item)   do { \
@@ -4760,7 +4818,7 @@ readdir_core(
     if (!ok)
     {
 	failed = TRUE;
-	semsg(_(e_notopen), path);
+	semsg(_(e_cant_open_file_str), path);
     }
     else
     {
@@ -4830,7 +4888,7 @@ readdir_core(
     if (dirp == NULL)
     {
 	failed = TRUE;
-	semsg(_(e_notopen), path);
+	semsg(_(e_cant_open_file_str), path);
     }
     else
     {
@@ -5084,7 +5142,7 @@ vim_tempname(
 	/*
 	 * Try the entries in TEMPDIRNAMES to create the temp directory.
 	 */
-	for (i = 0; i < (int)(sizeof(tempdirs) / sizeof(char *)); ++i)
+	for (i = 0; i < (int)ARRAY_LENGTH(tempdirs); ++i)
 	{
 # ifndef HAVE_MKDTEMP
 	    size_t	itmplen;
@@ -5187,6 +5245,7 @@ vim_tempname(
     WCHAR	*chartab = L"0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
     char_u	*retval;
     char_u	*p;
+    char_u	*shname;
     long	i;
 
     wcscpy(itmp, L"");
@@ -5210,9 +5269,12 @@ vim_tempname(
 
     // Backslashes in a temp file name cause problems when filtering with
     // "sh".  NOTE: This also checks 'shellcmdflag' to help those people who
-    // didn't set 'shellslash'.
+    // didn't set 'shellslash' but only if not using PowerShell.
     retval = utf16_to_enc(itmp, NULL);
-    if (*p_shcf == '-' || p_ssl)
+    shname = gettail(p_sh);
+    if ((*p_shcf == '-' && !(strstr((char *)shname, "powershell") != NULL
+			     || strstr((char *)shname, "pwsh") != NULL ))
+								    || p_ssl)
 	for (p = retval; *p; ++p)
 	    if (*p == '\\')
 		*p = '/';
@@ -5560,9 +5622,9 @@ file_pat_to_reg_pat(
     if (nested != 0)
     {
 	if (nested < 0)
-	    emsg(_("E219: Missing {."));
+	    emsg(_(e_missing_open_curly));
 	else
-	    emsg(_("E220: Missing }."));
+	    emsg(_(e_missing_close_curly));
 	VIM_CLEAR(reg_pat);
     }
     return reg_pat;
