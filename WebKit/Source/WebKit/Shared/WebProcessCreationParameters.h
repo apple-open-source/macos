@@ -208,6 +208,7 @@ struct WebProcessCreationParameters {
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    Vector<SandboxExtension::Handle> dynamicMachExtensionHandles;
     Vector<SandboxExtension::Handle> dynamicIOKitExtensionHandles;
 #endif
 
@@ -241,6 +242,7 @@ struct WebProcessCreationParameters {
 
 #if HAVE(IOSURFACE)
     WebCore::IntSize maximumIOSurfaceSize;
+    size_t bytesPerRowIOSurfaceAlignment;
 #endif
     
     AccessibilityPreferences accessibilityPreferences;

@@ -139,12 +139,14 @@ static void tests(void)
     CFReleaseNull(error);
 
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice's key in backup before sync?");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kSOSViewiCloudIdentity), "Is alice's key in backup before sync?");
 
     ok([alice_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
 
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Is bob in the backup after sync? - 1");
-    
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kSOSViewiCloudIdentity), "Is bob in the backup after sync? - 1");
+
     ok([bob_account.trust checkForRings:&error], "Alice_account is good");
     CFReleaseNull(error);
 
@@ -155,8 +157,10 @@ static void tests(void)
     CFReleaseNull(error);
 
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Is alice in backup after sync?");
-    
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kSOSViewiCloudIdentity), "Is alice in backup after sync?");
+
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "IS bob in the backup after sync");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kSOSViewiCloudIdentity), "IS bob in the backup after sync");
 
     //
     //Bob leaves the circle
@@ -168,11 +172,13 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Bob left the circle, Alice is not in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kSOSViewiCloudIdentity), "Bob left the circle, Alice is not in the backup");
 
     ok(testAccountPersistence(alice_account), "Test Account->DER->Account Equivalence");
 
     SOSAccountTrustClassic *bobTrust = bob_account.trust;
     ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is still in the backup!");
+    ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kSOSViewiCloudIdentity), "Bob is still in the backup!");
 
     //Bob gets back into the circle
     ok(SOSAccountJoinCircles_wTxn(bob_account, &error));
@@ -207,8 +213,10 @@ static void tests(void)
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
 
     ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is in the backup - should not be so!");
+    ok(!SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kSOSViewiCloudIdentity), "Bob's backup key is in the backup - should not be so!");
     ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup!");
-    
+    ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kSOSViewiCloudIdentity), "Bob is up to date in the backup!");
+
     //
     // Setting new backup public key for Bob
     //
@@ -221,19 +229,25 @@ static void tests(void)
 
     //bob is in his own backup
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key is not in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kSOSViewiCloudIdentity), "Bob's backup key is not in the backup");
     //alice does not have bob in her backup
     ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kTestView1), "Bob is up to date in the backup - should not be so!");
+    ok(!SOSAccountIsPeerInBackupAndCurrentInView(alice_account, bobTrust.peerInfo, kSOSViewiCloudIdentity), "Bob is up to date in the backup - should not be so!");
 
     isInRange(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 1, 5, "updates");
     
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kTestView1), "Bob's backup key should be in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(bob_account, kSOSViewiCloudIdentity), "Bob's backup key should be in the backup");
     ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kTestView1), "Alice is in the backup");
+    ok(SOSAccountIsMyPeerInBackupAndCurrentInView(alice_account, kSOSViewiCloudIdentity), "Alice is in the backup");
     ok(SOSAccountHasPublicKey(alice_account, &error), "Has Public Key" );
     ok([alice_account.trust resetAccountToEmpty:alice_account transport:alice_account.circle_transport err:&error], "Reset circle to empty");
     CFReleaseNull(error);
     is(ProcessChangesUntilNoChange(changes, alice_account, bob_account, NULL), 2, "updates");
     ok(SOSAccountIsBackupRingEmpty(bob_account, kTestView1), "Bob should not be in the backup");
+    ok(SOSAccountIsBackupRingEmpty(bob_account, kSOSViewiCloudIdentity), "Bob should not be in the backup");
     ok(SOSAccountIsBackupRingEmpty(alice_account, kTestView1), "Alice should not be in the backup");
+    ok(SOSAccountIsBackupRingEmpty(alice_account, kSOSViewiCloudIdentity), "Alice should not be in the backup");
 
 
     CFReleaseNull(cfpassword);

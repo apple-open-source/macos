@@ -65,6 +65,16 @@ using namespace WebCore;
 #define SWSERVERCONNECTION_RELEASE_LOG(fmt, ...) RELEASE_LOG(ServiceWorker, "%p - WebSWServerConnection::" fmt, this, ##__VA_ARGS__)
 #define SWSERVERCONNECTION_RELEASE_LOG_ERROR(fmt, ...) RELEASE_LOG_ERROR(ServiceWorker, "%p - WebSWServerConnection::" fmt, this, ##__VA_ARGS__)
 
+#define CONNECTION_MESSAGE_CHECK(assertion) CONNECTION_MESSAGE_CHECK_COMPLETION(assertion, (void)0)
+#define CONNECTION_MESSAGE_CHECK_COMPLETION(assertion, completion) do { \
+    ASSERT(assertion); \
+    if (UNLIKELY(!(assertion))) { \
+        m_networkProcess->parentProcessConnection()->send(Messages::NetworkProcessProxy::TerminateWebProcess(identifier()), 0); \
+        { completion; } \
+        return; \
+    } \
+} while (0)
+
 WebSWServerConnection::WebSWServerConnection(NetworkProcess& networkProcess, SWServer& server, IPC::Connection& connection, ProcessIdentifier processIdentifier)
     : SWServer::Connection(server, processIdentifier)
     , m_contentConnection(connection)
@@ -175,6 +185,7 @@ std::unique_ptr<ServiceWorkerFetchTask> WebSWServerConnection::createFetchTask(N
 
         serviceWorkerRegistrationIdentifier = registration->identifier();
         controlClient(*loader.parameters().options.clientIdentifier, *registration, request);
+        loader.setServiceWorkerRegistration(*registration);
     } else {
         if (!loader.parameters().serviceWorkerRegistrationIdentifier)
             return nullptr;
@@ -361,7 +372,12 @@ void WebSWServerConnection::getRegistrations(const SecurityOriginData& topOrigin
 
 void WebSWServerConnection::registerServiceWorkerClient(SecurityOriginData&& topOrigin, ServiceWorkerClientData&& data, const std::optional<ServiceWorkerRegistrationIdentifier>& controllingServiceWorkerRegistrationIdentifier, String&& userAgent)
 {
+    CONNECTION_MESSAGE_CHECK(data.identifier.processIdentifier() == identifier());
+    CONNECTION_MESSAGE_CHECK(!topOrigin.isEmpty());
+
     auto contextOrigin = SecurityOriginData::fromURL(data.url);
+    CONNECTION_MESSAGE_CHECK(!contextOrigin.isEmpty());
+
     bool isNewOrigin = WTF::allOf(m_clientOrigins.values(), [&contextOrigin](auto& origin) {
         return contextOrigin != origin.clientOrigin;
     });
@@ -382,6 +398,7 @@ void WebSWServerConnection::registerServiceWorkerClient(SecurityOriginData&& top
 
 void WebSWServerConnection::unregisterServiceWorkerClient(const ScriptExecutionContextIdentifier& clientIdentifier)
 {
+    CONNECTION_MESSAGE_CHECK(clientIdentifier.processIdentifier() == identifier());
     auto iterator = m_clientOrigins.find(clientIdentifier);
     if (iterator == m_clientOrigins.end())
         return;
@@ -566,8 +583,15 @@ void WebSWServerConnection::getNavigationPreloadState(WebCore::ServiceWorkerRegi
     callback(registration->navigationPreloadState());
 }
 
+void WebSWServerConnection::transferServiceWorkerLoadToNewWebProcess(NetworkResourceLoader& loader, WebCore::SWServerRegistration& registration)
+{
+    controlClient(*loader.parameters().options.clientIdentifier, registration, loader.originalRequest());
+}
+
 } // namespace WebKit
 
+#undef CONNECTION_MESSAGE_CHECK_COMPLETION
+#undef CONNECTION_MESSAGE_CHECK
 #undef SWSERVERCONNECTION_RELEASE_LOG
 #undef SWSERVERCONNECTION_RELEASE_LOG_ERROR
 

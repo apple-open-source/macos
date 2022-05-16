@@ -62,6 +62,7 @@ enum {
     kSOSEntitlementMissing = 7,
 
     KSOSCantParseSOSMessage = 8,
+    kSOSErrorBadKeyType = 9,
     kSOSDisabled,
 };
 
@@ -93,6 +94,7 @@ extern const char * kSOSCCHoldLockForInitialSync;
 extern const char * kSOSCCPeerAvailable;
 extern const char * kSOSCCRecoveryKeyChanged;
 extern const char * kSOSCCCircleOctagonKeysChangedNotification;
+
 
 /*!
  @function SOSCCSetUserCredentials

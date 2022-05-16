@@ -239,28 +239,46 @@ CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
     if(!isA_CFString(ps_type)) 
     {
         return kCFBooleanFalse;
-    } 
-    
+    }
+
     if(CFEqual(ps_type, CFSTR(kIOPMACPowerKey))) 
     {
         return kCFBooleanTrue;
     }
-    
-#if defined (__i386__) || defined (__x86_64__) 
-    if (CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey))) 
+
+    if (CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey))) {
+        io_registry_entry_t product = IORegistryEntryFromPath(kIOMainPortDefault, kIODeviceTreePlane ":/product");
+        if (product) {
+            CFTypeRef data = IORegistryEntryCreateCFProperty(product, CFSTR("builtin-battery"), NULL, 0);
+            IOObjectRelease(product);
+
+            if (data && CFGetTypeID(data) == CFDataGetTypeID()) {
+                uint64_t battery = 0;
+
+                memcpy(&battery, CFDataGetBytePtr(data), MIN(sizeof(battery), (unsigned long)CFDataGetLength(data)));
+
+                CFRelease(data);
+
+                return battery ? kCFBooleanTrue : kCFBooleanFalse;
+            }
+        }
+    }
+
+#if defined (__i386__) || defined (__x86_64__)
+    if (CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey)))
     {
         CFBooleanRef            ret = kCFBooleanFalse;
         io_registry_entry_t     platform = IO_OBJECT_NULL;
         CFDataRef               systemTypeData = NULL;
         int                     *systemType = 0;
-        
-        platform = IORegistryEntryFromPath(kIOMasterPortDefault, 
+
+        platform = IORegistryEntryFromPath(kIOMainPortDefault,
                                     kIODeviceTreePlane ":/");
-        
+
         if (IO_OBJECT_NULL == platform) {
             return kCFBooleanFalse;
         }
-        
+
         systemTypeData = (CFDataRef)IORegistryEntryCreateCFProperty(
                                 platform, CFSTR("system-type"),
                                 kCFAllocatorDefault, kNilOptions);
@@ -269,7 +287,7 @@ CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
             && (systemType = (int *)CFDataGetBytePtr(systemTypeData))
             && (2 == *systemType))
         {
-            ret = kCFBooleanTrue;        
+            ret = kCFBooleanTrue;
         } else {
             ret = kCFBooleanFalse;
         }
@@ -279,15 +297,15 @@ CFBooleanRef IOPSPowerSourceSupported(CFTypeRef ps_blob, CFStringRef ps_type)
         return ret;
     }
 #else
-    if (ps_blob 
+    if (ps_blob
        && CFEqual(ps_type, CFSTR(kIOPMBatteryPowerKey))
        && IOPSGetActiveBattery(ps_blob))
     {
         return kCFBooleanTrue;
     }
 #endif
-    
-    if (ps_blob 
+
+    if (ps_blob
        && CFEqual(ps_type, CFSTR(kIOPMUPSPowerKey))
        && IOPSGetActiveUPS(ps_blob))
     {

@@ -1603,6 +1603,12 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
 
     /* create a new iod thread */
     error = smb_iod_create(sessionp, &iod);
+
+    if (error) {
+        SMBERROR("Unable to create iod (%d).\n", error);
+        goto exit;
+    }
+
     /*
      * <74087531> alt connections tcp connect time should be bounded by the
      * parent iod socket timeout - if the connection is reachable, connect time
@@ -1613,10 +1619,6 @@ int smb_session_establish_alternate_connection(struct smbiod *parent_iod, struct
         iod->iod_connection_to.tv_sec = parent_nbp->nbp_timo.tv_sec;
     }
 
-    if (error) {
-        SMBERROR("Unable to create iod (%d).\n", error);
-        goto exit;
-    }
     SMB_IOD_FLAGSLOCK(iod);
     iod->iod_flags |= SMBIOD_ALTERNATE_CHANNEL;       // Mark this iod as alternate channel
     SMB_IOD_FLAGSUNLOCK(iod);

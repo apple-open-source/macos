@@ -2,7 +2,7 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-	<integer>72</integer>
+	<integer>73</integer>
 	<dict>
 		<key>domains</key>
 		<array>
@@ -2066,7 +2066,7 @@
 		<array>
 			<dict>
 				<key>labelRegex</key>
-				<string>^csig(-pv|-st|-mr)?$</string>
+				<string>^csig(-pv(-cert)?|-st|-mr|-cert)?$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>
@@ -2079,6 +2079,12 @@
 			<dict>
 				<key>labelRegex</key>
 				<string>^(sh-|tj-|nc-|pr-|cn-crt-|stg-|crt-)?pod([0-9]|[0-9][0-9])?-smp-device(-dr)?$</string>
+				<key>suffix</key>
+				<string>apple.com</string>
+			</dict>
+			<dict>
+				<key>labelRegex</key>
+				<string>^odin-signals$</string>
 				<key>suffix</key>
 				<string>apple.com</string>
 			</dict>

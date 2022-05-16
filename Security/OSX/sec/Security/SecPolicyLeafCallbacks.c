@@ -89,30 +89,44 @@ bool SecPolicyCheckCertKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue) {
 }
 
 static bool extendedkeyusage_allows(CFArrayRef extendedKeyUsage,
-                                    CFDataRef xeku) {
+                                    CFDataRef xeku,
+                                    bool allowNoOrAnyEKU) {
     if (!xeku)
         return false;
+
+    /* If policy allows anyEKU but we're filtering, skip check */
+    if (!allowNoOrAnyEKU) {
+        CFDataRef anyEku = CFDataCreate(kCFAllocatorDefault, oidAnyExtendedKeyUsage.data, (CFIndex)oidAnyExtendedKeyUsage.length);
+        if (CFEqualSafe(xeku, anyEku)) {
+            CFReleaseNull(anyEku);
+            return false;
+        }
+        CFReleaseNull(anyEku);
+    }
     if (extendedKeyUsage) {
         CFRange all = { 0, CFArrayGetCount(extendedKeyUsage) };
         return CFArrayContainsValue(extendedKeyUsage, all, xeku);
-    } else {
+    } else if (allowNoOrAnyEKU) {
         /* Certificate has no extended key usage, only a match if the policy
-         contains a 0 length CFDataRef. */
+         contains a 0 length CFDataRef (and not filtering) */
         return CFDataGetLength((CFDataRef)xeku) == 0;
+    } else {
+        return false;
     }
 }
 
 static bool isExtendedKeyUsageAllowed(CFArrayRef extendedKeyUsage,
-                                      CFTypeRef xeku) {
+                                      CFTypeRef xeku,
+                                      bool allowNoOrAnyEKU) {
     if (!xeku) {
         return false;
     }
     if(CFGetTypeID(xeku) == CFDataGetTypeID()) {
-        return extendedkeyusage_allows(extendedKeyUsage, xeku);
+        return extendedkeyusage_allows(extendedKeyUsage, xeku, allowNoOrAnyEKU);
     } else if (CFGetTypeID(xeku) == CFStringGetTypeID()) {
         CFDataRef eku = SecCertificateCreateOidDataFromString(NULL, xeku);
         if (eku) {
-            bool result = extendedkeyusage_allows(extendedKeyUsage, eku);
+            bool result = extendedkeyusage_allows(extendedKeyUsage, eku, allowNoOrAnyEKU);
             CFRelease(eku);
             return result;
         }
@@ -120,7 +134,7 @@ static bool isExtendedKeyUsageAllowed(CFArrayRef extendedKeyUsage,
     return false;
 }
 
-bool SecPolicyCheckCertExtendedKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue) {
+bool SecPolicyCheckCertExtendedKeyUsageFiltered(SecCertificateRef cert, CFTypeRef pvcValue, bool allowNoOrAnyEKU) {
     CFArrayRef certExtendedKeyUsage = SecCertificateCopyExtendedKeyUsage(cert);
     bool match = false;
     CFTypeRef xeku = pvcValue;
@@ -128,16 +142,20 @@ bool SecPolicyCheckCertExtendedKeyUsage(SecCertificateRef cert, CFTypeRef pvcVal
         CFIndex ix, count = CFArrayGetCount(xeku);
         for (ix = 0; ix < count; ix++) {
             CFTypeRef eku = CFArrayGetValueAtIndex(xeku, ix);
-            if (isExtendedKeyUsageAllowed(certExtendedKeyUsage, eku)) {
+            if (isExtendedKeyUsageAllowed(certExtendedKeyUsage, eku, allowNoOrAnyEKU)) {
                 match = true;
                 break;
             }
         }
     } else {
-        match = isExtendedKeyUsageAllowed(certExtendedKeyUsage, xeku);
+        match = isExtendedKeyUsageAllowed(certExtendedKeyUsage, xeku, allowNoOrAnyEKU);
     }
     CFReleaseSafe(certExtendedKeyUsage);
     return match;
+}
+
+bool SecPolicyCheckCertExtendedKeyUsage(SecCertificateRef cert, CFTypeRef pvcValue) {
+    return SecPolicyCheckCertExtendedKeyUsageFiltered(cert, pvcValue, true);
 }
 
 bool SecPolicyCheckCertNonEmptySubject(SecCertificateRef cert, CFTypeRef __unused pvcValue) {
@@ -323,7 +341,7 @@ bool SecPolicyCheckCertSSLHostname(SecCertificateRef cert, CFTypeRef pvcValue) {
     return dnsMatch;
 }
 
-bool SecPolicyCheckCertEmail(SecCertificateRef cert, CFTypeRef pvcValue) {
+bool SecPolicyCheckCertEmailSAN(SecCertificateRef cert, CFTypeRef pvcValue, bool sanOnly) {
     CFStringRef email = pvcValue;
     bool match = false;
     if (!isString(email)) {
@@ -332,7 +350,12 @@ bool SecPolicyCheckCertEmail(SecCertificateRef cert, CFTypeRef pvcValue) {
         return false;
     }
 
-    CFArrayRef addrs = SecCertificateCopyRFC822Names(cert);
+    CFArrayRef addrs = NULL;
+    if (sanOnly) {
+        addrs = SecCertificateCopyRFC822NamesFromSAN(cert);
+    } else {
+        addrs = SecCertificateCopyRFC822Names(cert);
+    }
     if (addrs) {
         CFIndex ix, count = CFArrayGetCount(addrs);
         for (ix = 0; ix < count; ++ix) {
@@ -346,6 +369,10 @@ bool SecPolicyCheckCertEmail(SecCertificateRef cert, CFTypeRef pvcValue) {
     }
 
     return match;
+}
+
+bool SecPolicyCheckCertEmail(SecCertificateRef cert, CFTypeRef pvcValue) {
+    return SecPolicyCheckCertEmailSAN(cert, pvcValue, false);
 }
 
 bool SecPolicyCheckCertTemporalValidity(SecCertificateRef cert, CFTypeRef pvcValue) {

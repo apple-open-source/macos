@@ -463,6 +463,17 @@ dispatch_once_t globalZoneStateQueueOnce;
     }
 }
 
+- (BOOL)peekCallbackForUUID:(NSString* _Nullable)uuid
+{
+    if(!uuid) {
+        return NO;
+    }
+
+    @synchronized(self.pendingSyncCallbacks) {
+        return [self.pendingSyncCallbacks.allKeys containsObject:uuid];
+    }
+}
+
 - (NSSet<NSString*>*)pendingCallbackUUIDs
 {
     @synchronized(self.pendingSyncCallbacks) {

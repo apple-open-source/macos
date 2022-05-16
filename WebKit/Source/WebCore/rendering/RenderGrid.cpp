@@ -274,7 +274,15 @@ void RenderGrid::layoutBlock(bool relayoutChildren, LayoutUnit)
         // logical width is always definite as the above call to updateLogicalWidth() properly resolves intrinsic 
         // sizes. We cannot do the same for heights though because many code paths inside updateLogicalHeight() require 
         // a previous call to setLogicalHeight() to resolve heights properly (like for positioned items for example).
-        computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
+        if (shouldApplySizeContainment(*this))
+            computeTrackSizesForIndefiniteSize(m_trackSizingAlgorithm, ForColumns);
+        else
+            computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
+
+        m_minContentSize = m_trackSizingAlgorithm.minContentSize();
+        m_maxContentSize = m_trackSizingAlgorithm.maxContentSize();
+        if (shouldApplySizeContainment(*this))
+            computeTrackSizesForDefiniteSize(ForColumns, availableSpaceForColumns);
 
         // 1.5- Compute Content Distribution offsets for column tracks
         computeContentPositionAndDistributionOffset(ForColumns, m_trackSizingAlgorithm.freeSpace(ForColumns).value(), nonCollapsedTracks(ForColumns));
@@ -446,24 +454,30 @@ void RenderGrid::computeIntrinsicLogicalWidths(LayoutUnit& minLogicalWidth, Layo
     LayoutUnit childMaxWidth;
     bool hadExcludedChildren = computePreferredWidthsForExcludedChildren(childMinWidth, childMaxWidth);
 
-    Grid grid(const_cast<RenderGrid&>(*this));
-    GridTrackSizingAlgorithm algorithm(this, grid);
-    placeItemsOnGrid(algorithm, std::nullopt);
+    if (needsLayout()) {
+        Grid grid(const_cast<RenderGrid&>(*this));
+        GridTrackSizingAlgorithm algorithm(this, grid);
+        placeItemsOnGrid(algorithm, std::nullopt);
 
-    performGridItemsPreLayout(algorithm);
+        performGridItemsPreLayout(algorithm);
 
-    if (m_baselineItemsCached)
-        algorithm.copyBaselineItemsCache(m_trackSizingAlgorithm, GridRowAxis);
-    else {
-        for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
-            if (child->isOutOfFlowPositioned())
-                continue;
-            if (isBaselineAlignmentForChild(*child, GridRowAxis))
-                algorithm.cacheBaselineAlignedItem(*child, GridRowAxis);
+        if (m_baselineItemsCached)
+            algorithm.copyBaselineItemsCache(m_trackSizingAlgorithm, GridRowAxis);
+        else {
+            for (auto* child = firstChildBox(); child; child = child->nextSiblingBox()) {
+                if (child->isOutOfFlowPositioned())
+                    continue;
+                if (isBaselineAlignmentForChild(*child, GridRowAxis))
+                    algorithm.cacheBaselineAlignedItem(*child, GridRowAxis);
+            }
         }
-    }
 
-    computeTrackSizesForIndefiniteSize(algorithm, ForColumns, &minLogicalWidth, &maxLogicalWidth);
+        computeTrackSizesForIndefiniteSize(algorithm, ForColumns, &minLogicalWidth, &maxLogicalWidth);
+    } else {
+        LayoutUnit totalGuttersSize = guttersSize(m_grid, ForColumns, 0, numTracks(ForColumns, m_grid), std::nullopt);
+        minLogicalWidth = *m_minContentSize + totalGuttersSize;
+        maxLogicalWidth = *m_maxContentSize + totalGuttersSize;
+    }
 
     if (hadExcludedChildren) {
         minLogicalWidth = std::max(minLogicalWidth, childMinWidth);
@@ -1206,15 +1220,12 @@ bool RenderGrid::aspectRatioPrefersInline(const RenderBox& child, bool blockFlow
 void RenderGrid::applyStretchAlignmentToChildIfNeeded(RenderBox& child)
 {
     ASSERT(child.overridingContainingBlockContentLogicalHeight());
-    ASSERT(child.overridingContainingBlockContentLogicalWidth());
 
-    // We clear height and width override values because we will decide now whether it's allowed or
+    // We clear height override values because we will decide now whether it's allowed or
     // not, evaluating the conditions which might have changed since the old values were set.
     child.clearOverridingLogicalHeight();
-    child.clearOverridingLogicalWidth();
 
     GridTrackSizingDirection childBlockDirection = GridLayoutFunctions::flowAwareDirectionForChild(*this, child, ForRows);
-    GridTrackSizingDirection childInlineDirection = GridLayoutFunctions::flowAwareDirectionForChild(*this, child, ForColumns);
     bool blockFlowIsColumnAxis = childBlockDirection == ForRows;
     bool allowedToStretchChildBlockSize = blockFlowIsColumnAxis ? allowedToStretchChildAlongColumnAxis(child) : allowedToStretchChildAlongRowAxis(child);
     if (allowedToStretchChildBlockSize && !aspectRatioPrefersInline(child, blockFlowIsColumnAxis)) {
@@ -1230,13 +1241,7 @@ void RenderGrid::applyStretchAlignmentToChildIfNeeded(RenderBox& child)
             child.setLogicalHeight(0_lu);
             child.setNeedsLayout(MarkOnlyThis);
         }
-    } else if (!allowedToStretchChildBlockSize && allowedToStretchChildAlongRowAxis(child)) {
-        LayoutUnit stretchedLogicalWidth = availableAlignmentSpaceForChildBeforeStretching(GridLayoutFunctions::overridingContainingBlockContentSizeForChild(child, childInlineDirection).value(), child);
-        LayoutUnit desiredLogicalWidth = child.constrainLogicalWidthInFragmentByMinMax(stretchedLogicalWidth, contentWidth(), *this, nullptr);
-        child.setOverridingLogicalWidth(desiredLogicalWidth);
-        if (desiredLogicalWidth != child.logicalWidth())
-            child.setNeedsLayout(MarkOnlyThis);
-    } 
+    }
 }
 
 // FIXME: This logic is shared by RenderFlexibleBox, so it should be moved to RenderBox.

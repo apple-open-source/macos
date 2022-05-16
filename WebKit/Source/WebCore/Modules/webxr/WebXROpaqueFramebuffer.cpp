@@ -31,11 +31,12 @@
 
 #if !USE(ANGLE)
 #include "ExtensionsGLOpenGLCommon.h"
-#endif
 #if USE(OPENGL_ES)
 #include "ExtensionsGLOpenGLES.h"
+#include "GraphicsContextGLOpenGL.h"
+#else
+#include "ExtensionsGLOpenGL.h"
 #endif
-#if !USE(ANGLE)
 #include "GraphicsContextGL.h"
 #endif
 #include "IntSize.h"
@@ -178,8 +179,8 @@ void WebXROpaqueFramebuffer::startFrame(const PlatformXR::Device::FrameData::Lay
 #else
     m_opaqueTexture = data.opaqueTexture;
 
-#if USE(OPENGL_ES)
-    auto& extensions = reinterpret_cast<ExtensionsGLOpenGLES&>(gl.getExtensions());
+#if USE(OPENGL_ES) && !USE(ANGLE)
+    auto& extensions = reinterpret_cast<GraphicsContextGLOpenGL&>(gl).getExtensions();
     if (m_attributes.antialias && extensions.isImagination()) {
         extensions.framebufferTexture2DMultisampleIMG(GL::FRAMEBUFFER, GL::COLOR_ATTACHMENT0, GL::TEXTURE_2D, m_opaqueTexture, 0, m_sampleCount);
         return;
@@ -269,17 +270,17 @@ bool WebXROpaqueFramebuffer::setupFramebuffer()
 
     // Set up color, depth and stencil formats
     bool hasDepthOrStencil = m_attributes.stencil || m_attributes.depth;
-#if USE(OPENGL_ES)
-    auto& extensions = reinterpret_cast<ExtensionsGLOpenGLES&>(gl.getExtensions());
-    bool platformSupportsPackedDepthStencil = hasDepthOrStencil && extensions.supports("GL_OES_packed_depth_stencil");
-    auto depthFormat = platformSupportsPackedDepthStencil ? GL::DEPTH24_STENCIL8 : GL::DEPTH_COMPONENT16;
-    auto stencilFormat = GL::STENCIL_INDEX8;
-#elif USE(ANGLE)
+#if USE(ANGLE)
     bool platformSupportsPackedDepthStencil = true;
     auto depthFormat = platformSupportsPackedDepthStencil ? GL::DEPTH24_STENCIL8 : GL::DEPTH_COMPONENT;
     auto stencilFormat = GL::STENCIL_INDEX8;
+#elif USE(OPENGL_ES)
+    auto& extensions = reinterpret_cast<GraphicsContextGLOpenGL&>(gl).getExtensions();
+    bool platformSupportsPackedDepthStencil = hasDepthOrStencil && extensions.supports("GL_OES_packed_depth_stencil");
+    auto depthFormat = platformSupportsPackedDepthStencil ? GL::DEPTH24_STENCIL8 : GL::DEPTH_COMPONENT16;
+    auto stencilFormat = GL::STENCIL_INDEX8;
 #else
-    auto& extensions = reinterpret_cast<ExtensionsGLOpenGLCommon&>(gl.getExtensions());
+    auto& extensions = reinterpret_cast<GraphicsContextGLOpenGL&>(gl).getExtensions();
     bool platformSupportsPackedDepthStencil = hasDepthOrStencil && extensions.supports("GL_EXT_packed_depth_stencil");
     auto depthFormat = platformSupportsPackedDepthStencil ? GL::DEPTH24_STENCIL8 : GL::DEPTH_COMPONENT;
     auto stencilFormat = GL::STENCIL_COMPONENT;
@@ -292,13 +293,13 @@ bool WebXROpaqueFramebuffer::setupFramebuffer()
 #if USE(ANGLE)
         gl.getIntegerv(GL::MAX_SAMPLES, makeGCGLSpan(&maxSampleCount, 1));
 #else
-        gl.getIntegerv(ExtensionsGL::MAX_SAMPLES, makeGCGLSpan(&maxSampleCount, 1));
+        gl.getIntegerv(GraphicsContextGL::MAX_SAMPLES, makeGCGLSpan(&maxSampleCount, 1));
 #endif
         // Cap the maxiumum multisample count at 4. Any more than this is likely overkill and will impact performance.
         m_sampleCount = std::min(4, maxSampleCount);
     }
 
-#if USE(OPENGL_ES)
+#if USE(OPENGL_ES) && !USE(ANGLE)
     // Use multisampled_render_to_texture extension if available.
     if (m_attributes.antialias && extensions.isImagination()) {
         // framebufferTexture2DMultisampleIMG is set up in startFrame call.

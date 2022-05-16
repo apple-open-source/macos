@@ -57,15 +57,10 @@
 /* Undefine if you don't want local features. By default this is defined. */
 #undef CONFIG_LOCALE
 
-/* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
-   systems. This function is required for `alloca.c' support on those systems.
-   */
-#undef CRAY_STACKSEG_END
-
 /* Define to a custom value for the ZSH_PATCHLEVEL parameter */
 #undef CUSTOM_PATCHLEVEL
 
-/* Define to 1 if using `alloca.c'. */
+/* Define to 1 if using 'alloca.c'. */
 #undef C_ALLOCA
 
 /* Define to 1 if you want to debug zsh. */
@@ -128,11 +123,10 @@
 /* Define if TIOCGWINSZ is defined in sys/ioctl.h but not in termios.h. */
 #undef GWINSZ_IN_SYS_IOCTL
 
-/* Define to 1 if you have `alloca', as a function or macro. */
+/* Define to 1 if you have 'alloca', as a function or macro. */
 #undef HAVE_ALLOCA
 
-/* Define to 1 if you have <alloca.h> and it should be used (not on Ultrix).
-   */
+/* Define to 1 if <alloca.h> works. */
 #undef HAVE_ALLOCA_H
 
 /* Define to 1 if you have the <bind/netdb.h> header file. */
@@ -1135,7 +1129,9 @@
 /* Define to 1 if the `S_IS*' macros in <sys/stat.h> do not work properly. */
 #undef STAT_MACROS_BROKEN
 
-/* Define to 1 if you have the ANSI C header files. */
+/* Define to 1 if all of the C90 standard headers exist (not just the ones
+   required in a freestanding environment). This macro is provided for
+   backward compatibility; new code need not use it. */
 #undef STDC_HEADERS
 
 /* Define to 1 if you use SYS style signal handling (and can block signals).
@@ -1154,7 +1150,8 @@
 /* Define if sys/time.h and sys/select.h cannot be both included. */
 #undef TIME_H_SELECT_H_CONFLICTS
 
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
+/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. This
+   macro is obsolete. */
 #undef TIME_WITH_SYS_TIME
 
 /* Define to 1 if all the kit for using /dev/ptmx for ptys is available. */
@@ -1224,11 +1221,6 @@
 /* Define to the base type of the third argument of accept */
 #undef ZSOCKLEN_T
 
-/* Enable large inode numbers on Mac OS X 10.5.  */
-#ifndef _DARWIN_USE_64_BIT_INODE
-# define _DARWIN_USE_64_BIT_INODE 1
-#endif
-
 /* Number of bits in a file offset, on hosts where this is settable. */
 #undef _FILE_OFFSET_BITS
 
@@ -1250,7 +1242,7 @@
 /* Define to `long int' if <sys/types.h> does not define. */
 #undef off_t
 
-/* Define to `int' if <sys/types.h> does not define. */
+/* Define as a signed integer type capable of holding a process identifier. */
 #undef pid_t
 
 /* Define to the type used in struct rlimit. */

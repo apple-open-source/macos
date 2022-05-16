@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,6 +21,7 @@
  */
 
 #include "libinfo_common.h"
+#include "od_debug.h"
 
 #include <stdlib.h>
 #include <sys/errno.h>
@@ -134,7 +135,7 @@ _mbr_xpc_pipe(bool resetPipe)
 	}
 	
 	if (__mbr_pipe == NULL) {
-		if (!dyld_process_is_restricted() && getenv("OD_DEBUG_MODE") != NULL) {
+		if (!dyld_process_is_restricted() && od_debug_enabled()) {
 			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortNameDebug, 0);
 		} else {
 			__mbr_pipe = xpc_pipe_create(kODMachMembershipPortName, XPC_PIPE_FLAG_PRIVILEGED);

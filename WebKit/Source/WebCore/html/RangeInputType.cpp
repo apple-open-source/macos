@@ -133,6 +133,10 @@ StepRange RangeInputType::createStepRange(AnyStepHandling anyStepHandling) const
 void RangeInputType::handleMouseDownEvent(MouseEvent& event)
 {
     ASSERT(element());
+
+    if (!hasCreatedShadowSubtree())
+        return;
+
     if (element()->isDisabledFormControl())
         return;
 
@@ -151,10 +155,15 @@ void RangeInputType::handleMouseDownEvent(MouseEvent& event)
 #if ENABLE(TOUCH_EVENTS)
 void RangeInputType::handleTouchEvent(TouchEvent& event)
 {
+    ASSERT(element());
+
+    if (!hasCreatedShadowSubtree())
+        return;
+
 #if PLATFORM(IOS_FAMILY)
     typedSliderThumbElement().handleTouchEvent(event);
 #elif ENABLE(TOUCH_SLIDER)
-    ASSERT(element());
+
     if (element()->isDisabledFormControl())
         return;
 
@@ -183,12 +192,15 @@ bool RangeInputType::hasTouchEventHandler() const
 
 void RangeInputType::disabledStateChanged()
 {
+    if (!hasCreatedShadowSubtree())
+        return;
     typedSliderThumbElement().hostDisabledStateChanged();
 }
 
 auto RangeInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBaseEventHandler
 {
     ASSERT(element());
+
     if (element()->isDisabledFormControl())
         return ShouldCallBaseEventHandler::Yes;
 
@@ -241,7 +253,7 @@ auto RangeInputType::handleKeydownEvent(KeyboardEvent& event) -> ShouldCallBaseE
     return ShouldCallBaseEventHandler::Yes;
 }
 
-void RangeInputType::createShadowSubtreeAndUpdateInnerTextElementEditability(ContainerNode::ChildChange::Source source, bool)
+void RangeInputType::createShadowSubtree()
 {
     ASSERT(needsShadowSubtree());
     ASSERT(element());
@@ -250,15 +262,19 @@ void RangeInputType::createShadowSubtreeAndUpdateInnerTextElementEditability(Con
     Document& document = element()->document();
     auto track = HTMLDivElement::create(document);
     track->setPseudo(ShadowPseudoIds::webkitSliderRunnableTrack());
-    track->appendChild(source, SliderThumbElement::create(document));
+    track->appendChild(ContainerNode::ChildChange::Source::Parser, SliderThumbElement::create(document));
     auto container = SliderContainerElement::create(document);
-    container->appendChild(source, track);
-    element()->userAgentShadowRoot()->appendChild(source, container);
+    container->appendChild(ContainerNode::ChildChange::Source::Parser, track);
+    element()->userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, container);
 }
 
 HTMLElement* RangeInputType::sliderTrackElement() const
 {
     ASSERT(element());
+
+    if (!hasCreatedShadowSubtree())
+        return nullptr;
+
     ASSERT(element()->userAgentShadowRoot());
     ASSERT(element()->userAgentShadowRoot()->firstChild()); // container
     ASSERT(element()->userAgentShadowRoot()->firstChild()->isHTMLElement());
@@ -277,6 +293,7 @@ HTMLElement* RangeInputType::sliderTrackElement() const
 
 SliderThumbElement& RangeInputType::typedSliderThumbElement() const
 {
+    ASSERT(hasCreatedShadowSubtree());
     ASSERT(sliderTrackElement()->firstChild()); // thumb
     ASSERT(sliderTrackElement()->firstChild()->isHTMLElement());
 
@@ -322,7 +339,8 @@ void RangeInputType::attributeChanged(const QualifiedName& name)
             if (element->hasDirtyValue())
                 element->setValue(element->value());
         }
-        typedSliderThumbElement().setPositionFromValue();
+        if (hasCreatedShadowSubtree())
+            typedSliderThumbElement().setPositionFromValue();
     }
     InputType::attributeChanged(name);
 }
@@ -339,7 +357,8 @@ void RangeInputType::setValue(const String& value, bool valueChanged, TextFieldE
         element()->setTextAsOfLastFormControlChangeEvent(value);
     }
 
-    typedSliderThumbElement().setPositionFromValue();
+    if (hasCreatedShadowSubtree())
+        typedSliderThumbElement().setPositionFromValue();
 }
 
 String RangeInputType::fallbackValue() const
@@ -368,7 +387,7 @@ void RangeInputType::dataListMayHaveChanged()
 {
     m_tickMarkValuesDirty = true;
     RefPtr<HTMLElement> sliderTrackElement = this->sliderTrackElement();
-    if (sliderTrackElement->renderer())
+    if (sliderTrackElement && sliderTrackElement->renderer())
         sliderTrackElement->renderer()->setNeedsLayout();
 }
 

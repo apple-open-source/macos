@@ -467,13 +467,17 @@ libSystem_atfork_parent(unsigned int flags, ...)
 	_libSC_info_fork_parent();
 #endif // !TARGET_OS_DRIVERKIT
 
+	// second dlopen
+	// Note that this is not in the reverse order from prepare()
+	// This is to avoid deadlock with third-party pthread handlers.
+	// The thinking being that we should fully handle all libSystem code
+	// then jump to third-party code
+	_dyld_dlopen_atfork_parent();
+
 	if ((flags & LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG) == 0) {
-		// second call client parent handlers registered with pthread_atfork()
+		// third call client parent handlers registered with pthread_atfork()
 		_pthread_atfork_parent_handlers();
 	}
-
-	// third, dlopen
-	_dyld_dlopen_atfork_parent();
 }
 
 static void
@@ -501,13 +505,17 @@ libSystem_atfork_child(unsigned int flags, ...)
 	_libSC_info_fork_child();
 #endif // !TARGET_OS_DRIVERKIT
 
+	// second dlopen
+	// Note that this is not in the reverse order from prepare()
+	// This is to avoid deadlock with third-party pthread handlers.
+	// The thinking being that we should fully handle all libSystem code
+	// then jump to third-party code
+	_dyld_dlopen_atfork_child();
+
 	if ((flags & LIBSYSTEM_ATFORK_HANDLERS_ONLY_FLAG) == 0) {
-		// second call client child handlers registered with pthread_atfork()
+		// third call client child handlers registered with pthread_atfork()
 		_pthread_atfork_child_handlers();
 	}
-
-	// third, dlopen
-	_dyld_dlopen_atfork_child();
 }
 
 #define DUET_PREWARM_ENV_VAR "ActivePrewarm"

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -2920,7 +2920,7 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
     auto* renderer = hitNode->renderer();
 
     info.selectability = ([&] {
-        if (renderer->style().userSelectIncludingInert() == UserSelect::None)
+        if (renderer->style().effectiveUserSelect() == UserSelect::None)
             return InteractionInformationAtPosition::Selectability::UnselectableDueToUserSelectNone;
 
         if (is<Element>(*hitNode)) {
@@ -2966,7 +2966,7 @@ static void selectionPositionInformation(WebPage& page, const InteractionInforma
             continue;
 
         auto& style = renderer->style();
-        if (style.userSelectIncludingInert() == UserSelect::None && style.userDrag() == UserDrag::Element) {
+        if (style.effectiveUserSelect() == UserSelect::None && style.userDrag() == UserDrag::Element) {
             info.prefersDraggingOverTextSelection = true;
             break;
         }
@@ -3173,8 +3173,10 @@ void WebPage::stopInteraction()
     m_interactionNode = nullptr;
 }
 
-void WebPage::performActionOnElement(uint32_t action)
+void WebPage::performActionOnElement(uint32_t action, const String& authorizationToken, CompletionHandler<void()>&& completionHandler)
 {
+    CompletionHandlerCallingScope callCompletionHandler(WTFMove(completionHandler));
+
     if (!is<HTMLElement>(m_interactionNode))
         return;
 
@@ -3200,7 +3202,7 @@ void WebPage::performActionOnElement(uint32_t action)
             m_interactionNode->document().editor().copyURL(element.document().completeURL(stripLeadingAndTrailingHTMLSpaces(element.attributeWithoutSynchronization(HTMLNames::hrefAttr))), element.textContent());
 #if ENABLE(ATTACHMENT_ELEMENT)
         else if (auto attachmentInfo = element.document().editor().promisedAttachmentInfo(element))
-            send(Messages::WebPageProxy::WritePromisedAttachmentToPasteboard(WTFMove(attachmentInfo)));
+            send(Messages::WebPageProxy::WritePromisedAttachmentToPasteboard(WTFMove(attachmentInfo), authorizationToken));
 #endif
     } else if (static_cast<SheetAction>(action) == SheetAction::SaveImage) {
         if (!is<RenderImage>(*element.renderer()))
@@ -3216,7 +3218,7 @@ void WebPage::performActionOnElement(uint32_t action)
             return;
         SharedMemory::Handle handle;
         sharedMemoryBuffer->createHandle(handle, SharedMemory::Protection::ReadOnly);
-        send(Messages::WebPageProxy::SaveImageToLibrary(SharedMemory::IPCHandle { WTFMove(handle), buffer->size() }));
+        send(Messages::WebPageProxy::SaveImageToLibrary(SharedMemory::IPCHandle { WTFMove(handle), buffer->size() }, authorizationToken));
     }
 }
 
@@ -3485,18 +3487,6 @@ void WebPage::setViewportConfigurationViewLayoutSize(const FloatSize& size, doub
     viewportConfigurationChanged(zoomToInitialScale);
 }
 
-void WebPage::setMinimumUnobscuredSize(const FloatSize& minimumUnobscuredSize)
-{
-    m_minimumUnobscuredSize = minimumUnobscuredSize;
-    updateViewportSizeForCSSViewportUnits();
-}
-
-void WebPage::setMaximumUnobscuredSize(const FloatSize& maximumUnobscuredSize)
-{
-    m_maximumUnobscuredSize = maximumUnobscuredSize;
-    updateViewportSizeForCSSViewportUnits();
-}
-
 void WebPage::setDeviceOrientation(int32_t deviceOrientation)
 {
     if (deviceOrientation == m_deviceOrientation)
@@ -3558,6 +3548,7 @@ void WebPage::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, const W
     if (setFixedLayoutSize(newLayoutSize))
         resetTextAutosizing();
 
+    setDefaultUnobscuredSize(maximumUnobscuredSize);
     setMinimumUnobscuredSize(minimumUnobscuredSize);
     setMaximumUnobscuredSize(maximumUnobscuredSize);
     m_page->setUnobscuredSafeAreaInsets(targetUnobscuredSafeAreaInsets);
@@ -3877,7 +3868,9 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
 
     m_page->setZoomedOutPageScaleFactor(m_viewportConfiguration.minimumScale());
 
-    updateViewportSizeForCSSViewportUnits();
+    updateSizeForCSSDefaultViewportUnits();
+    updateSizeForCSSSmallViewportUnits();
+    updateSizeForCSSLargeViewportUnits();
 
     FrameView& frameView = *mainFrameView();
     IntPoint scrollPosition = frameView.scrollPosition();
@@ -3901,23 +3894,6 @@ void WebPage::viewportConfigurationChanged(ZoomToInitialScale zoomToInitialScale
 
         frameView.setCustomSizeForResizeEvent(expandedIntSize(m_viewportConfiguration.minimumLayoutSize()));
     }
-}
-
-void WebPage::updateViewportSizeForCSSViewportUnits()
-{
-    FloatSize smallestUnobscuredSize = m_minimumUnobscuredSize;
-    if (smallestUnobscuredSize.isEmpty())
-        smallestUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
-
-    FloatSize largestUnobscuredSize = m_maximumUnobscuredSize;
-    if (largestUnobscuredSize.isEmpty())
-        largestUnobscuredSize = m_viewportConfiguration.viewLayoutSize();
-
-    FrameView& frameView = *mainFrameView();
-    smallestUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
-    largestUnobscuredSize.scale(1 / m_viewportConfiguration.initialScaleIgnoringContentSize());
-    frameView.setSizeForCSSSmallViewportUnits(smallestUnobscuredSize);
-    frameView.setSizeForCSSLargeViewportUnits(largestUnobscuredSize);
 }
 
 void WebPage::applicationWillResignActive()
@@ -3983,12 +3959,14 @@ void WebPage::applicationDidBecomeActive()
 
 void WebPage::applicationDidEnterBackgroundForMedia(bool isSuspendedUnderLock)
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationDidEnterBackgroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
+    if (auto* manager = PlatformMediaSessionManager::sharedManagerIfExists())
+        manager->applicationDidEnterBackground(isSuspendedUnderLock);
 }
 
 void WebPage::applicationWillEnterForegroundForMedia(bool isSuspendedUnderLock)
 {
-    [[NSNotificationCenter defaultCenter] postNotificationName:WebUIApplicationWillEnterForegroundNotification object:nil userInfo:@{@"isSuspendedUnderLock": @(isSuspendedUnderLock)}];
+    if (auto* manager = PlatformMediaSessionManager::sharedManagerIfExists())
+        manager->applicationWillEnterForeground(isSuspendedUnderLock);
 }
 
 static inline void adjustVelocityDataForBoundedScale(VelocityData& velocityData, double exposedRectScale, double minimumScale, double maximumScale)

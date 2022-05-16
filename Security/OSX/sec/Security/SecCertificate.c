@@ -4912,6 +4912,20 @@ CFArrayRef SecCertificateCopyRFC822Names(SecCertificateRef certificate) {
 	return rfc822Names;
 }
 
+CFArrayRef SecCertificateCopyRFC822NamesFromSAN(SecCertificateRef certificate) {
+    CFMutableArrayRef rfc822Names = CFArrayCreateMutable(kCFAllocatorDefault,
+        0, &kCFTypeArrayCallBacks);
+    OSStatus status = errSecSuccess;
+    if (certificate->_subjectAltName) {
+        status = SecCertificateParseGeneralNames(&certificate->_subjectAltName->extnValue,
+            rfc822Names, appendRFC822NamesFromGeneralNames);
+    }
+    if (status || CFArrayGetCount(rfc822Names) == 0) {
+        CFReleaseNull(rfc822Names);
+    }
+    return rfc822Names;
+}
+
 OSStatus SecCertificateCopyEmailAddresses(SecCertificateRef certificate, CFArrayRef * __nonnull CF_RETURNS_RETAINED emailAddresses) {
     if (!certificate || !emailAddresses) {
         return errSecParam;

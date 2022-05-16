@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2018 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -107,6 +107,7 @@ public:
     void seekableTimeRangesDidChange(RetainPtr<NSArray>&&, NSTimeInterval, NSTimeInterval);
     void tracksDidChange(const RetainPtr<NSArray>&);
     void hasEnabledAudioDidChange(bool);
+    void hasEnabledVideoDidChange(bool);
     void presentationSizeDidChange(FloatSize);
     void durationDidChange(const MediaTime&);
     void rateDidChange(double);
@@ -424,7 +425,8 @@ private:
     FloatSize m_cachedPresentationSize;
     MediaTime m_cachedDuration;
     mutable MediaPlayer::CurrentTimeDidChangeCallback m_currentTimeDidChangeCallback;
-    mutable MediaTime m_cachedCurrentMediaTime;
+    mutable MediaTime m_cachedCurrentMediaTime { -1, 1, 0 };
+    mutable MediaTime m_lastPeriodicObserverMediaTime;
     mutable std::optional<WallTime> m_wallClockAtCachedCurrentTime;
     mutable int m_timeControlStatusAtCachedCurrentTime { 0 };
     mutable double m_requestedRateAtCachedCurrentTime { 0 };
@@ -442,6 +444,7 @@ private:
     bool m_cachedBufferEmpty { false };
     bool m_cachedBufferFull { false };
     bool m_cachedHasEnabledAudio { false };
+    bool m_cachedHasEnabledVideo { false };
     bool m_cachedIsReadyForDisplay { false };
     bool m_haveBeenAskedToCreateLayer { false };
     bool m_cachedCanPlayFastForward { false };

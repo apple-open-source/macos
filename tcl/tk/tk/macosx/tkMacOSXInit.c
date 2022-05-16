@@ -24,6 +24,7 @@
 #include <objc/objc-auto.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 static char tkLibPath[PATH_MAX + 1] = "";

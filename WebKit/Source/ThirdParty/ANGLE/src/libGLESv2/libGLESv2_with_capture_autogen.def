@@ -460,6 +460,21 @@ EXPORTS
     glTranslatex
     glVertexPointer
 
+    ; GL_AMD_performance_monitor
+    glBeginPerfMonitorAMD
+    glDeletePerfMonitorsAMD
+    glEndPerfMonitorAMD
+    glGenPerfMonitorsAMD
+    glGetPerfMonitorCounterDataAMD
+    glGetPerfMonitorCounterInfoAMD
+    glGetPerfMonitorCounterStringAMD
+    glGetPerfMonitorCountersAMD
+    glGetPerfMonitorGroupStringAMD
+    glGetPerfMonitorGroupsAMD
+    glSelectPerfMonitorCountersAMD
+
+    ; GL_ANDROID_extension_pack_es31a
+
     ; GL_ANGLE_base_vertex_base_instance
     glDrawArraysInstancedBaseInstanceANGLE
     glDrawElementsInstancedBaseVertexBaseInstanceANGLE
@@ -829,6 +844,8 @@ EXPORTS
     glUseProgramStagesEXT
     glValidateProgramPipelineEXT
 
+    ; GL_EXT_shader_framebuffer_fetch
+
     ; GL_EXT_shader_framebuffer_fetch_non_coherent
     glFramebufferFetchBarrierEXT
 
@@ -1043,6 +1060,9 @@ EXPORTS
 
     ; GL_OES_point_sprite
 
+    ; GL_OES_primitive_bounding_box
+    glPrimitiveBoundingBoxOES
+
     ; GL_OES_query_matrix
     glQueryMatrixxOES
 
@@ -1215,9 +1235,13 @@ EXPORTS
     EGL_QueryStringiANGLE
 
     ; EGL_ANGLE_power_preference
+    EGL_ForceGPUSwitchANGLE
     EGL_HandleGPUSwitchANGLE
     EGL_ReacquireHighPowerGPUANGLE
     EGL_ReleaseHighPowerGPUANGLE
+
+    ; EGL_ANGLE_prepare_swap_buffers
+    EGL_PrepareSwapBuffersANGLE
 
     ; EGL_ANGLE_program_cache_control
     EGL_ProgramCacheGetAttribANGLE
@@ -1249,6 +1273,10 @@ EXPORTS
     EGL_QueryDeviceStringEXT
     EGL_QueryDisplayAttribEXT
 
+    ; EGL_EXT_image_dma_buf_import_modifiers
+    EGL_QueryDmaBufFormatsEXT
+    EGL_QueryDmaBufModifiersEXT
+
     ; EGL_EXT_platform_base
     EGL_CreatePlatformPixmapSurfaceEXT
     EGL_CreatePlatformWindowSurfaceEXT
@@ -1273,6 +1301,9 @@ EXPORTS
     EGL_LockSurfaceKHR
     EGL_QuerySurface64KHR
     EGL_UnlockSurfaceKHR
+
+    ; EGL_KHR_partial_update
+    EGL_SetDamageRegionKHR
 
     ; EGL_KHR_reusable_sync
     EGL_SignalSyncKHR

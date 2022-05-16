@@ -269,6 +269,36 @@ IntSize IOSurface::maximumSize()
     return size;
 }
 
+static WTF::Atomic<size_t>& surfaceBytesPerRowAlignment()
+{
+    static WTF::Atomic<size_t> alignment = 0;
+    return alignment;
+}
+
+size_t IOSurface::bytesPerRowAlignment()
+{
+    auto alignment = surfaceBytesPerRowAlignment().load();
+    if (!alignment) {
+        surfaceBytesPerRowAlignment().store(IOSurfaceGetPropertyAlignment(kIOSurfaceBytesPerRow));
+        alignment = surfaceBytesPerRowAlignment().load();
+        // A return value for IOSurfaceGetPropertyAlignment(kIOSurfaceBytesPerRow) of 1 is invalid.
+        // See https://developer.apple.com/documentation/iosurface/1419453-iosurfacegetpropertyalignment?language=objc
+        // This likely means that the sandbox is blocking access to the IOSurface IOKit class,
+        // and that IOSurface::bytesPerRowAlignment() has been called before IOSurface::setBytesPerRowAlignment.
+        if (alignment <= 1) {
+            RELEASE_LOG_ERROR(Layers, "Sandbox does not allow IOSurface IOKit access.");
+            // 64 bytes is currently the alignment on all platforms.
+            alignment = 64;
+        }
+    }
+    return alignment;
+}
+
+void IOSurface::setBytesPerRowAlignment(size_t bytesPerRowAlignment)
+{
+    surfaceBytesPerRowAlignment().store(bytesPerRowAlignment);
+}
+
 MachSendRight IOSurface::createSendRight() const
 {
     return MachSendRight::adopt(IOSurfaceCreateMachPort(m_surface.get()));

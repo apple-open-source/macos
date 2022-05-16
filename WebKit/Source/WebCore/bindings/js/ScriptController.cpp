@@ -368,36 +368,20 @@ TextPosition ScriptController::eventHandlerPosition() const
     return TextPosition();
 }
 
-void ScriptController::enableEval()
+void ScriptController::setEvalEnabled(bool value, const String& errorMessage)
 {
     auto* jsWindowProxy = windowProxy().existingJSWindowProxy(mainThreadNormalWorld());
     if (!jsWindowProxy)
         return;
-    jsWindowProxy->window()->setEvalEnabled(true);
+    jsWindowProxy->window()->setEvalEnabled(value, errorMessage);
 }
 
-void ScriptController::enableWebAssembly()
+void ScriptController::setWebAssemblyEnabled(bool value, const String& errorMessage)
 {
     auto* jsWindowProxy = windowProxy().existingJSWindowProxy(mainThreadNormalWorld());
     if (!jsWindowProxy)
         return;
-    jsWindowProxy->window()->setWebAssemblyEnabled(true);
-}
-
-void ScriptController::disableEval(const String& errorMessage)
-{
-    auto* jsWindowProxy = windowProxy().existingJSWindowProxy(mainThreadNormalWorld());
-    if (!jsWindowProxy)
-        return;
-    jsWindowProxy->window()->setEvalEnabled(false, errorMessage);
-}
-
-void ScriptController::disableWebAssembly(const String& errorMessage)
-{
-    auto* jsWindowProxy = windowProxy().existingJSWindowProxy(mainThreadNormalWorld());
-    if (!jsWindowProxy)
-        return;
-    jsWindowProxy->window()->setWebAssemblyEnabled(false, errorMessage);
+    jsWindowProxy->window()->setWebAssemblyEnabled(value, errorMessage);
 }
 
 bool ScriptController::canAccessFromCurrentOrigin(Frame* frame, Document& accessingDocument)
@@ -778,7 +762,7 @@ void ScriptController::executeJavaScriptURL(const URL& url, RefPtr<SecurityOrigi
     if (requesterSecurityOrigin && !requesterSecurityOrigin->isSameOriginDomain(m_frame.document()->securityOrigin()))
         return;
 
-    if (!m_frame.page() || !m_frame.document()->contentSecurityPolicy()->allowJavaScriptURLs(m_frame.document()->url().string(), eventHandlerPosition().m_line, url.string()))
+    if (!m_frame.page() || !m_frame.document()->contentSecurityPolicy()->allowJavaScriptURLs(m_frame.document()->url().string(), eventHandlerPosition().m_line, url.string(), nullptr))
         return;
 
     // We need to hold onto the Frame here because executing script can

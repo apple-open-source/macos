@@ -34,6 +34,7 @@
 #include "slcrep.h"
 #if TARGET_OS_OSX
 #include "diskimagerep.h"
+#include "encdiskimagerep.h"
 #endif
 
 namespace Security {
@@ -93,29 +94,39 @@ DiskRep *DiskRep::bestGuess(const char *path, const Context *ctx)
 	try {
 		if (!(ctx && ctx->fileOnly)) {
 			struct stat st;
-			if (::stat(path, &st))
+			if (::stat(path, &st)) {
 				UnixError::throwMe();
+			}
 				
 			// if it's a directory, assume it's a bundle
-			if ((st.st_mode & S_IFMT) == S_IFDIR)	// directory - assume bundle
+			if ((st.st_mode & S_IFMT) == S_IFDIR) {	// directory - assume bundle
 				return new BundleDiskRep(path, ctx);
+			}
 			
 			// see if it's the main executable of a recognized bundle
-			if (CFRef<CFURLRef> pathURL = makeCFURL(path))
-				if (CFRef<CFBundleRef> bundle = _CFBundleCreateWithExecutableURLIfMightBeBundle(NULL, pathURL))
+			if (CFRef<CFURLRef> pathURL = makeCFURL(path)) {
+				if (CFRef<CFBundleRef> bundle = _CFBundleCreateWithExecutableURLIfMightBeBundle(NULL, pathURL)) {
 						return new BundleDiskRep(bundle, ctx);
+				}
+			}
 		}
 		
 		// try the various single-file representations
 		AutoFileDesc fd(path, O_RDONLY);
-		if (MachORep::candidate(fd))
+		if (MachORep::candidate(fd)) {
 			return new MachORep(path, ctx);
+		}
 #if TARGET_OS_OSX
-		if (DiskImageRep::candidate(fd))
+		if (DiskImageRep::candidate(fd)) {
 			return new DiskImageRep(path);
+		}
+		if (EncDiskImageRep::candidate(fd)) {
+			return new EncDiskImageRep(path);
+		}
 #endif
-		if (DYLDCacheRep::candidate(fd))
+		if (DYLDCacheRep::candidate(fd)) {
 			return new DYLDCacheRep(path);
+		}
 
 		// ultimate fallback - the generic file representation
 		return new FileDiskRep(path);
@@ -134,8 +145,9 @@ DiskRep *DiskRep::bestGuess(const char *path, const Context *ctx)
 DiskRep *DiskRep::bestFileGuess(const char *path, const Context *ctx)
 {
 	Context dctx;
-	if (ctx)
+	if (ctx) {
 		dctx = *ctx;
+	}
 	dctx.fileOnly = true;
 	return bestGuess(path, &dctx);
 }

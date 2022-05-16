@@ -41,9 +41,9 @@
             char g_test_url2[1024] = "smb://adbrad:Password01!@192.168.1.30/SMBBasic";
             char g_test_url3[1024] = "cifs://adbrad:Password01!@192.168.1.30/SMBBasic";
         #else
-            char g_test_url1[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.1:12345tgB@192.168.10.3/win_share_1";
-            char g_test_url2[1024] = "smb://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
-            char g_test_url3[1024] = "cifs://ITAI-RAAB-PRL;nfs.lab.2:12345tgB@192.168.10.3/win_share_1";
+            char g_test_url1[1024] = "smb://usr1:passWORD1@192.168.0.51/smb_share_usr1_1/";
+            char g_test_url2[1024] = "smb://usr2:passWORD2@192.168.0.51/smb_share_usr1_1/";
+            char g_test_url3[1024] = "cifs://usr2:passWORD2@192.168.0.51/smb_share_usr1_1/";
         #endif
     #endif
 #else
@@ -58,6 +58,8 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <smbclient/smbclient.h>
 #include <smbclient/smbclient_netfs.h>
+#import <netsmb/smb_dev.h>
+#import <netsmb/smb_dev_2.h>
 #include <NetFS/NetFS.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 
@@ -79,6 +81,7 @@
 #include <sys/attr.h>
 #include <sys/vnode.h>
 #include <sys/xattr.h>
+#include <sys/ioctl.h>
 #include <dirent.h>
 
 char default_test_filename[] = "testfile";
@@ -460,11 +463,13 @@ int setup_file_paths(const char *mp1, const char *mp2,
     strlcat(file_path1, "/", file_len1);
     strlcat(file_path1, filename, file_len1);
 
-    strlcpy(file_path2, mp2,file_len2);
-    strlcat(file_path2, "/",file_len2);
-    strlcat(file_path2, cur_test_dir,file_len2);
-    strlcat(file_path2, "/",file_len2);
-    strlcat(file_path2, filename,file_len2);
+    if (file_path2) {
+        strlcpy(file_path2, mp2,file_len2);
+        strlcat(file_path2, "/",file_len2);
+        strlcat(file_path2, cur_test_dir,file_len2);
+        strlcat(file_path2, "/",file_len2);
+        strlcat(file_path2, filename,file_len2);
+    }
 
     /* Create the test dirs */
     error = do_create_test_dirs(mp1);
@@ -5118,5 +5123,325 @@ done:
 }
 
 
+int check_all_dst_lengths(char *test_name,
+                          int fd,
+                          struct smbioc_path_convert *path_convert,
+                          size_t dest_alloc_size,
+                          size_t expected_buff_len) {
+    int error = 0;
+    path_convert->ioc_dest_len = dest_alloc_size;
 
+    /* Send good data to convert */
+    memset((void *)path_convert->ioc_dest, 'W', dest_alloc_size);
+    error = ioctl(fd, SMBIOC_CONVERT_PATH, path_convert);
+    if (error) {
+        printf("failed to send ioctl (%s) error: %d errno: %d\n", test_name, error, errno);
+      goto done;
+    }
+    printf("Conversion (%s) requires %llu bytes\n", test_name, path_convert->ioc_dest_len);
+
+    if (path_convert->ioc_dest_len != expected_buff_len) {
+        printf("failed convert (%s) in %lu bytes (actual %llu)\n", test_name, expected_buff_len, path_convert->ioc_dest_len);
+        error = -1;
+        goto done;
+    }
+
+    /* Send bad data to convert (dst buffer too small) */
+    for (size_t dst_buff_size = 0; dst_buff_size<expected_buff_len; dst_buff_size++) {
+        path_convert->ioc_dest_len = dst_buff_size;
+        memset((void *)path_convert->ioc_dest, 'W', dest_alloc_size);
+        error = ioctl(fd, SMBIOC_CONVERT_PATH, path_convert);
+        if (!error) {
+            printf("failed. Conversion (%s) succeeded although dst_buf is too small: %d errno: %d, buf_size %lu\n", test_name, error, errno, dst_buff_size);
+            error = -1;
+            goto done;
+        }
+    }
+
+    /* Send good data to convert (dst buffer large enough) */
+    for (size_t dst_buff_size = expected_buff_len; dst_buff_size <= dest_alloc_size; dst_buff_size++) {
+        path_convert->ioc_dest_len = dst_buff_size;
+        memset((void *)path_convert->ioc_dest, 'W', dest_alloc_size);
+        error = ioctl(fd, SMBIOC_CONVERT_PATH, path_convert);
+        if (error) {
+            printf("failed. Conversion succeeded although dst_buf is large enough. error: %d errno: %d, buf_size %lu\n", error, errno, dst_buff_size);
+            goto done;
+        }
+    }
+done:
+    printf("test (%s) returned error %d\n", test_name, error);
+    return error;
+}
+
+- (void)testPathConvOverflow
+{
+    int error = 0;
+    int fd    = 0;
+
+    char mp[PATH_MAX];
+
+    do_create_mount_path(mp, sizeof(mp), "testSecPathConvOverflow");
+
+    struct smb_server_handle *mpConnection = NULL;
+    SMBHANDLE shareConnection = NULL;
+    uint32_t status = 0;
+
+    /* First mount a volume */
+    if ((mkdir(mp, S_IRWXU | S_IRWXG) == -1) && (errno != EEXIST)) {
+        error = errno;
+        XCTFail("mkdir failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+
+    status = SMBOpenServerEx(g_test_url1, &mpConnection,
+                             kSMBOptionNoPrompt | kSMBOptionSessionOnly);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBOpenServerEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    status = SMBMountShareEx(mpConnection, NULL, mp, 0, 0, 0, 0, NULL, NULL);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    /* Now that we have a mounted volume we run the real test */
+    status = SMBOpenServerWithMountPoint(mp, "IPC$",
+                                         &shareConnection, 0);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    struct smb_server_handle_local { // must match struct smb_server_handle
+        volatile int32_t refcount;
+        struct smb_ctx * context;
+    } *pServerHandle;
+
+    pServerHandle = (struct smb_server_handle_local*)mpConnection;
+    fd = pServerHandle->context->ct_fd;
+
+    /* Prepare ictl data */
+    uint32_t target_size = 32;
+    uint32_t dest_alloc_size  = target_size*4;
+
+    char *corrupted_path = (char *)malloc(target_size);
+    if (!corrupted_path) {
+        XCTFail("malloc error");
+        goto done;
+    }
+    memset(corrupted_path, 'A', target_size); // purposely no '\0'
+    corrupted_path[target_size / 2] = '/';
+    corrupted_path[target_size - 1] = '\0';
+    size_t expected_buff_len = (target_size-1)*2;
+
+    struct smbioc_path_convert path_convert;
+    bzero((void *)&path_convert, sizeof(path_convert));
+    path_convert.ioc_version = 170;
+    path_convert.ioc_direction = 2;
+    path_convert.ioc_src_len = target_size;
+    path_convert.ioc_src = corrupted_path;
+    path_convert.ioc_dest_len = dest_alloc_size;
+    path_convert.ioc_dest = (char *)malloc(dest_alloc_size);
+    if (!path_convert.ioc_dest) {
+        XCTFail("malloc error");
+        goto done;
+    }
+
+    /* Send good data to convert */
+    char *test_name = "null terminated";
+    error = check_all_dst_lengths(test_name,
+                                  fd,
+                                  &path_convert,
+                                  dest_alloc_size,
+                                  expected_buff_len);
+    if (error) {
+        XCTFail("failed to run test (%s) with error: %d errno: %d\n", test_name, error, errno);
+        goto done;
+    }
+
+    // Not null terminated - should always fail
+    corrupted_path[target_size - 1] = 'A';
+    expected_buff_len = target_size*2;
+
+    test_name = "not null terminated";
+    error = check_all_dst_lengths(test_name,
+                                  fd,
+                                  &path_convert,
+                                  dest_alloc_size,
+                                  expected_buff_len);
+    if (error) {
+        XCTFail("failed to run test (%s) with error: %d errno: %d\n", test_name, error, errno);
+        goto done;
+    }
+
+    /* Send standard path to convert */
+    char *std_path = "//192.168.0.51/smb_share_path/xxx";
+    size_t std_path_length = strlen(std_path);
+    expected_buff_len = std_path_length*2;
+    path_convert.ioc_src_len = (uint32_t)std_path_length;
+    path_convert.ioc_src = std_path;
+
+    test_name = "standard path";
+    error = check_all_dst_lengths(test_name,
+                                  fd,
+                                  &path_convert,
+                                  dest_alloc_size,
+                                  expected_buff_len);
+    if (error) {
+        XCTFail("failed to run test (%s) with error: %d errno: %d\n", test_name, error, errno);
+        goto done;
+    }
+
+done:
+    /* Now cleanup everything */
+    if (shareConnection) {
+        SMBReleaseServer(shareConnection);
+    }
+
+    if (mpConnection) {
+        SMBReleaseServer(mpConnection);
+    }
+
+    if (unmount(mp, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+    rmdir(mp);
+}
+
+- (void)testNotifierIoctl
+{
+    int error = 0;
+    int fd    = 0;
+
+    char mp[PATH_MAX];
+
+    do_create_mount_path(mp, sizeof(mp), "testSecPathConvOverflow");
+
+    struct smb_server_handle *mpConnection = NULL;
+    SMBHANDLE shareConnection = NULL;
+    uint32_t status = 0;
+
+    /* First mount a volume */
+    if ((mkdir(mp, S_IRWXU | S_IRWXG) == -1) && (errno != EEXIST)) {
+        error = errno;
+        XCTFail("mkdir failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+
+    status = SMBOpenServerEx(g_test_url1, &mpConnection,
+                             kSMBOptionNoPrompt | kSMBOptionSessionOnly);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBOpenServerEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    status = SMBMountShareEx(mpConnection, NULL, mp, 0, 0, 0, 0, NULL, NULL);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    /* Now that we have a mounted volume we run the real test */
+    status = SMBOpenServerWithMountPoint(mp, "IPC$",
+                                         &shareConnection, 0);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+    struct smb_server_handle_local { // must match struct smb_server_handle
+        volatile int32_t refcount;
+        struct smb_ctx * context;
+    } *pServerHandle;
+    pServerHandle = (struct smb_server_handle_local*)mpConnection;
+    fd = pServerHandle->context->ct_fd;
+
+    // SMBIOC_UPDATE_CLIENT_INTERFACES
+    uint32_t uNumOfNics = 10;
+    struct smbioc_client_interface sClientInfo = {0};
+    sClientInfo.interface_instance_count = uNumOfNics;
+    sClientInfo.total_buffer_size = uNumOfNics * sizeof(struct network_nic_info);
+    struct network_nic_info *psNicInfoArry = malloc(sClientInfo.total_buffer_size);
+    sClientInfo.ioc_info_array = psNicInfoArry;
+    for(uint32_t u=0; u<uNumOfNics; u++) {
+        struct network_nic_info *psNicInfo = &psNicInfoArry[u];
+        psNicInfo->nic_index = u;
+        psNicInfo->next_offset = sizeof(struct network_nic_info);
+        psNicInfo->addr.sa_len = 4;
+        psNicInfo->addr.sa_data[0] = u;
+        psNicInfo->addr.sa_data[1] = u+1;
+        psNicInfo->addr.sa_data[2] = u+2;
+        psNicInfo->addr.sa_data[3] = u+3;
+    }
+
+    // successful SClientInfo
+    error = ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &sClientInfo);
+    if (error) {
+        XCTFail("failed to send a clean ioctl error: %d errno: %d\n", error, errno);
+    }
+
+    // test sClientInfo with buffer_size too small.
+    sClientInfo.total_buffer_size--;
+    error = ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &sClientInfo);
+    if (!error) {
+        XCTFail("failed: no error when total_buffer_size is too small. error: %d errno: %d\n", error, errno);
+    } else {
+        os_log_debug(OS_LOG_DEFAULT, "ioctl failed as expected (total_buffer_size is too small).\n");
+    }
+    sClientInfo.total_buffer_size++;
+
+    // test psNicInfo->next_offset is outside buffer boundary
+    psNicInfoArry[0].next_offset = (uint32_t)(-sizeof(struct network_nic_info));
+    error = ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &sClientInfo);
+    if (!error) {
+        XCTFail("failed: no error when next_offset is negative. error: %d errno: %d\n", error, errno);
+    } else {
+        os_log_debug(OS_LOG_DEFAULT, "ioctl failed as expected (next_offset is negative).\n");
+    }
+    psNicInfoArry[0].next_offset = sizeof(struct network_nic_info);
+
+    // test psNicInfo->next_offset is smaller than sizeof(network_nic_info)
+    psNicInfoArry[3].next_offset = sizeof(struct network_nic_info) / 2;
+    error = ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &sClientInfo);
+    if (!error) {
+        XCTFail("failed: no error when next_offset is smaller than sizeof(network_nic_info). error: %d errno: %d\n", error, errno);
+    } else {
+        os_log_debug(OS_LOG_DEFAULT, "ioctl failed as expected (next_offset is smaller than sizeof(network_nic_info)).\n");
+    }
+    psNicInfoArry[3].next_offset = sizeof(struct network_nic_info);
+
+    // sClientInto that contains sNicInfo with IP addr len out of boundary
+    psNicInfoArry[uNumOfNics-1].addr.sa_len = 255;
+    error = ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &sClientInfo);
+    if (!error) {
+        XCTFail("failed: no error when sa_len leads outside the buffer. error: %d errno: %d\n", error, errno);
+    } else {
+        os_log_debug(OS_LOG_DEFAULT, "ioctl failed as expected (sa_len outside the buffer).\n");
+    }
+    psNicInfoArry[uNumOfNics-1].addr.sa_len = 4;
+
+done:
+    /* Now cleanup everything */
+    if (shareConnection) {
+        SMBReleaseServer(shareConnection);
+    }
+
+    if (mpConnection) {
+        SMBReleaseServer(mpConnection);
+    }
+
+    if (unmount(mp, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+    rmdir(mp);
+}
 @end

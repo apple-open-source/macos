@@ -550,6 +550,7 @@ void Internals::resetToConsistentState(Page& page)
     page.group().ensureCaptionPreferences().setCaptionsStyleSheetOverride(emptyString());
     PlatformMediaSessionManager::sharedManager().resetHaveEverRegisteredAsNowPlayingApplicationForTesting();
     PlatformMediaSessionManager::sharedManager().resetRestrictions();
+    PlatformMediaSessionManager::sharedManager().resetSessionState();
     PlatformMediaSessionManager::sharedManager().setWillIgnoreSystemInterruptions(true);
 #endif
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
@@ -1249,6 +1250,10 @@ Node* Internals::ensureUserAgentShadowRoot(Element& host)
 
 Node* Internals::shadowRoot(Element& host)
 {
+    if (host.document().hasElementWithPendingUserAgentShadowTreeUpdate(host)) {
+        host.updateUserAgentShadowTree();
+        host.document().removeElementWithPendingUserAgentShadowTreeUpdate(host);
+    }
     return host.shadowRoot();
 }
 
@@ -4462,17 +4467,22 @@ void Internals::activeAudioRouteDidChange(bool shouldPause)
 #endif
 }
 
-bool Internals::elementIsBlockingDisplaySleep(HTMLMediaElement& element) const
+bool Internals::elementIsBlockingDisplaySleep(const HTMLMediaElement& element) const
 {
     return element.isDisablingSleep();
 }
 
-bool Internals::isPlayerVisibleInViewport(HTMLMediaElement& element) const
+bool Internals::isPlayerVisibleInViewport(const HTMLMediaElement& element) const
 {
     auto player = element.player();
     return player && player->isVisibleInViewport();
 }
 
+bool Internals::isPlayerMuted(const HTMLMediaElement& element) const
+{
+    auto player = element.player();
+    return player && player->muted();
+}
 #endif // ENABLE(VIDEO)
 
 #if ENABLE(WEB_AUDIO)
@@ -5557,28 +5567,25 @@ bool Internals::supportsAudioSession() const
 #endif
 }
 
-String Internals::audioSessionCategory() const
+auto Internals::audioSessionCategory() const -> AudioSessionCategory
 {
 #if USE(AUDIO_SESSION)
-    switch (AudioSession::sharedSession().category()) {
-    case AudioSession::CategoryType::AmbientSound:
-        return "AmbientSound"_s;
-    case AudioSession::CategoryType::SoloAmbientSound:
-        return "SoloAmbientSound"_s;
-    case AudioSession::CategoryType::MediaPlayback:
-        return "MediaPlayback"_s;
-    case AudioSession::CategoryType::RecordAudio:
-        return "RecordAudio"_s;
-    case AudioSession::CategoryType::PlayAndRecord:
-        return "PlayAndRecord"_s;
-    case AudioSession::CategoryType::AudioProcessing:
-        return "AudioProcessing"_s;
-    case AudioSession::CategoryType::None:
-        return "None"_s;
-    }
+    return AudioSession::sharedSession().category();
+#else
+    return AudioSessionCategory::None;
 #endif
-    return emptyString();
 }
+
+#if ENABLE(VIDEO)
+auto Internals::categoryAtMostRecentPlayback(HTMLMediaElement& element) const -> AudioSessionCategory
+{
+#if USE(AUDIO_SESSION)
+    return element.categoryAtMostRecentPlayback();
+#else
+    return AudioSessionCategory::None;
+#endif
+}
+#endif
 
 double Internals::preferredAudioBufferSize() const
 {

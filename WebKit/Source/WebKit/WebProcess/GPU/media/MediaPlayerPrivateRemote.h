@@ -409,6 +409,8 @@ private:
     void startVideoFrameMetadataGathering() final;
     void stopVideoFrameMetadataGathering() final;
 
+    void playerContentBoxRectChanged(const WebCore::LayoutRect&) final;
+
 #if PLATFORM(COCOA)
     void pushVideoFrameMetadata(WebCore::VideoFrameMetadata&&, RetainPtr<CVPixelBufferRef>&&);
 #endif
@@ -460,6 +462,8 @@ private:
     bool m_waitingForKey { false };
     bool m_timeIsProgressing { false };
     bool m_renderingCanBeAccelerated { false };
+    bool m_shouldMaintainAspectRatio { false };
+    bool m_pageIsVisible { false };
     std::optional<WebCore::MediaSampleVideoFrame> m_videoFrameForCurrentTime;
 #if PLATFORM(COCOA)
     RetainPtr<CVPixelBufferRef> m_pixelBufferGatheredWithVideoFrameMetadata;

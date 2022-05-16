@@ -213,6 +213,9 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 	compressed = 0;
 	more = 1;
 	name = malloc(1);
+    if (name == NULL) {
+        return NULL;
+    }
 	name[0] = '\0';
 	len = 1;
 	j = 0;
@@ -240,7 +243,7 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 			v16 = (uint16_t *)*x;
 
 			y = (char *)p + (ntohs(*v16) & 0x3fff);
-			if ((*x == y) || (y > z))
+			if ((*x >= y) || (y > z))
 			{
 				free(name);
 				return NULL;
@@ -262,8 +265,15 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 
 		if (dlen > 0)
 		{
+            if (len > UINT16_MAX - dlen) {
+                free(name);
+                return NULL;
+            }
 			len += dlen;
-			name = realloc(name, len);
+			name = reallocf(name, len);
+            if (name == NULL) {
+                return NULL;
+            }
 		}
 
 		if ((*x + dlen) > z)
@@ -272,13 +282,18 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 			return NULL;
 		}
 
+        if (len > UINT16_MAX - dlen - 1) {
+            free(name);
+            return NULL;
+        }
+        
 		for (i = 0; i < dlen; i++)
 		{
 			name[j++] = **x;
 			*x += 1;
 		}
-
 		name[j] = '\0';
+        
 		if (compressed == 0) skip += (dlen + 1);
 
 		if (dlen == 0) more = 0;
@@ -293,8 +308,16 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 			v8 = (uint8_t *)*x;
 			if (*v8 != 0)
 			{
+                if ((len < 1) || (len > UINT16_MAX - 2)) {
+                    free(name);
+                    return NULL;
+                }
+                
 				len += 1;
-				name = realloc(name, len);
+				name = reallocf(name, len);
+                if (name == NULL) {
+                    return NULL;
+                }
 				name[j++] = '.';
 				name[j] = '\0';
 			}
@@ -322,6 +345,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 	uint8_t byte, i;
 	dns_resource_record_t *r;
 	char *eor;
+    int32_t rem;
 
 	if (*remaining < 1) return NULL;
 
@@ -354,6 +378,7 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 	}
 
 	eor = *x;
+    rem = *remaining;
 	r->data.A = NULL;
 
 	switch (r->dnstype)
@@ -441,20 +466,27 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			break;
 
 		case ns_t_wks:
-			if (*remaining < 5) 
+			if (*remaining < 5)
 			{
 				dns_free_resource_record(r);
 				return NULL;
 			}
 
-			*remaining -= rdlen;
+			*remaining -= 5;
+            
+            int32_t mapsize = rdlen - 5;
+            if (mapsize < 0 || *remaining < mapsize) {
+                dns_free_resource_record(r);
+                return NULL;
+            }
+            *remaining -= mapsize;
 
 			size = sizeof(dns_WKS_record_t);
 			r->data.WKS = (dns_WKS_record_t *)calloc(1, size);
 
 			r->data.WKS->addr.s_addr = htonl(_dns_parse_uint32(x));
 			r->data.WKS->protocol = _dns_parse_uint8(x);
-			size = rdlen - 5;
+			size = (uint32_t)mapsize;
 			r->data.WKS->maplength = size * 8;
 			r->data.WKS->map = NULL;
 			if (size == 0) break;
@@ -725,7 +757,19 @@ _dns_parse_resource_record_internal(const char *p, char **x, int32_t *remaining)
 			break;
 	}
 
-	*x = eor + rdlen;
+    if (rem < *remaining) {
+        dns_free_resource_record(r);
+        return NULL;
+    }
+    int32_t bytesread = rem - *remaining;
+    int32_t skip = MAX(rdlen, bytesread);
+    if (rem < skip) {
+        dns_free_resource_record(r);
+        return NULL;
+    }
+    
+    *x = eor + skip;
+    *remaining = rem - skip;
 	return r;
 }
 

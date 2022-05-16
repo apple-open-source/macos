@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -7670,6 +7670,10 @@ __SCNetworkInterfaceIsActive (SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate = (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return interfacePrivate->active;
 }
 
@@ -7679,6 +7683,10 @@ _SCNetworkInterfaceIsBuiltin(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return interfacePrivate->builtin;
 }
 
@@ -7687,6 +7695,10 @@ Boolean
 _SCNetworkInterfaceIsTrustRequired(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 
 	return interfacePrivate->trustRequired;
 }
@@ -7877,6 +7889,10 @@ _SCNetworkInterfaceIsApplePreconfigured(SCNetworkInterfaceRef interface)
 #else	// TARGET_OS_SIMULATOR
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	if (!_SCNetworkInterfaceIsHiddenConfiguration(interface)) {
 		// if not HiddenConfiguration
 		return FALSE;
@@ -7917,6 +7933,10 @@ _SCNetworkInterfaceIsBluetoothPAN(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return (interfacePrivate->sort_order == kSortBluetoothPAN_GN);
 }
 
@@ -7925,6 +7945,10 @@ Boolean
 _SCNetworkInterfaceIsBluetoothPAN_NAP(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 
 	return (interfacePrivate->sort_order == kSortBluetoothPAN_NAP);
 }
@@ -7935,6 +7959,10 @@ _SCNetworkInterfaceIsBluetoothP2P(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return (interfacePrivate->sort_order == kSortBluetoothPAN_U);
 }
 
@@ -7944,6 +7972,10 @@ _SCNetworkInterfaceIsCarPlay(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return (interfacePrivate->sort_order == kSortCarPlay);
 }
 
@@ -7951,6 +7983,10 @@ Boolean
 _SCNetworkInterfaceIsVMNET(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 
 	return (interfacePrivate->sort_order == kSortVMNET);
 }
@@ -7960,6 +7996,10 @@ _SCNetworkInterfaceIsHiddenConfiguration(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return interfacePrivate->hiddenConfiguration;
 }
 
@@ -7968,6 +8008,10 @@ Boolean
 _SCNetworkInterfaceIsHiddenInterface(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 
 	return interfacePrivate->hiddenInterface;
 }
@@ -8006,6 +8050,9 @@ _SCNetworkInterfaceIsTethered(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 	return (interfacePrivate->sort_order == kSortTethered);
 }
 
@@ -8057,6 +8104,10 @@ _SCNetworkInterfaceIsEphemeral(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
 
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
+
 	return interfacePrivate->isEphemeral;
 }
 
@@ -8064,6 +8115,10 @@ Boolean
 _SCNetworkInterfaceIsSelfNamed(SCNetworkInterfaceRef interface)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)interface;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 
 	return interfacePrivate->isSelfNamed;
 }
@@ -8322,6 +8377,10 @@ __SCNetworkInterfaceIsMember(SCPreferencesRef prefs, SCNetworkInterfaceRef inter
 	CFArrayRef	interfaces;
 	Boolean		match		= FALSE;
 	CFMutableSetRef	members;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		return FALSE;
+	}
 
 	members = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
 
@@ -8599,6 +8658,10 @@ get_number_value(SCNetworkInterfaceRef interface, CFStringRef key)
 		= (SCNetworkInterfacePrivateRef)interface;
 	CFArrayRef			path_list;
 
+	if (isA_SCNetworkInterface(interface) == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return (NULL);
+	}
 	if (interfacePrivate->prefs == NULL) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return (NULL);

@@ -47,6 +47,10 @@
 #include "MediaUniqueIdentifier.h"
 #endif
 
+#if USE(AUDIO_SESSION)
+#include "AudioSession.h"
+#endif
+
 namespace WebCore {
 
 class AbstractRange;
@@ -727,8 +731,9 @@ public:
     void setMediaElementRestrictions(HTMLMediaElement&, StringView restrictionsString);
     ExceptionOr<void> postRemoteControlCommand(const String&, float argument);
     void activeAudioRouteDidChange(bool shouldPause);
-    bool elementIsBlockingDisplaySleep(HTMLMediaElement&) const;
-    bool isPlayerVisibleInViewport(HTMLMediaElement&) const;
+    bool elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
+    bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
+    bool isPlayerMuted(const HTMLMediaElement&) const;
 #endif
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -876,8 +881,26 @@ public:
     bool shouldAudioTrackPlay(const AudioTrack&);
 #endif
 
+
+#if USE(AUDIO_SESSION)
+    using AudioSessionCategory = WebCore::AudioSessionCategory;
+#else
+    enum class AudioSessionCategory : uint8_t {
+        None,
+        AmbientSound,
+        SoloAmbientSound,
+        MediaPlayback,
+        RecordAudio,
+        PlayAndRecord,
+        AudioProcessing,
+    };
+#endif
+
     bool supportsAudioSession() const;
-    String audioSessionCategory() const;
+    AudioSessionCategory audioSessionCategory() const;
+#if ENABLE(VIDEO)
+    AudioSessionCategory categoryAtMostRecentPlayback(HTMLMediaElement&) const;
+#endif
     double preferredAudioBufferSize() const;
     double currentAudioBufferSize() const;
     bool audioSessionActive() const;

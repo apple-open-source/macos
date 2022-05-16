@@ -97,6 +97,23 @@ static void secdumpdata(CFDataRef data, const char *name) {
 
 #endif
 
+static bool is_configured_test_system_root(SecCertificateRef root, CFStringRef preference) {
+    if (!SecIsInternalRelease()) {
+        return false;
+    }
+    bool result = false;
+    CFDataRef rootHash = SecCertificateCopySHA256Digest(root);
+    CFTypeRef value = CFPreferencesCopyAppValue(preference, CFSTR("com.apple.security"));
+    require_quiet(isData(value), out);
+    require_quiet(CFEqual(rootHash, value), out);
+    result = true;
+
+out:
+    CFReleaseNull(value);
+    CFReleaseNull(rootHash);
+    return result;
+}
+
 
 /********************************************************
  ****************** SecPolicy object ********************
@@ -338,13 +355,19 @@ static void SecPolicyCheckExtendedKeyUsage(SecPVCRef pvc, CFStringRef key) {
     SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
     SecPolicyRef policy = SecPVCGetPolicy(pvc);
     CFTypeRef xeku = CFDictionaryGetValue(policy->_options, key);
-    /* leaf check enforced */
-    if (!SecPolicyCheckCertExtendedKeyUsage(leaf, xeku)){
+    /* leaf check enforced (as dictated by policy) */
+    bool policyResult = SecPolicyCheckCertExtendedKeyUsageFiltered(leaf, xeku, true);
+    if (!policyResult) {
         SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    }
+    /* Would EKU check have failed if we disallowed no EKU or anyEKU? */
+    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
+    bool forceEKUResult = SecPolicyCheckCertExtendedKeyUsageFiltered(leaf, xeku, false);
+    if (analytics && policyResult && !forceEKUResult) {
+        analytics->no_eku = true;
     }
 
     /* subCA check produces metrics */
-    TrustAnalyticsBuilder *analytics = SecPathBuilderGetAnalyticsData(pvc->builder);
     CFIndex ix, count = SecPVCGetCertificateCount(pvc);
     if (count > 2 && analytics) {
         for (ix = 1; ix < count - 1 ; ++ix) {
@@ -420,8 +443,19 @@ static void SecPolicyCheckEmail(SecPVCRef pvc, CFStringRef key) {
     }
 
 	SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+    CFAbsoluteTime notBefore = SecCertificateNotValidBefore(leaf);
+    CFAbsoluteTime apr2022 = 670464000.0; // 1 April 2022 00:00:00 UTC
 
-	if (!SecPolicyCheckCertEmail(leaf, email)) {
+    // Issued on or after effective date and system-trusted, email names must be in SAN
+    bool sanOnly = false;
+    if (notBefore >= apr2022 &&
+        (SecCertificateSourceContains(kSecSystemAnchorSource, root) ||
+         is_configured_test_system_root(root, CFSTR("TestSystemRoot")))) {
+        sanOnly = true;
+    }
+	if (!SecPolicyCheckCertEmailSAN(leaf, email, sanOnly)) {
 		/* Hostname mismatch or no hostnames found in certificate. */
 		SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
     }
@@ -1624,23 +1658,6 @@ static void SecPolicyCheckPinningRequired(SecPVCRef pvc, CFStringRef key) {
     }
 }
 
-static bool is_configured_test_system_root(SecCertificateRef root, CFStringRef preference) {
-    if (!SecIsInternalRelease()) {
-        return false;
-    }
-    bool result = false;
-    CFDataRef rootHash = SecCertificateCopySHA256Digest(root);
-    CFTypeRef value = CFPreferencesCopyAppValue(preference, CFSTR("com.apple.security"));
-    require_quiet(isData(value), out);
-    require_quiet(CFEqual(rootHash, value), out);
-    result = true;
-
-out:
-    CFReleaseNull(value);
-    CFReleaseNull(rootHash);
-    return result;
-}
-
 static bool is_ct_excepted_domain(CFStringRef hostname, CFStringRef exception) {
     if (kCFCompareEqualTo == CFStringCompare(exception, hostname, kCFCompareCaseInsensitive)) {
         /* exact match */
@@ -1835,28 +1852,76 @@ out:
     }
 }
 
-static bool SecPolicyCheckSystemTrustValidityPeriodMaximums(CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
-    CFAbsoluteTime jul2016 = 489024000.0; // 1 July 2016 00:00:00 UTC
-    CFAbsoluteTime mar2018 = 541555200.0; // 1 March 2018 00:00:00 UTC
+static bool check_validity_period_maximums(CFArrayRef maximums, CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
+    if (!isArray(maximums)) {
+        return false;
+    }
+
+    for (CFIndex i = 0; i < CFArrayGetCount(maximums); i++) {
+        CFTypeRef value = CFArrayGetValueAtIndex(maximums, i);
+        if (!isArray(value)) {
+            return false;
+        }
+        CFDateRef effectiveDate = CFArrayGetValueAtIndex(value, 0);
+        CFNumberRef maxSeconds = CFArrayGetValueAtIndex(value, 1);
+        if (!isDate(effectiveDate) || !isNumber(maxSeconds)) {
+            return false;
+        }
+        CFAbsoluteTime effectiveTime = CFDateGetAbsoluteTime(effectiveDate);
+        CFAbsoluteTime maxPeriod = 0;
+        if (!CFNumberGetValue(maxSeconds, kCFNumberDoubleType, &maxPeriod)) {
+            return false;
+        }
+        if (notBefore >= effectiveTime && (notAfter - notBefore > maxPeriod)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void SecPolicyCheckSystemTrustValidityPeriod(SecPVCRef pvc, CFStringRef key) {
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+
+    /* check for system trust */
+    if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+        SecPolicyRef policy = SecPVCGetPolicy(pvc);
+        CFTypeRef maximums = CFDictionaryGetValue(policy->_options, key);
+        if (!check_validity_period_maximums(maximums,
+                                            SecCertificateNotValidBefore(leaf),
+                                            SecCertificateNotValidAfter(leaf))) {
+            SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+    }
+    return;
+}
+
+static void SecPolicyCheckOtherTrustValidityPeriod(SecPVCRef pvc, CFStringRef key) {
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    /* Don't check validity periods against maximums for user-anchored leafs */
+    if (SecPVCIsAnchorPerConstraints(pvc, kSecUserAnchorSource, leaf)) {
+        return;
+    }
+#if TARGET_OS_OSX
+    if (SecPVCIsAnchorPerConstraints(pvc, kSecLegacyAnchorSource, leaf)) {
+        return;
+    }
+#endif
+
+    SecPolicyRef policy = SecPVCGetPolicy(pvc);
+    CFTypeRef maximums = CFDictionaryGetValue(policy->_options, key);
+    if (!check_validity_period_maximums(maximums,
+                                        SecCertificateNotValidBefore(leaf),
+                                        SecCertificateNotValidAfter(leaf))) {
+        SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+    }
+    return;
+}
+
+static bool check_system_trust_ssl_validity_maximums(CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
     CFAbsoluteTime sep2020 = 620611200.0; // 1 September 2020 00:00:00 UTC
-    if (notBefore < jul2016) {
-        /* Validity Period no greater than 60 months.
-         60 months is no more than 5 years and 2 leap days (and 1 hour slip). */
-        CFAbsoluteTime maxPeriod = 60*60*24*(365*5+2) + 3600;
-        if (notAfter - notBefore > maxPeriod) {
-            secnotice("policy", "System-trusted leaf validity period is more than 60 months");
-            return false;
-        }
-    } else if (notBefore < mar2018) {
-        /* Validity Period no greater than 39 months.
-         39 months is no more than 3 years, 2 31-day months,
-         1 30-day month, and 1 leap day (and 1 hour slip) */
-        CFAbsoluteTime maxPeriod = 60*60*24*(365*3+2*31+30+1) + 3600;
-        if (notAfter - notBefore > maxPeriod) {
-            secnotice("policy", "System-trusted leaf validity period longer than 39 months and issued after 30 June 2016");
-            return false;
-        }
-    } else if (notBefore < sep2020) {
+    if (notBefore < sep2020) {
         /* Validity Period no greater than 825 days (and 1 hour slip). */
         CFAbsoluteTime maxPeriod = 60*60*24*825 + 3600;
         if (notAfter - notBefore > maxPeriod) {
@@ -1874,7 +1939,7 @@ static bool SecPolicyCheckSystemTrustValidityPeriodMaximums(CFAbsoluteTime notBe
     return true;
 }
 
-static bool SecPolicyCheckOtherTrustValidityPeriodMaximums(CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
+static bool check_other_trust_ssl_validity_maximums(CFAbsoluteTime notBefore, CFAbsoluteTime notAfter) {
     /* Check whether we will enforce the validity period maximum for a non-system trusted leaf. */
     if (SecIsInternalRelease()) {
         if (CFPreferencesGetAppBooleanValue(CFSTR("IgnoreMaximumValidityPeriod"),
@@ -1902,7 +1967,7 @@ static void SecPolicyCheckValidityPeriodMaximums(SecPVCRef pvc, CFStringRef key)
     CFIndex count = SecPVCGetCertificateCount(pvc);
     SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
     if (SecCertificateSourceContains(kSecSystemAnchorSource, root) || is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
-        if (!SecPolicyCheckSystemTrustValidityPeriodMaximums(notBefore, notAfter)) {
+        if (!check_system_trust_ssl_validity_maximums(notBefore, notAfter)) {
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
         }
         return;
@@ -1919,7 +1984,7 @@ static void SecPolicyCheckValidityPeriodMaximums(SecPVCRef pvc, CFStringRef key)
 #endif
 
     /* all other trust */
-    if (!SecPolicyCheckOtherTrustValidityPeriodMaximums(notBefore, notAfter)) {
+    if (!check_other_trust_ssl_validity_maximums(notBefore, notAfter)) {
         SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
     }
 }
@@ -1970,6 +2035,28 @@ static void SecPolicyCheckServerAuthEKU(SecPVCRef pvc, CFStringRef key) {
     if (notBefore > jul2019) {
         if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.1"))) { // server auth EKU
             SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+        }
+    }
+}
+
+static void SecPolicyCheckEmailProtectionEKU(SecPVCRef pvc, CFStringRef key) {
+    /* The ExtendedKeyUsage check will verify a looser version of this check for all SMIME certs.
+     * Here we want to be stricter (enforcing that there is an EKU extension and that it contains the
+     * Email Protection EKU OID) for system anchored leafs issued on or after 2022-04-01 */
+    SecCertificateRef leaf = SecPVCGetCertificateAtIndex(pvc, 0);
+    CFIndex count = SecPVCGetCertificateCount(pvc);
+    SecCertificateRef root = SecPVCGetCertificateAtIndex(pvc, count - 1);
+    CFAbsoluteTime notBefore = SecCertificateNotValidBefore(leaf);
+    CFAbsoluteTime apr2022 = 670464000.0; // 1 April 2022 00:00:00 UTC
+
+    // Issued on or after effective date
+    if (notBefore >= apr2022) {
+        // System-trusted
+        if (SecCertificateSourceContains(kSecSystemAnchorSource, root) ||
+            is_configured_test_system_root(root, CFSTR("TestSystemRoot"))) {
+            if (!SecPolicyCheckCertExtendedKeyUsage(leaf, CFSTR("1.3.6.1.5.5.7.3.4"))) { // email protection EKU
+                SecPVCSetResult(pvc, key, 0, kCFBooleanFalse);
+            }
         }
     }
 }

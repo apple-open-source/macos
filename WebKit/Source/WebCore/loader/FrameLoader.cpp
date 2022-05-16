@@ -345,7 +345,8 @@ void FrameLoader::init()
     m_provisionalDocumentLoader->startLoadingMainResource();
 
     Ref<Frame> protect(m_frame);
-    m_frame.document()->cancelParsing();
+    Ref document { *m_frame.document() };
+    document->cancelParsing();
     m_stateMachine.advanceTo(FrameLoaderStateMachine::DisplayingInitialEmptyDocument);
 
     m_networkingContext = m_client->createNetworkingContext();
@@ -620,18 +621,19 @@ static inline bool shouldClearWindowName(const Frame& frame, const Document& new
     return !newDocument.securityOrigin().isSameOriginAs(frame.document()->securityOrigin());
 }
 
-void FrameLoader::clear(Document* newDocument, bool clearWindowProperties, bool clearScriptObjects, bool clearFrameView, Function<void()>&& handleDOMWindowCreation)
+void FrameLoader::clear(RefPtr<Document>&& newDocument, bool clearWindowProperties, bool clearScriptObjects, bool clearFrameView, Function<void()>&& handleDOMWindowCreation)
 {
     bool neededClear = m_needsClear;
     m_needsClear = false;
 
     if (neededClear && m_frame.document()->backForwardCacheState() != Document::InBackForwardCache) {
-        m_frame.document()->cancelParsing();
-        m_frame.document()->stopActiveDOMObjects();
-        bool hadLivingRenderTree = m_frame.document()->hasLivingRenderTree();
-        m_frame.document()->willBeRemovedFromFrame();
+        Ref document { *m_frame.document() };
+        document->cancelParsing();
+        document->stopActiveDOMObjects();
+        bool hadLivingRenderTree = document->hasLivingRenderTree();
+        document->willBeRemovedFromFrame();
         if (hadLivingRenderTree)
-            m_frame.document()->adjustFocusedNodeOnNodeRemoval(*m_frame.document());
+            document->adjustFocusedNodeOnNodeRemoval(document);
     }
 
     if (handleDOMWindowCreation)
@@ -667,7 +669,12 @@ void FrameLoader::clear(Document* newDocument, bool clearWindowProperties, bool 
     if (clearScriptObjects)
         m_frame.script().clearScriptObjects();
 
-    m_frame.script().enableEval();
+    if (newDocument->contentSecurityPolicy()) {
+        bool enableEvalValue = newDocument->contentSecurityPolicy()->evalErrorMessage().isNull();
+        bool enableWASMValue = newDocument->contentSecurityPolicy()->webAssemblyErrorMessage().isNull();
+        m_frame.script().setEvalEnabled(enableEvalValue, newDocument->contentSecurityPolicy()->evalErrorMessage());
+        m_frame.script().setWebAssemblyEnabled(enableWASMValue, newDocument->contentSecurityPolicy()->webAssemblyErrorMessage());
+    }
 
     m_frame.navigationScheduler().clear();
 
@@ -3045,7 +3052,8 @@ void FrameLoader::addSameSiteInfoToRequestIfNeeded(ResourceRequest& request, con
         request.setIsSameSite(true);
         return;
     }
-    request.setIsSameSite(areRegistrableDomainsEqual(initiator->siteForCookies(), request.url()));
+
+    request.setIsSameSite(initiator->isSameSiteForCookies(request.url()));
 }
 
 void FrameLoader::loadPostRequest(FrameLoadRequest&& request, const String& referrer, FrameLoadType loadType, Event* event, RefPtr<FormState>&& formState, CompletionHandler<void()>&& completionHandler)
@@ -3574,7 +3582,7 @@ void FrameLoader::continueLoadAfterNewWindowPolicy(const ResourceRequest& reques
 
     Ref<Frame> frame(m_frame);
 
-    if (request.url().protocolIsJavaScript() && !frame->document()->contentSecurityPolicy()->allowJavaScriptURLs(frame->document()->url().string(), { }, request.url().string()))
+    if (request.url().protocolIsJavaScript() && !frame->document()->contentSecurityPolicy()->allowJavaScriptURLs(frame->document()->url().string(), { }, request.url().string(), nullptr))
         return;
 
     RefPtr<Frame> mainFrame = m_client->dispatchCreatePage(action, openerPolicy);
@@ -4114,7 +4122,7 @@ RefPtr<Frame> createWindow(Frame& openerFrame, Frame& lookupFrame, FrameLoadRequ
     created = false;
 
     // FIXME: Provide line number information with respect to the opener's document.
-    if (request.resourceRequest().url().protocolIsJavaScript() && !openerFrame.document()->contentSecurityPolicy()->allowJavaScriptURLs(openerFrame.document()->url().string(), { }, request.resourceRequest().url().string()))
+    if (request.resourceRequest().url().protocolIsJavaScript() && !openerFrame.document()->contentSecurityPolicy()->allowJavaScriptURLs(openerFrame.document()->url().string(), { }, request.resourceRequest().url().string(), nullptr))
         return nullptr;
 
     if (!request.frameName().isEmpty() && !isBlankTargetFrameName(request.frameName())) {

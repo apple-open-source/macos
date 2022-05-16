@@ -1932,9 +1932,8 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
     unsigned char           sig[SMB3_AES_TF_SIG_LEN];
     const struct ccmode_ccm *ccmode = ccaes_ccm_decrypt_mode();
     const struct ccmode_gcm *gcmode = ccaes_gcm_decrypt_mode();
-    size_t                  nbytes;
+    size_t                  nbytes, ncopy_bytes;
     uint32_t                mbuf_cnt = 0;
-    char                    *cptr = NULL;
 #if TIMING_ON
     struct timespec         start, stop;
 
@@ -2101,13 +2100,19 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
         }
 
         /* copy the mbuf data into local buffer */
-        cptr = sessionp->decrypt_bufferp;
+        ncopy_bytes = 0;
         for (mb_tmp = mbuf_payload; mb_tmp != NULL; mb_tmp = mbuf_next(mb_tmp)) {
             nbytes = mbuf_len(mb_tmp);
 
             if (nbytes) {
-                bcopy(mbuf_data(mb_tmp), cptr, nbytes);
-                cptr += nbytes;
+                if ((ncopy_bytes + nbytes) <= sessionp->decrypt_buf_len) {
+                    bcopy(mbuf_data(mb_tmp), &sessionp->decrypt_bufferp[ncopy_bytes], nbytes);
+                    ncopy_bytes += nbytes;
+                }
+                else {
+                    error = EAUTH;
+                    goto out;
+                }
             }
         }
 
@@ -2137,13 +2142,19 @@ int smb3_msg_decrypt(struct smb_session *sessionp, mbuf_t *mb)
         }
 
         /* copy the local buffer back into mbuf chain */
-        cptr = sessionp->decrypt_bufferp;
+        ncopy_bytes = 0;
         for (mb_tmp = mbuf_payload; mb_tmp != NULL; mb_tmp = mbuf_next(mb_tmp)) {
             nbytes = mbuf_len(mb_tmp);
 
             if (nbytes) {
-                bcopy(cptr, mbuf_data(mb_tmp), nbytes);
-                cptr += nbytes;
+                if ((ncopy_bytes + nbytes) <= sessionp->decrypt_buf_len) {
+                    bcopy(&sessionp->decrypt_bufferp[ncopy_bytes], mbuf_data(mb_tmp), nbytes);
+                    ncopy_bytes += nbytes;
+                }
+                else {
+                    error = EAUTH;
+                    goto out;
+                }
             }
         }
     }

@@ -134,21 +134,6 @@ errOut:
     return [self runTrustEvaluation:certs anchors:anchors verifyTime:590000000.0 error:error]; // September 12, 2019 at 9:53:20 AM PDT
 }
 
-- (void)testSystemTrust_MoreThan5Years
-{
-    [self setTestRootAsSystem:_testValidityPeriodsRootHash];
-    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
-    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_66Months, sizeof(_testLeaf_66Months));
-
-    NSError *error = nil;
-    XCTAssertFalse([self runTrustEvaluation:@[(__bridge id)leaf] anchors:@[(__bridge id)root] error:&error],
-                   "system-trusted 66 month cert succeeded");
-
-    [self removeTestRootAsSystem];
-    CFReleaseNull(root);
-    CFReleaseNull(leaf);
-}
-
 - (void)testSystemTrust_LessThan5Years_BeforeJul2016
 {
     [self setTestRootAsSystem:_testValidityPeriodsRootHash];
@@ -158,21 +143,6 @@ errOut:
     NSError *error = nil;
     XCTAssertTrue([self runTrustEvaluation:@[(__bridge id)leaf] anchors:@[(__bridge id)root] error:&error],
                   "system-trusted 5 year cert issued before 1 July 2016 failed: %@", error);
-
-    [self removeTestRootAsSystem];
-    CFReleaseNull(root);
-    CFReleaseNull(leaf);
-}
-
-- (void)testSystemTrust_MoreThan39Months_AfterJul2016
-{
-    [self setTestRootAsSystem:_testValidityPeriodsRootHash];
-    SecCertificateRef root = SecCertificateCreateWithBytes(NULL, _testValidityPeriodsRoot, sizeof(_testValidityPeriodsRoot));
-    SecCertificateRef leaf = SecCertificateCreateWithBytes(NULL, _testLeaf_4Years, sizeof(_testLeaf_4Years));
-
-    NSError *error = nil;
-    XCTAssertFalse([self runTrustEvaluation:@[(__bridge id)leaf] anchors:@[(__bridge id)root] error:&error],
-                   "system-trusted 4 year cert issued after 1 July 2016 succeeded");
 
     [self removeTestRootAsSystem];
     CFReleaseNull(root);

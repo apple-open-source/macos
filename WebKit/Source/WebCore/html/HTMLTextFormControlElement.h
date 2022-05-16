@@ -89,6 +89,7 @@ public:
     virtual String value() const = 0;
 
     virtual RefPtr<TextControlInnerTextElement> innerTextElement() const = 0;
+    virtual RefPtr<TextControlInnerTextElement> innerTextElementCreatingShadowSubtreeIfNeeded() = 0;
     virtual RenderStyle createInnerTextStyle(const RenderStyle&) = 0;
 
     void selectionChanged(bool shouldFireSelectEvent);
@@ -144,7 +145,7 @@ private:
     int computeSelectionEnd() const;
     TextFieldSelectionDirection computeSelectionDirection() const;
 
-    void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection) final;
+    void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions&) final;
     void dispatchBlurEvent(RefPtr<Element>&& newFocusedElement) final;
     bool childShouldCreateRenderer(const Node&) const override;
 

@@ -14,7 +14,8 @@ PATCHFILES	= cve-2014-8140-test-compr-eb \
                   increase-size-of-cfactorstr \
                   patch-quarantine \
                   PR-25537454.diff \
-                  PR-4126223.diff
+                  PR-4126223.diff \
+                  cve-2022-0530
 
 SRCROOT		?= $(shell pwd)
 OBJROOT		?= $(SRCROOT)/obj

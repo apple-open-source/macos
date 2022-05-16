@@ -95,6 +95,11 @@
             <param><ptype>EGLFrameTokenANGLE</ptype> <name>frametoken</name></param>
         </command>
         <command>
+            <proto><pytpe>EGLBoolean</pytpe> <name>eglPrepareSwapBuffersANGLE</name></proto>
+            <param><ptype>EGLDisplay</ptype> <name>dpy</name></param>
+            <param><ptype>EGLSurface</ptype> <name>surface</name></param>
+        </command>
+        <command>
             <proto><pytpe>void</pytpe> <name>eglReleaseHighPowerGPUANGLE</name></proto>
             <param><ptype>EGLDisplay</ptype> <name>dpy</name></param>
             <param><ptype>EGLContext</ptype> <name>ctx</name></param>
@@ -107,6 +112,12 @@
         <command>
             <proto><pytpe>void</pytpe> <name>eglHandleGPUSwitchANGLE</name></proto>
             <param><ptype>EGLDisplay</ptype> <name>dpy</name></param>
+        </command>
+        <command>
+            <proto><pytpe>void</pytpe> <name>eglForceGPUSwitchANGLE</name></proto>
+            <param><ptype>EGLDisplay</ptype> <name>dpy</name></param>
+            <param><ptype>EGLint</ptype> <name>gpuIDHigh</name></param>
+            <param><ptype>EGLint</ptype> <name>gpuIDLow</name></param>
         </command>
         <command>
             <proto><ptype>EGLBoolean</ptype> <name>eglQueryDisplayAttribANGLE</name></proto>
@@ -165,11 +176,17 @@
                 <command name="eglSwapBuffersWithFrameTokenANGLE"/>
             </require>
         </extension>
+        <extension name="EGL_ANGLE_prepare_swap_buffers" supported="egl">
+            <require>
+                <command name="eglPrepareSwapBuffersANGLE"/>
+            </require>
+        </extension>
         <extension name="EGL_ANGLE_power_preference" supported="egl">
             <require>
                 <command name="eglReleaseHighPowerGPUANGLE"/>
                 <command name="eglReacquireHighPowerGPUANGLE"/>
                 <command name="eglHandleGPUSwitchANGLE"/>
+                <command name="eglForceGPUSwitchANGLE"/>
             </require>
         </extension>
         <extension name="EGL_ANGLE_display_semaphore_share_group" supported="egl">

@@ -2310,6 +2310,7 @@ xmlFreeTextReader(xmlTextReaderPtr reader) {
     }
 #endif
     if (reader->faketext != NULL) {
+	reader->faketext->doc = NULL; /* Workaround use-after-free when xmlTextReaderClose() is called first. */
 	xmlFreeNode(reader->faketext);
     }
     if (reader->ctxt != NULL) {

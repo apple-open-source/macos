@@ -1009,11 +1009,6 @@ medium_get_region_from_depot(rack_t *rack, magazine_t *medium_mag_ptr, mag_index
 {
 	magazine_t *depot_ptr = &(rack->magazines[DEPOT_MAGAZINE_INDEX]);
 
-	/* FIXME: Would Uniprocessor benefit from recirc and MADV_FREE? */
-	if (rack->num_magazines == 1) { // Uniprocessor, single magazine, so no recirculation necessary
-		return 0;
-	}
-
 #if DEBUG_MALLOC
 	if (DEPOT_MAGAZINE_INDEX == mag_index) {
 		malloc_zone_error(rack->debug_flags, true, "medium_get_region_from_depot called for magazine index -1\n", NULL, NULL);
@@ -1514,11 +1509,7 @@ medium_free_try_recirc_to_depot(rack_t *rack,
 	region_trailer_t *node = REGION_TRAILER_FOR_MEDIUM_REGION(region);
 	size_t bytes_used = node->bytes_used;
 
-	/* FIXME: Would Uniprocessor benefit from recirc and MADV_FREE? */
-	if (rack->num_magazines == 1) { // Uniprocessor, single magazine, so no recirculation necessary
-		/* NOTHING */
-		return TRUE; // Caller must do SZONE_MAGAZINE_PTR_UNLOCK(tiny_mag_ptr)
-	} else if (DEPOT_MAGAZINE_INDEX != mag_index) {
+	if (DEPOT_MAGAZINE_INDEX != mag_index) {
 		// Emptiness discriminant
 		if (bytes_used < DENSITY_THRESHOLD(MEDIUM_REGION_PAYLOAD_BYTES)) {
 			/* Region has crossed threshold from density to sparsity. Mark it "suitable" on the

@@ -26,6 +26,7 @@
 		2D31A0FC128074E700D5A84C /* getifmaddrs.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D31A0FB128074E700D5A84C /* getifmaddrs.c */; };
 		2D4070B1129354A700FE81ED /* getnameinfo_link.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D4070B0129354A700FE81ED /* getnameinfo_link.c */; };
 		2D5DD5D21608E6E80051891A /* configuration_profile.c in Sources */ = {isa = PBXBuildFile; fileRef = 2D5DD5D01608E6E80051891A /* configuration_profile.c */; };
+		BD1379B727D6BB390079209B /* od_debug.c in Sources */ = {isa = PBXBuildFile; fileRef = BD1379B627D6BB380079209B /* od_debug.c */; };
 		C965793A1B94C97100624699 /* muser_module.c in Sources */ = {isa = PBXBuildFile; fileRef = C96579391B94C97100624699 /* muser_module.c */; };
 		FC5284C011478C200058CCB0 /* herror.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283EE11478C200058CCB0 /* herror.c */; };
 		FC5284C811478C200058CCB0 /* res_comp.c in Sources */ = {isa = PBXBuildFile; fileRef = FC5283F711478C200058CCB0 /* res_comp.c */; };
@@ -151,6 +152,8 @@
 		2DBB147712DBD63300D710E3 /* inet6_opt_init.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = inet6_opt_init.3; sourceTree = "<group>"; };
 		3F397F7D185BD67F00987BCC /* Libinfo.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Libinfo.xcconfig; path = xcodescripts/Libinfo.xcconfig; sourceTree = "<group>"; };
 		B73D52B02673D1C700E1E5CF /* lookupPriv.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = lookupPriv.h; sourceTree = "<group>"; };
+		BD1379B527D6BB380079209B /* od_debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = od_debug.h; sourceTree = "<group>"; };
+		BD1379B627D6BB380079209B /* od_debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = od_debug.c; sourceTree = "<group>"; };
 		BDE3980D2044CDA300CAD4A2 /* libinfo_common.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = libinfo_common.h; sourceTree = "<group>"; };
 		BDE3980E2044CDA300CAD4A2 /* pseudo_public.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pseudo_public.h; sourceTree = "<group>"; };
 		BDE3980F2044CDA300CAD4A2 /* pseudo_private.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = pseudo_private.h; sourceTree = "<group>"; };
@@ -376,6 +379,8 @@
 			isa = PBXGroup;
 			children = (
 				BDE3980D2044CDA300CAD4A2 /* libinfo_common.h */,
+				BD1379B627D6BB380079209B /* od_debug.c */,
+				BD1379B527D6BB380079209B /* od_debug.h */,
 				BDE3980E2044CDA300CAD4A2 /* pseudo_public.h */,
 				BDE3980F2044CDA300CAD4A2 /* pseudo_private.h */,
 			);
@@ -750,6 +755,7 @@
 				FC52851011478C200058CCB0 /* xdr_ypresp_maplist.c in Sources */,
 				FC52851111478C200058CCB0 /* xdr_ypresp_master.c in Sources */,
 				FC52851211478C200058CCB0 /* xdr_ypresp_order.c in Sources */,
+				BD1379B727D6BB390079209B /* od_debug.c in Sources */,
 				FC52851311478C200058CCB0 /* xdr_ypresp_val.c in Sources */,
 				FC52851411478C200058CCB0 /* xdr_ypstat.c in Sources */,
 				FC52851511478C200058CCB0 /* yp_all.c in Sources */,

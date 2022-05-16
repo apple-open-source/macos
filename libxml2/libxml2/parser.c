@@ -2201,7 +2201,7 @@ static void xmlGROW (xmlParserCtxtPtr ctxt) {
 
 int
 xmlSkipBlankChars(xmlParserCtxtPtr ctxt) {
-    int res = 0;
+    size_t res = 0;
 
     /*
      * It's Okay to use CUR/NEXT here since all the blanks are on
@@ -2250,7 +2250,7 @@ xmlSkipBlankChars(xmlParserCtxtPtr ctxt) {
 	} while ((IS_BLANK(cur)) && /* CHECKED tstblanks.xml */
 	         (ctxt->instate != XML_PARSER_EOF));
     }
-    return(res);
+    return(res > INT_MAX ? INT_MAX : (int)res);
 }
 
 /************************************************************************

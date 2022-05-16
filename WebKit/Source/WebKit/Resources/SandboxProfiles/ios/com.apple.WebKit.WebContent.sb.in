@@ -1127,6 +1127,7 @@
         (extension "com.apple.webkit.extension.mach")
         (global-name
             "com.apple.iconservices"
+            "com.apple.lsd.open"
         )
     )
 )
@@ -1309,6 +1310,9 @@
         SYS_setrlimit
         SYS_sigaltstack
         SYS_sigprocmask
+#if PLATFORM(WATCHOS)
+        SYS_sigreturn
+#endif
         SYS_socket
         SYS_thread_selfusage
         SYS_unlink

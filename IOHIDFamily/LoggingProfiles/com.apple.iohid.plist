@@ -13,6 +13,8 @@
 			<key>Persist</key>
 			<string>Info</string>
 		</dict>
+		<key>Signpost-Scope</key>
+		<string>Process</string>
 	</dict>
 </dict>
 </plist>

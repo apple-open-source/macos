@@ -1795,44 +1795,37 @@ exit:
 
 IOHIDEvent *IOHIDEventDriver::copyMatchingEvent(OSDictionary *matching)
 {
-    IOHIDEvent *event = NULL;
-    OSNumber *eventTypeNum = NULL;
-    OSNumber *usagePageNum = NULL;
-    OSNumber *usageNum = NULL;
-    uint32_t eventType = 0;
-    uint32_t usagePage = 0;
-    uint32_t usage = 0;
-    
-    require(matching, exit);
-    
-    eventTypeNum = OSDynamicCast(OSNumber, matching->getObject(kIOHIDEventTypeKey));
-    require(eventTypeNum, exit);
-    eventType = eventTypeNum->unsigned32BitValue();
-    
-    usagePageNum = OSDynamicCast(OSNumber, matching->getObject(kIOHIDUsagePageKey));
-    require(usagePageNum, exit);
-    usagePage = usagePageNum->unsigned32BitValue();
-    
-    usageNum = OSDynamicCast(OSNumber, matching->getObject(kIOHIDUsageKey));
-    require(usageNum, exit);
-    usage = usageNum->unsigned32BitValue();
-    
-    if (eventType == kIOHIDEventTypeKeyboard) {
-        require(_keyboard.elements, exit);
-        
-        for (unsigned int index = 0; index < _keyboard.elements->getCount(); index++) {
-            IOHIDElement *element = OSDynamicCast(IOHIDElement, _keyboard.elements->getObject(index));
-            require(element, exit);
-            
-            if (usagePage != element->getUsagePage() || usage != element->getUsage())
-                continue;
-            
-            event = IOHIDEvent::keyboardEvent(element->getTimeStamp(), usagePage, usage, element->getValue());
-            break;
+    IOHIDEvent *event = nullptr;
+    OSNumber *eventTypeNum = nullptr;
+
+    if (nullptr != matching &&
+        nullptr != (eventTypeNum = OSDynamicCast(OSNumber, matching->getObject(kIOHIDEventTypeKey)))) {
+        uint32_t eventType = eventTypeNum->unsigned32BitValue();
+
+        if (kIOHIDEventTypeKeyboard == eventType) {
+            OSNumber *usagePageNum = OSDynamicCast(OSNumber, matching->getObject(kIOHIDUsagePageKey));
+            OSNumber *usageNum = OSDynamicCast(OSNumber, matching->getObject(kIOHIDUsageKey));
+
+            if (nullptr != usagePageNum && nullptr != usageNum && nullptr != _keyboard.elements) {
+                uint32_t usagePage = usagePageNum->unsigned32BitValue();
+                uint32_t usage = usageNum->unsigned32BitValue();
+
+                for (unsigned int index = 0; index < _keyboard.elements->getCount(); index++) {
+                    IOHIDElement *element = OSDynamicCast(IOHIDElement, _keyboard.elements->getObject(index));
+
+                    if (nullptr == element || usagePage != element->getUsagePage() || usage != element->getUsage())
+                        continue;
+
+                    event = IOHIDEvent::keyboardEvent(element->getTimeStamp(), usagePage, usage, element->getValue());
+                    break;
+                }
+            }
+        } else if (kIOHIDEventTypeOrientation == eventType) {
+            // Note: Documentation for copyEvent doesn't specify whether matching may be null
+            event = this->copyEvent(eventType, nullptr, 0);
         }
     }
-    
-exit:
+
     return event;
 }
 

@@ -723,6 +723,8 @@ void RenderElement::removeLayers(RenderLayer* parentLayer)
 void RenderElement::moveLayers(RenderLayer* oldParent, RenderLayer& newParent)
 {
     if (hasLayer()) {
+        if (isInTopLayerOrBackdrop(style(), element()))
+            return;
         RenderLayer* layer = downcast<RenderLayerModelObject>(*this).layer();
         ASSERT(oldParent == layer->parent());
         if (oldParent)
@@ -847,9 +849,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
         }
 
         auto needsInvalidateEventRegion = [&] {
-            if (m_style.effectiveInert() != newStyle.effectiveInert())
-                return true;
-            if (m_style.pointerEvents() != newStyle.pointerEvents())
+            if (m_style.effectivePointerEvents() != newStyle.effectivePointerEvents())
                 return true;
 #if ENABLE(TOUCH_ACTION_REGIONS)
             if (m_style.effectiveTouchActions() != newStyle.effectiveTouchActions())
@@ -858,8 +858,8 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
             if (m_style.eventListenerRegionTypes() != newStyle.eventListenerRegionTypes())
                 return true;
 #if ENABLE(EDITABLE_REGION)
-            bool wasEditable = m_style.userModify() != UserModify::ReadOnly;
-            bool isEditable = newStyle.userModify() != UserModify::ReadOnly;
+            bool wasEditable = m_style.effectiveUserModify() != UserModify::ReadOnly;
+            bool isEditable = newStyle.effectiveUserModify() != UserModify::ReadOnly;
             if (wasEditable != isEditable)
                 return page().shouldBuildEditableRegion();
 #endif
@@ -908,7 +908,7 @@ void RenderElement::styleWillChange(StyleDifference diff, const RenderStyle& new
     }
 
     bool newStyleSlowScroll = false;
-    if (newStyle.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument()) {
+    if (newStyle.hasAnyFixedBackground() && !settings().fixedBackgroundsPaintRelativeToDocument()) {
         newStyleSlowScroll = true;
         bool drawsRootBackground = isDocumentElementRenderer() || (isBody() && !rendererHasBackground(document().documentElement()->renderer()));
         if (drawsRootBackground && newStyle.hasEntirelyFixedBackground() && view().compositor().supportsFixedRootBackgroundCompositing())
@@ -1057,7 +1057,7 @@ void RenderElement::willBeDestroyed()
     if (!renderTreeBeingDestroyed() && element())
         document().contentChangeObserver().rendererWillBeDestroyed(*element());
 #endif
-    if (m_style.hasFixedBackgroundImage() && !settings().fixedBackgroundsPaintRelativeToDocument())
+    if (m_style.hasAnyFixedBackground() && !settings().fixedBackgroundsPaintRelativeToDocument())
         view().frameView().removeSlowRepaintObject(*this);
 
     unregisterForVisibleInViewportCallback();
@@ -1141,7 +1141,7 @@ void RenderElement::paintAsInlineBlock(PaintInfo& paintInfo, const LayoutPoint& 
     // (See Appendix E.2, section 6.4 on inline block/table/replaced elements in the CSS2.1 specification.)
     // This is also used by other elements (e.g. flex items and grid items).
     PaintPhase paintPhaseToUse = isExcludedAndPlacedInBorder() ? paintInfo.phase : PaintPhase::Foreground;
-    if (paintInfo.phase == PaintPhase::Selection || paintInfo.phase == PaintPhase::EventRegion)
+    if (paintInfo.phase == PaintPhase::Selection || paintInfo.phase == PaintPhase::EventRegion || paintInfo.phase == PaintPhase::TextClip)
         paint(paintInfo, childPoint);
     else if (paintInfo.phase == paintPhaseToUse) {
         paintPhase(*this, PaintPhase::BlockBackground, paintInfo, childPoint);
@@ -1534,7 +1534,7 @@ Color RenderElement::selectionColor(CSSPropertyID colorProperty) const
 {
     // If the element is unselectable, or we are only painting the selection,
     // don't override the foreground color with the selection foreground color.
-    if (style().userSelectIncludingInert() == UserSelect::None
+    if (style().effectiveUserSelect() == UserSelect::None
         || (view().frameView().paintBehavior().containsAny({ PaintBehavior::SelectionOnly, PaintBehavior::SelectionAndBackgroundsOnly })))
         return Color();
 
@@ -1589,7 +1589,7 @@ Color RenderElement::selectionEmphasisMarkColor() const
 
 Color RenderElement::selectionBackgroundColor() const
 {
-    if (style().userSelectIncludingInert() == UserSelect::None)
+    if (style().effectiveUserSelect() == UserSelect::None)
         return Color();
 
     if (frame().selection().shouldShowBlockCursor() && frame().selection().isCaret())

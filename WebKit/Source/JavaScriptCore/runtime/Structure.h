@@ -26,6 +26,7 @@
 #pragma once
 
 #include "ClassInfo.h"
+#include "Concurrency.h"
 #include "ConcurrentJSLock.h"
 #include "DeletePropertySlot.h"
 #include "IndexingType.h"
@@ -134,7 +135,7 @@ public:
     JS_EXPORT_PRIVATE static bool isValidPrototype(JSValue);
 
 protected:
-    void finishCreation(VM& vm, const Structure* previous)
+    void finishCreation(VM& vm, const Structure* previous, DeferredStructureTransitionWatchpointFire* deferred)
     {
         this->finishCreation(vm);
         if (previous->hasRareData()) {
@@ -144,6 +145,7 @@ protected:
                 rareData()->setSharedPolyProtoWatchpoint(previousRareData->copySharedPolyProtoWatchpoint());
             }
         }
+        previous->fireStructureTransitionWatchpoint(deferred);
     }
 
 private:
@@ -511,6 +513,28 @@ public:
 
     template<typename Functor>
     void forEachProperty(VM&, const Functor&);
+
+    ALWAYS_INLINE PropertyOffset get(VM& vm, Concurrency concurrency, UniquedStringImpl* uid, unsigned& attributes)
+    {
+        switch (concurrency) {
+        case Concurrency::MainThread:
+            ASSERT(!isCompilationThread() && !Thread::mayBeGCThread());
+            return get(vm, uid, attributes);
+        case Concurrency::ConcurrentThread:
+            return getConcurrently(uid, attributes);
+        }
+    }
+
+    ALWAYS_INLINE PropertyOffset get(VM& vm, Concurrency concurrency, UniquedStringImpl* uid)
+    {
+        switch (concurrency) {
+        case Concurrency::MainThread:
+            ASSERT(!isCompilationThread() && !Thread::mayBeGCThread());
+            return get(vm, uid);
+        case Concurrency::ConcurrentThread:
+            return getConcurrently(uid);
+        }
+    }
     
     PropertyOffset getConcurrently(UniquedStringImpl* uid);
     PropertyOffset getConcurrently(UniquedStringImpl* uid, unsigned& attributes);
@@ -650,6 +674,10 @@ public:
         m_transitionWatchpointSet.add(watchpoint);
     }
     
+    void didTransitionFromThisStructureWithoutFiringWatchpoint() const;
+    void fireStructureTransitionWatchpoint(DeferredStructureTransitionWatchpointFire*) const;
+
+    // This function does the both didTransitionFromThisStructureWithoutFiringWatchpoint and fireStructureTransitionWatchpoint.
     void didTransitionFromThisStructure(DeferredStructureTransitionWatchpointFire* = nullptr) const;
     
     InlineWatchpointSet& transitionWatchpointSet() const
@@ -740,7 +768,7 @@ public:
     static_assert(s_bitWidthOfTransitionKind <= sizeof(TransitionKind) * 8);
 
 protected:
-    Structure(VM&, Structure*, DeferredStructureTransitionWatchpointFire*);
+    Structure(VM&, Structure*);
 
 private:
     friend class LLIntOffsetsExtractor;

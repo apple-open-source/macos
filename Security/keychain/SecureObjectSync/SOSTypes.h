@@ -86,6 +86,22 @@ enum {
 };
 typedef int SOSViewActionCode;
 
+/*
+ Recovery and Backup key states
+ */
+enum {
+    kSOSKeyNotRegistered            = 0,
+    kSOSKeyRegisteredInAccount      = 1,
+    kSOSKeyRecordedInRing           = 2,
+    kSOSKeyPushedInRing             = 3,
+};
+typedef int SOSBackupPublicKeyStatus;
+
+enum {
+    kSOSBackupKeyStatus             = 1,
+    kSOSRecoveryKeyStatus           = 2,
+};
+
 #if __OBJC__
 
 #import <Foundation/Foundation.h>
@@ -119,6 +135,7 @@ typedef NS_OPTIONS(uint32_t, SOSAccountGhostBustingOptions) {
 - (void)iCloudIdentityStatus_internal: (void(^)(NSDictionary *tableSpid, NSError *error))complete;
 - (void)iCloudIdentityStatus: (void (^)(NSData *json, NSError *error))complete;
 - (void)accountStatus: (void (^)(NSData *json, NSError *error))complete;
+- (void)keyStatusFor: (int) keyType complete: (void(^)(SOSBackupPublicKeyStatus status, NSError *error))complete;
 
 - (void)myPeerInfo:(void (^)(NSData *, NSError *))complete;
 - (void)circleHash:(void (^)(NSString *, NSError *))complete;

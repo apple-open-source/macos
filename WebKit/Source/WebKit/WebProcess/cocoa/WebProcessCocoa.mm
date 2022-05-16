@@ -410,6 +410,7 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    SandboxExtension::consumePermanently(parameters.dynamicMachExtensionHandles);
     SandboxExtension::consumePermanently(parameters.dynamicIOKitExtensionHandles);
 #endif
     
@@ -448,6 +449,8 @@ void WebProcess::platformInitializeWebProcess(WebProcessCreationParameters& para
     
     if (!parameters.maximumIOSurfaceSize.isEmpty())
         WebCore::IOSurface::setMaximumSize(parameters.maximumIOSurfaceSize);
+
+    WebCore::IOSurface::setBytesPerRowAlignment(parameters.bytesPerRowIOSurfaceAlignment);
 
     accessibilityPreferencesDidChange(parameters.accessibilityPreferences);
 }

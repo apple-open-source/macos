@@ -2689,7 +2689,7 @@ static void tests(void)
     CFArrayRef anchor = CFArrayCreate(NULL, (const void **)&root, 1, &kCFTypeArrayCallBacks);
     ok_status(SecTrustSetAnchorCertificates(trust, anchor));
     ok_status(SecTrustEvaluate(trust, &result), "validate signer");
-    is_status(result, kSecTrustResultUnspecified, "valid");
+    is_status(result, kSecTrustResultRecoverableTrustFailure, "sha-1 SMIME certificate");
     CFReleaseNull(eml);
     CFReleaseNull(sig);
     CFReleaseNull(policy);

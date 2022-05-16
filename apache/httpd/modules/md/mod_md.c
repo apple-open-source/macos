@@ -54,7 +54,6 @@
 #include "mod_md_ocsp.h"
 #include "mod_md_os.h"
 #include "mod_md_status.h"
-#include "mod_ssl_openssl.h"
 
 static void md_hooks(apr_pool_t *pool);
 
@@ -99,7 +98,7 @@ static void log_print(const char *file, int line, md_log_level_t level,
         buffer[LOG_BUF_LEN-1] = '\0';
 
         if (log_server) {
-            ap_log_error(file, line, APLOG_MODULE_INDEX, (int)level, rv, log_server, "%s",buffer);
+            ap_log_error(file, line, APLOG_MODULE_INDEX, (int)level, rv, log_server, "%s", buffer);
         }
         else {
             ap_log_perror(file, line, APLOG_MODULE_INDEX, (int)level, rv, p, "%s", buffer);
@@ -324,11 +323,15 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
         md->ca_agreement = md_config_gets(md->sc, MD_CONFIG_CA_AGREEMENT);
     }
     contact = md_config_gets(md->sc, MD_CONFIG_CA_CONTACT);
-    if (contact && contact[0]) {
+    if (md->contacts && md->contacts->nelts > 0) {
+        /* set explicitly */
+    }
+    else if (contact && contact[0]) {
         apr_array_clear(md->contacts);
         APR_ARRAY_PUSH(md->contacts, const char *) =
         md_util_schemify(p, contact, "mailto");
-    } else if( md->sc->s->server_admin && strcmp(DEFAULT_ADMIN, md->sc->s->server_admin)) {
+    }
+    else if( md->sc->s->server_admin && strcmp(DEFAULT_ADMIN, md->sc->s->server_admin)) {
         apr_array_clear(md->contacts);
         APR_ARRAY_PUSH(md->contacts, const char *) =
         md_util_schemify(p, md->sc->s->server_admin, "mailto");
@@ -349,6 +352,10 @@ static void merge_srv_config(md_t *md, md_srv_conf_t *base_sc, apr_pool_t *p)
     }
     if (md->require_https < 0) {
         md->require_https = md_config_geti(md->sc, MD_CONFIG_REQUIRE_HTTPS);
+    }
+    if (!md->ca_eab_kid) {
+        md->ca_eab_kid = md->sc->ca_eab_kid;
+        md->ca_eab_hmac = md->sc->ca_eab_hmac;
     }
     if (md->must_staple < 0) {
         md->must_staple = md_config_geti(md->sc, MD_CONFIG_MUST_STAPLE);
@@ -592,14 +599,18 @@ static apr_status_t link_md_to_servers(md_mod_conf_t *mc, md_t *md, server_rec *
                              s->server_hostname, s->port, md->name, sc->name,
                              domain, (int)sc->assigned->nelts);
 
-                if (sc->ca_contact && sc->ca_contact[0]) {
+                if (md->contacts && md->contacts->nelts > 0) {
+                    /* set explicitly */
+                }
+                else if (sc->ca_contact && sc->ca_contact[0]) {
                     uri = md_util_schemify(p, sc->ca_contact, "mailto");
                     if (md_array_str_index(md->contacts, uri, 0, 0) < 0) {
                         APR_ARRAY_PUSH(md->contacts, const char *) = uri;
                         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, base_server, APLOGNO(10044)
                                      "%s: added contact %s", md->name, uri);
                     }
-                } else if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
+                }
+                else if (s->server_admin && strcmp(DEFAULT_ADMIN, s->server_admin)) {
                     uri = md_util_schemify(p, s->server_admin, "mailto");
                     if (md_array_str_index(md->contacts, uri, 0, 0) < 0) {
                         APR_ARRAY_PUSH(md->contacts, const char *) = uri;
@@ -675,18 +686,18 @@ static apr_status_t merge_mds_with_conf(md_mod_conf_t *mc, apr_pool_t *p,
         if (md->cert_files && md->cert_files->nelts) {
             if (!md->pkey_files || (md->cert_files->nelts != md->pkey_files->nelts)) {
                 ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10170)
-                             "The Managed Domain '%s', defined in %s(line %d), "
+                             "The Managed Domain '%s' "
                              "needs one MDCertificateKeyFile for each MDCertificateFile.",
-                             md->name, md->defn_name, md->defn_line_number);
+                             md->name);
                 return APR_EINVAL;
             }
         }
         else if (md->pkey_files && md->pkey_files->nelts 
             && (!md->cert_files || !md->cert_files->nelts)) {
             ap_log_error(APLOG_MARK, APLOG_ERR, 0, base_server, APLOGNO(10171)
-                         "The Managed Domain '%s', defined in %s(line %d), "
+                         "The Managed Domain '%s' "
                          "has MDCertificateKeyFile(s) but no MDCertificateFile.",
-                         md->name, md->defn_name, md->defn_line_number);
+                         md->name);
             return APR_EINVAL;
         }
 
@@ -1156,7 +1167,7 @@ static apr_status_t get_certificates(server_rec *s, apr_pool_t *p, int fallback,
             }
             else if (APR_STATUS_IS_ENOENT(rv)) {
                 /* certificate for this pkey is not available, others might
-                 * if pkeys have been added for a runnign mdomain.
+                 * if pkeys have been added for a running mdomain.
                  * see issue #260 */
                 rv = APR_SUCCESS;
             }
@@ -1347,6 +1358,15 @@ static int md_http_challenge_pr(request_rec *r)
             md = md_get_by_domain(sc->mc->mds, r->hostname);
             name = r->parsed_uri.path + sizeof(ACME_CHALLENGE_PREFIX)-1;
             reg = sc && sc->mc? sc->mc->reg : NULL;
+
+            if (md && md->ca_challenges
+                && md_array_str_index(md->ca_challenges, MD_AUTHZ_CHA_HTTP_01, 0, 1) < 0) {
+                /* The MD this challenge is for does not allow http-01 challanges,
+                 * we have to decline. See #279 for a setup example where this
+                 * is necessary.
+                 */
+                return DECLINED;
+            }
 
             if (strlen(name) && !ap_strchr_c(name, '/') && reg) {
                 md_store_t *store = md_reg_store_get(reg);

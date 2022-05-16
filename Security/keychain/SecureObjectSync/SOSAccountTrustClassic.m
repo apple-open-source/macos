@@ -294,8 +294,7 @@ static bool SOSAccountScreenViewListForValidV0(SOSAccount*  account, CFMutableSe
             bool updated= SOSCircleUpdatePeerInfo(circle_to_change, self.peerInfo);
             return updated;
         }], errOut);
-        // Make sure we update the engine
-        account.circle_rings_retirements_need_attention = true;
+        SOSAccountProcessBackupRings(account);
     }
 
 errOut:

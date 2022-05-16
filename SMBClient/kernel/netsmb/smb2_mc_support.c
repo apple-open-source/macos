@@ -516,12 +516,22 @@ smb2_mc_parse_client_interface_array(
 	for (uint32_t counter = 0; counter < client_info->interface_instance_count; counter++) {
 
         if ((current_offset + sizeof(struct network_nic_info)) > array_size) {
-            SMBERROR("Avoid OOB access when parsing client nic info array \n");
+            SMBERROR("Avoid OOB access when parsing client nic info array.\n");
             error = EINVAL;
             goto exit;
         }
 
         client_info_entry = (struct network_nic_info *) ((uint8_t*) client_info_array + current_offset);
+        
+        // Validate sa_len doesn't exceed buffer boundary
+        uint8_t *pInpBufPtr = (uint8_t*)client_info_array;
+        uint8_t *pSockAddr  = (uint8_t*)&client_info_entry->addr.sa_data[0];
+        uint32_t uSockLen   = client_info_entry->addr.sa_len;
+        if ((pSockAddr - pInpBufPtr + uSockLen) > array_size) {
+            SMBERROR("Avoid OOB access: sa_len too large\n");
+            error = EINVAL;
+            goto exit;
+        }
 
         in_blacklist = false;
 
@@ -543,6 +553,11 @@ smb2_mc_parse_client_interface_array(
             break;
         }
 
+        if (client_info_entry->next_offset < sizeof(struct network_nic_info)) {
+            SMBERROR("Avoid OOB access: next_offset is less than sizeof(network_nic_info)\n");
+            error = EINVAL;
+            goto exit;
+        }
         current_offset += client_info_entry->next_offset;
 	}
 

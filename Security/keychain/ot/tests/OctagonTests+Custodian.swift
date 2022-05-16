@@ -29,7 +29,6 @@ class OctagonCustodianTests: OctagonTestsBase {
                                     deviceInformationAdapter: OTMockDeviceInfoAdapter(modelID: "iPhone9,1", deviceName: "test-RK-iphone", serialNumber: "456", osVersion: "iOS (fake version)"))
     }
 
-    @discardableResult
     func createAndSetCustodianRecoveryKey(context: OTCuttlefishContext) throws -> (OTCustodianRecoveryKey, CustodianRecoveryKey) {
         var retCRK: OTCustodianRecoveryKey?
         let createCustodianRecoveryKeyExpectation = self.expectation(description: "createCustodianRecoveryKey returns")
@@ -1666,6 +1665,48 @@ class OctagonCustodianTests: OctagonTestsBase {
             joinWithCustodianRecoveryKeyExpectation.fulfill()
         }
         self.wait(for: [joinWithCustodianRecoveryKeyExpectation], timeout: 20)
+    }
+
+    func testRemoveDistrustedCustodianRecoveryKey() throws {
+        self.startCKAccountStatusMock()
+
+        self.putFakeKeyHierarchiesInCloudKit()
+        self.silentZoneDeletesAllowed = true
+
+        self.cuttlefishContext.startOctagonStateMachine()
+        XCTAssertNoThrow(try self.cuttlefishContext.setCDPEnabled())
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateUntrusted, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertFalse(self.mockAuthKit.currentDeviceList().isEmpty, "should not have zero devices")
+
+        let clique: OTClique
+        do {
+            clique = try OTClique.newFriends(withContextData: self.otcliqueContext, resetReason: .testGenerated)
+            XCTAssertNotNil(clique, "Clique should not be nil")
+        } catch {
+            XCTFail("Shouldn't have errored making new friends: \(error)")
+            throw error
+        }
+
+        self.assertEnters(context: self.cuttlefishContext, state: OctagonStateReady, within: 10 * NSEC_PER_SEC)
+        self.assertConsidersSelfTrusted(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        self.manager.setSOSEnabledForPlatformFlag(true)
+
+        let (otcrk, crk) = try self.createAndSetCustodianRecoveryKey(context: self.cuttlefishContext)
+        self.assertAllCKKSViews(enter: SecCKKSZoneKeyStateReady, within: 10 * NSEC_PER_SEC)
+
+        XCTAssertNoThrow(try clique.removeFriends(inClique: [crk.peerID]), "Removing should not error")
+
+        let removeCustodianRecoveryKeyExpectation = self.expectation(description: "removeCustodianRecoveryKey returns")
+        self.manager.removeCustodianRecoveryKey(OTCKContainerName, contextID: self.otcliqueContext.context, uuid: otcrk.uuid) { error in
+            XCTAssertNil(error, "error should be nil")
+            removeCustodianRecoveryKeyExpectation.fulfill()
+        }
+        self.wait(for: [removeCustodianRecoveryKeyExpectation], timeout: 20)
+
+        self.verifyDatabaseMocks()
     }
 
     func testJoinAfterReboot() throws {

@@ -1,57 +1,1147 @@
-2022-02-16  Russell Epstein  <repstein@apple.com>
+2022-04-28  Russell Epstein  <repstein@apple.com>
 
-        Revert r289919. rdar://problem/81337114
+        Cherry-pick r287877. rdar://problem/92357915
 
-2022-02-16  Russell Epstein  <repstein@apple.com>
+    Non-unified build fixes, early January 2022 edition
+    https://bugs.webkit.org/show_bug.cgi?id=235013
+    
+    Unreviewed non-unified build fixes.
+    
+    Source/JavaScriptCore:
+    
+    
+    * wasm/js/JSWebAssemblyModule.cpp: Add missing JSWebAssemblyLinkError.h header.
+    * wasm/js/JSWebAssemblyModule.h: Add missing forward declaration for the
+    JSC::OptimizingCallLinkInfo type.
+    
+    Source/WebCore:
+    
+    No new tests needed.
+    
+    
+    * Modules/fetch/FetchBodyConsumer.cpp: Add missing FormData.h header.
+    * Modules/fetch/FormDataConsumer.h: Add missing ExceptionOr.h header, and forward
+    declaration for the WebCore::ScriptExecutionContext type.
+    * animation/CSSAnimation.cpp: Add missing KeyframeEffect.h header.
+    * animation/KeyframeEffect.cpp: Add missing StyledElement.h header.
+    * html/HTMLFormElement.cpp: Add missing PseudoClassChangeInvalidation.h header.
+    * platform/network/SynchronousLoaderClient.cpp: Add missing SharedBuffer.h header.
+    * rendering/svg/RenderSVGBlock.cpp: Add missing SVGRenderSupport.h header.
+    * rendering/svg/RenderSVGForeignObject.cpp: Ditto.
+    * rendering/svg/RenderSVGInline.cpp: Ditto.
+    * rendering/svg/RenderSVGModelObject.cpp: Add missing SVGElementInlines.h header.
+    * rendering/svg/SVGInlineTextBox.cpp: Add missing FloatConversion.h header.
+    * svg/SVGViewElement.cpp: Add missing RenderElement.h header.
+    * workers/service/context/ServiceWorkerFetch.h: Add missing forward declaration for the
+    WebCore::SharedBuffer type, remove unused one for WebCore::FragmentedSharedBuffer.
+    
+    Source/WebKit:
+    
+    
+    * Platform/IPC/SharedBufferCopy.cpp: Add missing WebCoreArgumentCoders.h header, remove now
+    unneeded ArgumentCoders.h header.
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287877 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-        Cherry-pick r289877. rdar://problem/81337114
+    2022-01-11  Adrian Perez de Castro  <aperez@igalia.com>
 
-    Defer TerminationsExceptions while in operationMaterializeObjectInOSR.
-    https://bugs.webkit.org/show_bug.cgi?id=236686
-    rdar://81337114
+            Non-unified build fixes, early January 2022 edition
+            https://bugs.webkit.org/show_bug.cgi?id=235013
+
+            Unreviewed non-unified build fixes.
+
+            * wasm/js/JSWebAssemblyModule.cpp: Add missing JSWebAssemblyLinkError.h header.
+            * wasm/js/JSWebAssemblyModule.h: Add missing forward declaration for the
+            JSC::OptimizingCallLinkInfo type.
+
+2022-04-06  Saam Barati  <sbarati@apple.com>
+
+        Call Structure::get instead of Structure::getConcurrently on the mutator thread
+        https://bugs.webkit.org/show_bug.cgi?id=238823
+
+        Reviewed by Yusuke Suzuki.
+
+        We try to call Structure::get instead of Structure::getConcurrently when
+        we know for sure we're on the main thread. This is because getConcurrently
+        is slower than get.
+
+        * bytecode/AccessCase.cpp:
+        (JSC::AccessCase::couldStillSucceed const):
+        (JSC::AccessCase::generateImpl):
+        * bytecode/AdaptiveInferredPropertyValueWatchpointBase.cpp:
+        (JSC::AdaptiveInferredPropertyValueWatchpointBase::install):
+        * bytecode/LLIntPrototypeLoadAdaptiveStructureWatchpoint.cpp:
+        (JSC::LLIntPrototypeLoadAdaptiveStructureWatchpoint::install):
+        * bytecode/ObjectPropertyCondition.cpp:
+        (JSC::ObjectPropertyCondition::structureEnsuresValidityAssumingImpurePropertyWatchpoint const):
+        (JSC::ObjectPropertyCondition::isStillValidAssumingImpurePropertyWatchpoint const):
+        (JSC::ObjectPropertyCondition::isStillValid const):
+        (JSC::ObjectPropertyCondition::structureEnsuresValidity const):
+        * bytecode/ObjectPropertyCondition.h:
+        * bytecode/ObjectPropertyConditionSet.cpp:
+        (JSC::ObjectPropertyConditionSet::structuresEnsureValidity const):
+        (JSC::generateConditionsForPropertyMiss):
+        (JSC::generateConditionsForPropertySetterMiss):
+        (JSC::generateConditionsForPrototypePropertyHit):
+        (JSC::generateConditionsForPrototypePropertyHitCustom):
+        (JSC::generateConditionsForPrototypeEquivalenceConcurrently):
+        (JSC::generateConditionsForPropertyMissConcurrently):
+        (JSC::generateConditionsForPropertySetterMissConcurrently):
+        (JSC::generateConditionForSelfEquivalence):
+        (JSC::ObjectPropertyConditionSet::structuresEnsureValidityAssumingImpurePropertyWatchpoint const): Deleted.
+        (JSC::ObjectPropertyConditionSet::isValidAndWatchable const): Deleted.
+        * bytecode/ObjectPropertyConditionSet.h:
+        * bytecode/PropertyCondition.cpp:
+        (JSC::PropertyCondition::isStillValidAssumingImpurePropertyWatchpoint const):
+        (JSC::watchabilityToConcurrency):
+        (JSC::PropertyCondition::isStillValid const):
+        (JSC::PropertyCondition::isWatchableWhenValid const):
+        (JSC::PropertyCondition::isWatchableAssumingImpurePropertyWatchpoint const):
+        (JSC::PropertyCondition::isWatchable const):
+        * bytecode/PropertyCondition.h:
+        * dfg/DFGAdaptiveStructureWatchpoint.cpp:
+        (JSC::DFG::AdaptiveStructureWatchpoint::install):
+        * dfg/DFGByteCodeParser.cpp:
+        (JSC::DFG::ByteCodeParser::check):
+        (JSC::DFG::ByteCodeParser::planLoad):
+        * dfg/DFGConstantFoldingPhase.cpp:
+        (JSC::DFG::ConstantFoldingPhase::tryFoldAsPutByOffset):
+        * dfg/DFGDesiredWatchpoints.h:
+        (JSC::DFG::AdaptiveStructureWatchpointAdaptor::hasBeenInvalidated):
+        * dfg/DFGGraph.cpp:
+        (JSC::DFG::Graph::watchCondition):
+        * llint/LLIntSlowPaths.cpp:
+        (JSC::LLInt::setupGetByIdPrototypeCache):
+        * runtime/CachedSpecialPropertyAdaptiveStructureWatchpoint.cpp:
+        (JSC::CachedSpecialPropertyAdaptiveStructureWatchpoint::install):
+        * runtime/JSGlobalObject.cpp:
+        (JSC::JSGlobalObject::tryInstallSpeciesWatchpoint):
+        * runtime/JSObject.h:
+        (JSC::JSObject::getDirect const):
+        * runtime/Structure.h:
+        (JSC::Structure::get):
+        * runtime/StructureRareData.cpp:
+        (JSC::StructureRareData::cacheSpecialPropertySlow):
+
+2022-04-11  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] Reduce use of unnecessary cryptographicallyRandom numbers
+        https://bugs.webkit.org/show_bug.cgi?id=239026
+
+        Reviewed by Saam Barati.
+
+        This patch removes cryptographically random calls in some of super hot critical path.
+        MarkedBlock's use is very hot and it appears on Speedometer2 artrace. But this is just
+        a random shuffling of freelist, and WeakRandom is enough for that. This patch replaces
+        them with WeakRandom. It offers 0.3% improvement in Speedometer2.
+
+        * assembler/AbstractMacroAssembler.cpp:
+        (JSC::AbstractMacroAssemblerBase::initializeRandom):
+        (WTF::printInternal):
+        * assembler/AbstractMacroAssembler.h:
+        (JSC::AbstractMacroAssemblerBase::random):
+        (JSC::AbstractMacroAssembler::AbstractMacroAssembler):
+        (JSC::AbstractMacroAssembler::random): Deleted.
+        * b3/air/AirCode.cpp:
+        (JSC::B3::Air::Code::Code):
+        * b3/air/AirCode.h:
+        (JSC::B3::Air::Code::weakRandom): Deleted.
+        * heap/MarkedBlockInlines.h:
+        (JSC::MarkedBlock::Handle::specializedSweep):
+        * runtime/VM.cpp:
+        (JSC::VM::VM):
+        * runtime/VM.h:
+        (JSC::VM::heapRandom):
+
+2022-04-10  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [JSC] DFG / FTL should be aware of JSString's String replacement
+        https://bugs.webkit.org/show_bug.cgi?id=238918
+
+        Reviewed by Saam Barati.
+
+        After r289359, String in JSString* can be replaced even after it is resolved. When atomizing String inside JSString*,
+        we may replace the existing one to new AtomStringImpl if different AtomStringImpl is already registered in the
+        AtomStringTable. However, DFG / FTL GetIndexedPropertyStorage assumes that StringImpl* in JSString* never changes after
+        resolving. And this is wrong.
+
+        This patch decouples String handling in GetIndexedPropertyStorage as ResolveRope DFG node. GetIndexedPropertyStorage no
+        longer handles JSString and it is now tailored to object cases. ResolveRope does not expose StringImpl::m_data pointer,
+        and instead it keeps resolved JSString*. After this change,
+
+            GetByVal(String:@0, Untyped:@1, GetIndexedProperty(String:@0))
+
+        is changed to
+
+            GetByVal(ResolveRope(String:@0), Untyped:@1)
+
+        Also, we revisit all the value(...) callsites (by changing function name) and ensure that we have no code assuming String
+        cannot be changed after resolving.
+
+        A/B test ensured that this is perf-neutral.
+
+        * b3/B3Generate.cpp:
+        (JSC::B3::generateToAir):
+        * bytecompiler/BytecodeGenerator.cpp:
+        (JSC::BytecodeGenerator::emitEqualityOpImpl):
+        * dfg/DFGAbstractInterpreterInlines.h:
+        (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+        * dfg/DFGClobberize.h:
+        (JSC::DFG::clobberize):
+        * dfg/DFGConstantFoldingPhase.cpp:
+        (JSC::DFG::ConstantFoldingPhase::foldConstants):
+        * dfg/DFGDoesGC.cpp:
+        (JSC::DFG::doesGC):
+        * dfg/DFGFixupPhase.cpp:
+        (JSC::DFG::FixupPhase::fixupNode):
+        (JSC::DFG::FixupPhase::checkArray):
+        * dfg/DFGNode.h:
+        (JSC::DFG::Node::hasStorageChild const):
+        (JSC::DFG::Node::storageChildIndex):
+        * dfg/DFGNodeType.h:
+        * dfg/DFGOperations.cpp:
+        (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+        * dfg/DFGOperations.h:
+        * dfg/DFGPredictionPropagationPhase.cpp:
+        * dfg/DFGSafeToExecute.h:
+        (JSC::DFG::safeToExecute):
+        * dfg/DFGSpeculativeJIT.cpp:
+        (JSC::DFG::SpeculativeJIT::compileGetCharCodeAt):
+        (JSC::DFG::SpeculativeJIT::compileGetByValOnString):
+        * dfg/DFGSpeculativeJIT.h:
+        * dfg/DFGSpeculativeJIT32_64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        * dfg/DFGSpeculativeJIT64.cpp:
+        (JSC::DFG::SpeculativeJIT::compile):
+        (JSC::DFG::SpeculativeJIT::compileStringCodePointAt):
+        * dfg/DFGTypeCheckHoistingPhase.cpp:
+        (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantStructureChecks):
+        (JSC::DFG::TypeCheckHoistingPhase::identifyRedundantArrayChecks):
+        * ftl/FTLCapabilities.cpp:
+        (JSC::FTL::canCompile):
+        * ftl/FTLCompile.cpp:
+        (JSC::FTL::compile):
+        * ftl/FTLLowerDFGToB3.cpp:
+        (JSC::FTL::DFG::LowerDFGToB3::compileNode):
+        (JSC::FTL::DFG::LowerDFGToB3::compileGetIndexedPropertyStorage):
+        (JSC::FTL::DFG::LowerDFGToB3::compileResolveRope):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharAtImpl):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCharCodeAt):
+        (JSC::FTL::DFG::LowerDFGToB3::compileStringCodePointAt):
+        * jsc.cpp:
+        (JSC_DEFINE_HOST_FUNCTION):
+        * runtime/HashMapImplInlines.h:
+        (JSC::jsMapHashImpl):
+        * runtime/InternalFunction.cpp:
+        (JSC::InternalFunction::name):
+        (JSC::InternalFunction::displayName):
+        (JSC::InternalFunction::calculatedDisplayName):
+        * runtime/InternalFunction.h:
+        * runtime/JSBoundFunction.h:
+        * runtime/JSCJSValueInlines.h:
+        (JSC::toPreferredPrimitiveType):
+        * runtime/JSModuleLoader.cpp:
+        (JSC::JSModuleLoader::importModule):
+        * runtime/JSONObject.cpp:
+        (JSC::Stringifier::appendStringifiedValue):
+        * runtime/JSPropertyNameEnumerator.cpp:
+        (JSC::JSPropertyNameEnumerator::computeNext):
+        * runtime/JSRemoteFunction.h:
+        * runtime/Operations.h:
+        (JSC::jsString):
+        (JSC::compareBigIntToOtherPrimitive):
+        (JSC::compareBigInt32ToOtherPrimitive):
+        * runtime/RegExpMatchesArray.h:
+        (JSC::createRegExpMatchesArray):
+        * runtime/StringPrototype.cpp:
+        (JSC::JSC_DEFINE_JIT_OPERATION):
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * runtime/SymbolConstructor.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+        * tools/JSDollarVM.cpp:
+        (JSC::JSC_DEFINE_HOST_FUNCTION):
+
+2022-04-18  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r292609. rdar://problem/90882766
+
+    Broaden TypedArray API fix to all apps not just Bleacher Report
+    https://bugs.webkit.org/show_bug.cgi?id=238955
+    
+    Reviewed by Saam Barati.
+    
+    Source/JavaScriptCore:
+    
+    * API/JSTypedArray.cpp:
+    (isLinkedBeforeTypedArrayLengthQuirk):
+    (JSObjectGetArrayBufferByteLength):
+    (isBleecherReport): Deleted.
+    
+    Source/WTF:
+    
+    * wtf/cocoa/RuntimeApplicationChecksCocoa.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292609 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-08  Keith Miller  <keith_miller@apple.com>
+
+            Broaden TypedArray API fix to all apps not just Bleacher Report
+            https://bugs.webkit.org/show_bug.cgi?id=238955
+
+            Reviewed by Saam Barati.
+
+            * API/JSTypedArray.cpp:
+            (isLinkedBeforeTypedArrayLengthQuirk):
+            (JSObjectGetArrayBufferByteLength):
+            (isBleecherReport): Deleted.
+
+2022-04-18  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r292594. rdar://problem/91467003
+
+    [JSC] Fire structure transition watchpoint in Structure::finishCreation instead of Structure constructor
+    https://bugs.webkit.org/show_bug.cgi?id=238980
     
     Reviewed by Saam Barati.
     
     JSTests:
     
-    These tests are identical except that they are customized with different watchdog
-    timeout periods for a Debug / Release build.  This is a necessary condition in
-    order for the test to manifest this issue if the code is regressed.
-    
-    * stress/termination-exception-in-operationMaterializeObjectInOSR-debug.js: Added.
-    * stress/termination-exception-in-operationMaterializeObjectInOSR-release.js: Added.
+    * stress/heap-allocation-in-did-structure-transition-watchpoint.js: Added.
+    (__isPropertyOfType):
+    (__getProperties):
+    (__getObjects):
+    (__getRandomObject):
+    (__getRandomProperty):
+    (__callGC):
+    (get var):
     
     Source/JavaScriptCore:
     
-    operationMaterializeObjectInOSR expects to always succeed.  It is difficult (and
-    not worth the effort) to make it be able to handle interruptions by the
-    TerminationException.  Since operationMaterializeObjectInOSR is guaranteed to
-    finish running in some finite time, it is reasonable to just defer handling a
-    pending TerminationException until the function returns.
+    After https://github.com/WebKit/WebKit/commit/dc3a347474a183891f8e07966dc09e684d7a1d13 change,
+    we start using Structure::get in the main thread. However one of the difference between Structure::get and
+    Structure::getConcurrently is that it can allocate GC memory: PropertyTable can be materialized.
     
-    * ftl/FTLOperations.cpp:
-    (JSC::FTL::JSC_DEFINE_JIT_OPERATION):
+    Structure constructor was firing structure transition watchpoint. And some of watchpoints were using
+    Structure::getConcurrently. That's fine before, but now, it becomes Structure::get. It is not OK since
+    we cannot allocate GC memory inside constructor of GC managed objects.
     
+    This patch split didTransitionFromThisStructure into didTransitionFromThisStructureWithoutFiringWatchpoint and
+    fireStructureTransitionWatchpoint. And firing watchpoints in Structure::finishCreation instead of Structure
+    constructor so that we can allocate GC memory while firing watchpoints.
     
+    * runtime/BrandedStructure.cpp:
+    (JSC::BrandedStructure::BrandedStructure):
+    (JSC::BrandedStructure::create):
+    * runtime/BrandedStructure.h:
+    * runtime/Structure.cpp:
+    (JSC::Structure::Structure):
+    (JSC::Structure::didTransitionFromThisStructureWithoutFiringWatchpoint const):
+    (JSC::Structure::fireStructureTransitionWatchpoint const):
+    (JSC::Structure::didTransitionFromThisStructure const):
+    * runtime/Structure.h:
+    (JSC::Structure::finishCreation):
+    * runtime/StructureInlines.h:
+    (JSC::Structure::create):
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@289877 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292594 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2022-02-15  Mark Lam  <mark.lam@apple.com>
+    2022-04-07  Yusuke Suzuki  <ysuzuki@apple.com>
 
-            Defer TerminationsExceptions while in operationMaterializeObjectInOSR.
-            https://bugs.webkit.org/show_bug.cgi?id=236686
-            rdar://81337114
+            [JSC] Fire structure transition watchpoint in Structure::finishCreation instead of Structure constructor
+            https://bugs.webkit.org/show_bug.cgi?id=238980
 
             Reviewed by Saam Barati.
 
-            operationMaterializeObjectInOSR expects to always succeed.  It is difficult (and
-            not worth the effort) to make it be able to handle interruptions by the
-            TerminationException.  Since operationMaterializeObjectInOSR is guaranteed to
-            finish running in some finite time, it is reasonable to just defer handling a
-            pending TerminationException until the function returns.
+            After https://github.com/WebKit/WebKit/commit/dc3a347474a183891f8e07966dc09e684d7a1d13 change,
+            we start using Structure::get in the main thread. However one of the difference between Structure::get and
+            Structure::getConcurrently is that it can allocate GC memory: PropertyTable can be materialized.
+
+            Structure constructor was firing structure transition watchpoint. And some of watchpoints were using
+            Structure::getConcurrently. That's fine before, but now, it becomes Structure::get. It is not OK since
+            we cannot allocate GC memory inside constructor of GC managed objects.
+
+            This patch split didTransitionFromThisStructure into didTransitionFromThisStructureWithoutFiringWatchpoint and
+            fireStructureTransitionWatchpoint. And firing watchpoints in Structure::finishCreation instead of Structure
+            constructor so that we can allocate GC memory while firing watchpoints.
+
+            * runtime/BrandedStructure.cpp:
+            (JSC::BrandedStructure::BrandedStructure):
+            (JSC::BrandedStructure::create):
+            * runtime/BrandedStructure.h:
+            * runtime/Structure.cpp:
+            (JSC::Structure::Structure):
+            (JSC::Structure::didTransitionFromThisStructureWithoutFiringWatchpoint const):
+            (JSC::Structure::fireStructureTransitionWatchpoint const):
+            (JSC::Structure::didTransitionFromThisStructure const):
+            * runtime/Structure.h:
+            (JSC::Structure::finishCreation):
+            * runtime/StructureInlines.h:
+            (JSC::Structure::create):
+
+2022-04-18  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r292484. rdar://problem/89253391
+
+    [JSC] Substring resolving should check 8bit / 16bit again
+    https://bugs.webkit.org/show_bug.cgi?id=236775
+    <rdar://problem/89253391>
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/8bit-16bit-atomize-conversion.js: Added.
+    (main.v64):
+    (main):
+    
+    Source/JavaScriptCore:
+    
+    Substring JSString is wrapping JSString. Thus it is possible that underlying JSString's 8Bit / 16Bit status
+    becomes different from substring JSString wrapper's bit. We should not assume they are the same.
+    
+    * runtime/JSString.cpp:
+    (JSC::JSRopeString::resolveRopeInternal const):
+    (JSC::JSRopeString::resolveRopeToAtomString const):
+    (JSC::JSRopeString::resolveRopeToExistingAtomString const):
+    (JSC::JSRopeString::resolveRopeInternal8 const): Deleted.
+    (JSC::JSRopeString::resolveRopeInternal16 const): Deleted.
+    * runtime/JSString.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292484 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-06  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Substring resolving should check 8bit / 16bit again
+            https://bugs.webkit.org/show_bug.cgi?id=236775
+            <rdar://problem/89253391>
+
+            Reviewed by Saam Barati.
+
+            Substring JSString is wrapping JSString. Thus it is possible that underlying JSString's 8Bit / 16Bit status
+            becomes different from substring JSString wrapper's bit. We should not assume they are the same.
+
+            * runtime/JSString.cpp:
+            (JSC::JSRopeString::resolveRopeInternal const):
+            (JSC::JSRopeString::resolveRopeToAtomString const):
+            (JSC::JSRopeString::resolveRopeToExistingAtomString const):
+            (JSC::JSRopeString::resolveRopeInternal8 const): Deleted.
+            (JSC::JSRopeString::resolveRopeInternal16 const): Deleted.
+            * runtime/JSString.h:
+
+2022-04-18  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r292475. rdar://problem/91078546
+
+    CSE should be more careful with values that have WritesPinned, ExitsSideways, or are of different sizes
+    https://bugs.webkit.org/show_bug.cgi?id=238302
+    
+    Reviewed by Saam Barati.
+    
+    1) CSE for WasmAddressValue searches for any nodes marked with WritesPinned between all paths from the redundant
+    WasmAddressValue to the replacement that dominates it. For a switch construct, we might miss some paths while
+    performing this DFS of predecessor blocks because the termination condition was a break instead of a continue.
+    
+    2) The CSE phase looks for a pattern it calls a store after clobber. That is, two stores to the same location where
+    the first store is not observable. It searches for reads and writes that overlap with the store and its clobber, and
+    bails if it finds them. When we add in CSE for WasmAddressValue, we expose the fact that WasmBoundsCheck has ExitSideways
+    but does not claim to read top, even though the code it exits to totally can. This can cause us to eliminate an observable store.
+    
+    3) The store after clobber phase does not check that the size of the clobber is the same as the size of the store. Again,
+    this is usually hidden by JavaScript because the sizes are usually the same. Also, when WASM fast memory is enabled, this
+    bug is hidden because the loads/stores say that they may trap. That is why the unity test case only failed on iOS (although
+    it does fail on mac with __XPC_JSC_useWebAssemblyFastMemory=0).
+    
+    * b3/B3EliminateCommonSubexpressions.cpp:
+    * b3/testb3.h:
+    * b3/testb3_8.cpp:
+    (testWasmAddressDoesNotCSE):
+    (addCopyTests):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292475 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-06  Justin Michaud  <justin_michaud@apple.com>
+
+            CSE should be more careful with values that have WritesPinned, ExitsSideways, or are of different sizes
+            https://bugs.webkit.org/show_bug.cgi?id=238302
+
+            Reviewed by Saam Barati.
+
+            1) CSE for WasmAddressValue searches for any nodes marked with WritesPinned between all paths from the redundant
+            WasmAddressValue to the replacement that dominates it. For a switch construct, we might miss some paths while
+            performing this DFS of predecessor blocks because the termination condition was a break instead of a continue.
+
+            2) The CSE phase looks for a pattern it calls a store after clobber. That is, two stores to the same location where
+            the first store is not observable. It searches for reads and writes that overlap with the store and its clobber, and
+            bails if it finds them. When we add in CSE for WasmAddressValue, we expose the fact that WasmBoundsCheck has ExitSideways
+            but does not claim to read top, even though the code it exits to totally can. This can cause us to eliminate an observable store.
+
+            3) The store after clobber phase does not check that the size of the clobber is the same as the size of the store. Again,
+            this is usually hidden by JavaScript because the sizes are usually the same. Also, when WASM fast memory is enabled, this
+            bug is hidden because the loads/stores say that they may trap. That is why the unity test case only failed on iOS (although
+            it does fail on mac with __XPC_JSC_useWebAssemblyFastMemory=0).
+
+            * b3/B3EliminateCommonSubexpressions.cpp:
+            * b3/testb3.h:
+            * b3/testb3_8.cpp:
+            (testWasmAddressDoesNotCSE):
+            (addCopyTests):
+
+2022-04-18  Kocsen Chung  <kocsen_chung@apple.com>
+
+        Cherry-pick r292269. rdar://problem/91204413
+
+    AI should do int32 optimization in ValueRep
+    https://bugs.webkit.org/show_bug.cgi?id=238699
+    
+    Reviewed by Saam Barati.
+    
+    When constant folding an int52 into a ValueRep AI doesn't
+    do our normal int32 boxing optimization. I'm not sure if
+    it matters since I couldn't find a test but it probably
+    doesn't hurt.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292269 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-02  Keith Miller  <keith_miller@apple.com>
+
+            AI should do int32 optimization in ValueRep
+            https://bugs.webkit.org/show_bug.cgi?id=238699
+
+            Reviewed by Saam Barati.
+
+            When constant folding an int52 into a ValueRep AI doesn't
+            do our normal int32 boxing optimization. I'm not sure if
+            it matters since I couldn't find a test but it probably
+            doesn't hurt.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+
+2022-04-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r292075. rdar://problem/88323776
+
+    Web Inspector: Add check for null `entryScope` in JSC::Debugger::detach
+    https://bugs.webkit.org/show_bug.cgi?id=238518
+    
+    Reviewed by Devin Rousso.
+    
+    A virtual machine may not always have an `entryScope`, which can occur if a `JSGlobalObject` is being destructed
+    (which will call into `JSC::Debugger::Detach`) before a `VMEntryScope` is created or after a `VMEntryScope` has
+    fallen out of scope, causing the VM's `entryScope` to be null again. In the original internal issue that led to
+    finding this, this most commonly occurred in conjunction with page refresh while the debugger was paused.
+    
+    Because it is possible that we were previously paused in the VM that now has no `entryScope`, we should go ahead
+    and unpause.
+    
+    * debugger/Debugger.cpp:
+    (JSC::Debugger::detach):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292075 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-29  Patrick Angle  <pangle@apple.com>
+
+            Web Inspector: Add check for null `entryScope` in JSC::Debugger::detach
+            https://bugs.webkit.org/show_bug.cgi?id=238518
+
+            Reviewed by Devin Rousso.
+
+            A virtual machine may not always have an `entryScope`, which can occur if a `JSGlobalObject` is being destructed
+            (which will call into `JSC::Debugger::Detach`) before a `VMEntryScope` is created or after a `VMEntryScope` has
+            fallen out of scope, causing the VM's `entryScope` to be null again. In the original internal issue that led to
+            finding this, this most commonly occurred in conjunction with page refresh while the debugger was paused.
+
+            Because it is possible that we were previously paused in the VM that now has no `entryScope`, we should go ahead
+            and unpause.
+
+            * debugger/Debugger.cpp:
+            (JSC::Debugger::detach):
+
+2022-04-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r292009. rdar://problem/90918765
+
+    The lazy symbolObjectStructure should be realized before we allocate a SymbolObject.
+    https://bugs.webkit.org/show_bug.cgi?id=238474
+    <rdar://problem/90918765>
+    
+    Reviewed by Yusuke Suzuki and Saam Barati.
+    
+    We should not be allocating the symbolObjectStructure while in the middle of
+    initializing a SymbolObject.
+    
+    * runtime/Symbol.cpp:
+    (JSC::Symbol::toObject const):
+    (JSC::SymbolObject::create): Deleted.
+    * runtime/SymbolObject.h:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292009 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-28  Mark Lam  <mark.lam@apple.com>
+
+            The lazy symbolObjectStructure should be realized before we allocate a SymbolObject.
+            https://bugs.webkit.org/show_bug.cgi?id=238474
+            <rdar://problem/90918765>
+
+            Reviewed by Yusuke Suzuki and Saam Barati.
+
+            We should not be allocating the symbolObjectStructure while in the middle of
+            initializing a SymbolObject.
+
+            * runtime/Symbol.cpp:
+            (JSC::Symbol::toObject const):
+            (JSC::SymbolObject::create): Deleted.
+            * runtime/SymbolObject.h:
+
+2022-04-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r291602. rdar://problem/89822922
+
+    Fix bug in Relationship::mergeImpl
+    https://bugs.webkit.org/show_bug.cgi?id=238183
+    <rdar://89822922>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291602 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-21  Saam Barati  <sbarati@apple.com>
+
+            Fix bug in Relationship::mergeImpl
+            https://bugs.webkit.org/show_bug.cgi?id=238183
+            <rdar://89822922>
+
+            Reviewed by Yusuke Suzuki.
+
+            * dfg/DFGIntegerRangeOptimizationPhase.cpp:
+
+2022-04-07  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r291601. rdar://problem/87345895
+
+    AirFixObviousSpills needs to consider a PreIndex and PostIndex as clobbering the Reg used for indexing
+    https://bugs.webkit.org/show_bug.cgi?id=238178
+    <rdar://87345895>
+    
+    Reviewed by Mark Lam.
+    
+    Inside AirFixObviousSpills, we run a basic alias analysis for StackSlots and
+    registers. For example, when we overwrite a register, we clear anything
+    it's aliased with. However, the way we were doing this was by looking at
+    each Arg that was Defd. However, this iteration was missing that
+    PostIndex/PreIndex mutate the register that feeds into the address Arg.
+    This patch fixes the issue by walking the instruction in such a way that
+    we visit all the Defs we care about, both Regs and StackSlots.
+    
+    * b3/air/AirFixObviousSpills.cpp:
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291601 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-21  Saam Barati  <sbarati@apple.com>
+
+            AirFixObviousSpills needs to consider a PreIndex and PostIndex as clobbering the Reg used for indexing
+            https://bugs.webkit.org/show_bug.cgi?id=238178
+            <rdar://87345895>
+
+            Reviewed by Mark Lam.
+
+            Inside AirFixObviousSpills, we run a basic alias analysis for StackSlots and
+            registers. For example, when we overwrite a register, we clear anything
+            it's aliased with. However, the way we were doing this was by looking at
+            each Arg that was Defd. However, this iteration was missing that
+            PostIndex/PreIndex mutate the register that feeds into the address Arg.
+            This patch fixes the issue by walking the instruction in such a way that
+            we visit all the Defs we care about, both Regs and StackSlots.
+
+            * b3/air/AirFixObviousSpills.cpp:
+
+2022-03-25  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r291891. rdar://problem/90838071
+
+    AI should not set the structure for ObjectCreate
+    https://bugs.webkit.org/show_bug.cgi?id=238349
+    
+    Patch by Justin Michaud <justin_michaud@apple.com> on 2022-03-24
+    Reviewed by Saam Barati and Yusuke Suzuki.
+    
+    The AbstractInterpreter should not set the structure for ObjectCreate because it might change by
+    the time the constant folding phase runs if the structure cache is cleared.
+    
+    * dfg/DFGAbstractInterpreterInlines.h:
+    (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291891 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-24  Justin Michaud  <justin_michaud@apple.com>
+
+            AI should not set the structure for ObjectCreate
+            https://bugs.webkit.org/show_bug.cgi?id=238349
+
+            Reviewed by Saam Barati and Yusuke Suzuki.
+
+            The AbstractInterpreter should not set the structure for ObjectCreate because it might change by
+            the time the constant folding phase runs if the structure cache is cleared.
+
+            * dfg/DFGAbstractInterpreterInlines.h:
+            (JSC::DFG::AbstractInterpreter<AbstractStateType>::executeEffects):
+
+2022-03-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r290981. rdar://problem/83326232
+
+    Remove invalid ASSERT in LocaleIDBuilder::overrideLanguageScriptRegion().
+    https://bugs.webkit.org/show_bug.cgi?id=237573
+    <rdar://problem/83326232>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/handle-empty-localeID-in-localeIDBufferForLanguageTagWithNullTerminator.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    The ASSERT(length) in LocaleIDBuilder::overrideLanguageScriptRegion() is simply
+    incorrect.  The length can be 0 if uloc_forLanguageTag returns a 0 length in
+    localeIDBufferForLanguageTagWithNullTerminator().  LocaleIDBuilder::overrideLanguageScriptRegion()
+    already handles this scenario correctly.  We just need to remove this incorrect ASSERT.
+    
+    Also verified that we're producing the same result on the attached test case as
+    Chrome and Firefox produces.
+    
+    * runtime/IntlObject.cpp:
+    (JSC::localeIDBufferForLanguageTagWithNullTerminator):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290981 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-08  Mark Lam  <mark.lam@apple.com>
+
+            Remove invalid ASSERT in LocaleIDBuilder::overrideLanguageScriptRegion().
+            https://bugs.webkit.org/show_bug.cgi?id=237573
+            <rdar://problem/83326232>
+
+            Reviewed by Yusuke Suzuki.
+
+            The ASSERT(length) in LocaleIDBuilder::overrideLanguageScriptRegion() is simply
+            incorrect.  The length can be 0 if uloc_forLanguageTag returns a 0 length in
+            localeIDBufferForLanguageTagWithNullTerminator().  LocaleIDBuilder::overrideLanguageScriptRegion()
+            already handles this scenario correctly.  We just need to remove this incorrect ASSERT.
+
+            Also verified that we're producing the same result on the attached test case as
+            Chrome and Firefox produces.
+
+            * runtime/IntlObject.cpp:
+            (JSC::localeIDBufferForLanguageTagWithNullTerminator):
+
+2022-03-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r290873. rdar://problem/89770507
+
+    Fix JITOperationList::addPointers() to support JIT_OPERATION_VALIDATION_ASSERT_ENABLED.
+    https://bugs.webkit.org/show_bug.cgi?id=237504
+    <rdar://problem/89770507>
+    
+    Reviewed by Saam Barati.
+    
+    According to tagJSCCodePtrImpl(), we will only use an operation's validation entry
+    if Options::useJITCage().  Make JITOperationList::addPointers() conform to this.
+    
+    * assembler/JITOperationList.cpp:
+    (JSC::JITOperationList::addPointers):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290873 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-05  Mark Lam  <mark.lam@apple.com>
+
+            Fix JITOperationList::addPointers() to support JIT_OPERATION_VALIDATION_ASSERT_ENABLED.
+            https://bugs.webkit.org/show_bug.cgi?id=237504
+            <rdar://problem/89770507>
+
+            Reviewed by Saam Barati.
+
+            According to tagJSCCodePtrImpl(), we will only use an operation's validation entry
+            if Options::useJITCage().  Make JITOperationList::addPointers() conform to this.
+
+            * assembler/JITOperationList.cpp:
+            (JSC::JITOperationList::addPointers):
+
+2022-03-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r290517. rdar://problem/89428235
+
+    operationMaterializeObjectInOSR should DeferTerminationForAWhile instead of just DeferTermination.
+    https://bugs.webkit.org/show_bug.cgi?id=237173
+    rdar://problem/89450245
+    
+    Reviewed by Yusuke Suzuki.
+    
+    JSTests:
+    
+    * stress/termination-exception-in-operationMaterializeObjectInOSR2.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    DeferTermination can throw the TerminationException on destruction of the scope
+    object.  operationMaterializeObjectInOSR() was using DeferTermination, resulting
+    in the TerminationException being thrown on exit.  This trips up
+    validateDFGExceptionHandling testing (which is enabled on Debug builds) because the
+    TerminationException is unexpected.  The solution is simply to use
+    DeferTerminationForAWhile instead, and let a more natural trap checkpoint throw
+    the TerminationException later.
+    
+    Also refactored notifyDebuggerOfUnwinding() to return early if a debugger is not
+    present.  This avoids unnecessarily entering and exiting a DeferTermination scope
+    in notifyDebuggerOfUnwinding().  This was observed while testing this change on
+    the attached test case.
+    
+    * ftl/FTLOperations.cpp:
+    (JSC::FTL::operationMaterializeObjectInOSR):
+    * interpreter/Interpreter.cpp:
+    (JSC::notifyDebuggerOfUnwinding):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290517 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-02-25  Mark Lam  <mark.lam@apple.com>
+
+            operationMaterializeObjectInOSR should DeferTerminationForAWhile instead of just DeferTermination.
+            https://bugs.webkit.org/show_bug.cgi?id=237173
+            rdar://problem/89450245
+
+            Reviewed by Yusuke Suzuki.
+
+            DeferTermination can throw the TerminationException on destruction of the scope
+            object.  operationMaterializeObjectInOSR() was using DeferTermination, resulting
+            in the TerminationException being thrown on exit.  This trips up
+            validateDFGExceptionHandling testing (which is enabled on Debug builds) because the
+            TerminationException is unexpected.  The solution is simply to use
+            DeferTerminationForAWhile instead, and let a more natural trap checkpoint throw
+            the TerminationException later.
+
+            Also refactored notifyDebuggerOfUnwinding() to return early if a debugger is not
+            present.  This avoids unnecessarily entering and exiting a DeferTermination scope
+            in notifyDebuggerOfUnwinding().  This was observed while testing this change on
+            the attached test case.
 
             * ftl/FTLOperations.cpp:
-            (JSC::FTL::JSC_DEFINE_JIT_OPERATION):
+            (JSC::FTL::operationMaterializeObjectInOSR):
+            * interpreter/Interpreter.cpp:
+            (JSC::notifyDebuggerOfUnwinding):
+
+2022-03-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r290788. rdar://problem/83494949
+
+    Add a DeferTraps scope
+    https://bugs.webkit.org/show_bug.cgi?id=237306
+    <rdar://83494949>
+    
+    Reviewed by Mark Lam.
+    
+    * bytecode/CodeBlock.cpp:
+    (JSC::CodeBlock::CodeBlock):
+    (JSC::CodeBlock::jettison):
+    (JSC::CodeBlock::noticeIncomingCall):
+    * bytecode/CodeBlock.h:
+    * bytecode/RepatchInlines.h:
+    (JSC::linkFor):
+    (JSC::virtualForWithFunction):
+    * dfg/DFGOperations.cpp:
+    (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+    * interpreter/Interpreter.cpp:
+    (JSC::Interpreter::executeProgram):
+    (JSC::Interpreter::executeCall):
+    (JSC::Interpreter::executeConstruct):
+    (JSC::Interpreter::execute):
+    (JSC::Interpreter::executeModuleProgram):
+    * interpreter/InterpreterInlines.h:
+    (JSC::Interpreter::execute):
+    * llint/LLIntSlowPaths.cpp:
+    (JSC::LLInt::setUpCall):
+    * runtime/ExceptionScope.h:
+    * runtime/ScriptExecutable.cpp:
+    (JSC::ScriptExecutable::installCode):
+    * runtime/VMTraps.cpp:
+    (JSC::VMTraps::handleTraps):
+    (JSC::VMTraps::takeTopPriorityTrap):
+    * runtime/VMTraps.h:
+    (JSC::VMTraps::needHandling const):
+    (JSC::VMTraps::maybeNeedHandling const):
+    (JSC::VMTraps::hasTrapBit):
+    (JSC::VMTraps::setTrapBit):
+    * runtime/VMTrapsInlines.h:
+    (JSC::DeferTraps::DeferTraps):
+    (JSC::DeferTraps::~DeferTraps):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290788 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-03  Saam Barati  <sbarati@apple.com>
+
+            Add a DeferTraps scope
+            https://bugs.webkit.org/show_bug.cgi?id=237306
+            <rdar://83494949>
+
+            Reviewed by Mark Lam.
+
+            * bytecode/CodeBlock.cpp:
+            (JSC::CodeBlock::CodeBlock):
+            (JSC::CodeBlock::jettison):
+            (JSC::CodeBlock::noticeIncomingCall):
+            * bytecode/CodeBlock.h:
+            * bytecode/RepatchInlines.h:
+            (JSC::linkFor):
+            (JSC::virtualForWithFunction):
+            * dfg/DFGOperations.cpp:
+            (JSC::DFG::JSC_DEFINE_JIT_OPERATION):
+            * interpreter/Interpreter.cpp:
+            (JSC::Interpreter::executeProgram):
+            (JSC::Interpreter::executeCall):
+            (JSC::Interpreter::executeConstruct):
+            (JSC::Interpreter::execute):
+            (JSC::Interpreter::executeModuleProgram):
+            * interpreter/InterpreterInlines.h:
+            (JSC::Interpreter::execute):
+            * llint/LLIntSlowPaths.cpp:
+            (JSC::LLInt::setUpCall):
+            * runtime/ExceptionScope.h:
+            * runtime/ScriptExecutable.cpp:
+            (JSC::ScriptExecutable::installCode):
+            * runtime/VMTraps.cpp:
+            (JSC::VMTraps::handleTraps):
+            (JSC::VMTraps::takeTopPriorityTrap):
+            * runtime/VMTraps.h:
+            (JSC::VMTraps::needHandling const):
+            (JSC::VMTraps::maybeNeedHandling const):
+            (JSC::VMTraps::hasTrapBit):
+            (JSC::VMTraps::setTrapBit):
+            * runtime/VMTrapsInlines.h:
+            (JSC::DeferTraps::DeferTraps):
+            (JSC::DeferTraps::~DeferTraps):
+
+2022-03-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r290510. rdar://problem/89364487
+
+    Web Inspector: [Cocoa] Split remote inspector message data into smaller chunks for large messages
+    https://bugs.webkit.org/show_bug.cgi?id=237110
+    <rdar://89364487>
+    
+    Reviewed by Devin Rousso.
+    
+    Messages over 2 MiB will now be split into multiple chunks, which allows us to not exceed any receiving daemon
+    process' memory limit under otherwise normal conditions. 2 MiB was chosen as a balance between not having to
+    split most messages at all and making sure that the messages (and any copies made during the relaying of the
+    messages) do not exceed the memory limits of the receiving daemon process.
+    
+    In order to prevent us from sending chunked messages to a process that doesn't support them we check for a flag
+    to enable this functionality during connection setup.
+    
+    * inspector/remote/RemoteInspector.h:
+    * inspector/remote/RemoteInspectorConstants.h:
+    * inspector/remote/cocoa/RemoteInspectorCocoa.mm:
+    (Inspector::RemoteInspector::sendMessageToRemote):
+    (Inspector::RemoteInspector::receivedSetupMessage):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290510 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-02-25  Patrick Angle  <pangle@apple.com>
+
+            Web Inspector: [Cocoa] Split remote inspector message data into smaller chunks for large messages
+            https://bugs.webkit.org/show_bug.cgi?id=237110
+            <rdar://89364487>
+
+            Reviewed by Devin Rousso.
+
+            Messages over 2 MiB will now be split into multiple chunks, which allows us to not exceed any receiving daemon
+            process' memory limit under otherwise normal conditions. 2 MiB was chosen as a balance between not having to
+            split most messages at all and making sure that the messages (and any copies made during the relaying of the
+            messages) do not exceed the memory limits of the receiving daemon process.
+
+            In order to prevent us from sending chunked messages to a process that doesn't support them we check for a flag
+            to enable this functionality during connection setup.
+
+            * inspector/remote/RemoteInspector.h:
+            * inspector/remote/RemoteInspectorConstants.h:
+            * inspector/remote/cocoa/RemoteInspectorCocoa.mm:
+            (Inspector::RemoteInspector::sendMessageToRemote):
+            (Inspector::RemoteInspector::receivedSetupMessage):
+
+2022-03-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r290265. rdar://problem/88258776
+
+    [JSC] Add explicit exception check after appendWithoutSideEffects
+    https://bugs.webkit.org/show_bug.cgi?id=236986
+    rdar://88258776
+    
+    Reviewed by Saam Barati.
+    
+    JSTests:
+    
+    * stress/array-to-string-oom.js: Added.
+    
+    Source/JavaScriptCore:
+    
+    Add exception check after JSStringJoiner::appendWithoutSideEffects call since JSString::value can throw OOM error.
+    
+    * runtime/ArrayPrototype.cpp:
+    (JSC::JSC_DEFINE_HOST_FUNCTION):
+    * runtime/JSStringJoiner.h:
+    (JSC::JSStringJoiner::append):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290265 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-02-21  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Add explicit exception check after appendWithoutSideEffects
+            https://bugs.webkit.org/show_bug.cgi?id=236986
+            rdar://88258776
+
+            Reviewed by Saam Barati.
+
+            Add exception check after JSStringJoiner::appendWithoutSideEffects call since JSString::value can throw OOM error.
+
+            * runtime/ArrayPrototype.cpp:
+            (JSC::JSC_DEFINE_HOST_FUNCTION):
+            * runtime/JSStringJoiner.h:
+            (JSC::JSStringJoiner::append):
+
+2022-03-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r289001. rdar://problem/88404556
+
+    [JSC] Crash on several pages after r287986
+    https://bugs.webkit.org/show_bug.cgi?id=236033
+    
+    Reviewed by Tim Horton.
+    
+    I noticed that Safari crashes when opening https://linux.die.net/man/3/localtime.
+    This is happening after r287986: we are calling [self release], but the [JSValue dealloc]
+    cannot work if _context is nil. We should add a guard.
+    
+    * API/JSValue.mm:
+    (-[JSValue dealloc]):
+    * API/tests/testapi.mm:
+    (testObjectiveCAPIMain):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@289001 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-02-02  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [JSC] Crash on several pages after r287986
+            https://bugs.webkit.org/show_bug.cgi?id=236033
+
+            Reviewed by Tim Horton.
+
+            I noticed that Safari crashes when opening https://linux.die.net/man/3/localtime.
+            This is happening after r287986: we are calling [self release], but the [JSValue dealloc]
+            cannot work if _context is nil. We should add a guard.
+
+            * API/JSValue.mm:
+            (-[JSValue dealloc]):
+            * API/tests/testapi.mm:
+            (testObjectiveCAPIMain):
+
+2022-03-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r287986. rdar://problem/87489048
+
+    Fix a few Objective-C object leaks due to early returns in `init`
+    https://bugs.webkit.org/show_bug.cgi?id=235162
+    <rdar://problem/87489048>
+    
+    Reviewed by Wenson Hsieh.
+    
+    Source/JavaScriptCore:
+    
+    * API/JSValue.mm:
+    (-[JSValue initWithValue:inContext:]):
+    
+    Source/WebCore:
+    
+    * platform/ios/WebAVPlayerController.mm:
+    (-[WebAVPlayerController init]):
+    
+    Source/WebKit:
+    
+    * UIProcess/ios/WKHoverPlatter.mm:
+    (-[WKHoverPlatter initWithView:delegate:]):
+    
+    Source/WebKitLegacy/mac:
+    
+    * Storage/WebDatabaseQuotaManager.mm:
+    (WebCore::if):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@287986 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-13  Tim Horton  <timothy_horton@apple.com>
+
+            Fix a few Objective-C object leaks due to early returns in `init`
+            https://bugs.webkit.org/show_bug.cgi?id=235162
+            <rdar://problem/87489048>
+
+            Reviewed by Wenson Hsieh.
+
+            * API/JSValue.mm:
+            (-[JSValue initWithValue:inContext:]):
+
+2022-03-03  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r288363. rdar://problem/88995092
+
+    Fix build when using Visual Studio 2022
+    https://bugs.webkit.org/show_bug.cgi?id=235440
+    
+    Reviewed by Antti Koivisto.
+    
+    It doesn't like having a switch with a default but no cases.
+    This is cleaner with if statements anyways.
+    Also make members const because I can.
+    
+    * jit/JITCode.cpp:
+    (JSC::JITCode::calleeSaveRegisters const):
+    * jit/JITCode.h:
+    
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@288363 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-01-21  Alex Christensen  <achristensen@webkit.org>
+
+            Fix build when using Visual Studio 2022
+            https://bugs.webkit.org/show_bug.cgi?id=235440
+
+            Reviewed by Antti Koivisto.
+
+            It doesn't like having a switch with a default but no cases.
+            This is cleaner with if statements anyways.
+            Also make members const because I can.
+
+            * jit/JITCode.cpp:
+            (JSC::JITCode::calleeSaveRegisters const):
+            * jit/JITCode.h:
 
 2022-02-09  Alan Coon  <alancoon@apple.com>
 

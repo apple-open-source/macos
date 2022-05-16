@@ -33,10 +33,12 @@
 #include "NetworkLoadClient.h"
 #include "NetworkResourceLoadIdentifier.h"
 #include "NetworkResourceLoadParameters.h"
+#include "PrivateRelayed.h"
 #include <WebCore/ContentSecurityPolicyClient.h>
 #include <WebCore/CrossOriginAccessControl.h>
 #include <WebCore/PrivateClickMeasurement.h>
 #include <WebCore/ResourceResponse.h>
+#include <WebCore/SWServerRegistration.h>
 #include <WebCore/SecurityPolicyViolationEvent.h>
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/Timer.h>
@@ -86,7 +88,7 @@ public:
     void start();
     void abort();
 
-    void transferToNewWebProcess(NetworkConnectionToWebProcess&, WebCore::ResourceLoaderIdentifier);
+    void transferToNewWebProcess(NetworkConnectionToWebProcess&, const NetworkResourceLoadParameters&);
 
     // Message handlers.
     void didReceiveNetworkResourceLoaderMessage(IPC::Connection&, IPC::Decoder&);
@@ -114,7 +116,7 @@ public:
     bool isSynchronous() const final;
     bool isAllowedToAskUserForCredentials() const final { return m_isAllowedToAskUserForCredentials; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&&) final;
-    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) final;
+    void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, ResponseCompletionHandler&&) final;
     void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&, int reportedEncodedDataLength) final;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) final;
     void didFailLoading(const WebCore::ResourceError&) final;
@@ -145,10 +147,11 @@ public:
 #if ENABLE(SERVICE_WORKER)
     void startWithServiceWorker();
     void serviceWorkerDidNotHandle(ServiceWorkerFetchTask*);
+    void setServiceWorkerRegistration(WebCore::SWServerRegistration& serviceWorkerRegistration) { m_serviceWorkerRegistration = serviceWorkerRegistration; }
 #endif
 
     std::optional<WebCore::ResourceError> doCrossOriginOpenerHandlingOfResponse(const WebCore::ResourceResponse&);
-    void sendDidReceiveResponsePotentiallyInNewBrowsingContextGroup(const WebCore::ResourceResponse&, bool needsContinueDidReceiveResponseMessage);
+    void sendDidReceiveResponsePotentiallyInNewBrowsingContextGroup(const WebCore::ResourceResponse&, PrivateRelayed, bool needsContinueDidReceiveResponseMessage);
 
     bool isAppInitiated();
 
@@ -255,11 +258,13 @@ private:
     std::optional<NetworkActivityTracker> m_networkActivityTracker;
 #if ENABLE(SERVICE_WORKER)
     std::unique_ptr<ServiceWorkerFetchTask> m_serviceWorkerFetchTask;
+    WeakPtr<WebCore::SWServerRegistration> m_serviceWorkerRegistration;
 #endif
     NetworkResourceLoadIdentifier m_resourceLoadID;
     WebCore::ResourceResponse m_redirectResponse;
     URL m_firstResponseURL; // First URL in response's URL list (https://fetch.spec.whatwg.org/#concept-response-url-list).
     std::optional<WebCore::CrossOriginOpenerPolicyEnforcementResult> m_currentCoopEnforcementResult;
+    PrivateRelayed m_privateRelayed { PrivateRelayed::No };
 };
 
 } // namespace WebKit

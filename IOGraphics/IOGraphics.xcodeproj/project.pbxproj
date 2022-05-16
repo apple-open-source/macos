@@ -980,7 +980,7 @@
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
 			productName = IOGraphicsFamily;
 			productReference = A683359A0D450E6600307FE3 /* IOGraphicsFamily.kext */;
-			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 		A683359B0D450E6600307FE3 /* IONDRVSupport */ = {
 			isa = PBXNativeTarget;
@@ -999,7 +999,7 @@
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
 			productName = IONDRVSupport;
 			productReference = A68335B40D450E6600307FE3 /* IONDRVSupport.kext */;
-			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 		A68335B50D450E6600307FE3 /* IOGraphics Headers */ = {
 			isa = PBXNativeTarget;
@@ -2270,6 +2270,7 @@
 					development,
 				);
 				BUNDLE_STYLE = SHALLOW;
+				SHALLOW_BUNDLE = "YES";
 				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = "";

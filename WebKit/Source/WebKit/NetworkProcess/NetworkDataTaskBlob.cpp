@@ -38,6 +38,7 @@
 #include "Logging.h"
 #include "NetworkProcess.h"
 #include "NetworkSession.h"
+#include "PrivateRelayed.h"
 #include "WebErrors.h"
 #include <WebCore/AsyncFileStream.h>
 #include <WebCore/BlobRegistryImpl.h>
@@ -269,8 +270,13 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse(Error errorCode)
         addCrossOriginOpenerPolicyHeaders(response, m_blobData->policyContainer().crossOriginOpenerPolicy);
         addCrossOriginEmbedderPolicyHeaders(response, m_blobData->policyContainer().crossOriginEmbedderPolicy);
 
-        if (isRangeRequest)
-            response.setHTTPHeaderField(HTTPHeaderName::ContentRange, ParsedContentRange(m_rangeOffset, m_rangeEnd, m_totalSize).headerValue());
+        if (isRangeRequest) {
+            auto rangeEnd = m_rangeEnd;
+            if (rangeEnd == kPositionNotSpecified)
+                rangeEnd = m_totalSize - 1;
+
+            response.setHTTPHeaderField(HTTPHeaderName::ContentRange, ParsedContentRange(m_rangeOffset, rangeEnd, m_totalSize).headerValue());
+        }
         // FIXME: If a resource identified with a blob: URL is a File object, user agents must use that file's name attribute,
         // as if the response had a Content-Disposition header with the filename parameter set to the File's name attribute.
         // Notably, this will affect a name suggested in "File Save As".
@@ -290,7 +296,7 @@ void NetworkDataTaskBlob::dispatchDidReceiveResponse(Error errorCode)
         break;
     }
 
-    didReceiveResponse(WTFMove(response), NegotiatedLegacyTLS::No, [this, protectedThis = WTFMove(protectedThis), errorCode](PolicyAction policyAction) {
+    didReceiveResponse(WTFMove(response), NegotiatedLegacyTLS::No, PrivateRelayed::No, [this, protectedThis = WTFMove(protectedThis), errorCode](PolicyAction policyAction) {
         LOG(NetworkSession, "%p - NetworkDataTaskBlob::didReceiveResponse completionHandler (%u)", this, static_cast<unsigned>(policyAction));
 
         if (m_state == State::Canceling || m_state == State::Completed) {

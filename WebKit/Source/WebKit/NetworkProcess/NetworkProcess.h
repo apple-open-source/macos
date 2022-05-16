@@ -335,6 +335,7 @@ public:
     const OptionSet<NetworkCache::CacheOption>& cacheOptions() const { return m_cacheOptions; }
 
     NetworkConnectionToWebProcess* webProcessConnection(WebCore::ProcessIdentifier) const;
+    WebCore::ProcessIdentifier webProcessIdentifierForConnection(IPC::Connection&) const;
     WebCore::MessagePortChannelRegistry& messagePortChannelRegistry() { return m_messagePortChannelRegistry; }
 
     void setServiceWorkerFetchTimeoutForTesting(Seconds, CompletionHandler<void()>&&);
@@ -413,7 +414,7 @@ private:
 
     // Message Handlers
     bool didReceiveSyncNetworkProcessMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
-    void initializeNetworkProcess(NetworkProcessCreationParameters&&);
+    void initializeNetworkProcess(NetworkProcessCreationParameters&&, CompletionHandler<void()>&&);
     void createNetworkConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, CompletionHandler<void(std::optional<IPC::Attachment>&&, WebCore::HTTPCookieAcceptPolicy)>&&);
 
     void fetchWebsiteData(PAL::SessionID, OptionSet<WebsiteDataType>, OptionSet<WebsiteDataFetchOption>, CompletionHandler<void(WebsiteData&&)>&&);

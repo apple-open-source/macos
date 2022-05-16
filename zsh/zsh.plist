@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>5.8</string>
+	<string>5.8.1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>https://astuteinternet.dl.sourceforge.net/project/zsh/zsh/5.8/zsh-5.8.tar.xz</string>
+	<string>https://cfhcable.dl.sourceforge.net/project/zsh/zsh/5.8.1/zsh-5.8.1.tar.xz</string>
 	<key>OpenSourceSHA512256</key>
-	<string>2030ec494a3389231038f10fa6f3008eadf8d0270b85ac586cbd37d96a94fce6</string>
+	<string>f4e5e185b68731ab20b7ba44b9e06647f7e98e61c96f2cb52d6850a4c8954ecf</string>
 	<key>OpenSourceImportDate</key>
-	<string>2020-04-04</string>
+	<string>2022-03-03</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Completion/Unix/Command/_subversion: 6087334</string>
@@ -21,7 +21,6 @@
 		<string>build fixes: no autotools, no strip, no zshcalsys</string>
 		<string>Src/builtin.c: workaround for 22966068</string>
 		<string>Completion/Base/Utility/_nothing: 24988289</string>
-		<string>Patch for CVE-2019-20044 (#59563926)</string>
 		<string>Src/init.c: rootless global zshenv fix (#81279955)</string>
 		<string>Src/init.c: rootless home .zshenv fix (#82457194)</string>
 	</array>

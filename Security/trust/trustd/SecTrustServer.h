@@ -174,6 +174,7 @@ typedef struct {
     uint64_t start_time;
     bool suspected_mitm;
     bool ca_fail_eku_check;
+    bool no_eku;
     // Certificate Transparency
     TA_SCTSource sct_sources;
     uint32_t number_scts;

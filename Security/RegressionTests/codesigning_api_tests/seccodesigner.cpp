@@ -71,6 +71,30 @@ _deletePath(const char *path)
     return system(command.c_str());
 }
 
+static int
+_runCommand(const char *format, ...)
+{
+    va_list args;
+
+    // Figure out how big we need to make a buffer.
+    va_start(args, format);
+    int calculatedSize = vsnprintf(NULL, 0, format, args);
+    if (calculatedSize <= 0) {
+        return -1;
+    }
+    // Add one for trailing null to end the string.
+    calculatedSize += 1;
+    va_end(args);
+
+    // Fill in the buffer and run the command.
+    va_start(args, format);
+    auto commandBuffer = std::make_unique<char[]>(calculatedSize);
+    vsnprintf(commandBuffer.get(), calculatedSize, format, args);
+    va_end(args);
+
+    return system(commandBuffer.get());
+}
+
 static SecStaticCodeRef
 _createStaticCode(const char *path)
 {
@@ -744,6 +768,49 @@ exit:
     return ret;
 }
 
+static int
+CheckAddAdhocSignatureEncryptedDiskImage(void)
+{
+    int ret = 0;
+    const char *testRootPath = "/tmp/EDI";
+    const char *testContentRootPath = "/tmp/EDI/TestImageContent";
+    const char *diskImagePath = "/tmp/EDI/test.dmg";
+
+    BEGIN();
+
+    // Create a test directory, and a simple content directory.
+    _runCommand("mkdir -p %s", testContentRootPath);
+    _runCommand("echo 'hello' > %s/hello.txt", testContentRootPath);
+
+    // Create an encrypted disk image with a known password and then strip the
+    // FinderInfo attribute that inevitably ends up on it.
+    const char *cmd = "hdiutil create -encryption 'AES-256' -passphrase %s -srcfolder %s %s";
+    _runCommand(cmd, "helloworld", testContentRootPath, diskImagePath);
+    _runCommand("xattr -c %s", diskImagePath);
+
+    ret = _forceAddSignature(diskImagePath, "com.test.encrypted-disk-image", NULL);
+    if (ret) {
+        FAIL("Unable to add adhoc signature to %s", diskImagePath);
+        goto exit;
+    }
+
+    // To ensure the security framework didn't fall back to using an xattr-based
+    // signature, just strip the xattrs here before validating.
+    _runCommand("xattr -c %s", diskImagePath);
+
+    ret = _checkSignatureValidity(diskImagePath, kSecCSDefaultFlags);
+    if (ret) {
+        FAIL("Unable to add adhoc signature to %s", diskImagePath);
+        goto exit;
+    }
+
+    PASS("Successfully added adhoc signature to %s", diskImagePath);
+
+exit:
+    _deletePath(testRootPath);
+    return ret;
+}
+
 int main(void)
 {
     fprintf(stdout, "[TEST] secseccodesignerapitest\n\n");
@@ -760,6 +827,11 @@ int main(void)
         CheckAddAdhocSignatureBundle,
         CheckAddECCSignatureBundle,
         CheckECCKeychainAndSignatureValidationIntegrationBundle,
+
+        // Encrypted disk image tests - only supported on macOS
+#if TARGET_OS_OSX
+        CheckAddAdhocSignatureEncryptedDiskImage,
+#endif
     };
     const int numberOfTests = sizeof(testList) / sizeof(*testList);
     int testResults[numberOfTests] = {0};

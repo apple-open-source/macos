@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2018 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -24,6 +24,7 @@
 #ifdef DS_AVAILABLE
 
 #include "libinfo_common.h"
+#include "od_debug.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -193,7 +194,7 @@ _od_xpc_pipe(bool resetPipe)
 	}
 
 	if (__od_pipe == NULL) {
-		if (!issetugid() && getenv("OD_DEBUG_MODE") != NULL) {
+		if (!issetugid() && od_debug_enabled()) {
 			__od_pipe = xpc_pipe_create(kODMachLibinfoPortNameDebug, 0);
 		} else {
 			__od_pipe = xpc_pipe_create(kODMachLibinfoPortName, XPC_PIPE_FLAG_PRIVILEGED);
@@ -234,7 +235,7 @@ int
 _ds_running(void)
 {
 	kern_return_t status;
-	char *od_debug_mode = NULL;
+	bool od_debug_mode = false;
 
 	if (_ds_port != MACH_PORT_NULL) return 1;
 
@@ -242,7 +243,7 @@ _ds_running(void)
 	pthread_atfork(NULL, NULL, _ds_child);
 
 	if (!issetugid()) {
-		od_debug_mode = getenv("OD_DEBUG_MODE");
+		od_debug_mode = od_debug_enabled();
 	}
 
 	if (od_debug_mode) {

@@ -92,12 +92,14 @@ const CFStringRef kSOSAccountPeerNegotiationTimeouts = CFSTR("PeerNegotiationTim
 const CFStringRef kSOSAccountPeerLastSentTimestamp = CFSTR("kSOSAccountPeerLastSentTimestamp"); //Dictionary<CFStringRef, CFDateRef>
 const CFStringRef kSOSAccountRenegotiationRetryCount = CFSTR("NegotiationRetryCount");
 const CFStringRef kOTRConfigVersion = CFSTR("OTRConfigVersion");
+
 NSString* const SecSOSAggdReattemptOTRNegotiation   = @"com.apple.security.sos.otrretry";
 NSString* const SOSAccountUserDefaultsSuite = @"com.apple.security.sosaccount";
 NSString* const SOSAccountLastKVSCleanup = @"lastKVSCleanup";
 NSString* const kSOSIdentityStatusCompleteIdentity = @"completeIdentity";
 NSString* const kSOSIdentityStatusKeyOnly = @"keyOnly";
 NSString* const kSOSIdentityStatusPeerOnly = @"peerOnly";
+
 
 
 const uint64_t max_packet_size_over_idms = 500;
@@ -1598,21 +1600,115 @@ bool SOSAccountRemoveIncompleteiCloudIdentities(SOSAccount*  account, SOSCircleR
 }
 
 //
+// MARK: Recovery/Backup Public Key Status Functions
+//
+
+static CFStringRef getCFStringFromKeyType(int n) {
+    switch (n) {
+        case kSOSRecoveryKeyStatus:
+            return CFSTR("kSOSRecoveryKeyStatus");
+        case kSOSBackupKeyStatus:
+            return CFSTR("kSOSBackupKeyStatus");
+        default:
+            return NULL;
+    }
+}
+
+- (void) setPublicKeyStatus: (int) status forKey: (int) key  {
+    CFNumberRef cfstatus = CFNumberCreateWithCFIndex(kCFAllocatorDefault, status);
+    CFStringRef cfkey = getCFStringFromKeyType(key);
+    if(cfkey) {
+        SOSAccountSetValue(self, cfkey, cfstatus, NULL);
+    }
+    CFReleaseNull(cfstatus);
+}
+
+- (int) getPublicKeyStatusForKey: (int) key error: (NSError **) error {
+    CFIndex retval = -1;
+
+    CFStringRef cfkey = getCFStringFromKeyType(key);
+
+    if(!cfkey) {
+        if(error) {
+            *error = [NSError errorWithDomain:(__bridge NSString *)kSOSErrorDomain code:kSOSErrorBadKeyType userInfo:NULL];
+        }
+        return -1;
+    }
+    
+    CFNumberRef cfstatus = SOSAccountGetValue(self, cfkey, NULL);
+    if(cfstatus) {
+        CFNumberGetValue(cfstatus, kCFNumberCFIndexType, &retval);
+        if(key == kSOSRecoveryKeyStatus) {
+            CFDataRef reckey = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, self, NULL);
+            if(!reckey) {
+                retval = kSOSKeyNotRegistered;
+            }
+            CFReleaseNull(reckey);
+        } else if(key == kSOSBackupKeyStatus) {
+            if(!SOSPeerInfoHasBackupKey(self.peerInfo)) {
+                retval = kSOSKeyNotRegistered;
+            }
+        }
+        return (int) retval;
+    }
+    
+    // if we're here we have to figure it out and save it - upgrade to account struct
+    
+    retval = kSOSKeyNotRegistered;
+    if(key == kSOSRecoveryKeyStatus) {
+        CFDataRef reckey = NULL;
+        if(SOSAccountRecoveryKeyIsInBackupAndCurrentInView(self, kSOSViewiCloudIdentity)) {
+            retval = kSOSKeyRecordedInRing; // most we know right now
+        } else if ((reckey = SOSAccountCopyRecoveryPublic(kCFAllocatorDefault, self, NULL)) != NULL) {
+            retval = kSOSKeyRegisteredInAccount;
+            CFReleaseNull(reckey);
+        }
+    } else if(key == kSOSBackupKeyStatus) {
+        if(SOSAccountBackupRingHasMyBackupKeyForView(self, kSOSViewiCloudIdentity, NULL)) {
+            retval = kSOSKeyRecordedInRing; // most we know right now
+        } else if(SOSPeerInfoHasBackupKey(self.peerInfo)) {
+            retval = kSOSKeyRegisteredInAccount;
+        }
+    } else {
+        retval = -1;
+        *error = [NSError errorWithDomain:(__bridge NSString *)kSOSErrorDomain code:kSOSErrorBadKeyType userInfo:NULL];
+    }
+    
+    return (int) retval;
+}
+
+
+- (void)keyStatusFor: (int) keyType complete: (void(^)(SOSBackupPublicKeyStatus status, NSError *error))complete {
+    NSError* error = nil;
+    SOSBackupPublicKeyStatus status = [self getPublicKeyStatusForKey:keyType error: &error];
+    complete(status, error);
+}
+
+//
 // MARK: Recovery Public Key Functions
 //
 
 bool SOSAccountRegisterRecoveryPublicKey(SOSAccountTransaction* txn, CFDataRef recovery_key, CFErrorRef *error){
     bool retval = SOSAccountSetRecoveryKey(txn.account, recovery_key, error);
-    if(retval) secnotice("recovery", "successfully registered recovery public key");
-    else secnotice("recovery", "could not register recovery public key: %@", *error);
+    if(retval) {
+        secnotice("recovery", "successfully registered recovery public key");
+        [txn.account setPublicKeyStatus:kSOSKeyRegisteredInAccount forKey:kSOSRecoveryKeyStatus];
+    } else {
+        secnotice("recovery", "could not register recovery public key: %@", *error);
+        [txn.account setPublicKeyStatus:kSOSKeyNotRegistered forKey:kSOSRecoveryKeyStatus];
+    }
     SOSClearErrorIfTrue(retval, error);
     return retval;
 }
 
 bool SOSAccountClearRecoveryPublicKey(SOSAccountTransaction* txn, CFDataRef recovery_key, CFErrorRef *error){
     bool retval = SOSAccountRemoveRecoveryKey(txn.account, error);
-    if(retval) secnotice("recovery", "RK Cleared");
-    else secnotice("recovery", "Couldn't clear RK(%@)", *error);
+    if(retval) {
+        secnotice("recovery", "RK Cleared");
+    } else {
+        secnotice("recovery", "Couldn't clear RK(%@)", *error);
+    }
+    [txn.account setPublicKeyStatus:kSOSKeyNotRegistered forKey:kSOSRecoveryKeyStatus];
     SOSClearErrorIfTrue(retval, error);
     return retval;
 }
@@ -2938,16 +3034,16 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
                                                  lockStateTracker:[CKKSLockStateTracker globalTracker]
                                               reachabilityTracker:nil];
 
-
     self.performBackups = [[CKKSNearFutureScheduler alloc] initWithName:@"performBackups"
-                                                           initialDelay:5*NSEC_PER_SEC
-                                                        continuingDelay:30*NSEC_PER_SEC
-                                                       keepProcessAlive:YES
-                                              dependencyDescriptionCode:CKKSResultDescriptionNone
-                                                                  block:^{
-        STRONGIFY(self);
-        [self addBackupFlag];
-    }];
+                                                               initialDelay:5*NSEC_PER_SEC
+                                                           expontialBackoff:2.0
+                                                               maximumDelay:120*NSEC_PER_SEC
+                                                           keepProcessAlive:YES
+                                                  dependencyDescriptionCode:CKKSResultDescriptionNone
+                                                                      block:^{
+                                                                                STRONGIFY(self);
+                                                                                [self addBackupFlag];
+                                                                            }];
 
     self.performRingUpdates = [[CKKSNearFutureScheduler alloc] initWithName:@"performRingUpdates"
                                                                initialDelay:1*NSEC_PER_SEC
@@ -2956,9 +3052,9 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
                                                            keepProcessAlive:YES
                                                   dependencyDescriptionCode:CKKSResultDescriptionNone
                                                                       block:^{
-        STRONGIFY(self);
-        [self addRingUpdateFlag];
-    }];
+                                                                                STRONGIFY(self);
+                                                                                [self addRingUpdateFlag];
+                                                                            }];
 
     SOSAccountConfiguration *conf = self.accountConfiguration.storage;
 
@@ -3127,8 +3223,17 @@ static NSSet<OctagonFlag*>* SOSFlagsSet(void) {
         // an existing circle/ring.
         [self performTransaction:^(SOSAccountTransaction * _Nonnull txn) {
             CFErrorRef localError = NULL;
+            secnotice("rings", "Flushing Rings to KVS");
             if(![self.circle_transport flushChanges:&localError]){
                 secnotice("circleOps", "flush circles/rings failed %@", localError);
+            } else {
+                txn.account.need_backup_peers_created_after_backup_key_set = true;
+                if([txn.account getPublicKeyStatusForKey:kSOSRecoveryKeyStatus error:NULL] > 0) {
+                    [txn.account setPublicKeyStatus:kSOSKeyPushedInRing forKey:kSOSRecoveryKeyStatus];
+                }
+                if([txn.account getPublicKeyStatusForKey:kSOSBackupKeyStatus error:NULL] > 0) {
+                    [txn.account setPublicKeyStatus:kSOSKeyPushedInRing forKey:kSOSBackupKeyStatus];
+                }
             }
             CFReleaseNull(localError);
 

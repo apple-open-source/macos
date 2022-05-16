@@ -97,6 +97,8 @@ extern char **environ;
 
 #include "IOKit/graphics/GTraceTypes.hpp"
 
+#include <sys/sysctl.h>
+
 #ifdef TARGET_CPU_X86_64
 
 #define kFILENAME_LENGTH                64
@@ -516,6 +518,21 @@ kern_return_t iogDiagnose(
 }
 }; // namespace
 
+//
+// Architecture check
+//
+static bool
+is_intel_mac()
+{
+    int is_arm64 = 0;
+    size_t data_len = sizeof(is_arm64);
+    if (0 == sysctlbyname("hw.optional.arm64", &is_arm64, &data_len, NULL, 0)
+        && is_arm64) {
+        return false;
+    }
+    return true;
+}
+
 int main(int argc, char * argv[])
 {
     bool                 bDumpToFile = false;
@@ -528,6 +545,12 @@ int main(int argc, char * argv[])
         "binary", required_argument,  nullptr, 'b',
         nullptr,  no_argument,        nullptr,  0 ,
     };
+    
+    // When sysdiagnose calls iogdiagnose on AS, we should just return and do nothing.
+    // rdar://86069499 (CrashTracer: AGDCDiagnose at runtime: mach_msg_trap)
+    if (is_intel_mac()==false)
+        return EXIT_SUCCESS;
+    
     const char*          argKeys = "fb:";
 
     while (-1 != (flag = getopt_long(argc, argv, argKeys, opts, &flagInd)) ) {

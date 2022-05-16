@@ -76,6 +76,7 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     Error initialize(const Display *display);
     Error makeCurrent(const gl::Context *context);
     Error unMakeCurrent(const gl::Context *context);
+    Error prepareSwap(const gl::Context *context);
     Error swap(const gl::Context *context);
     Error swapWithDamage(const gl::Context *context, const EGLint *rects, EGLint n_rects);
     Error swapWithFrameToken(const gl::Context *context, EGLFrameTokenANGLE frameToken);
@@ -104,8 +105,8 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     void setFixedWidth(EGLint width);
     void setFixedHeight(EGLint height);
 
-    gl::Framebuffer *createDefaultFramebuffer(const gl::Context *context,
-                                              egl::Surface *readSurface);
+    std::unique_ptr<gl::Framebuffer> createDefaultFramebuffer(const gl::Context *context,
+                                                              egl::Surface *readSurface);
 
     const Config *getConfig() const;
 
@@ -202,9 +203,13 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     // otherwise.
     const gl::Offset &getTextureOffset() const { return mTextureOffset; }
 
-    Error getBufferAge(const gl::Context *context, EGLint *age) const;
+    Error getBufferAge(const gl::Context *context, EGLint *age);
 
     Error setRenderBuffer(EGLint renderBuffer);
+
+    bool bufferAgeQueriedSinceLastSwap() const { return mBufferAgeQueriedSinceLastSwap; }
+    void setDamageRegion(const EGLint *rects, EGLint n_rects);
+    bool isDamageRegionSet() const { return mIsDamageRegionSet; }
 
   protected:
     Surface(EGLint surfaceType,
@@ -214,8 +219,6 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
             EGLenum buftype = EGL_NONE);
     ~Surface() override;
     rx::FramebufferAttachmentObjectImpl *getAttachmentImpl() const override;
-
-    gl::Framebuffer *createDefaultFramebuffer(const Display *display);
 
     // ANGLE-only method, used internally
     friend class gl::Texture;
@@ -268,7 +271,12 @@ class Surface : public LabeledObject, public gl::FramebufferAttachmentObject
     uint8_t *mLockBufferPtr;      // Memory owned by backend.
     EGLint mLockBufferPitch;
 
+    bool mBufferAgeQueriedSinceLastSwap;
+    bool mIsDamageRegionSet;
+
   private:
+    Error getBufferAgeImpl(const gl::Context *context, EGLint *age) const;
+
     Error destroyImpl(const Display *display);
 
     void postSwap(const gl::Context *context);

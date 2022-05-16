@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2011-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2011-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,7 +40,6 @@
 #import "ColorSpaceCG.h"
 #import "Cookie.h"
 #import "DeprecatedGlobalSettings.h"
-#import "ExtensionsGL.h"
 #import "FloatConversion.h"
 #import "GraphicsContext.h"
 #import "ImageRotationSessionVT.h"
@@ -536,6 +535,7 @@ void MediaPlayerPrivateAVFoundationObjC::cancelLoad()
     m_cachedSeekableRanges = nullptr;
     m_cachedLoadedRanges = nullptr;
     m_cachedHasEnabledAudio = false;
+    m_cachedHasEnabledVideo = false;
     m_cachedPresentationSize = FloatSize();
     m_cachedDuration = MediaTime::zeroTime();
 
@@ -635,10 +635,7 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerLayer()
     [m_videoLayer addObserver:m_objcObserver.get() forKeyPath:@"readyForDisplay" options:NSKeyValueObservingOptionNew context:(void *)MediaPlayerAVFoundationObservationContextAVPlayerLayer];
     updateVideoLayerGravity();
     [m_videoLayer setContentsScale:player()->playerContentsScale()];
-    IntSize defaultSize = snappedIntRect(player()->playerContentBoxRect()).size();
-    ALWAYS_LOG(LOGIDENTIFIER);
-
-    m_videoLayerManager->setVideoLayer(m_videoLayer.get(), defaultSize);
+    m_videoLayerManager->setVideoLayer(m_videoLayer.get(), snappedIntRect(player()->playerContentBoxRect()).size());
 
 #if PLATFORM(IOS_FAMILY) && !PLATFORM(WATCHOS) && !PLATFORM(APPLETV)
     if ([m_videoLayer respondsToSelector:@selector(setPIPModeEnabled:)])
@@ -886,8 +883,8 @@ void MediaPlayerPrivateAVFoundationObjC::createAVAssetForURL(const URL& url, Ret
     if ([headerFields count])
         [options setObject:headerFields.get() forKey:@"AVURLAssetHTTPHeaderFieldsKey"];
 
-    if (player()->doesHaveAttribute("x-itunes-inherit-uri-query-component"))
-        [options setObject:@YES forKey: AVURLAssetInheritURIQueryComponentFromReferencingURIKey];
+    if (shouldEnableInheritURIQueryComponent())
+        [options setObject:@YES forKey:AVURLAssetInheritURIQueryComponentFromReferencingURIKey];
 
     if (PAL::canLoad_AVFoundation_AVURLAssetUseClientURLLoadingExclusively())
         [options setObject:@YES forKey:AVURLAssetUseClientURLLoadingExclusively];
@@ -1090,10 +1087,23 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayer()
 #endif
 
     ASSERT(!m_currentTimeObserver);
-    m_currentTimeObserver = [m_avPlayer addPeriodicTimeObserverForInterval:PAL::CMTimeMake(1, 10) queue:dispatch_get_main_queue() usingBlock:[weakThis = WeakPtr { *this }] (CMTime time) {
-        ensureOnMainThread([weakThis, time] {
-            if (weakThis)
-                weakThis->currentMediaTimeDidChange(PAL::toMediaTime(time));
+    m_currentTimeObserver = [m_avPlayer addPeriodicTimeObserverForInterval:PAL::CMTimeMake(1, 10) queue:dispatch_get_main_queue() usingBlock:[weakThis = WeakPtr { *this }, identifier = LOGIDENTIFIER, this] (CMTime cmTime) {
+        ensureOnMainThread([weakThis, cmTime, this, identifier] {
+            if (!weakThis)
+                return;
+
+            auto time = PAL::toMediaTime(cmTime);
+            if (time == MediaTime::zeroTime() && m_lastPeriodicObserverMediaTime > MediaTime::zeroTime() && !seeking())
+                ALWAYS_LOG(identifier, "PeriodicTimeObserver called with zero");
+            if (time < MediaTime::zeroTime())
+                ALWAYS_LOG(identifier, "PeriodicTimeObserver called with negative time ", time);
+            if (time < m_lastPeriodicObserverMediaTime)
+                ALWAYS_LOG(identifier, "PeriodicTimeObserver went backwards, was ", m_lastPeriodicObserverMediaTime, ", is now ", time);
+            if (!time.isFinite())
+                ALWAYS_LOG(identifier, "PeriodicTimeObserver called with called with infinite time");
+            m_lastPeriodicObserverMediaTime = time;
+
+            weakThis->currentMediaTimeDidChange(WTFMove(time));
         });
     }];
 
@@ -1130,9 +1140,13 @@ void MediaPlayerPrivateAVFoundationObjC::createAVPlayerItem()
 
     [[NSNotificationCenter defaultCenter] addObserver:m_objcObserver.get() selector:@selector(didEnd:) name:AVPlayerItemDidPlayToEndTimeNotification object:m_avPlayerItem.get()];
 
-    NSKeyValueObservingOptions options = NSKeyValueObservingOptionNew | NSKeyValueObservingOptionPrior;
-    for (NSString *keyName in itemKVOProperties())
+    for (NSString *keyName in itemKVOProperties()) {
+        NSKeyValueObservingOptions options = NSKeyValueObservingOptionNew | NSKeyValueObservingOptionPrior;
+        if ([keyName isEqualToString:@"duration"])
+            options |= NSKeyValueObservingOptionInitial;
+
         [m_avPlayerItem addObserver:m_objcObserver.get() forKeyPath:keyName options:options context:(void *)MediaPlayerAVFoundationObservationContextPlayerItem];
+    }
 
     [m_avPlayerItem setAudioTimePitchAlgorithm:audioTimePitchAlgorithmForMediaPlayerPitchCorrectionAlgorithm(player()->pitchCorrectionAlgorithm(), player()->preservesPitch(), m_requestedRate)];
 
@@ -1356,10 +1370,12 @@ void MediaPlayerPrivateAVFoundationObjC::didEnd()
 
 void MediaPlayerPrivateAVFoundationObjC::platformSetVisible(bool isVisible)
 {
+    if (!m_videoLayer)
+        return;
+
     [CATransaction begin];
     [CATransaction setDisableActions:YES];    
-    if (m_videoLayer)
-        [m_videoLayer setHidden:!isVisible];
+    [m_videoLayer setHidden:!isVisible];
     [CATransaction commit];
 }
     
@@ -1520,7 +1536,7 @@ void MediaPlayerPrivateAVFoundationObjC::currentMediaTimeDidChange(MediaTime&& t
     m_requestedRateAtCachedCurrentTime = m_requestedRate;
 
     if (m_currentTimeDidChangeCallback)
-        m_currentTimeDidChangeCallback(time.isFinite() ? m_cachedCurrentMediaTime : MediaTime::zeroTime());
+        m_currentTimeDidChangeCallback(m_cachedCurrentMediaTime.isFinite() ? m_cachedCurrentMediaTime : MediaTime::zeroTime());
 }
 
 void MediaPlayerPrivateAVFoundationObjC::seekToTime(const MediaTime& time, const MediaTime& negativeTolerance, const MediaTime& positiveTolerance)
@@ -2198,10 +2214,12 @@ void MediaPlayerPrivateAVFoundationObjC::tracksChanged()
         // whethere there is any audio present.
         hasAudio |= m_cachedHasEnabledAudio;
 
-        // Always says we have video if the AVPlayerLayer is ready for diaplay to work around
+        // Always says we have video if the AVPlayerLayer is ready for display to work around
         // an AVFoundation bug which causes it to sometimes claim a track is disabled even
-        // when it is not.
-        setHasVideo(hasVideo || m_cachedIsReadyForDisplay);
+        // when it is not. Also say we have video if AVPlayerItem's `hasEnabledVideo` is true,
+        // as an AVAssetTrack will sometimes disappear briefly and reappear when `hasEnabledVideo`
+        // doesn't change.
+        setHasVideo(hasVideo || m_cachedIsReadyForDisplay || m_cachedHasEnabledVideo);
 
         setHasAudio(hasAudio);
 #if ENABLE(DATACUE_VALUE)
@@ -3330,6 +3348,8 @@ void MediaPlayerPrivateAVFoundationObjC::loadedTimeRangesDidChange(RetainPtr<NSA
 
 void MediaPlayerPrivateAVFoundationObjC::firstFrameAvailableDidChange(bool isReady)
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
+
     m_cachedIsReadyForDisplay = isReady;
     if (!hasVideo() && isReady)
         tracksChanged();
@@ -3524,7 +3544,17 @@ void MediaPlayerPrivateAVFoundationObjC::tracksDidChange(const RetainPtr<NSArray
 
 void MediaPlayerPrivateAVFoundationObjC::hasEnabledAudioDidChange(bool hasEnabledAudio)
 {
+    ALWAYS_LOG(LOGIDENTIFIER, hasEnabledAudio);
     m_cachedHasEnabledAudio = hasEnabledAudio;
+
+    tracksChanged();
+    updateStates();
+}
+
+void MediaPlayerPrivateAVFoundationObjC::hasEnabledVideoDidChange(bool hasEnabledVideo)
+{
+    ALWAYS_LOG(LOGIDENTIFIER, hasEnabledVideo);
+    m_cachedHasEnabledVideo = hasEnabledVideo;
 
     tracksChanged();
     updateStates();
@@ -3727,6 +3757,7 @@ NSArray* itemKVOProperties()
         @"playbackBufferEmpty",
         @"duration",
         @"hasEnabledAudio",
+        @"hasEnabledVideo",
         @"canPlayFastForward",
         @"canPlayFastReverse",
     nil];
@@ -3889,6 +3920,8 @@ NSArray* playerKVOProperties()
                 shouldLogValue = false;
             } else if ([keyPath isEqualToString:@"hasEnabledAudio"])
                 player.hasEnabledAudioDidChange([newValue boolValue]);
+            else if ([keyPath isEqualToString:@"hasEnabledVideo"])
+                player.hasEnabledVideoDidChange([newValue boolValue]);
             else if ([keyPath isEqualToString:@"presentationSize"])
                 player.presentationSizeDidChange(FloatSize([newValue sizeValue]));
             else if ([keyPath isEqualToString:@"duration"])

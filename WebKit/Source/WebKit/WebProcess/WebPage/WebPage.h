@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -609,6 +609,10 @@ public:
     bool setFixedLayoutSize(const WebCore::IntSize&);
     WebCore::IntSize fixedLayoutSize() const;
 
+    void setDefaultUnobscuredSize(const WebCore::FloatSize&);
+    void setMinimumUnobscuredSize(const WebCore::FloatSize&);
+    void setMaximumUnobscuredSize(const WebCore::FloatSize&);
+
     void listenForLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 
     void setSuppressScrollbarAnimations(bool);
@@ -724,8 +728,8 @@ public:
     MediaKeySystemPermissionRequestManager& mediaKeySystemPermissionRequestManager() { return m_mediaKeySystemPermissionRequestManager; }
 #endif
 
-    void elementDidFocus(WebCore::Element&);
-    void elementDidRefocus(WebCore::Element&);
+    void elementDidFocus(WebCore::Element&, const WebCore::FocusOptions&);
+    void elementDidRefocus(WebCore::Element&, const WebCore::FocusOptions&);
     void elementDidBlur(WebCore::Element&);
     void focusedElementDidChangeInputMode(WebCore::Element&, WebCore::InputMode);
     void resetFocusedElementForFrame(WebFrame*);
@@ -803,7 +807,7 @@ public:
     void requestPositionInformation(const InteractionInformationRequest&);
     void startInteractionWithElementContextOrPosition(std::optional<WebCore::ElementContext>&&, WebCore::IntPoint&&);
     void stopInteraction();
-    void performActionOnElement(uint32_t action);
+    void performActionOnElement(uint32_t action, const String& authorizationToken, CompletionHandler<void()>&&);
     void focusNextFocusedElement(bool isForward, CompletionHandler<void()>&&);
     void autofillLoginCredentials(const String&, const String&);
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
@@ -1082,8 +1086,6 @@ public:
     void updateVisibilityState(bool isInitialState = false);
 
 #if PLATFORM(IOS_FAMILY)
-    void setMinimumUnobscuredSize(const WebCore::FloatSize&);
-    void setMaximumUnobscuredSize(const WebCore::FloatSize&);
     void setDeviceOrientation(int32_t);
     void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& minimumUnobscuredSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
     bool scaleWasSetByUIProcess() const { return m_scaleWasSetByUIProcess; }
@@ -1221,7 +1223,7 @@ public:
 #endif
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
     void setOrientationForMediaCapture(uint64_t rotation);
-    void setMockCameraIsInterrupted(bool);
+    void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
 #endif
 
     void addUserScript(String&& source, InjectedBundleScriptWorld&, WebCore::UserContentInjectedFrames, WebCore::UserScriptInjectionTime);
@@ -1526,9 +1528,11 @@ private:
 
     bool didReceiveSyncWebPageMessage(IPC::Connection&, IPC::Decoder&, UniqueRef<IPC::Encoder>&);
 
-#if PLATFORM(IOS_FAMILY)
-    void updateViewportSizeForCSSViewportUnits();
+    void updateSizeForCSSDefaultViewportUnits();
+    void updateSizeForCSSSmallViewportUnits();
+    void updateSizeForCSSLargeViewportUnits();
 
+#if PLATFORM(IOS_FAMILY)
     std::optional<FocusedElementInformation> focusedElementInformation();
     void generateSyntheticEditingCommand(SyntheticEditingCommandType);
     void handleSyntheticClick(WebCore::Node& nodeRespondingToClick, const WebCore::FloatPoint& location, OptionSet<WebKit::WebEvent::Modifier>, WebCore::PointerID = WebCore::mousePointerID);
@@ -1958,6 +1962,10 @@ private:
 
     bool m_useFixedLayout { false };
 
+    WebCore::FloatSize m_defaultUnobscuredSize;
+    WebCore::FloatSize m_minimumUnobscuredSize;
+    WebCore::FloatSize m_maximumUnobscuredSize;
+
     WebCore::Color m_underlayColor;
 
 #if ENABLE(UI_PROCESS_PDF_HUD)
@@ -2249,8 +2257,6 @@ private:
 
     std::optional<WebCore::SimpleRange> m_initialSelection;
     WebCore::VisibleSelection m_storedSelectionForAccessibility { WebCore::VisibleSelection() };
-    WebCore::FloatSize m_minimumUnobscuredSize;
-    WebCore::FloatSize m_maximumUnobscuredSize;
     int32_t m_deviceOrientation { 0 };
     bool m_keyboardIsAttached { false };
     bool m_canShowWhileLocked { false };

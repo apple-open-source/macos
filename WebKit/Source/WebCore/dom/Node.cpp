@@ -764,9 +764,10 @@ static Node::Editability computeEditabilityFromComputedStyle(const Node& startNo
             continue;
         // Elements with user-select: all style are considered atomic
         // therefore non editable.
-        if (treatment == Node::UserSelectAllIsAlwaysNonEditable && style->userSelectIncludingInert() == UserSelect::All)
+        if (treatment == Node::UserSelectAllIsAlwaysNonEditable && style->effectiveUserSelect() == UserSelect::All)
             return Node::Editability::ReadOnly;
-        switch (style->userModify()) {
+
+        switch (style->effectiveUserModify()) {
         case UserModify::ReadOnly:
             return Node::Editability::ReadOnly;
         case UserModify::ReadWrite:
@@ -1133,7 +1134,7 @@ bool Node::canStartSelection() const
 
         // We allow selections to begin within an element that has -webkit-user-select: none set,
         // but if the element is draggable then dragging should take priority over selection.
-        if (style.userDrag() == UserDrag::Element && style.userSelectIncludingInert() == UserSelect::None)
+        if (style.userDrag() == UserDrag::Element && style.effectiveUserSelect() == UserSelect::None)
             return false;
     }
     return parentOrShadowHostNode() ? parentOrShadowHostNode()->canStartSelection() : true;
@@ -2620,31 +2621,6 @@ void* Node::opaqueRootSlow() const
         node = nextNode;
     }
     return const_cast<void*>(static_cast<const void*>(node));
-}
-
-// Please use RenderStyle::effectiveInert instead!
-bool Node::deprecatedIsInert() const
-{
-    if (!isConnected())
-        return true;
-
-    if (this != &document()) {
-        Node* activeModalDialog = document().activeModalDialog();
-        if (activeModalDialog && !activeModalDialog->containsIncludingShadowDOM(this))
-            return true;
-    }
-
-    if (document().settings().inertAttributeEnabled()) {
-        for (RefPtr element = this; element; element = element->parentElementInComposedTree()) {
-            if (is<HTMLElement>(*element) && downcast<HTMLElement>(*element).hasAttribute(HTMLNames::inertAttr))
-                return true;
-        }
-    }
-
-    if (!document().frame() || !document().frame()->ownerElement())
-        return false;
-
-    return document().frame()->ownerElement()->deprecatedIsInert();
 }
 
 template<> ContainerNode* parent<Tree>(const Node& node)

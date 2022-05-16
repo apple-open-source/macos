@@ -98,7 +98,7 @@ public:
     bool allowScriptWithNonce(const String& nonce, bool overrideContentSecurityPolicy = false) const;
     bool allowStyleWithNonce(const String& nonce, bool overrideContentSecurityPolicy = false) const;
 
-    bool allowJavaScriptURLs(const String& contextURL, const OrdinalNumber& contextLine, const String& code, bool overrideContentSecurityPolicy = false) const;
+    bool allowJavaScriptURLs(const String& contextURL, const OrdinalNumber& contextLine, const String& code, Element*) const;
     bool allowInlineEventHandlers(const String& contextURL, const OrdinalNumber& contextLine, const String& code, Element*, bool overrideContentSecurityPolicy = false) const;
     bool allowInlineScript(const String& contextURL, const OrdinalNumber& contextLine, StringView scriptContent, Element&, const String& nonce, bool overrideContentSecurityPolicy = false) const;
     bool allowNonParserInsertedScripts(const URL& sourceURL, const URL& contextURL, const OrdinalNumber&, const String& nonce, const StringView&, ParserInserted) const;
@@ -114,6 +114,7 @@ public:
 
     enum class RedirectResponseReceived { No, Yes };
     WEBCORE_EXPORT bool allowScriptFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL(), const String& = nullString(), const String& nonce = nullString()) const;
+    WEBCORE_EXPORT bool allowWorkerFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
     bool allowImageFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
     bool allowStyleFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL(), const String& nonce = nullString()) const;
     bool allowFontFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
@@ -123,11 +124,10 @@ public:
     bool allowMediaFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
 
     bool allowChildFrameFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
-    WEBCORE_EXPORT bool allowChildContextFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& requestedURL = URL()) const;
     WEBCORE_EXPORT bool allowConnectToSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& requestedURL = URL()) const;
     bool allowFormAction(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
 
-    bool allowObjectFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No) const;
+    bool allowObjectFromSource(const URL&, RedirectResponseReceived = RedirectResponseReceived::No, const URL& preRedirectURL = URL()) const;
     bool allowBaseURI(const URL&, bool overrideContentSecurityPolicy = false) const;
 
     void setOverrideAllowInlineStyle(bool);
@@ -190,6 +190,9 @@ public:
     SandboxFlags sandboxFlags() const { return m_sandboxFlags; }
 
     bool isHeaderDelivered() const { return m_isHeaderDelivered; }
+
+    const String& evalErrorMessage() const { return m_lastPolicyEvalDisabledErrorMessage; }
+    const String& webAssemblyErrorMessage() const { return m_lastPolicyWebAssemblyDisabledErrorMessage; }
 
 private:
     void logToConsole(const String& message, const String& contextURL = String(), const OrdinalNumber& contextLine = OrdinalNumber::beforeFirst(), const OrdinalNumber& contextColumn = OrdinalNumber::beforeFirst(), JSC::JSGlobalObject* = nullptr) const;

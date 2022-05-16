@@ -723,7 +723,7 @@ bool EventHandler::canMouseDownStartSelect(const MouseEventWithHitTestResults& e
         return true;
 
     if (ImageOverlay::isOverlayText(*node))
-        return node->renderer()->style().userSelectIncludingInert() != UserSelect::None;
+        return node->renderer()->style().effectiveUserSelect() != UserSelect::None;
 
     return node->canStartSelection() || Position::nodeIsUserSelectAll(node.get());
 }
@@ -1525,7 +1525,7 @@ std::optional<Cursor> EventHandler::selectCursor(const HitTestResult& result, bo
     case CursorType::Auto: {
         if (ImageOverlay::isOverlayText(node.get())) {
             auto* renderer = node->renderer();
-            if (renderer && renderer->style().userSelectIncludingInert() != UserSelect::None)
+            if (renderer && renderer->style().effectiveUserSelect() != UserSelect::None)
                 return iBeam;
         }
 
@@ -2265,12 +2265,7 @@ bool EventHandler::dispatchDragEvent(const AtomString& eventType, Element& dragT
 
     auto dragEvent = DragEvent::create(eventType, Event::CanBubble::Yes, Event::IsCancelable::Yes, Event::IsComposed::Yes,
         event.timestamp().approximateMonotonicTime(), &m_frame.windowProxy(), 0,
-        event.globalPosition(), event.position(),
-#if ENABLE(POINTER_LOCK)
-        event.movementDelta(),
-#else
-        { },
-#endif
+        event.globalPosition(), event.position(), event.movementDelta(),
         event.modifiers(), 0, 0, nullptr, event.force(), NoTap, &dataTransfer);
 
     dragTarget.dispatchEvent(dragEvent);
@@ -2793,6 +2788,15 @@ bool EventHandler::dispatchMouseEvent(const AtomString& eventType, Node* targetN
     // Only change the focus when clicking scrollbars if it can be transferred to a mouse focusable node.
     if (!element && isInsideScrollbar(platformMouseEvent.position()))
         return false;
+
+#if (!PLATFORM(GTK) && !PLATFORM(WPE))
+    // This is a workaround related to :focus-visible (see webkit.org/b/236782).
+    // Form control elements are not mouse focusable on some platforms (see HTMLFormControlElement::isMouseFocusable())
+    // which makes us behave differently than other browsers when a button is clicked,
+    // because the button is not actually focused so we don't set the latest FocusTrigger.
+    if (m_elementUnderMouse && !m_elementUnderMouse->isMouseFocusable() && is<HTMLFormControlElement>(m_elementUnderMouse))
+        m_frame.document()->setLatestFocusTrigger(FocusTrigger::Click);
+#endif
 
     // If focus shift is blocked, we eat the event.
     auto* page = m_frame.page();

@@ -391,40 +391,6 @@ en_001{
                     y{"dd/MM/y – dd/MM/y"}
                 }
             }
-            monthNames{
-                format{
-                    abbreviated{
-                        "Jan",
-                        "Feb",
-                        "Mar",
-                        "Apr",
-                        "May",
-                        "Jun",
-                        "Jul",
-                        "Aug",
-                        "Sept",
-                        "Oct",
-                        "Nov",
-                        "Dec",
-                    }
-                }
-                stand-alone{
-                    abbreviated{
-                        "Jan",
-                        "Feb",
-                        "Mar",
-                        "Apr",
-                        "May",
-                        "Jun",
-                        "Jul",
-                        "Aug",
-                        "Sept",
-                        "Oct",
-                        "Nov",
-                        "Dec",
-                    }
-                }
-            }
         }
         japanese{
             DateTimePatterns{

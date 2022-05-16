@@ -1671,7 +1671,7 @@ class Container: NSObject {
                 return
             }
 
-            guard self.model.isCustodianRecoveryKeyEnrolled(tpcrk.peerID) else {
+            guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
                 logger.debug("Custodian Recovery Key is not enrolled")
                 reply(nil, nil, nil, nil, nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                 return
@@ -2778,7 +2778,7 @@ class Container: NSObject {
                     return
                 }
 
-                guard self.model.isCustodianRecoveryKeyEnrolled(tpcrk.peerID) else {
+                guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
                     logger.debug("Custodian Recovery Key is not enrolled")
                     reply(nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return
@@ -2891,7 +2891,7 @@ class Container: NSObject {
                     return
                 }
 
-                guard self.model.isCustodianRecoveryKeyEnrolled(tpcrk.peerID) else {
+                guard self.model.isCustodianRecoveryKeyTrusted(tpcrk.peerID) else {
                     logger.debug("Custodian Recovery Key is not enrolled")
                     reply(nil, nil, nil, nil, ContainerError.recoveryKeysNotEnrolled)
                     return

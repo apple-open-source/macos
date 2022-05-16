@@ -45,13 +45,6 @@
 
 #include <servers/bootstrap.h>
 
-#if !defined(_OPEN_SOURCE_) && !TARGET_OS_IPHONE
-#include <sys/types.h>
-#include <sys/param.h>
-#include <sys/stat.h>
-#include <dlfcn.h>
-Boolean _CSCheckFix(CFStringRef str);
-#endif        // !_OPEN_SOURCE_ && !TARGET_OS_IPHONE
 
 #define kAssertionsArraySize        5
 #define NUM_BT_FRAMES               8
@@ -193,41 +186,6 @@ static inline void saveBackTrace(CFMutableDictionaryRef props)
 }
 
 
-#if !defined(_OPEN_SOURCE_) && !TARGET_OS_IPHONE
-
-static void * __loadCarbonCore(void) 
-{
-    static void *image = NULL;
-    if (NULL == image) {
-        const char  *framework = "/System/Library/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/CarbonCore";
-        struct stat statbuf;
-        const char  *suffix     = getenv("DYLD_IMAGE_SUFFIX");
-        char    path[MAXPATHLEN];
-
-        strlcpy(path, framework, sizeof(path));
-        if (suffix) strlcat(path, suffix, sizeof(path));
-        if (0 <= stat(path, &statbuf)) {
-            image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
-        } else {
-            image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
-        }
-    }
-    return (void *)image;
-}
-
-
-static Boolean __CSCheckFix(CFStringRef str)
-{
-    static typeof (_CSCheckFix) *dyfunc = NULL;
-    if (!dyfunc) {
-        void *image = __loadCarbonCore();
-        if (image) dyfunc = dlsym(image, "_CSCheckFix");
-    }
-    return dyfunc ? dyfunc(str) : TRUE;
-}
-#define _CSCheckFix __CSCheckFix
-
-#endif  // !_OPEN_SOURCE_ && !TARGET_OS_IPHONE
 
 /*************************************************************************************************************
  Async PowerAssertions
@@ -1791,28 +1749,6 @@ IOReturn IOPMAssertionCreateWithProperties(
 
 
 
-#if !defined(_OPEN_SOURCE_) && !TARGET_OS_IPHONE
-
-    if ( isA_CFString(assertionTypeString) && 
-            ( CFEqual(assertionTypeString, kIOPMAssertionTypePreventUserIdleDisplaySleep) ||
-              CFEqual(assertionTypeString, kIOPMAssertionTypeNoDisplaySleep)) ) {
-
-        if (!_CSCheckFix(CFSTR("11136371") )) {
-
-            if (!mutableProps) {
-                mutableProps = CFDictionaryCreateMutableCopy(NULL, 0, AssertionProperties);
-                if (!mutableProps) {
-                    return_code = kIOReturnInternalError;
-                    goto exit;
-                }
-            }
-
-
-            CFDictionarySetValue(mutableProps, kIOPMAssertionTypeKey, kIOPMAssertionUserIsActive);
-        }
-    }
-
-#endif  // !_OPEN_SOURCE_ && !TARGET_OS_IPHONE
 
 #if TARGET_OS_IPHONE
 

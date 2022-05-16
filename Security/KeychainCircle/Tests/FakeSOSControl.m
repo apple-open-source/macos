@@ -357,6 +357,10 @@
     complete(nil, nil);
 }
 
+- (void)keyStatusFor: (int) keyType complete: (void(^)(SOSBackupPublicKeyStatus status, NSError *error))complete {
+    complete(0, nil);
+}
+
 - (void)rpcTriggerBackup:(NSArray<NSString *> *)backupPeers complete:(void (^)(NSError *))complete {
     complete(nil);
 }

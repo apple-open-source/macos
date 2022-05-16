@@ -68,7 +68,8 @@ struct EGLPlatformParameters
                         supportsVulkanMultiDrawIndirect, WithVulkanPreferCPUForBufferSubData,
                         emulatedVAOs, generateSPIRVThroughGlslang, captureLimits,
                         forceRobustResourceInit, directMetalGeneration, forceInitShaderVariables,
-                        forceVulkanFallbackFormat, displayPowerPreference);
+                        forceVulkanFallbackFormat, displayPowerPreference,
+                        forceSubmitImmutableTextureUpdates, createPipelineDuringLink);
     }
 
     EGLint renderer                               = EGL_PLATFORM_ANGLE_TYPE_DEFAULT_ANGLE;
@@ -99,6 +100,8 @@ struct EGLPlatformParameters
     EGLint forceInitShaderVariables               = EGL_DONT_CARE;
     EGLint forceVulkanFallbackFormat              = EGL_DONT_CARE;
     EGLint displayPowerPreference                 = EGL_DONT_CARE;
+    EGLint forceSubmitImmutableTextureUpdates     = EGL_DONT_CARE;
+    EGLint createPipelineDuringLink               = EGL_DONT_CARE;
 
     angle::PlatformMethods *platformMethods = nullptr;
 };

@@ -591,7 +591,7 @@ encoding_error:
 
 static int
 htmlSkipBlankChars(xmlParserCtxtPtr ctxt) {
-    int res = 0;
+    size_t res = 0;
 
     while (IS_BLANK_CH(*(ctxt->input->cur))) {
 	if ((*ctxt->input->cur == 0) &&
@@ -608,7 +608,7 @@ htmlSkipBlankChars(xmlParserCtxtPtr ctxt) {
 	}
 	res++;
     }
-    return(res);
+    return(res > INT_MAX ? INT_MAX : (int)res);
 }
 
 

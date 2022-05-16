@@ -1351,7 +1351,7 @@ RenderLayer* RenderLayer::enclosingOverflowClipLayer(IncludeSelfOrNot includeSel
 {
     const RenderLayer* layer = (includeSelf == IncludeSelf) ? this : parent();
     while (layer) {
-        if (layer->renderer().hasNonVisibleOverflow())
+        if (layer->renderer().hasPotentiallyScrollableOverflow())
             return const_cast<RenderLayer*>(layer);
 
         layer = layer->parent();
@@ -2954,7 +2954,7 @@ static inline bool shouldDoSoftwarePaint(const RenderLayer* layer, bool painting
 {
     return paintingReflection && !layer->has3DTransform();
 }
-    
+
 static inline bool shouldSuppressPaintingLayer(RenderLayer* layer)
 {
     if (layer->renderer().style().isNotFinal() && !layer->isRenderViewLayer() && !layer->renderer().isDocumentElementRenderer())
@@ -5174,7 +5174,8 @@ void RenderLayer::setBackingNeedsRepaintInRect(const LayoutRect& r, GraphicsLaye
 // Since we're only painting non-composited layers, we know that they all share the same repaintContainer.
 void RenderLayer::repaintIncludingNonCompositingDescendants(RenderLayerModelObject* repaintContainer)
 {
-    renderer().repaintUsingContainer(repaintContainer, renderer().clippedOverflowRectForRepaint(repaintContainer));
+    auto clippedOverflowRect = m_repaintRectsValid ? m_repaintRects.clippedOverflowRect : renderer().clippedOverflowRectForRepaint(repaintContainer);
+    renderer().repaintUsingContainer(repaintContainer, clippedOverflowRect);
 
     for (RenderLayer* curr = firstChild(); curr; curr = curr->nextSibling()) {
         if (!curr->isComposited())
@@ -5242,7 +5243,7 @@ static void determineNonLayerDescendantsPaintedContent(const RenderElement& rend
             if (!renderText.hasRenderedText())
                 continue;
 
-            if (renderer.style().userSelectIncludingInert() != UserSelect::None)
+            if (renderer.style().effectiveUserSelect() != UserSelect::None)
                 request.setHasPaintedContent();
 
             if (!renderText.text().isAllSpecialCharacters<isHTMLSpace>()) {

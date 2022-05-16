@@ -1729,7 +1729,7 @@ bool BytecodeGenerator::emitEqualityOpImpl(RegisterID* dst, RegisterID* src1, Re
             && src1->isTemporary()
             && src2->virtualRegister().isConstant()
             && m_codeBlock->constantRegister(src2->virtualRegister()).get().isString()) {
-            const String& value = asString(m_codeBlock->constantRegister(src2->virtualRegister()).get())->tryGetValue();
+            String value = asString(m_codeBlock->constantRegister(src2->virtualRegister()).get())->tryGetValue();
             if (value == "undefined") {
                 rewind();
                 OpTypeofIsUndefined::emit(this, dst, op.m_value);
@@ -4181,7 +4181,8 @@ static void prepareJumpTableForStringSwitch(UnlinkedStringJumpTable& jumpTable, 
         ASSERT(!labels[i]->isForward());
         
         ASSERT(nodes[i]->isString());
-        StringImpl* clause = static_cast<StringNode*>(nodes[i])->value().impl();
+        UniquedStringImpl* clause = static_cast<StringNode*>(nodes[i])->value().impl();
+        ASSERT(clause->isAtom());
         auto result = jumpTable.m_offsetTable.add(clause, UnlinkedStringJumpTable::OffsetLocation { labels[i]->bind(switchAddress), 0 });
         if (result.isNewEntry)
             result.iterator->value.m_indexInTable = jumpTable.m_offsetTable.size() - 1;

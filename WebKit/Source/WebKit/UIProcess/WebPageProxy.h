@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2010-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -845,10 +845,6 @@ public:
     void dynamicViewportSizeUpdate(const WebCore::FloatSize& viewLayoutSize, const WebCore::FloatSize& minimumUnobscuredSize, const WebCore::FloatSize& maximumUnobscuredSize, const WebCore::FloatRect& targetExposedContentRect, const WebCore::FloatRect& targetUnobscuredRect, const WebCore::FloatRect& targetUnobscuredRectInScrollViewCoordinates, const WebCore::FloatBoxExtent& unobscuredSafeAreaInsets, double targetScale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, DynamicViewportSizeUpdateID);
 
     void setViewportConfigurationViewLayoutSize(const WebCore::FloatSize&, double scaleFactor, double minimumEffectiveDeviceWidth);
-    void setMinimumUnobscuredSize(const WebCore::FloatSize&);
-    WebCore::FloatSize minimumUnobscuredSize() const { return m_minimumUnobscuredSize; }
-    void setMaximumUnobscuredSize(const WebCore::FloatSize&);
-    WebCore::FloatSize maximumUnobscuredSize() const { return m_maximumUnobscuredSize; }
     void setDeviceOrientation(int32_t);
     int32_t deviceOrientation() const { return m_deviceOrientation; }
     void setOverrideViewportArguments(const std::optional<WebCore::ViewportArguments>&);
@@ -880,7 +876,7 @@ public:
     void startInteractionWithPositionInformation(const InteractionInformationAtPosition&);
     void stopInteraction();
     void performActionOnElement(uint32_t action);
-    void saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle);
+    void saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle, const String& authorizationToken);
     void focusNextFocusedElement(bool isForward, CompletionHandler<void()>&& = [] { });
     void setFocusedElementValue(const WebCore::ElementContext&, const String&);
     void setFocusedElementSelectedIndex(const WebCore::ElementContext&, uint32_t index, bool allowMultipleSelection = false);
@@ -1105,6 +1101,13 @@ public:
     bool useFixedLayout() const { return m_useFixedLayout; };
     const WebCore::IntSize& fixedLayoutSize() const { return m_fixedLayoutSize; };
 
+    void setDefaultUnobscuredSize(const WebCore::FloatSize&);
+    WebCore::FloatSize defaultUnobscuredSize() const { return m_defaultUnobscuredSize; }
+    void setMinimumUnobscuredSize(const WebCore::FloatSize&);
+    WebCore::FloatSize minimumUnobscuredSize() const { return m_minimumUnobscuredSize; }
+    void setMaximumUnobscuredSize(const WebCore::FloatSize&);
+    WebCore::FloatSize maximumUnobscuredSize() const { return m_maximumUnobscuredSize; }
+
     void setViewExposedRect(std::optional<WebCore::FloatRect>);
     std::optional<WebCore::FloatRect> viewExposedRect() const { return m_viewExposedRect; }
 
@@ -1245,8 +1248,8 @@ public:
 
     class PolicyDecisionSender;
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
-    void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, std::variant<Ref<API::NavigationResponse>, Ref<API::NavigationAction>>&&, Ref<PolicyDecisionSender>&&, std::optional<SandboxExtension::Handle> = { }, WillContinueLoadInNewProcess = WillContinueLoadInNewProcess::No);
-    void receivedNavigationPolicyDecision(WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, RefPtr<API::WebsitePolicies>&&, Ref<PolicyDecisionSender>&&);
+    void receivedPolicyDecision(WebCore::PolicyAction, API::Navigation*, RefPtr<API::WebsitePolicies>&&, std::variant<Ref<API::NavigationResponse>, Ref<API::NavigationAction>>&&, Ref<PolicyDecisionSender>&&, WillContinueLoadInNewProcess = WillContinueLoadInNewProcess::No, std::optional<SandboxExtension::Handle> = { });
+    void receivedNavigationPolicyDecision(WebCore::PolicyAction, API::Navigation*, Ref<API::NavigationAction>&&, ProcessSwapRequestedByClient, WebFrameProxy&, const FrameInfoData&, Ref<PolicyDecisionSender>&&);
 
     void backForwardRemovedItem(const WebCore::BackForwardItemIdentifier&);
 
@@ -1868,7 +1871,7 @@ public:
     void setOrientationForMediaCapture(uint64_t);
 
 #if ENABLE(MEDIA_STREAM) && USE(GSTREAMER)
-    void setMockCameraIsInterrupted(bool);
+    void setMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted);
 #endif
 
     bool isHandlingPreventableTouchStart() const { return m_handlingPreventableTouchStartCount; }
@@ -2354,6 +2357,8 @@ private:
     void showPlaybackTargetPicker(bool hasVideo, const WebCore::IntRect& elementRect, WebCore::RouteSharingPolicy, const String&);
 
     void updateStringForFind(const String&);
+
+    bool isValidPerformActionOnElementAuthorizationToken(const String& authorizationToken) const;
 #endif
 
     void focusedFrameChanged(const std::optional<WebCore::FrameIdentifier>&);
@@ -2501,12 +2506,12 @@ private:
     Ref<API::Attachment> ensureAttachment(const String& identifier);
     void invalidateAllAttachments();
 
-    void writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&&);
+    void writePromisedAttachmentToPasteboard(WebCore::PromisedAttachmentInfo&&, const String& authorizationToken);
 #endif
 
     void reportPageLoadResult(const WebCore::ResourceError& = { });
 
-    void continueNavigationInNewProcess(API::Navigation&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, RefPtr<API::WebsitePolicies>&&, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
+    void continueNavigationInNewProcess(API::Navigation&, std::unique_ptr<SuspendedPageProxy>&&, Ref<WebProcessProxy>&&, ProcessSwapRequestedByClient, WebCore::ShouldTreatAsContinuingLoad, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume = std::nullopt);
 
     void setNeedsFontAttributes(bool);
     void updateFontAttributesAfterEditorStateChange();
@@ -2779,6 +2784,10 @@ private:
     WebCore::IntSize m_fixedLayoutSize;
     std::optional<WebCore::FloatRect> m_viewExposedRect;
 
+    WebCore::FloatSize m_defaultUnobscuredSize;
+    WebCore::FloatSize m_minimumUnobscuredSize;
+    WebCore::FloatSize m_maximumUnobscuredSize;
+
     bool m_alwaysShowsHorizontalScroller { false };
     bool m_alwaysShowsVerticalScroller { false };
 
@@ -3016,9 +3025,8 @@ private:
 #if PLATFORM(IOS_FAMILY)
     Function<bool()> m_deviceOrientationUserPermissionHandlerForTesting;
     bool m_waitingForPostLayoutEditorStateUpdateAfterFocusingElement { false };
-    WebCore::FloatSize m_minimumUnobscuredSize;
-    WebCore::FloatSize m_maximumUnobscuredSize;
     bool m_lastObservedStateWasBackground { false };
+    HashSet<String> m_performActionOnElementAuthTokens;
 #endif
 
     std::optional<WebCore::FontAttributes> m_cachedFontAttributesAtSelectionStart;

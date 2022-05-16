@@ -192,6 +192,10 @@
     [self.account accountStatus: complete];
 }
 
+- (void)keyStatusFor: (int) keyType complete: (void(^)(SOSBackupPublicKeyStatus status, NSError *error))complete {
+    [self.account keyStatusFor: keyType complete: complete];
+}
+
 - (void)rpcTriggerBackup:(NSArray<NSString *>* _Nullable)backupPeers complete:(void (^)(NSError *error))complete
 {
     if([self sosIsEnabled]) {

@@ -90,6 +90,9 @@ static bool SOSAccountUpdateRecoveryRing(SOSAccount* account, CFErrorRef *error,
     bool result = SOSAccountUpdateNamedRing(account, kSOSRecoveryRing, error, ^SOSRingRef(CFStringRef ringName, CFErrorRef *error) {
         return SOSRingCreate(ringName, (__bridge CFStringRef)(account.peerID), kSOSRingRecovery, error);
     }, modify);
+    if(result) {
+        [account setPublicKeyStatus:kSOSKeyRecordedInRing forKey:kSOSRecoveryKeyStatus];
+    }
     
     return result;
 }
@@ -148,7 +151,6 @@ bool SOSAccountSetRecoveryKey(SOSAccount* account, CFDataRef pubData, CFErrorRef
     if(SOSPeerInfoHasBackupKey(account.trust.peerInfo)) {
         SOSAccountProcessBackupRings(account);
     }
-    account.circle_rings_retirements_need_attention = true;
 
     SOSClearErrorIfTrue(result, error);
     if (!result) {

@@ -194,4 +194,14 @@ static inline CFStringRef asString(CFTypeRef cfType, CFErrorRef *error) {
     return NULL;
 }
 
+static inline CFNumberRef asNumber(CFTypeRef cfType, CFErrorRef *error) {
+    if (cfType && CFGetTypeID(cfType) == CFNumberGetTypeID()) {
+        return (CFNumberRef)cfType;
+    }
+    if(error) {
+        SecError(-50, error, CFSTR("object %@ is not a number"), cfType);
+    }
+    return NULL;
+}
+
 #endif /* _SECCFERROR_H_ */

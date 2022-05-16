@@ -244,6 +244,8 @@ void SOSAccountForEachRingName(SOSAccount* account, void (^operation)(CFStringRe
 void SOSAccountForEachBackupView(SOSAccount* account,  void (^operation)(const void *value));
 SOSRingRef SOSAccountCreateBackupRingForView(SOSAccount* account, CFStringRef ringBackupViewName, CFErrorRef *error);
 
+- (void) setPublicKeyStatus: (int) status forKey: (int) key;
+- (int) getPublicKeyStatusForKey: (int) key error: (NSError **) error;
 
 // My Circle
 bool SOSAccountHasCircle(SOSAccount* account, CFErrorRef* error);

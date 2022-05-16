@@ -63,6 +63,7 @@
 #include "EventNames.h"
 #include "ExtensionStyleSheets.h"
 #include "FocusController.h"
+#include "FontCache.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "FrameSelection.h"
@@ -349,10 +350,10 @@ Page::Page(PageConfiguration&& pageConfiguration)
     m_userContentProvider->addPage(*this);
     m_visitedLinkStore->addPage(*this);
 
-    static bool addedListener;
-    if (!addedListener) {
-        platformStrategies()->loaderStrategy()->addOnlineStateChangeListener(&networkStateChanged);
-        addedListener = true;
+    static bool firstTimeInitializationRan = false;
+    if (!firstTimeInitializationRan) {
+        firstTimeInitialization();
+        firstTimeInitializationRan = true;
     }
 
     ASSERT(!allPages().contains(this));
@@ -383,6 +384,16 @@ Page::Page(PageConfiguration&& pageConfiguration)
 
     if (m_lowPowerModeNotifier->isLowPowerModeEnabled())
         m_throttlingReasons.add(ThrottlingReason::LowPowerMode);
+
+    static bool fontCacheInvalidationCallbackRegistered = false;
+    if (!fontCacheInvalidationCallbackRegistered) {
+        FontCache::registerFontCacheInvalidationCallback([] {
+            forEachPage([](auto& page) {
+                page.setNeedsRecalcStyleInAllFrames();
+            });
+        });
+        fontCacheInvalidationCallbackRegistered = true;
+    }
 }
 
 Page::~Page()
@@ -424,6 +435,17 @@ Page::~Page()
     m_pluginInfoProvider->removePage(*this);
     m_userContentProvider->removePage(*this);
     m_visitedLinkStore->removePage(*this);
+}
+
+void Page::firstTimeInitialization()
+{
+    platformStrategies()->loaderStrategy()->addOnlineStateChangeListener(&networkStateChanged);
+
+    FontCache::registerFontCacheInvalidationCallback([] {
+        forEachPage([](auto& page) {
+            page.setNeedsRecalcStyleInAllFrames();
+        });
+    });
 }
 
 void Page::clearPreviousItemFromAllPages(HistoryItem* item)

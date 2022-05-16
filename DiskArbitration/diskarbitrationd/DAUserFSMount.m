@@ -60,22 +60,42 @@ int __DAMountUserFSVolume( void * parameter )
         if ( 1 == volumes.count )
         {
             NSString *UUID = volumes.firstObject;
-            err = [mountClient mountVolume:UUID
+            err = [ mountClient mountVolume:UUID
                                         displayName:volumeName
                                         provider:@"com.apple.filesystems.UserFS.FileProvider"
                                         on:mountpoint
-                                        how:LIVEMOUNTER_MOUNT_DONTDOMAIN];
+                                        how:LIVEMOUNTER_MOUNT_DONTDOMAIN | LIVEMOUNTER_MOUNT_NOFOLLOW ];
             
             if ( err )
             {
+                NSError *unloadError = nil;
+
                 DALogError("%@ mount failed with %@", deviceName, err);
+                unloadError = [userFSManager forgetVolume:UUID withFlags:0]; /* TODO: if this fails we need to do ungraceful as well */
+                if (unloadError) {
+                    DALogError(" unload for volume %@ failed with %@", volumeName, unloadError);
+                }
             }
         }
         else
         {
-            // Should not happen.
-            DALogError("%@ mount returned with more than one UUID", deviceName);
-            returnValue = EINVAL;
+            if (volumes.count > 1)
+            {
+                // Should not happen for now, we do not support it, so unload the volumes
+                DALogError("%@ mount returned with more than one UUID", deviceName);
+                NSString *UUID;
+                for (UUID in volumes)
+                {
+                    NSError *unloadError = nil;
+                    unloadError = [userFSManager forgetVolume:UUID withFlags:0];
+                    if (unloadError) {
+                        DALogError("unload for volume %@ failed with %@", UUID, unloadError);
+                    }
+                }
+            } else {
+                DALogError("%@ mount returned no usable volumes", deviceName);
+            }
+            err = [NSError errorWithDomain:NSPOSIXErrorDomain code:EINVAL userInfo:nil];
         }
     }
         

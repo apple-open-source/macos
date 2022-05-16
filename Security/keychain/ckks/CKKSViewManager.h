@@ -122,6 +122,7 @@ NS_ASSUME_NONNULL_BEGIN
 
 // Interfaces to examine sync callbacks
 - (SecBoolNSErrorCallback _Nullable)claimCallbackForUUID:(NSString* _Nullable)uuid;
+- (BOOL)peekCallbackForUUID:(NSString* _Nullable)uuid;
 - (NSSet<NSString*>*)pendingCallbackUUIDs;
 + (void)callSyncCallbackWithErrorNoAccount:(SecBoolNSErrorCallback)syncCallback;
 @end

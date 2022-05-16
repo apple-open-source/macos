@@ -150,6 +150,8 @@ _SecPolicyReconcilePinningRequiredIfInfoSpecified
 #define POLICYCHECKMACRO(NAME, TRUSTRESULT, SUBTYPE, LEAFCHECK, PATHCHECK, LEAFONLY, PROPFAILURE, CSSMERR, OSSTATUS) \
 __PC_DO_EXPORT_##LEAFONLY(NAME)
 #include "SecPolicyChecks.list"
+_SecPolicyCheckCertEmailSAN
+_SecPolicyCheckCertExtendedKeyUsageFiltered
 _SecPolicyCheckCertSubjectCountry
 
 _SecPolicyCopyProperties
@@ -435,6 +437,7 @@ _SecCertificateCopyPublicKey$LEGACYMAC
 #endif
 _SecCertificateCopyPublicKeySHA1Digest
 _SecCertificateCopyRFC822Names
+_SecCertificateCopyRFC822NamesFromSAN
 _SecCertificateCopyRFC822NamesFromSubject
 _SecCertificateCopySerialNumber
 _SecCertificateCopySerialNumberData

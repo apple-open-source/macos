@@ -152,6 +152,9 @@ static
 int
 dst_check_algorithm(const int alg)
 {
+    if ((alg < 0) || (alg >= DST_MAX_ALGS)) {
+        return 0;
+    }
 	return (dst_t_func[alg] != NULL);
 }
 

@@ -127,12 +127,11 @@ xmlBufCreate(void) {
 	xmlBufMemoryError(NULL, "creating buffer");
         return(NULL);
     }
-    ret->compat_use = 0;
     ret->use = 0;
     ret->error = 0;
     ret->buffer = NULL;
     ret->size = xmlDefaultBufferSize;
-    ret->compat_size = xmlDefaultBufferSize;
+    UPDATE_COMPAT(ret);
     ret->alloc = xmlBufferAllocScheme;
     ret->content = (xmlChar *) xmlMallocAtomic(ret->size * sizeof(xmlChar));
     if (ret->content == NULL) {
@@ -161,13 +160,12 @@ xmlBufCreateSize(size_t size) {
 	xmlBufMemoryError(NULL, "creating buffer");
         return(NULL);
     }
-    ret->compat_use = 0;
     ret->use = 0;
     ret->error = 0;
     ret->buffer = NULL;
     ret->alloc = xmlBufferAllocScheme;
     ret->size = (size ? size+2 : 0);         /* +1 for ending null */
-    ret->compat_size = (int) ret->size;
+    UPDATE_COMPAT(ret);
     if (ret->size){
         ret->content = (xmlChar *) xmlMallocAtomic(ret->size * sizeof(xmlChar));
         if (ret->content == NULL) {
@@ -209,8 +207,7 @@ xmlBufDetach(xmlBufPtr buf) {
     buf->content = NULL;
     buf->size = 0;
     buf->use = 0;
-    buf->compat_use = 0;
-    buf->compat_size = 0;
+    UPDATE_COMPAT(buf);
 
     return ret;
 }
@@ -239,15 +236,9 @@ xmlBufCreateStatic(void *mem, size_t size) {
 	xmlBufMemoryError(NULL, "creating buffer");
         return(NULL);
     }
-    if (size < INT_MAX) {
-        ret->compat_use = size;
-        ret->compat_size = size;
-    } else {
-        ret->compat_use = INT_MAX;
-        ret->compat_size = INT_MAX;
-    }
     ret->use = size;
     ret->size = size;
+    UPDATE_COMPAT(ret);
     ret->alloc = XML_BUFFER_ALLOC_IMMUTABLE;
     ret->content = (xmlChar *) mem;
 #ifndef NDEBUG
@@ -1207,8 +1198,7 @@ xmlBufFromBuffer(xmlBufferPtr buffer) {
     }
     ret->use = buffer->use;
     ret->size = buffer->size;
-    ret->compat_use = buffer->use;
-    ret->compat_size = buffer->size;
+    UPDATE_COMPAT(ret);
     ret->error = 0;
     ret->buffer = buffer;
     ret->alloc = buffer->alloc;

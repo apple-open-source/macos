@@ -93,6 +93,7 @@ class ShareGroup final : angle::NonCopyable
 
     const ContextSet &getContexts() const { return mContexts; }
     void addSharedContext(gl::Context *context);
+    void removeSharedContext(gl::Context *context);
 
     size_t getShareGroupContextCount() const { return mContexts.size(); }
 
@@ -260,7 +261,7 @@ class Display final : public LabeledObject,
 
     std::string getBackendRendererDescription() const;
     std::string getBackendVendorString() const;
-    std::string getBackendVersionString() const;
+    std::string getBackendVersionString(bool includeFullVersion) const;
 
     EGLint programCacheGetAttrib(EGLenum attrib) const;
     Error programCacheQuery(EGLint index,
@@ -302,6 +303,7 @@ class Display final : public LabeledObject,
     void returnZeroFilledBuffer(angle::ScratchBuffer zeroFilledBuffer);
 
     egl::Error handleGPUSwitch();
+    egl::Error forceGPUSwitch(EGLint gpuIDHigh, EGLint gpuIDLow);
 
     std::mutex &getDisplayGlobalMutex() { return mDisplayGlobalMutex; }
     std::mutex &getProgramCacheMutex() { return mProgramCacheMutex; }
@@ -309,6 +311,14 @@ class Display final : public LabeledObject,
     // Installs LoggingAnnotator as the global DebugAnnotator, for back-ends that do not implement
     // their own DebugAnnotator.
     void setGlobalDebugAnnotator() { gl::InitializeDebugAnnotations(&mAnnotator); }
+
+    bool supportsDmaBufFormat(EGLint format) const;
+    Error queryDmaBufFormats(EGLint max_formats, EGLint *formats, EGLint *num_formats);
+    Error queryDmaBufModifiers(EGLint format,
+                               EGLint max_modifiers,
+                               EGLuint64KHR *modifiers,
+                               EGLBoolean *external_only,
+                               EGLint *num_modifiers);
 
   private:
     Display(EGLenum platform, EGLNativeDisplayType displayId, Device *eglDevice);

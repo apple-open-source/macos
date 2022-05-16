@@ -897,6 +897,15 @@ private:
                 break;
             }
 
+            case ResolveRope: {
+                if (m_state.forNode(node->child1()).m_type & ~SpecStringIdent)
+                    break;
+
+                node->convertToIdentity();
+                changed = true;
+                break;
+            }
+
             case ToNumber:
             case CallNumberConstructor: {
                 if (m_state.forNode(node->child1()).m_type & ~SpecBytecodeNumber)
@@ -1435,7 +1444,7 @@ private:
                         continue;
 
                     Structure* structure = condition.object()->structure(m_graph.m_vm);
-                    if (!condition.structureEnsuresValidity(structure))
+                    if (!condition.structureEnsuresValidity(Concurrency::ConcurrentThread, structure))
                         return;
 
                     m_insertionSet.insertNode(

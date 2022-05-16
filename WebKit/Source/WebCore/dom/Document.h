@@ -438,7 +438,7 @@ public:
     WEBCORE_EXPORT Ref<Comment> createComment(const String& data);
     WEBCORE_EXPORT ExceptionOr<Ref<CDATASection>> createCDATASection(const String& data);
     WEBCORE_EXPORT ExceptionOr<Ref<ProcessingInstruction>> createProcessingInstruction(const String& target, const String& data);
-    WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttribute(const String& name);
+    WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttribute(const AtomString& name);
     WEBCORE_EXPORT ExceptionOr<Ref<Attr>> createAttributeNS(const AtomString& namespaceURI, const String& qualifiedName, bool shouldIgnoreNamespaceChecks = false);
     WEBCORE_EXPORT ExceptionOr<Ref<Node>> importNode(Node& nodeToImport, bool deep);
     WEBCORE_EXPORT ExceptionOr<Ref<Element>> createElementNS(const AtomString& namespaceURI, const String& qualifiedName);
@@ -792,6 +792,7 @@ public:
     WEBCORE_EXPORT bool setFocusedElement(Element*, const FocusOptions& = { });
     Element* focusedElement() const { return m_focusedElement.get(); }
     bool wasLastFocusByClick() const { return m_latestFocusTrigger == FocusTrigger::Click; }
+    void setLatestFocusTrigger(FocusTrigger trigger) { m_latestFocusTrigger = trigger; }
     UserActionElementSet& userActionElements()  { return m_userActionElements; }
     const UserActionElementSet& userActionElements() const { return m_userActionElements; }
 
@@ -1018,7 +1019,8 @@ public:
     // URL. For the top-level document, it is set to the document's URL.
     const URL& siteForCookies() const { return m_siteForCookies; }
     void setSiteForCookies(const URL& url) { m_siteForCookies = url; }
-    
+    bool isSameSiteForCookies(const URL&) const;
+
     // The following implements the rule from HTML 4 for what valid names are.
     // To get this right for all the XML cases, we probably have to improve this or move it
     // and make it sensitive to the type of document.
@@ -1673,6 +1675,10 @@ public:
     WEBCORE_EXPORT ModalContainerObserver* modalContainerObserver();
     ModalContainerObserver* modalContainerObserverIfExists() const;
 
+    WEBCORE_EXPORT bool hasElementWithPendingUserAgentShadowTreeUpdate(Element&) const;
+    void addElementWithPendingUserAgentShadowTreeUpdate(Element&);
+    WEBCORE_EXPORT void removeElementWithPendingUserAgentShadowTreeUpdate(Element&);
+
 protected:
     enum ConstructionFlags { Synthesized = 1, NonRenderedPlaceholder = 1 << 1 };
     WEBCORE_EXPORT Document(Frame*, const Settings&, const URL&, DocumentClasses = { }, unsigned constructionFlags = 0);
@@ -1962,7 +1968,6 @@ private:
     WeakHashSet<HTMLImageElement> m_dynamicMediaQueryDependentImages;
 
     Vector<WeakPtr<IntersectionObserver>> m_intersectionObservers;
-    Vector<WeakPtr<IntersectionObserver>> m_intersectionObserversWithPendingNotifications;
     Timer m_intersectionObserversInitialUpdateTimer;
     // This is only non-null when this document is an explicit root.
     std::unique_ptr<IntersectionObserverData> m_intersectionObserverData;
@@ -2261,6 +2266,8 @@ private:
 #endif
 
     std::unique_ptr<ModalContainerObserver> m_modalContainerObserver;
+
+    WeakHashSet<Element> m_elementsWithPendingUserAgentShadowTreeUpdates;
 };
 
 Element* eventTargetElementForDocument(Document*);

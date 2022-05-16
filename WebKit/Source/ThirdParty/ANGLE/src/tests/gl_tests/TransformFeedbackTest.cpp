@@ -3902,6 +3902,120 @@ void main()
     EXPECT_GL_NO_ERROR();
 }
 
+TEST_P(TransformFeedbackTest, TransformFeedbackPausedDrawThenResume)
+{
+    constexpr char kVS[] = R"(#version 300 es
+layout(location = 0) in float a;
+out float b;
+
+void main (void)
+{
+  b = a * 2.0;
+}
+)";
+
+    constexpr char kFS[] = R"(#version 300 es
+void main (void)
+{
+}
+)";
+
+    const std::vector<std::string> tfVaryings = {"b"};
+    ANGLE_GL_PROGRAM_TRANSFORM_FEEDBACK(program, kVS, kFS, tfVaryings, GL_INTERLEAVED_ATTRIBS);
+    glUseProgram(program);
+
+    GLBuffer xfbBuf;
+    GLTransformFeedback tf;
+    GLQuery query;
+
+    glBindTransformFeedback(GL_TRANSFORM_FEEDBACK, tf);
+    glBindBuffer(GL_TRANSFORM_FEEDBACK_BUFFER, xfbBuf);
+
+    constexpr size_t maxResults = 10;
+    std::vector<float> clearData(10, 100.0);
+    glBufferData(GL_TRANSFORM_FEEDBACK_BUFFER, maxResults * 4, clearData.data(), GL_DYNAMIC_READ);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, xfbBuf);
+
+    GLBuffer srcBuffer;
+    glBindBuffer(GL_ARRAY_BUFFER, srcBuffer);
+    constexpr float srcData[] = {
+        11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+    };
+    glBufferData(GL_ARRAY_BUFFER, sizeof(srcData), srcData, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 1, GL_FLOAT, false, 4, nullptr);
+
+    // this is just so inside angle less state is updated so we can compare
+    // the next 2 draw calls easier.
+    glDrawArrays(GL_TRIANGLES, 0, 1);
+
+    glBeginQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN, query);
+    glBeginTransformFeedback(GL_TRIANGLES);
+    glDrawArrays(GL_TRIANGLES, 0, 7);  // 2 triangles
+    glDrawArrays(GL_TRIANGLES, 7, 4);  // 1 triangle
+    glEndTransformFeedback();
+    glEndQuery(GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN);
+    GLuint primitivesWritten = 0u;
+    glGetQueryObjectuiv(query, GL_QUERY_RESULT_EXT, &primitivesWritten);
+    EXPECT_GL_NO_ERROR();
+    EXPECT_EQ(primitivesWritten, 3u);
+
+    void *resultBuffer =
+        glMapBufferRange(GL_TRANSFORM_FEEDBACK_BUFFER, 0, maxResults * 4, GL_MAP_READ_BIT);
+    const float *actual        = reinterpret_cast<const float *>(resultBuffer);
+    constexpr float expected[] = {
+        22,  24, 26, 28, 30, 32,  // from first draw, 2 triangles
+        36,  38, 40,              // from second draw, 1 triangle
+        100,                      // initial value
+    };
+
+    for (size_t i = 0; i < ArraySize(expected); ++i)
+    {
+        EXPECT_EQ(actual[i], expected[i]) << "i:" << i;
+    }
+
+    glUnmapBuffer(GL_TRANSFORM_FEEDBACK_BUFFER);
+    EXPECT_GL_NO_ERROR();
+}
+
+// Tests that we don't produce undefined behaviour when deleting a current XFB buffer.
+TEST_P(TransformFeedbackTest, DeleteTransformFeedbackBuffer)
+{
+    ANGLE_GL_PROGRAM_TRANSFORM_FEEDBACK(testProgram, essl1_shaders::vs::Simple(),
+                                        essl1_shaders::fs::Green(), {"gl_Position"},
+                                        GL_INTERLEAVED_ATTRIBS);
+    glUseProgram(testProgram);
+
+    GLBuffer buf;
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buf);
+    std::vector<uint8_t> bufData(100000, 0);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, bufData.size(), bufData.data(), GL_DYNAMIC_COPY);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, buf);
+    glBeginTransformFeedback(GL_POINTS);
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+    buf.reset();
+    glDrawArrays(GL_POINTS, 0, 1);
+}
+
+// Same as the above, with a paused transform feedback.
+TEST_P(TransformFeedbackTest, DeletePausedTransformFeedbackBuffer)
+{
+    ANGLE_GL_PROGRAM_TRANSFORM_FEEDBACK(testProgram, essl1_shaders::vs::Simple(),
+                                        essl1_shaders::fs::Green(), {"gl_Position"},
+                                        GL_INTERLEAVED_ATTRIBS);
+    glUseProgram(testProgram);
+
+    GLBuffer buffer;
+    glBindBuffer(GL_PIXEL_UNPACK_BUFFER, buffer);
+    glBufferData(GL_PIXEL_UNPACK_BUFFER, 3, nullptr, GL_STATIC_DRAW);
+    glBindBufferBase(GL_TRANSFORM_FEEDBACK_BUFFER, 0, buffer);
+
+    glBeginTransformFeedback(GL_POINTS);
+    glPauseTransformFeedback();
+    buffer.reset();
+    glDrawArrays(GL_POINTS, 0, 1);
+}
+
 GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(TransformFeedbackTest);
 ANGLE_INSTANTIATE_TEST_ES3(TransformFeedbackTest);
 

@@ -203,6 +203,7 @@ bool SOSAccountIsBackupRingEmpty(SOSAccount*  account, CFStringRef viewName);
 bool SOSAccountNewBKSBForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef *error);
 
 void SOSAccountProcessBackupRings(SOSAccount*  account);
+bool SOSAccountBackupRingHasMyBackupKeyForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef *error);
 bool SOSAccountValidateBackupRingForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef *error);
 bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef backupKey, CFErrorRef *error);
 bool SOSAccountEnsurePeerInfoHasCurrentBackupKey(SOSAccountTransaction *aTxn, CFErrorRef *error);

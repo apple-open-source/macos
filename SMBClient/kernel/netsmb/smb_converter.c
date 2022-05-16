@@ -280,13 +280,23 @@ smb_convert_to_network(const char **inbuf, size_t *inbytesleft, char **outbuf,
 	int error;
 	size_t inlen;
 	size_t outlen;
+    size_t outLeft;
 	
 	DBG_ASSERT(inbuf);
 	DBG_ASSERT(*inbuf);
 	DBG_ASSERT(outbuf);
 	DBG_ASSERT(*outbuf);
 	
-	inlen = *inbytesleft;
+    /*
+     * Round down inlen to an even number,
+     * to prevent utf8_decodestr() from overflowing.
+     * See rdar://89822569
+     */
+    outLeft = (*outbytesleft) & (~1);
+    if ((*outbytesleft) & 1) {
+        SMBDEBUG("trim outbytesleft");
+    }
+    inlen = *inbytesleft;
 	outlen = 0;
 	
 	flags |= UTF_PRECOMPOSED;
@@ -296,7 +306,11 @@ smb_convert_to_network(const char **inbuf, size_t *inbytesleft, char **outbuf,
 		if (BYTE_ORDER != LITTLE_ENDIAN)
 			flags |= UTF_REVERSE_ENDIAN;
 		error = utf8_decodestr((const uint8_t*)*inbuf, inlen, (uint16_t *)*outbuf, 
-							   &outlen, *outbytesleft, 0, flags);
+							   &outlen, outLeft, 0, flags);
+        if (outlen > outLeft) {
+            SMBERROR("outlen > outLeft at %u (error %d)", __LINE__, error);
+            return EINVAL;
+        }
 		
 	} else {
 		const uint16_t *cptable = (const uint16_t *)cp437_from_ucs2;
@@ -304,9 +318,13 @@ smb_convert_to_network(const char **inbuf, size_t *inbytesleft, char **outbuf,
 
 		error = utf8_decodestr((const uint8_t*)*inbuf, inlen, buf, &outlen, 
 							   sizeof(buf), 0, flags);
-		if (!error)
-			ucs2_to_codepage(cptable, buf, outlen, *outbytesleft, *outbuf, &outlen);
-
+        if (!error) {
+			ucs2_to_codepage(cptable, buf, outlen, outLeft, *outbuf, &outlen);
+            if (outlen > outLeft) {
+                SMBERROR("outlen > outLeft at %u (error %d).", __LINE__, error);
+                return EINVAL;
+            }
+        }
 	}
 	if (error)
 		return error;
@@ -512,6 +530,8 @@ smb_convert_path_to_network(char *path, size_t max_path_len, char *network,
 	size_t component_len;	/* component length */
 	size_t path_resid;
 	size_t resid = *ntwrk_len;	/* Room left in the the network buffer */
+    size_t ntwrk_len_total = resid;
+    char * ntwrk_buf_ptr = network;
 	size_t delimiter_size = (usingUnicode) ? 2 : 1;
 	int flags = (inflags & SMB_UTF_SFM_CONVERSIONS) ? UTF_SFM_CONVERSIONS : 0;
 	
@@ -538,7 +558,6 @@ smb_convert_path_to_network(char *path, size_t max_path_len, char *network,
 			((component_len == 2) && (*path == '.') && (*(path+1) == '.'))) {
 			error = smb_convert_to_network((const char **)&path, &path_resid, 
 										   &network, &resid, 0, usingUnicode);
-		
 		} else {
 			error = smb_convert_to_network((const char **)&path, &path_resid, 
 										   &network, &resid, flags, usingUnicode);
@@ -553,12 +572,26 @@ smb_convert_path_to_network(char *path, size_t max_path_len, char *network,
 		max_path_len -= (component_len - path_resid);
 		/* If we have more to process then add a network delimiter */
 		if (path) {
+            if ((size_t)(network-ntwrk_buf_ptr)+delimiter_size > ntwrk_len_total) {
+                SMBERROR("No room for delimiter: network buff too small.");
+                return E2BIG;
+            }
 			network = set_network_delimiter(network, ntwrk_delimiter, 
 											delimiter_size, &resid);
 			if (network == NULL)
 				return E2BIG;
 		}
 	}
+    if (path && *path && max_path_len) {
+        SMBERROR("We haven't parsed the entire input path: network buff too small.");
+        return E2BIG;
+    }
+    if (resid > *ntwrk_len) {
+        /* sanity check */
+        SMBERROR("Can't have a negative buffer length (%lu, %lu).",
+                resid, *ntwrk_len);
+        return E2BIG;
+    }
 	*ntwrk_len -= resid;
 	DBG_ASSERT((ssize_t)(*ntwrk_len) >= 0);
 	return error;

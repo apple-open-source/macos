@@ -2826,7 +2826,19 @@ xmlSetTreeDoc(xmlNodePtr tree, xmlDocPtr doc) {
                     xmlRemoveID(tree->doc, prop);
                 }
 
-		prop->doc = doc;
+                if (prop->doc != doc) {
+                    /* Update ownership of prop->name if prop->doc changes. */
+                    int oldPropDictOwnsName = (prop->doc != NULL) && (xmlDictOwns(prop->doc->dict, prop->name) == 1);
+                    const xmlChar *oldName = prop->name;
+                    if ((doc != NULL) && (doc->dict != NULL)) {
+                        prop->name = xmlDictLookup(doc->dict, oldName, -1);
+                        if (!oldPropDictOwnsName)
+                            xmlFree((void *)oldName);
+                    } else if (oldPropDictOwnsName)
+                        prop->name = xmlStrdup(oldName);
+
+                    prop->doc = doc;
+                }
 		xmlSetListDoc(prop->children, doc);
 
                 /*

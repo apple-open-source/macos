@@ -371,6 +371,7 @@ PROXY_WORKER_HC_FAIL )
 #define PROXY_WORKER_MAX_SECRET_SIZE     64
 
 #define PROXY_RFC1035_HOSTNAME_SIZE	256
+#define PROXY_WORKER_EXT_NAME_SIZE      384
 
 /* RFC-1035 mentions limits of 255 for host-names and 253 for domain-names,
  * dotted together(?) this would fit the below size (+ trailing NUL).
@@ -473,6 +474,7 @@ typedef struct {
     apr_size_t   response_field_size; /* Size of proxy response buffer in bytes. */
     unsigned int response_field_size_set:1;
     char      secret[PROXY_WORKER_MAX_SECRET_SIZE]; /* authentication secret (e.g. AJP13) */
+    char      name_ex[PROXY_WORKER_EXT_NAME_SIZE]; /* Extended name (>96 chars for 2.4.x) */
 } proxy_worker_shared;
 
 #define ALIGNED_PROXY_WORKER_SHARED_SIZE (APR_ALIGN_DEFAULT(sizeof(proxy_worker_shared)))
@@ -750,6 +752,7 @@ PROXY_DECLARE(int) ap_proxy_worker_can_upgrade(apr_pool_t *p,
 #define AP_PROXY_WORKER_IS_PREFIX   (1u << 0)
 #define AP_PROXY_WORKER_IS_MATCH    (1u << 1)
 #define AP_PROXY_WORKER_IS_MALLOCED (1u << 2)
+#define AP_PROXY_WORKER_NO_UDS      (1u << 3)
 
 /**
  * Get the worker from proxy configuration, looking for either PREFIXED or
@@ -1335,7 +1338,8 @@ typedef struct {
     struct proxy_tunnel_conn *client,
                              *origin;
     apr_size_t read_buf_size;
-    int replied;
+    int replied; /* TODO 2.5+: one bit to merge in below bitmask */
+    unsigned int nohalfclose :1;
 } proxy_tunnel_rec;
 
 /**

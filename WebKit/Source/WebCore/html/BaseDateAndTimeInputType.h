@@ -114,7 +114,7 @@ private:
     bool isMouseFocusable() const final;
 
     void handleDOMActivateEvent(Event&) override;
-    void createShadowSubtreeAndUpdateInnerTextElementEditability(ContainerNode::ChildChange::Source, bool) final;
+    void createShadowSubtree() final;
     void destroyShadowSubtree() final;
     void updateInnerTextValue() final;
     bool hasCustomFocusLogic() const final;

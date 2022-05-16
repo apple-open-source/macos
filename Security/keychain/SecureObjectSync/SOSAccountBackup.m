@@ -459,6 +459,7 @@ SOSRingRef SOSAccountCreateBackupRingForView(SOSAccount* account, CFStringRef ri
 }
 
 void SOSAccountProcessBackupRings(SOSAccount*  account) {
+    secnotice("backup", "Updating Backup Rings");
     SOSAccountForEachBackupView(account, ^(const void *value) {
         CFErrorRef localError = NULL;
         CFStringRef viewName = (CFStringRef)value;
@@ -471,6 +472,27 @@ void SOSAccountProcessBackupRings(SOSAccount*  account) {
             CFReleaseNull(localError);
         }
     });
+    [account setPublicKeyStatus:kSOSKeyRecordedInRing forKey:kSOSBackupKeyStatus];
+    account.circle_rings_retirements_need_attention = true;
+}
+
+bool SOSAccountBackupRingHasMyBackupKeyForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef *error) {
+    bool retval = false;
+    CFStringRef ringName = NULL;
+    SOSRingRef ring = NULL;
+    SOSBackupSliceKeyBagRef currentBSKB = NULL;
+
+    require_action_quiet(account && account.peerInfo && viewName, errOut, SecError(errSecParam, error, CFSTR("NULL account/peerInfo or viewName parameter")));
+    ringName = SOSBackupCopyRingNameForView(viewName);
+    ring = SOSAccountCopyRingNamed(account, ringName, error);
+    require_quiet(ring, errOut);
+    currentBSKB = SOSRingCopyBackupSliceKeyBag(ring, NULL);
+    retval = SOSBKSBPeerBackupKeyIsInKeyBag(currentBSKB, account.peerInfo);
+errOut:
+    CFReleaseNull(ringName);
+    CFReleaseNull(ring);
+    CFReleaseNull(currentBSKB);
+    return retval;
 }
 
 bool SOSAccountValidateBackupRingForView(SOSAccount*  account, CFStringRef viewName, CFErrorRef *error) {
@@ -543,14 +565,14 @@ bool SOSAccountSetBackupPublicKey(SOSAccountTransaction* aTxn, CFDataRef cfBacku
             secnotice("backup", "Setting peerInfo backupKey to NULL");
             SOSPeerInfoV2DictionaryRemoveValue(pi, sBackupKeyKey);
         }
+        secnotice("backup", "Changed BackupKey for PeerInfo");
         return true;
     });
 
     if(result) {
+        [account setPublicKeyStatus:kSOSKeyRegisteredInAccount forKey:kSOSBackupKeyStatus];
+        secnotice("devRecovery", "Processing backup rings since we got a BackupKey");
         SOSAccountProcessBackupRings(account);
-        account.need_backup_peers_created_after_backup_key_set = true;
-        secnotice("devRecovery", "circle_rings_retirements_need_attention set to true since we got a BackupKey");
-        account.circle_rings_retirements_need_attention = true;
     }
     return result;
 }

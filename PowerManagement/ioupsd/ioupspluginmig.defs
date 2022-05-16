@@ -1,0 +1,45 @@
+/*
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
+ */
+#include <mach/std_types.defs>
+#include <mach/mach_types.defs>
+
+subsystem ioupsplugin 60000; 
+serverprefix _;
+
+import <device/device_types.h>;
+import <mach/kmod.h>;
+import <sys/param.h>;
+
+routine io_ups_send_command(
+            server		: mach_port_t;
+            upsID		: int;
+	in  command		: pointer_t);
+
+routine io_ups_get_event(
+            server		: mach_port_t;
+            upsID		: int;
+	out event		: pointer_t, dealloc);
+        
+routine io_ups_get_capabilities(
+            server		: mach_port_t;
+            upsID		: int;
+	out capabilites		: pointer_t, dealloc);

@@ -607,7 +607,12 @@ void LegacyLineLayout::computeExpansionForJustifiedText(BidiRun* firstRun, BidiR
     for (BidiRun* run = firstRun; run; run = run->next()) {
         if (!run->box() || run == trailingSpaceRun)
             continue;
-        
+
+        // Positioned objects are only participating to figure out their correct static x position.
+        // They have no affect on the width. Similarly, line break boxes have no affect on the width.
+        if (run->renderer().isOutOfFlowPositioned() || run->box()->isLineBreak())
+            continue;
+
         if (is<RenderText>(run->renderer())) {
             unsigned opportunitiesInRun = expansionOpportunities[i++];
             
@@ -1306,6 +1311,20 @@ static void repaintDirtyFloats(LineLayoutState::FloatList& floats)
     }
 }
 
+static void repaintSelfPaintInlineBoxes(const LegacyRootInlineBox& firstRootInlineBox, const LegacyRootInlineBox& lastRootInlineBox)
+{
+    for (auto* rootInlineBox = &firstRootInlineBox; rootInlineBox; rootInlineBox = rootInlineBox->nextRootBox()) {
+        if (rootInlineBox->hasSelfPaintInlineBox()) {
+            for (auto* inlineBox = rootInlineBox->firstChild(); inlineBox; inlineBox = inlineBox->nextOnLine()) {
+                if (auto* renderer = is<RenderLayerModelObject>(inlineBox->renderer()) ? &downcast<RenderLayerModelObject>(inlineBox->renderer()) : nullptr; renderer && renderer->hasSelfPaintingLayer())
+                    renderer->repaint();
+            }
+        }
+        if (rootInlineBox == &lastRootInlineBox)
+            break;
+    }
+}
+
 void LegacyLineLayout::layoutRunsAndFloats(LineLayoutState& layoutState, bool hasInlineChild)
 {
     // We want to skip ahead to the first dirty line
@@ -1367,6 +1386,8 @@ void LegacyLineLayout::layoutRunsAndFloats(LineLayoutState& layoutState, bool ha
     layoutRunsAndFloatsInRange(layoutState, resolver, cleanLineStart, cleanLineBidiStatus, consecutiveHyphenatedLines);
     linkToEndLineIfNeeded(layoutState);
     repaintDirtyFloats(layoutState.floatList());
+    if (firstRootBox())
+        repaintSelfPaintInlineBoxes(*firstRootBox(), layoutState.endLine() ? *layoutState.endLine() : *lastRootBox());
 }
 
 // Before restarting the layout loop with a new logicalHeight, remove all floats that were added and reset the resolver.

@@ -777,11 +777,12 @@ static int proxy_detect(request_rec *r)
 
     if (conf->req && r->parsed_uri.scheme) {
         /* but it might be something vhosted */
-        if (!(r->parsed_uri.hostname
-              && !ap_cstr_casecmp(r->parsed_uri.scheme, ap_http_scheme(r))
-              && ap_matches_request_vhost(r, r->parsed_uri.hostname,
-                                          (apr_port_t)(r->parsed_uri.port_str ? r->parsed_uri.port
-                                                       : ap_default_port(r))))) {
+        if (!r->parsed_uri.hostname
+            || ap_cstr_casecmp(r->parsed_uri.scheme, ap_http_scheme(r)) != 0
+            || !ap_matches_request_vhost(r, r->parsed_uri.hostname,
+                                         (apr_port_t)(r->parsed_uri.port_str
+                                                      ? r->parsed_uri.port
+                                                      : ap_default_port(r)))) {
             r->proxyreq = PROXYREQ_PROXY;
             r->uri = r->unparsed_uri;
             r->filename = apr_pstrcat(r->pool, "proxy:", r->uri, NULL);
@@ -2007,6 +2008,7 @@ static const char *
     struct proxy_alias *new;
     char *f = cmd->path;
     char *r = NULL;
+    const char *real;
     char *word;
     apr_table_t *params = apr_table_make(cmd->pool, 5);
     const apr_array_header_t *arr;
@@ -2093,6 +2095,10 @@ static const char *
     if (r == NULL) {
         return "ProxyPass|ProxyPassMatch needs a path when not defined in a location";
     }
+    if (!(real = ap_proxy_de_socketfy(cmd->temp_pool, r))) {
+        return "ProxyPass|ProxyPassMatch uses an invalid \"unix:\" URL";
+    }
+
 
     /* if per directory, save away the single alias */
     if (cmd->path) {
@@ -2109,7 +2115,7 @@ static const char *
     }
 
     new->fake = apr_pstrdup(cmd->pool, f);
-    new->real = apr_pstrdup(cmd->pool, ap_proxy_de_socketfy(cmd->pool, r));
+    new->real = apr_pstrdup(cmd->pool, real);
     new->flags = flags;
     if (worker_type & AP_PROXY_WORKER_IS_MATCH) {
         new->regex = ap_pregcomp(cmd->pool, f, AP_REG_EXTENDED);
@@ -2635,6 +2641,7 @@ static const char *add_member(cmd_parms *cmd, void *dummy, const char *arg)
     proxy_worker *worker;
     char *path = cmd->path;
     char *name = NULL;
+    const char *real;
     char *word;
     apr_table_t *params = apr_table_make(cmd->pool, 5);
     const apr_array_header_t *arr;
@@ -2675,6 +2682,9 @@ static const char *add_member(cmd_parms *cmd, void *dummy, const char *arg)
         return "BalancerMember must define balancer name when outside <Proxy > section";
     if (!name)
         return "BalancerMember must define remote proxy server";
+    if (!(real = ap_proxy_de_socketfy(cmd->temp_pool, name))) {
+        return "BalancerMember uses an invalid \"unix:\" URL";
+    }
 
     ap_str_tolower(path);   /* lowercase scheme://hostname */
 
@@ -2687,8 +2697,7 @@ static const char *add_member(cmd_parms *cmd, void *dummy, const char *arg)
     }
 
     /* Try to find existing worker */
-    worker = ap_proxy_get_worker(cmd->temp_pool, balancer, conf,
-                                 ap_proxy_de_socketfy(cmd->temp_pool, name));
+    worker = ap_proxy_get_worker(cmd->temp_pool, balancer, conf, real);
     if (!worker) {
         ap_log_error(APLOG_MARK, APLOG_DEBUG, 0, cmd->server, APLOGNO(01147)
                      "Defining worker '%s' for balancer '%s'",
@@ -2785,9 +2794,14 @@ static const char *
         }
     }
     else {
+        const char *real;
+
+        if (!(real = ap_proxy_de_socketfy(cmd->temp_pool, name))) {
+            return "ProxySet uses an invalid \"unix:\" URL";
+        }
+
         worker = ap_proxy_get_worker_ex(cmd->temp_pool, NULL, conf,
-                                        ap_proxy_de_socketfy(cmd->temp_pool, name),
-                                        worker_type);
+                                        real, worker_type);
         if (!worker) {
             if (in_proxy_section) {
                 err = ap_proxy_define_worker_ex(cmd->pool, &worker, NULL,
@@ -2930,9 +2944,14 @@ static const char *proxysection(cmd_parms *cmd, void *mconfig, const char *arg)
             }
         }
         else {
+            const char *real;
+
+            if (!(real = ap_proxy_de_socketfy(cmd->temp_pool, conf->p))) {
+                return "<Proxy/ProxyMatch > uses an invalid \"unix:\" URL";
+            }
+
             worker = ap_proxy_get_worker_ex(cmd->temp_pool, NULL, sconf,
-                                            ap_proxy_de_socketfy(cmd->temp_pool, conf->p),
-                                            worker_type);
+                                            real, worker_type);
             if (!worker) {
                 err = ap_proxy_define_worker_ex(cmd->pool, &worker, NULL, sconf,
                                                 conf->p, worker_type);
@@ -3211,7 +3230,7 @@ static int proxy_status_hook(request_rec *r, int flags)
             }
             else {
                 ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Name: %s\n",
-                           i, n, (*worker)->s->name);
+                           i, n, (*worker)->s->name_ex);
                 ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Status: %s\n",
                            i, n, ap_proxy_parse_wstatus(r->pool, *worker));
                 ap_rprintf(r, "ProxyBalancer[%d]Worker[%d]Elected: %"
@@ -3292,13 +3311,14 @@ static void child_init(apr_pool_t *p, server_rec *s)
                                    "http://www.apache.org", 0);
             conf->forward = forward;
             PROXY_STRNCPY(conf->forward->s->name,     "proxy:forward");
+            PROXY_STRNCPY(conf->forward->s->name_ex,  "proxy:forward");
             PROXY_STRNCPY(conf->forward->s->hostname, "*"); /* for compatibility */
             PROXY_STRNCPY(conf->forward->s->hostname_ex, "*");
             PROXY_STRNCPY(conf->forward->s->scheme,   "*");
             conf->forward->hash.def = conf->forward->s->hash.def =
-                ap_proxy_hashfunc(conf->forward->s->name, PROXY_HASHFUNC_DEFAULT);
+                ap_proxy_hashfunc(conf->forward->s->name_ex, PROXY_HASHFUNC_DEFAULT);
              conf->forward->hash.fnv = conf->forward->s->hash.fnv =
-                ap_proxy_hashfunc(conf->forward->s->name, PROXY_HASHFUNC_FNV);
+                ap_proxy_hashfunc(conf->forward->s->name_ex, PROXY_HASHFUNC_FNV);
             /* Do not disable worker in case of errors */
             conf->forward->s->status |= PROXY_WORKER_IGNORE_ERRORS;
             /* Mark as the "generic" worker */
@@ -3311,13 +3331,14 @@ static void child_init(apr_pool_t *p, server_rec *s)
             ap_proxy_define_worker(conf->pool, &reverse, NULL, NULL,
                                    "http://www.apache.org", 0);
             PROXY_STRNCPY(reverse->s->name,     "proxy:reverse");
+            PROXY_STRNCPY(reverse->s->name_ex,  "proxy:reverse");
             PROXY_STRNCPY(reverse->s->hostname, "*"); /* for compatibility */
             PROXY_STRNCPY(reverse->s->hostname_ex, "*");
             PROXY_STRNCPY(reverse->s->scheme,   "*");
             reverse->hash.def = reverse->s->hash.def =
-                ap_proxy_hashfunc(reverse->s->name, PROXY_HASHFUNC_DEFAULT);
+                ap_proxy_hashfunc(reverse->s->name_ex, PROXY_HASHFUNC_DEFAULT);
             reverse->hash.fnv = reverse->s->hash.fnv =
-                ap_proxy_hashfunc(reverse->s->name, PROXY_HASHFUNC_FNV);
+                ap_proxy_hashfunc(reverse->s->name_ex, PROXY_HASHFUNC_FNV);
             /* Do not disable worker in case of errors */
             reverse->s->status |= PROXY_WORKER_IGNORE_ERRORS;
             /* Mark as the "generic" worker */

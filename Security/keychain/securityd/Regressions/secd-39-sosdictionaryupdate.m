@@ -2,7 +2,6 @@
 //  secd-39-sosdictionaryupdate.m
 //  protobuf_source_generation
 //
-//  Created by murf on 3/30/21.
 //
 
 #import <Foundation/Foundation.h>

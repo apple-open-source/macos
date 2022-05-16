@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2021 Apple Inc. All rights reserved.
+# Copyright (C) 2010-2022 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -49,8 +49,6 @@ messages -> WebPage LegacyReceiver {
     MouseEvent(WebKit::WebMouseEvent event, std::optional<Vector<WebKit::SandboxExtension::Handle>> sandboxExtensions)
 #if PLATFORM(IOS_FAMILY)
     SetViewportConfigurationViewLayoutSize(WebCore::FloatSize size, double scaleFactor, double minimumEffectiveDeviceWidth)
-    SetMinimumUnobscuredSize(WebCore::FloatSize size)
-    SetMaximumUnobscuredSize(WebCore::FloatSize size)
     SetDeviceOrientation(int32_t deviceOrientation)
     SetOverrideViewportArguments(std::optional<WebCore::ViewportArguments> arguments)
     DynamicViewportSizeUpdate(WebCore::FloatSize viewLayoutSize, WebCore::FloatSize minimumUnobscuredSize, WebCore::FloatSize maximumUnobscuredSize, WebCore::FloatRect targetExposedContentRect, WebCore::FloatRect targetUnobscuredRect, WebCore::FloatRect targetUnobscuredRectInScrollViewCoordinates, WebCore::RectEdges<float> targetUnobscuredSafeAreaInsets, double scale, int32_t deviceOrientation, double minimumEffectiveDeviceWidth, uint64_t dynamicViewportSizeUpdateID)
@@ -92,7 +90,7 @@ messages -> WebPage LegacyReceiver {
     RequestPositionInformation(struct WebKit::InteractionInformationRequest request)
     StartInteractionWithElementContextOrPosition(std::optional<WebCore::ElementContext> elementContext, WebCore::IntPoint point)
     StopInteraction()
-    PerformActionOnElement(uint32_t action)
+    PerformActionOnElement(uint32_t action, String authenticationToken) -> () Async
     FocusNextFocusedElement(bool isForward) -> () Async
     AutofillLoginCredentials(String username, String password)
     SetFocusedElementValue(struct WebCore::ElementContext context, String value)
@@ -283,6 +281,11 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
 
     SetUseFixedLayout(bool fixed)
     SetFixedLayoutSize(WebCore::IntSize size)
+
+    SetDefaultUnobscuredSize(WebCore::FloatSize size)
+    SetMinimumUnobscuredSize(WebCore::FloatSize size)
+    SetMaximumUnobscuredSize(WebCore::FloatSize size)
+
     ListenForLayoutMilestones(OptionSet<WebCore::LayoutMilestone> layoutMilestones)
     SetSuppressScrollbarAnimations(bool suppressAnimations)
 
@@ -385,7 +388,7 @@ GenerateSyntheticEditingCommand(enum:uint8_t WebKit::SyntheticEditingCommandType
     CaptureDevicesChanged()
 #if USE(GSTREAMER)
     SetOrientationForMediaCapture(int rotation)
-    SetMockCameraIsInterrupted(bool isInterrupted)
+    SetMockCaptureDevicesInterrupted(bool isCameraInterrupted, bool isMicrophoneInterrupted)
 #endif
 #endif
 

@@ -189,3 +189,38 @@ T_DECL(madvise_scale_factor, "madvise_scale_factor changes window size",
 	granularity = medium_sliding_madvise_granularity(mag);
 	T_QUIET; T_ASSERT_EQ(granularity, 8 * base_window_size, "larger window also scales up");
 }
+
+T_DECL(medium_free_deallocate, "check medium regions deallocate when empty",
+		T_META_ENABLED(CONFIG_MEDIUM_ALLOCATOR))
+{
+	struct rack_s rack;
+	memset(&rack, 'a', sizeof(rack));
+	rack_init(&rack, RACK_TYPE_MEDIUM, 1, 0);
+	// force recirc to be released when empty
+	recirc_retained_regions = 0;
+
+	magazine_t *mag = &rack.magazines[0];
+	T_ASSERT_EQ(mag->mag_last_region, NULL, "no regions before allocation");
+
+	void *ptr = medium_malloc_should_clear(&rack, 1, false);
+	T_ASSERT_NE(ptr, NULL, "allocate");
+
+	region_t region = MEDIUM_REGION_FOR_PTR(ptr);
+	mag_index_t mag_index = MAGAZINE_INDEX_FOR_MEDIUM_REGION(region);
+	magazine_t *dest_mag = &(rack.magazines[mag_index]);
+	T_ASSERT_GE(mag_index, -1, "assert ptr not in recirc");
+
+	// Is to pass the recirc discriminant in medium_free_try_recirc_to_depot
+	// which normally prevents recirc unless 1.5x of a region has been
+	// allocated in the magazine as a whole.
+	dest_mag->num_bytes_in_magazine = (5 * MEDIUM_REGION_PAYLOAD_BYTES);
+
+	SZONE_MAGAZINE_PTR_LOCK(dest_mag);
+	medium_free_no_lock(&rack, dest_mag, mag_index, region, ptr, 1);
+
+	T_ASSERT_EQ(mag->mag_last_region, NULL, "no regions after last free");
+
+	magazine_t *depot = &rack.magazines[DEPOT_MAGAZINE_INDEX];
+	T_ASSERT_EQ(depot->mag_num_objects, 0, "no objects in depot after last free");
+	T_ASSERT_EQ(depot->num_bytes_in_magazine, 0ul, "no region in depot after last free");
+}

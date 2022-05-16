@@ -1,3 +1,344 @@
+2022-03-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r291199. rdar://problem/89984164
+
+    Unreviewed, ASan specific build fix
+    https://bugs.webkit.org/show_bug.cgi?id=237572
+    
+    * libpas/src/libpas/pas_utils.h:
+    (pas_zero_memory):
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291199 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-11  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            Unreviewed, ASan specific build fix
+            https://bugs.webkit.org/show_bug.cgi?id=237572
+
+            * libpas/src/libpas/pas_utils.h:
+            (pas_zero_memory):
+
+2022-03-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r291097. rdar://problem/89116983
+
+    [libpas] We should gurantee that in-flux-stash is fully baked when pointing table is set
+    https://bugs.webkit.org/show_bug.cgi?id=237697
+    rdar://89116983
+    
+    Reviewed by Mark Lam.
+    
+    To support enumerating hashtable which can be in the middle of resizing, we have in-flux-stash: this
+    small stash is used to keep old table and size while resizing. However, Mark pointed that
+    pas_tiny_large_map_hashtable_for_each_entry_remote's assertion is firing, which is ensuring that table's
+    underlying pointer should be NULL when the size is 0. But in-flux-stash, we did not guarantee that
+    in-flux-stash data is consistent when it is exposed to the enumerator (when setting hashtable_being_resized).
+    
+    This patch inserts pas_compiler_fence when exposing and unexposing in-flux-stash. pas_compiler_fence is
+    enough (pas_store_store_fence is not necessary) because pas_enumerator runs after suspending the process.
+    Thus, data structure's consistency between instruction boundary is enough.
+    
+    * libpas/src/libpas/pas_hashtable.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291097 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-09  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [libpas] We should gurantee that in-flux-stash is fully baked when pointing table is set
+            https://bugs.webkit.org/show_bug.cgi?id=237697
+            rdar://89116983
+
+            Reviewed by Mark Lam.
+
+            To support enumerating hashtable which can be in the middle of resizing, we have in-flux-stash: this
+            small stash is used to keep old table and size while resizing. However, Mark pointed that
+            pas_tiny_large_map_hashtable_for_each_entry_remote's assertion is firing, which is ensuring that table's
+            underlying pointer should be NULL when the size is 0. But in-flux-stash, we did not guarantee that
+            in-flux-stash data is consistent when it is exposed to the enumerator (when setting hashtable_being_resized).
+
+            This patch inserts pas_compiler_fence when exposing and unexposing in-flux-stash. pas_compiler_fence is
+            enough (pas_store_store_fence is not necessary) because pas_enumerator runs after suspending the process.
+            Thus, data structure's consistency between instruction boundary is enough.
+
+            * libpas/src/libpas/pas_hashtable.h:
+
+2022-03-21  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r291007. rdar://problem/89984164
+
+    [libpas] Report more actionable crash in pas_enumerator
+    https://bugs.webkit.org/show_bug.cgi?id=237572
+    
+    Reviewed by Saam Barati.
+    
+    1. Adds PAS_ASSERT_WITH_DETAIL, which can report more detailed crash information than PAS_ASSERT
+       while it is not efficient as much as PAS_ASSERT. We use it only in pas_enumerator related code
+       to report more actionable crash from these code. It is OK since pas_enumerator is not used usually,
+       which will be used only when vmmap is attached.
+    2. Extract enumerate_large_map, enumerate_small_large_map, and enumerate_tiny_large_map to report
+       which part of these functions can crash (in very rare case).
+    3. Ensure pas_thread_local_cache_create's thread_local_cache is exposed after setting up all the data.
+    
+    * libpas/src/libpas/pas_enumerable_range_list.c:
+    (pas_enumerable_range_list_append):
+    (pas_enumerable_range_list_iterate):
+    (pas_enumerable_range_list_iterate_remote):
+    * libpas/src/libpas/pas_enumerate_bitfit_heaps.c:
+    (view_callback):
+    (enumerate_bitfit_heap_callback):
+    * libpas/src/libpas/pas_enumerate_initially_unaccounted_pages.c:
+    (range_list_iterate_add_unaccounted_callback):
+    (range_list_iterate_exclude_accounted_callback):
+    * libpas/src/libpas/pas_enumerate_large_heaps.c:
+    (range_list_iterate_add_large_payload_callback):
+    (record_span):
+    (large_map_hashtable_entry_callback):
+    (small_large_map_hashtable_entry_callback):
+    (tiny_large_map_hashtable_entry_callback):
+    (enumerate_large_map):
+    (enumerate_small_large_map):
+    (enumerate_tiny_large_map):
+    (pas_enumerate_large_heaps):
+    * libpas/src/libpas/pas_enumerate_segregated_heaps.c:
+    (local_allocator_map_entry_is_empty_or_deleted):
+    (local_allocator_map_entry_is_empty):
+    (local_allocator_map_entry_is_deleted):
+    (collect_shared_page_directories_heap_callback):
+    (enumerate_exclusive_view):
+    (enumerate_shared_view):
+    (enumerate_partial_view):
+    (shared_page_directory_view_callback):
+    (size_directory_view_callback):
+    (consider_allocator):
+    (pas_enumerate_segregated_heaps):
+    * libpas/src/libpas/pas_enumerate_unaccounted_pages_as_meta.c:
+    (pas_enumerate_unaccounted_pages_as_meta):
+    * libpas/src/libpas/pas_enumerator.c:
+    (pas_enumerator_create):
+    (pas_enumerator_read_compact):
+    (pas_enumerator_read):
+    (pas_enumerator_add_unaccounted_pages):
+    (pas_enumerator_exclude_accounted_page):
+    (pas_enumerator_exclude_accounted_pages):
+    (pas_enumerator_record):
+    (pas_enumerator_record_page_payload_and_meta):
+    * libpas/src/libpas/pas_enumerator.h:
+    (pas_enumerator_record_kind_get_string):
+    * libpas/src/libpas/pas_enumerator_region.c:
+    (pas_enumerator_region_allocate):
+    * libpas/src/libpas/pas_thread_local_cache.c:
+    (pas_thread_local_cache_create):
+    * libpas/src/libpas/pas_utils.c:
+    (pas_assertion_failed_no_inline):
+    * libpas/src/libpas/pas_utils.h:
+    (pas_zero_memory):
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291007 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-08  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [libpas] Report more actionable crash in pas_enumerator
+            https://bugs.webkit.org/show_bug.cgi?id=237572
+
+            Reviewed by Saam Barati.
+
+            1. Adds PAS_ASSERT_WITH_DETAIL, which can report more detailed crash information than PAS_ASSERT
+               while it is not efficient as much as PAS_ASSERT. We use it only in pas_enumerator related code
+               to report more actionable crash from these code. It is OK since pas_enumerator is not used usually,
+               which will be used only when vmmap is attached.
+            2. Extract enumerate_large_map, enumerate_small_large_map, and enumerate_tiny_large_map to report
+               which part of these functions can crash (in very rare case).
+            3. Ensure pas_thread_local_cache_create's thread_local_cache is exposed after setting up all the data.
+
+            * libpas/src/libpas/pas_enumerable_range_list.c:
+            (pas_enumerable_range_list_append):
+            (pas_enumerable_range_list_iterate):
+            (pas_enumerable_range_list_iterate_remote):
+            * libpas/src/libpas/pas_enumerate_bitfit_heaps.c:
+            (view_callback):
+            (enumerate_bitfit_heap_callback):
+            * libpas/src/libpas/pas_enumerate_initially_unaccounted_pages.c:
+            (range_list_iterate_add_unaccounted_callback):
+            (range_list_iterate_exclude_accounted_callback):
+            * libpas/src/libpas/pas_enumerate_large_heaps.c:
+            (range_list_iterate_add_large_payload_callback):
+            (record_span):
+            (large_map_hashtable_entry_callback):
+            (small_large_map_hashtable_entry_callback):
+            (tiny_large_map_hashtable_entry_callback):
+            (enumerate_large_map):
+            (enumerate_small_large_map):
+            (enumerate_tiny_large_map):
+            (pas_enumerate_large_heaps):
+            * libpas/src/libpas/pas_enumerate_segregated_heaps.c:
+            (local_allocator_map_entry_is_empty_or_deleted):
+            (local_allocator_map_entry_is_empty):
+            (local_allocator_map_entry_is_deleted):
+            (collect_shared_page_directories_heap_callback):
+            (enumerate_exclusive_view):
+            (enumerate_shared_view):
+            (enumerate_partial_view):
+            (shared_page_directory_view_callback):
+            (size_directory_view_callback):
+            (consider_allocator):
+            (pas_enumerate_segregated_heaps):
+            * libpas/src/libpas/pas_enumerate_unaccounted_pages_as_meta.c:
+            (pas_enumerate_unaccounted_pages_as_meta):
+            * libpas/src/libpas/pas_enumerator.c:
+            (pas_enumerator_create):
+            (pas_enumerator_read_compact):
+            (pas_enumerator_read):
+            (pas_enumerator_add_unaccounted_pages):
+            (pas_enumerator_exclude_accounted_page):
+            (pas_enumerator_exclude_accounted_pages):
+            (pas_enumerator_record):
+            (pas_enumerator_record_page_payload_and_meta):
+            * libpas/src/libpas/pas_enumerator.h:
+            (pas_enumerator_record_kind_get_string):
+            * libpas/src/libpas/pas_enumerator_region.c:
+            (pas_enumerator_region_allocate):
+            * libpas/src/libpas/pas_thread_local_cache.c:
+            (pas_thread_local_cache_create):
+            * libpas/src/libpas/pas_utils.c:
+            (pas_assertion_failed_no_inline):
+            * libpas/src/libpas/pas_utils.h:
+            (pas_zero_memory):
+
+2022-02-17  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] scavenger should not call pthread_mach_thread_np after suspension
+        https://bugs.webkit.org/show_bug.cgi?id=236798
+        rdar://89020902
+
+        Reviewed by Mark Lam and Keith Miller.
+
+        pthread_mach_thread_np can take a lock internally. So we should not call it after suspending a thread.
+        This patch refactors libpas scavenger so that we call pthread_mach_thread_np before suspending a thread.
+        We also avoid calling pthread_self() after suspension to make suspending safer (while it does not take
+        a lock, it also depends on an internal implementation).
+
+        * libpas/src/libpas/pas_thread_local_cache.c:
+        (scavenger_thread_suspend_data_create):
+        (suspend):
+        (resume):
+        (stop_allocator):
+        (pas_thread_local_cache_for_all):
+
+2022-03-07  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r290195. rdar://problem/88402366
+
+    [libpas] Increase scavenger period from 100ms to 125ms in Darwin x64
+    https://bugs.webkit.org/show_bug.cgi?id=236873
+    
+    Reviewed by Saam Barati.
+    
+    Make x64 scavenger less aggressive while maintaining Membuster neutral
+    to make it less work.
+    
+    * libpas/src/libpas/pas_config_prefix.h:
+    * libpas/src/libpas/pas_scavenger.c:
+    * libpas/src/libpas/pas_utils.h:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@290195 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-02-18  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            [libpas] Increase scavenger period from 100ms to 125ms in Darwin x64
+            https://bugs.webkit.org/show_bug.cgi?id=236873
+
+            Reviewed by Saam Barati.
+
+            Make x64 scavenger less aggressive while maintaining Membuster neutral
+            to make it less work.
+
+            * libpas/src/libpas/pas_config_prefix.h:
+            * libpas/src/libpas/pas_scavenger.c:
+            * libpas/src/libpas/pas_utils.h:
+
+2022-03-04  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/89071706
+
+    2022-03-04  Yusuke Suzuki  <ysuzuki@apple.com>
+
+            Unreviewed, fix heap enumeration
+            https://bugs.webkit.org/show_bug.cgi?id=236662
+
+            * libpas/src/libpas/pas_enumerate_segregated_heaps.c:
+            (pas_enumerate_segregated_heaps):
+
+2022-02-16  Yusuke Suzuki  <ysuzuki@apple.com>
+
+        [libpas] Use segmented vector for TLC layout list
+        https://bugs.webkit.org/show_bug.cgi?id=236662
+
+        Reviewed by Saam Barati.
+
+        We add segmented vector for pas_thread_local_cache_layout_node iteration instead of using
+        linked-list of that to accelerate iteration performance. It does not affect on Speedometer2,
+        JetStream2, PLT5 etc., but we do this iteration frequently in scavenger thread, and reducing
+        time of this makes it efficient. While speeding up scavenger does not matter for throughput
+        of non scavenger threads since libpas works well without taking a lock in most times which
+        is blocked by scavenger, making scavenger faster is good for energy efficiency.
+
+        1. Use segmented vector for (concurrently read) pas_thread_local_cache_layout_node list.
+           We still keep nice for-loop abstraction for list of pas_thread_local_cache_layout_node.
+        2. Remove pas_local_view_cache_node since we no longer need it. It was introduced just to
+           make it linked-list node for pas_thread_local_cache_layout_node. But now, segmented vector
+           is holding it separately.
+        3. Move pas_segregated_size_directory_data's allocator_index to pas_segregated_size_directory.
+           Because of (1) change, we can make pas_segregated_size_directory linked-list-node, which
+           saves 4 bytes. So we can move pas_segregated_size_directory_data's allocator_index to
+           pas_segregated_size_directory since it is heavily accessed from the scavenger.
+
+        * CMakeLists.txt:
+        * bmalloc.xcodeproj/project.pbxproj:
+        * libpas/libpas.xcodeproj/project.pbxproj:
+        * libpas/src/libpas/pas_designated_intrinsic_heap.c:
+        (set_up_range):
+        * libpas/src/libpas/pas_enumerate_segregated_heaps.c:
+        (pas_enumerate_segregated_heaps):
+        * libpas/src/libpas/pas_local_view_cache_node.c: Removed.
+        * libpas/src/libpas/pas_local_view_cache_node.h: Removed.
+        * libpas/src/libpas/pas_redundant_local_allocator_node.c:
+        (pas_redundant_local_allocator_node_create):
+        * libpas/src/libpas/pas_redundant_local_allocator_node.h:
+        * libpas/src/libpas/pas_root.c:
+        (pas_root_construct):
+        * libpas/src/libpas/pas_root.h:
+        * libpas/src/libpas/pas_segregated_heap.c:
+        (recompute_size_lookup):
+        (pas_segregated_heap_ensure_allocator_index):
+        * libpas/src/libpas/pas_segregated_size_directory.c:
+        (pas_segregated_size_directory_create):
+        (pas_segregated_size_directory_ensure_data):
+        (pas_segregated_size_directory_create_tlc_allocator):
+        (pas_segregated_size_directory_get_allocator_from_tlc):
+        * libpas/src/libpas/pas_segregated_size_directory.h:
+        (pas_segregated_size_directory_has_tlc_allocator):
+        (pas_segregated_size_directory_get_tlc_allocator_index):
+        * libpas/src/libpas/pas_thread_local_cache.c:
+        (decommit_allocator_range):
+        (pas_thread_local_cache_for_all):
+        * libpas/src/libpas/pas_thread_local_cache_layout.c:
+        (pas_thread_local_cache_layout_add_node):
+        (pas_thread_local_cache_layout_add_view_cache):
+        (pas_thread_local_cache_layout_get_last_node):
+        * libpas/src/libpas/pas_thread_local_cache_layout.h:
+        (pas_thread_local_cache_layout_segment_get_node):
+        (pas_thread_local_cache_layout_segment_next_node):
+        * libpas/src/libpas/pas_thread_local_cache_layout_node.c:
+        (pas_thread_local_cache_layout_node_get_directory):
+        (allocator_index_ptr):
+        (next_ptr): Deleted.
+        (pas_thread_local_cache_layout_node_get_next): Deleted.
+        (pas_thread_local_cache_layout_node_set_next): Deleted.
+        * libpas/src/libpas/pas_thread_local_cache_layout_node.h:
+        (pas_wrap_local_view_cache_node):
+        (pas_unwrap_local_view_cache_node):
+
 2022-02-07  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r289144. rdar://problem/88585404

@@ -391,6 +391,11 @@ public:
 
     bool isMarkingForGCVerifier() const { return m_isMarkingForGCVerifier; }
 
+    void appendPossiblyAccessedStringFromConcurrentThreads(String&& string)
+    {
+        m_possiblyAccessedStringsFromConcurrentThreads.append(WTFMove(string));
+    }
+
 private:
     friend class AllocatingScope;
     friend class CodeBlock;
@@ -641,6 +646,8 @@ private:
 
     Vector<WeakBlock*> m_logicallyEmptyWeakBlocks;
     size_t m_indexOfNextLogicallyEmptyWeakBlockToSweep { WTF::notFound };
+
+    Vector<String> m_possiblyAccessedStringsFromConcurrentThreads;
     
     RefPtr<FullGCActivityCallback> m_fullActivityCallback;
     RefPtr<GCActivityCallback> m_edenActivityCallback;

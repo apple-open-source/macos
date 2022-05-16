@@ -148,6 +148,10 @@ TIntermTyped *FindLValueBase(TIntermTyped *node)
     } while (true);
 }
 
+void AddAdvancedBlendEquation(gl::BlendEquationType eq, TLayoutQualifier *qualifier)
+{
+    qualifier->advancedBlendEquations.set(static_cast<uint32_t>(eq));
+}
 }  // namespace
 
 // This tracks each binding point's current default offset for inheritance of subsequent
@@ -244,6 +248,7 @@ TParseContext::TParseContext(TSymbolTable &symt,
       mTessEvaluationShaderInputOrderingType(EtetUndefined),
       mTessEvaluationShaderInputPointType(EtetUndefined),
       mHasAnyPreciseType(false),
+      mAdvancedBlendEquations(0),
       mFunctionBodyNewScope(false),
       mOutputType(outputType)
 {}
@@ -760,11 +765,30 @@ bool TParseContext::checkIsNotReserved(const TSourceLoc &line, const ImmutableSt
     }
     if (identifier.contains("__"))
     {
-        error(line,
-              "identifiers containing two consecutive underscores (__) are reserved as "
-              "possible future keywords",
-              identifier);
-        return false;
+        if (sh::IsWebGLBasedSpec(mShaderSpec))
+        {
+            error(line,
+                  "identifiers containing two consecutive underscores (__) are reserved as "
+                  "possible future keywords",
+                  identifier);
+            return false;
+        }
+        else
+        {
+            // Using double underscores is allowed, but may result in unintended behaviors, so a
+            // warning is issued.
+            // OpenGL ES Shader Language 3.2 specification:
+            // > 3.7. Keywords
+            // > ...
+            // > In addition, all identifiers containing two consecutive underscores (__) are
+            // > reserved for use by underlying software layers. Defining such a name in a shader
+            // > does not itself result in an error, but may result in unintended behaviors that
+            // > stem from having multiple definitions of the same name.
+            warning(line,
+                    "all identifiers containing two consecutive underscores (__) are reserved - "
+                    "unintented behaviors are possible",
+                    identifier.data());
+        }
     }
     return true;
 }
@@ -1817,9 +1841,10 @@ void TParseContext::checkBindingIsValid(const TSourceLoc &identifierLocation, co
 
 void TParseContext::checkCanUseLayoutQualifier(const TSourceLoc &location)
 {
-    constexpr std::array<TExtension, 2u> extensions{
+    constexpr std::array<TExtension, 3u> extensions{
         {TExtension::EXT_shader_framebuffer_fetch,
-         TExtension::EXT_shader_framebuffer_fetch_non_coherent}};
+         TExtension::EXT_shader_framebuffer_fetch_non_coherent,
+         TExtension::KHR_blend_equation_advanced}};
     if (getShaderVersion() < 300 && !checkCanUseOneOfExtensions(location, extensions))
     {
         error(location, "qualifier supported in GLSL ES 3.00 and above only", "layout");
@@ -2098,6 +2123,20 @@ void TParseContext::checkInvariantVariableQualifier(bool invariant,
         {
             error(invariantLocation, "Cannot be qualified as invariant.", "invariant");
         }
+    }
+}
+
+void TParseContext::checkAdvancedBlendEquationsNotSpecified(
+    const TSourceLoc &location,
+    const AdvancedBlendEquations &advancedBlendEquations,
+    const TQualifier &qualifier)
+{
+    if (advancedBlendEquations.any() && qualifier != EvqFragmentOut)
+    {
+        error(location,
+              "invalid layout qualifier: blending equation qualifiers are only permitted on the "
+              "fragment 'out' qualifier ",
+              "blend_support_qualifier");
     }
 }
 
@@ -3607,6 +3646,9 @@ void TParseContext::parseGlobalLayoutQualifier(const TTypeQualifierBuilder &type
     checkStd430IsForShaderStorageBlock(typeQualifier.line, layoutQualifier.blockStorage,
                                        typeQualifier.qualifier);
 
+    checkAdvancedBlendEquationsNotSpecified(
+        typeQualifier.line, layoutQualifier.advancedBlendEquations, typeQualifier.qualifier);
+
     if (typeQualifier.qualifier != EvqFragmentIn)
     {
         checkEarlyFragmentTestsIsNotSpecified(typeQualifier.line,
@@ -3737,6 +3779,28 @@ void TParseContext::parseGlobalLayoutQualifier(const TTypeQualifierBuilder &type
         }
 
         mEarlyFragmentTestsSpecified = true;
+    }
+    else if (typeQualifier.qualifier == EvqFragmentOut)
+    {
+        if (mShaderVersion < 320 && !isExtensionEnabled(TExtension::KHR_blend_equation_advanced))
+        {
+            error(typeQualifier.line,
+                  "out type qualifier without variable declaration is supported in GLSL ES 3.20,"
+                  " or if GL_KHR_blend_equation_advanced is enabled",
+                  "layout");
+            return;
+        }
+
+        if (!layoutQualifier.advancedBlendEquations.any())
+        {
+            error(typeQualifier.line,
+                  "only blend equations are allowed as layout qualifier when not declaring a "
+                  "variable",
+                  "layout");
+            return;
+        }
+
+        mAdvancedBlendEquations |= layoutQualifier.advancedBlendEquations;
     }
     else if (typeQualifier.qualifier == EvqTessControlOut)
     {
@@ -4263,7 +4327,12 @@ TIntermDeclaration *TParseContext::addInterfaceBlock(
     const TVector<unsigned int> *arraySizes,
     const TSourceLoc &arraySizesLine)
 {
-    checkIsNotReserved(nameLine, blockName);
+    const bool isGLPerVertex = blockName == "gl_PerVertex";
+    // gl_PerVertex is allowed to be redefined and therefore not reserved
+    if (!isGLPerVertex)
+    {
+        checkIsNotReserved(nameLine, blockName);
+    }
 
     TTypeQualifier typeQualifier = typeQualifierBuilder.getVariableTypeQualifier(mDiagnostics);
 
@@ -4569,9 +4638,14 @@ TIntermDeclaration *TParseContext::addInterfaceBlock(
         }
     }
 
-    TInterfaceBlock *interfaceBlock = new TInterfaceBlock(
-        &symbolTable, blockName, fieldList, blockLayoutQualifier, SymbolType::UserDefined);
-    if (!symbolTable.declare(interfaceBlock))
+    SymbolType instanceSymbolType = SymbolType::UserDefined;
+    if (isGLPerVertex)
+    {
+        instanceSymbolType = SymbolType::BuiltIn;
+    }
+    TInterfaceBlock *interfaceBlock = new TInterfaceBlock(&symbolTable, blockName, fieldList,
+                                                          blockLayoutQualifier, instanceSymbolType);
+    if (!symbolTable.declare(interfaceBlock) && isUniformOrBuffer)
     {
         error(nameLine, "redefinition of an interface block name", blockName);
     }
@@ -4607,8 +4681,21 @@ TIntermDeclaration *TParseContext::addInterfaceBlock(
 
             fieldType->setQualifier(typeQualifier.qualifier);
 
+            SymbolType symbolType = SymbolType::UserDefined;
+            if (field->name() == "gl_Position" || field->name() == "gl_PointSize" ||
+                field->name() == "gl_ClipDistance" || field->name() == "gl_CullDistance")
+            {
+                // These builtins can be redifined only when used within a redefiend gl_PerVertex
+                // block
+                if (interfaceBlock->name() != "gl_PerVertex")
+                {
+                    error(field->line(), "redefinition in an invalid interface block",
+                          field->name());
+                }
+                symbolType = SymbolType::BuiltIn;
+            }
             TVariable *fieldVariable =
-                new TVariable(&symbolTable, field->name(), fieldType, SymbolType::UserDefined);
+                new TVariable(&symbolTable, field->name(), fieldType, symbolType);
             if (!symbolTable.declare(fieldVariable))
             {
                 error(field->line(), "redefinition of an interface block member name",
@@ -5239,15 +5326,95 @@ TLayoutQualifier TParseContext::parseLayoutQualifier(const ImmutableString &qual
             error(qualifierTypeLine, "invalid layout qualifier", qualifierType);
         }
     }
-    else if (qualifierType == "noncoherent" && mShaderType == GL_FRAGMENT_SHADER)
+    else if (mShaderType == GL_FRAGMENT_SHADER)
     {
-        if (checkCanUseOneOfExtensions(
-                qualifierTypeLine, std::array<TExtension, 2u>{
-                                       {TExtension::EXT_shader_framebuffer_fetch,
-                                        TExtension::EXT_shader_framebuffer_fetch_non_coherent}}))
+        if (qualifierType == "noncoherent")
         {
-            checkLayoutQualifierSupported(qualifierTypeLine, qualifierType, 100);
-            qualifier.noncoherent = true;
+            if (checkCanUseOneOfExtensions(
+                    qualifierTypeLine,
+                    std::array<TExtension, 2u>{
+                        {TExtension::EXT_shader_framebuffer_fetch,
+                         TExtension::EXT_shader_framebuffer_fetch_non_coherent}}))
+            {
+                checkLayoutQualifierSupported(qualifierTypeLine, qualifierType, 100);
+                qualifier.noncoherent = true;
+            }
+        }
+        else if (qualifierType == "blend_support_multiply")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Multiply, &qualifier);
+        }
+        else if (qualifierType == "blend_support_screen")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Screen, &qualifier);
+        }
+        else if (qualifierType == "blend_support_overlay")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Overlay, &qualifier);
+        }
+        else if (qualifierType == "blend_support_darken")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Darken, &qualifier);
+        }
+        else if (qualifierType == "blend_support_lighten")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Lighten, &qualifier);
+        }
+        else if (qualifierType == "blend_support_colordodge")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Colordodge, &qualifier);
+        }
+        else if (qualifierType == "blend_support_colorburn")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Colorburn, &qualifier);
+        }
+        else if (qualifierType == "blend_support_hardlight")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Hardlight, &qualifier);
+        }
+        else if (qualifierType == "blend_support_softlight")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Softlight, &qualifier);
+        }
+        else if (qualifierType == "blend_support_difference")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Difference, &qualifier);
+        }
+        else if (qualifierType == "blend_support_exclusion")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::Exclusion, &qualifier);
+        }
+        else if (qualifierType == "blend_support_hsl_hue")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::HslHue, &qualifier);
+        }
+        else if (qualifierType == "blend_support_hsl_saturation")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::HslSaturation, &qualifier);
+        }
+        else if (qualifierType == "blend_support_hsl_color")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::HslColor, &qualifier);
+        }
+        else if (qualifierType == "blend_support_hsl_luminosity")
+        {
+            AddAdvancedBlendEquation(gl::BlendEquationType::HslLuminosity, &qualifier);
+        }
+        else if (qualifierType == "blend_support_all_equations")
+        {
+            qualifier.advancedBlendEquations.setAll();
+        }
+        else
+        {
+            error(qualifierTypeLine, "invalid layout qualifier", qualifierType);
+        }
+
+        if (qualifier.advancedBlendEquations.any() && mShaderVersion < 320)
+        {
+            if (!checkCanUseExtension(qualifierTypeLine, TExtension::KHR_blend_equation_advanced))
+            {
+                qualifier.advancedBlendEquations.reset();
+            }
         }
     }
     else
@@ -5604,6 +5771,16 @@ TStorageQualifierWrapper *TParseContext::parseInOutQualifier(const TSourceLoc &l
 {
     if (!declaringFunction())
     {
+        if (mShaderVersion < 300 && !IsDesktopGLSpec(mShaderSpec))
+        {
+            error(loc, "storage qualifier supported in GLSL ES 3.00 and above only", "inout");
+        }
+
+        if (getShaderType() != GL_FRAGMENT_SHADER)
+        {
+            error(loc, "storage qualifier isn't supported in non-fragment shaders", "inout");
+        }
+
         if (isExtensionEnabled(TExtension::EXT_shader_framebuffer_fetch) ||
             isExtensionEnabled(TExtension::EXT_shader_framebuffer_fetch_non_coherent))
         {
@@ -5629,7 +5806,6 @@ TLayoutQualifier TParseContext::joinLayoutQualifiers(TLayoutQualifier leftQualif
 TDeclarator *TParseContext::parseStructDeclarator(const ImmutableString &identifier,
                                                   const TSourceLoc &loc)
 {
-    checkIsNotReserved(loc, identifier);
     return new TDeclarator(identifier, loc);
 }
 
@@ -5637,7 +5813,6 @@ TDeclarator *TParseContext::parseStructArrayDeclarator(const ImmutableString &id
                                                        const TSourceLoc &loc,
                                                        const TVector<unsigned int> *arraySizes)
 {
-    checkIsNotReserved(loc, identifier);
     return new TDeclarator(identifier, arraySizes, loc);
 }
 
@@ -5725,8 +5900,17 @@ TFieldList *TParseContext::addStructDeclaratorList(const TPublicType &typeSpecif
             type->makeArrays(*declarator->arraySizes());
         }
 
-        TField *field =
-            new TField(type, declarator->name(), declarator->line(), SymbolType::UserDefined);
+        SymbolType symbolType = SymbolType::UserDefined;
+        if (declarator->name() == "gl_Position" || declarator->name() == "gl_PointSize" ||
+            declarator->name() == "gl_ClipDistance" || declarator->name() == "gl_CullDistance")
+        {
+            symbolType = SymbolType::BuiltIn;
+        }
+        else
+        {
+            checkIsNotReserved(typeSpecifier.getLine(), declarator->name());
+        }
+        TField *field = new TField(type, declarator->name(), declarator->line(), symbolType);
         checkIsBelowStructNestingLimit(typeSpecifier.getLine(), *field);
         fieldList->push_back(field);
     }

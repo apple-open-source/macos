@@ -210,11 +210,11 @@ public:
     bool hasMarginBeforeQuirk() const { return marginBefore().hasQuirk(); }
     bool hasMarginAfterQuirk() const { return marginAfter().hasQuirk(); }
 
-    bool hasBackgroundImage() const { return m_backgroundData->background->hasImage(); }
-    bool hasFixedBackgroundImage() const { return m_backgroundData->background->hasFixedImage(); }
+    bool hasBackgroundImage() const { return backgroundLayers().hasImage(); }
+    bool hasAnyFixedBackground() const { return backgroundLayers().hasImageWithAttachment(FillAttachment::FixedBackground); }
 
     bool hasEntirelyFixedBackground() const;
-    bool hasAnyLocalBackground() const;
+    bool hasAnyLocalBackground() const { return backgroundLayers().hasImageWithAttachment(FillAttachment::LocalBackground); }
 
     bool hasAppearance() const { return appearance() != NoControlPart; }
     bool hasEffectiveAppearance() const { return effectiveAppearance() != NoControlPart; }
@@ -502,6 +502,7 @@ public:
 
     float outlineOffset() const;
     const ShadowData* textShadow() const { return m_rareInheritedData->textShadow.get(); }
+    LayoutBoxExtent textShadowExtent() const { return shadowExtent(textShadow()); }
     void getTextShadowInlineDirectionExtent(LayoutUnit& logicalLeft, LayoutUnit& logicalRight) const { getShadowInlineDirectionExtent(textShadow(), logicalLeft, logicalRight); }
     void getTextShadowBlockDirectionExtent(LayoutUnit& logicalTop, LayoutUnit& logicalBottom) const { getShadowBlockDirectionExtent(textShadow(), logicalTop, logicalBottom); }
 
@@ -609,9 +610,10 @@ public:
     int marqueeLoopCount() const { return m_rareNonInheritedData->marquee->loops; }
     MarqueeBehavior marqueeBehavior() const { return static_cast<MarqueeBehavior>(m_rareNonInheritedData->marquee->behavior); }
     MarqueeDirection marqueeDirection() const { return static_cast<MarqueeDirection>(m_rareNonInheritedData->marquee->direction); }
+    UserModify effectiveUserModify() const { return effectiveInert() ? UserModify::ReadOnly : userModify(); }
     UserModify userModify() const { return static_cast<UserModify>(m_rareInheritedData->userModify); }
     UserDrag userDrag() const { return static_cast<UserDrag>(m_rareNonInheritedData->userDrag); }
-    UserSelect userSelectIncludingInert() const { return effectiveInert() ? UserSelect::None : userSelect(); }
+    UserSelect effectiveUserSelect() const { return effectiveInert() ? UserSelect::None : userSelect(); }
     UserSelect userSelect() const { return static_cast<UserSelect>(m_rareInheritedData->userSelect); }
     TextOverflow textOverflow() const { return static_cast<TextOverflow>(m_rareNonInheritedData->textOverflow); }
     WordBreak wordBreak() const { return static_cast<WordBreak>(m_rareInheritedData->wordBreak); }
@@ -708,6 +710,7 @@ public:
     LineAlign lineAlign() const { return static_cast<LineAlign>(m_rareInheritedData->lineAlign); }
 
     PointerEvents pointerEvents() const { return static_cast<PointerEvents>(m_inheritedFlags.pointerEvents); }
+    PointerEvents effectivePointerEvents() const { return effectiveInert() ? PointerEvents::None : pointerEvents(); }
     const AnimationList* animations() const { return m_rareNonInheritedData->animations.get(); }
     const AnimationList* transitions() const { return m_rareNonInheritedData->transitions.get(); }
 

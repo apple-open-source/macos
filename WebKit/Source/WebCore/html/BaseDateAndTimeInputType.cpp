@@ -306,7 +306,7 @@ void BaseDateAndTimeInputType::handleDOMActivateEvent(Event&)
     }
 }
 
-void BaseDateAndTimeInputType::createShadowSubtreeAndUpdateInnerTextElementEditability(ContainerNode::ChildChange::Source source, bool)
+void BaseDateAndTimeInputType::createShadowSubtree()
 {
     ASSERT(needsShadowSubtree());
     ASSERT(element());
@@ -316,11 +316,11 @@ void BaseDateAndTimeInputType::createShadowSubtreeAndUpdateInnerTextElementEdita
 
     if (document.settings().dateTimeInputsEditableComponentsEnabled()) {
         m_dateTimeEditElement = DateTimeEditElement::create(document, *this);
-        element.userAgentShadowRoot()->appendChild(source, *m_dateTimeEditElement);
+        element.userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, *m_dateTimeEditElement);
     } else {
         auto valueContainer = HTMLDivElement::create(document);
         valueContainer->setPseudo(ShadowPseudoIds::webkitDateAndTimeValue());
-        element.userAgentShadowRoot()->appendChild(source, valueContainer);
+        element.userAgentShadowRoot()->appendChild(ContainerNode::ChildChange::Source::Parser, valueContainer);
     }
     updateInnerTextValue();
 }
@@ -334,6 +334,9 @@ void BaseDateAndTimeInputType::destroyShadowSubtree()
 void BaseDateAndTimeInputType::updateInnerTextValue()
 {
     ASSERT(element());
+
+    createShadowSubtreeIfNeeded();
+
     if (!m_dateTimeEditElement) {
         auto node = element()->userAgentShadowRoot()->firstChild();
         if (!is<HTMLElement>(node))
@@ -575,4 +578,5 @@ void BaseDateAndTimeInputType::closeDateTimeChooser()
 }
 
 } // namespace WebCore
+
 #endif

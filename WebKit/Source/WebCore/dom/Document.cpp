@@ -812,6 +812,20 @@ void Document::commonTeardown()
 
     m_documentFragmentForInnerOuterHTML = nullptr;
 
+    auto intersectionObservers = m_intersectionObservers;
+    for (auto& intersectionObserver : intersectionObservers) {
+        if (intersectionObserver)
+            intersectionObserver->disconnect();
+    }
+
+    auto resizeObservers = m_resizeObservers;
+    for (auto& resizeObserver : resizeObservers) {
+        if (resizeObserver)
+            resizeObserver->disconnect();
+    }
+
+    scriptRunner().clearPendingScripts();
+
     if (m_highlightRegister)
         m_highlightRegister->clear();
 #if ENABLE(APP_HIGHLIGHTS)
@@ -1991,14 +2005,17 @@ void Document::resolveStyle(ResolveStyleType type)
 
     RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
 
-    // FIXME: Do this update per tree scope.
-    if (auto* extensions = m_svgExtensions.get()) {
-        auto elements = copyToVectorOf<Ref<SVGUseElement>>(extensions->useElementsWithPendingShadowTreeUpdate());
-        // We can't clear m_svgUseElements here because updateShadowTree may end up executing arbitrary scripts
-        // which may insert new SVG use elements or remove existing ones inside sync IPC via ImageLoader::updateFromElement.
-        for (auto& element : elements)
-            element->updateShadowTree();
-    }
+    // FIXME: Do this user agent shadow tree update per tree scope.
+
+    // We can't clear m_elementsWithPendingUserAgentShadowTreeUpdates here
+    // because SVGUseElement::updateUserAgentShadowTree may end up executing
+    // arbitrary scripts which may insert new SVG use elements or remove
+    // existing ones inside sync IPC via ImageLoader::updateFromElement.
+    //
+    // Instead, it is the responsibility of updateUserAgentShadowTree to
+    // remove the element.
+    for (auto& element : copyToVectorOf<Ref<Element>>(m_elementsWithPendingUserAgentShadowTreeUpdates))
+        element->updateUserAgentShadowTree();
 
     // FIXME: We should update style on our ancestor chain before proceeding, however doing so at
     // the time this comment was originally written caused several tests to crash.
@@ -3481,7 +3498,7 @@ void Document::disableEval(const String& errorMessage)
     if (!frame())
         return;
 
-    frame()->script().disableEval(errorMessage);
+    frame()->script().setEvalEnabled(false, errorMessage);
 }
 
 void Document::disableWebAssembly(const String& errorMessage)
@@ -3489,7 +3506,7 @@ void Document::disableWebAssembly(const String& errorMessage)
     if (!frame())
         return;
 
-    frame()->script().disableWebAssembly(errorMessage);
+    frame()->script().setWebAssemblyEnabled(false, errorMessage);
 }
 
 IDBClient::IDBConnectionProxy* Document::idbConnectionProxy()
@@ -4663,7 +4680,7 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
         }
 
         // Dispatch the focus event and let the node do any other focus related activities (important for text fields)
-        m_focusedElement->dispatchFocusEvent(oldFocusedElement.copyRef(), options.direction);
+        m_focusedElement->dispatchFocusEvent(oldFocusedElement.copyRef(), options);
 
         if (m_focusedElement != newFocusedElement) {
             // handler shifted focus
@@ -5988,7 +6005,7 @@ Document& Document::topDocument() const
     return *document;
 }
 
-ExceptionOr<Ref<Attr>> Document::createAttribute(const String& localName)
+ExceptionOr<Ref<Attr>> Document::createAttribute(const AtomString& localName)
 {
     if (!isValidName(localName))
         return Exception { InvalidCharacterError };
@@ -9044,6 +9061,31 @@ TextStream& operator<<(TextStream& ts, const Document& document)
 {
     ts << document.debugDescription();
     return ts;
+}
+
+void Document::addElementWithPendingUserAgentShadowTreeUpdate(Element& element)
+{
+    ASSERT(&element.document() == this);
+    auto result = m_elementsWithPendingUserAgentShadowTreeUpdates.add(element);
+    RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(result.isNewEntry);
+}
+
+void Document::removeElementWithPendingUserAgentShadowTreeUpdate(Element& element)
+{
+    ASSERT(&element.document() == this);
+    m_elementsWithPendingUserAgentShadowTreeUpdates.remove(element);
+    // FIXME: Assert that element was in m_elementsWithPendingUserAgentShadowTreeUpdates once re-entrancy to update style and layout have been removed.
+}
+
+bool Document::hasElementWithPendingUserAgentShadowTreeUpdate(Element& element) const
+{
+    return m_elementsWithPendingUserAgentShadowTreeUpdates.contains(element);
+}
+
+bool Document::isSameSiteForCookies(const URL& url) const
+{
+    auto domain = isTopDocument() ? RegistrableDomain(securityOrigin().data()) : RegistrableDomain(siteForCookies());
+    return domain.matches(url);
 }
 
 } // namespace WebCore

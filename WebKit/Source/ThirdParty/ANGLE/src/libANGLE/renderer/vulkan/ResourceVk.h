@@ -12,6 +12,8 @@
 
 #include "libANGLE/renderer/vulkan/vk_utils.h"
 
+#include <queue>
+
 namespace rx
 {
 namespace vk
@@ -41,6 +43,12 @@ class SharedResourceUse final : angle::NonCopyable
     {
         std::swap(mUse, rhs.mUse);
         return *this;
+    }
+
+    void copy(SharedResourceUse &src)
+    {
+        mUse = src.mUse;
+        mUse->counter++;
     }
 
     ANGLE_INLINE bool valid() const { return mUse != nullptr; }
@@ -113,6 +121,27 @@ class SharedResourceUse final : angle::NonCopyable
     ResourceUse *mUse;
 };
 
+class SharedBufferSuballocationGarbage
+{
+  public:
+    SharedBufferSuballocationGarbage() = default;
+    SharedBufferSuballocationGarbage(SharedBufferSuballocationGarbage &&other)
+        : mLifetime(std::move(other.mLifetime)), mGarbage(std::move(other.mGarbage))
+    {}
+    SharedBufferSuballocationGarbage(SharedResourceUse &&use, BufferSuballocation &&garbage)
+        : mLifetime(std::move(use)), mGarbage(std::move(garbage))
+    {}
+    ~SharedBufferSuballocationGarbage() = default;
+
+    bool destroyIfComplete(RendererVk *renderer, Serial completedSerial);
+    bool usedInRecordedCommands() const { return mLifetime.usedInRecordedCommands(); }
+
+  private:
+    SharedResourceUse mLifetime;
+    BufferSuballocation mGarbage;
+};
+using SharedBufferSuballocationGarbageList = std::queue<SharedBufferSuballocationGarbage>;
+
 class SharedGarbage
 {
   public:
@@ -123,13 +152,14 @@ class SharedGarbage
     SharedGarbage &operator=(SharedGarbage &&rhs);
 
     bool destroyIfComplete(RendererVk *renderer, Serial completedSerial);
+    bool usedInRecordedCommands() const { return mLifetime.usedInRecordedCommands(); }
 
   private:
     SharedResourceUse mLifetime;
     std::vector<GarbageObject> mGarbage;
 };
 
-using SharedGarbageList = std::vector<SharedGarbage>;
+using SharedGarbageList = std::queue<SharedGarbage>;
 
 // Mixin to abstract away the resource use tracking.
 class ResourceUseList final : angle::NonCopyable
@@ -141,6 +171,7 @@ class ResourceUseList final : angle::NonCopyable
     ResourceUseList &operator=(ResourceUseList &&rhs);
 
     void add(const SharedResourceUse &resourceUse);
+    void copy(ResourceUseList &srcResourceUse);
 
     void releaseResourceUses();
     void releaseResourceUsesAndUpdateSerials(Serial serial);
@@ -250,6 +281,7 @@ class ReadWriteResource : public angle::NonCopyable
   protected:
     ReadWriteResource();
     ReadWriteResource(ReadWriteResource &&other);
+    ReadWriteResource &operator=(ReadWriteResource &&other);
 
     // Track any use of the object. Always updated on every retain call.
     SharedResourceUse mReadOnlyUse;

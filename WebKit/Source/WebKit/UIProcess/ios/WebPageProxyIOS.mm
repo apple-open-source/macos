@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012-2019 Apple Inc. All rights reserved.
+ * Copyright (C) 2012-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -272,6 +272,9 @@ void WebPageProxy::dynamicViewportSizeUpdate(const FloatSize& viewLayoutSize, co
     hideValidationMessage();
 
     m_viewportConfigurationViewLayoutSize = viewLayoutSize;
+    m_defaultUnobscuredSize = maximumUnobscuredSize;
+    m_minimumUnobscuredSize = minimumUnobscuredSize;
+    m_maximumUnobscuredSize = maximumUnobscuredSize;
     m_process->send(Messages::WebPage::DynamicViewportSizeUpdate(viewLayoutSize,
         minimumUnobscuredSize, maximumUnobscuredSize, targetExposedContentRect, targetUnobscuredRect,
         targetUnobscuredRectInScrollViewCoordinates, unobscuredSafeAreaInsets,
@@ -298,22 +301,6 @@ void WebPageProxy::setForceAlwaysUserScalable(bool userScalable)
 
     if (hasRunningProcess())
         m_process->send(Messages::WebPage::SetForceAlwaysUserScalable(userScalable), m_webPageID);
-}
-
-void WebPageProxy::setMinimumUnobscuredSize(const WebCore::FloatSize& size)
-{
-    m_minimumUnobscuredSize = size;
-
-    if (hasRunningProcess())
-        m_process->send(Messages::WebPage::SetMinimumUnobscuredSize(size), m_webPageID);
-}
-
-void WebPageProxy::setMaximumUnobscuredSize(const WebCore::FloatSize& size)
-{
-    m_maximumUnobscuredSize = size;
-
-    if (hasRunningProcess())
-        m_process->send(Messages::WebPage::SetMaximumUnobscuredSize(size), m_webPageID);
 }
 
 void WebPageProxy::setDeviceOrientation(int32_t deviceOrientation)
@@ -575,14 +562,30 @@ void WebPageProxy::stopInteraction()
     m_process->send(Messages::WebPage::StopInteraction(), m_webPageID);
 }
 
-void WebPageProxy::performActionOnElement(uint32_t action)
+bool WebPageProxy::isValidPerformActionOnElementAuthorizationToken(const String& authorizationToken) const
 {
-    m_process->send(Messages::WebPage::PerformActionOnElement(action), m_webPageID);
+    return !authorizationToken.isNull() && m_performActionOnElementAuthTokens.contains(authorizationToken);
 }
 
-void WebPageProxy::saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle)
+void WebPageProxy::performActionOnElement(uint32_t action)
+{
+    auto authorizationToken = createCanonicalUUIDString();
+
+    m_performActionOnElementAuthTokens.add(authorizationToken);
+    
+    sendWithAsyncReply(Messages::WebPage::PerformActionOnElement(action, authorizationToken), [weakThis = WeakPtr { *this }, authorizationToken] () mutable {
+        if (!weakThis)
+            return;
+
+        ASSERT(weakThis->isValidPerformActionOnElementAuthorizationToken(authorizationToken));
+        weakThis->m_performActionOnElementAuthTokens.remove(authorizationToken);
+    });
+}
+
+void WebPageProxy::saveImageToLibrary(const SharedMemory::IPCHandle& imageHandle, const String& authorizationToken)
 {
     MESSAGE_CHECK(!imageHandle.handle.isNull());
+    MESSAGE_CHECK(isValidPerformActionOnElementAuthorizationToken(authorizationToken));
 
     auto sharedMemoryBuffer = SharedMemory::map(imageHandle.handle, SharedMemory::Protection::ReadOnly);
     if (!sharedMemoryBuffer)
@@ -650,7 +653,7 @@ void WebPageProxy::applicationDidEnterBackgroundForMedia()
 void WebPageProxy::applicationWillEnterForegroundForMedia()
 {
     bool isSuspendedUnderLock = [UIApp isSuspendedUnderLock];
-    WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationDidEnterBackgroundForMedia: isSuspendedUnderLock? %d", isSuspendedUnderLock);
+    WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForegroundForMedia: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
     m_process->send(Messages::WebPage::ApplicationWillEnterForegroundForMedia(isSuspendedUnderLock), m_webPageID);
 }

@@ -246,6 +246,8 @@ private:
 
     StringView unsafeView(JSGlobalObject*) const;
 
+    void swapToAtomString(VM&, RefPtr<AtomStringImpl>&&) const;
+
     friend JSString* jsString(VM&, const String&);
     friend JSString* jsString(JSGlobalObject*, JSString*, JSString*);
     friend JSString* jsString(JSGlobalObject*, const String&, JSString*);
@@ -565,6 +567,10 @@ public:
         return newString;
     }
 
+    // If nullOrExecForOOM is null, resolveRope() will be do nothing in the event of an OOM error.
+    // The rope value will remain a null string in that case.
+    JS_EXPORT_PRIVATE const String& resolveRope(JSGlobalObject* nullOrGlobalObjectForOOM) const;
+
 private:
     static JSRopeString* create(VM& vm, JSString* s1, JSString* s2)
     {
@@ -594,17 +600,14 @@ private:
 
     friend JSValue jsStringFromRegisterArray(JSGlobalObject*, Register*, unsigned);
 
-    // If nullOrExecForOOM is null, resolveRope() will be do nothing in the event of an OOM error.
-    // The rope value will remain a null string in that case.
-    JS_EXPORT_PRIVATE const String& resolveRope(JSGlobalObject* nullOrGlobalObjectForOOM) const;
     template<typename Function> const String& resolveRopeWithFunction(JSGlobalObject* nullOrGlobalObjectForOOM, Function&&) const;
     JS_EXPORT_PRIVATE AtomString resolveRopeToAtomString(JSGlobalObject*) const;
     JS_EXPORT_PRIVATE RefPtr<AtomStringImpl> resolveRopeToExistingAtomString(JSGlobalObject*) const;
     template<typename CharacterType> NEVER_INLINE void resolveRopeSlowCase(CharacterType*) const;
     template<typename CharacterType> void resolveRopeInternalNoSubstring(CharacterType*) const;
+    Identifier toIdentifier(JSGlobalObject*) const;
     void outOfMemory(JSGlobalObject* nullOrGlobalObjectForOOM) const;
-    void resolveRopeInternal8(LChar*) const;
-    void resolveRopeInternal16(UChar*) const;
+    template<typename CharacterType> void resolveRopeInternal(CharacterType*) const;
     StringView unsafeView(JSGlobalObject*) const;
     StringViewWithUnderlyingString viewWithUnderlyingString(JSGlobalObject*) const;
 
@@ -759,13 +762,46 @@ inline JSString* jsNontrivialString(VM& vm, String&& s)
     return JSString::create(vm, s.releaseImpl().releaseNonNull());
 }
 
-ALWAYS_INLINE Identifier JSString::toIdentifier(JSGlobalObject* globalObject) const
+ALWAYS_INLINE Identifier JSRopeString::toIdentifier(JSGlobalObject* globalObject) const
 {
     VM& vm = getVM(globalObject);
     auto scope = DECLARE_THROW_SCOPE(vm);
-    AtomString atomString = toAtomString(globalObject);
+    auto atomString = static_cast<const JSRopeString*>(this)->resolveRopeToAtomString(globalObject);
     RETURN_IF_EXCEPTION(scope, { });
     return Identifier::fromString(vm, atomString);
+}
+
+ALWAYS_INLINE void JSString::swapToAtomString(VM& vm, RefPtr<AtomStringImpl>&& atom) const
+{
+    // We replace currently held string with new AtomString. But the old string can be accessed from concurrent compilers and GC threads at any time.
+    // So, we keep the old string alive by appending it to Heap::m_possiblyAccessedStringsFromConcurrentThreads. And GC clears that list when GC finishes.
+    // This is OK since (1) when finishing GC concurrent compiler threads and GC threads are stopped, and (2) AtomString is already held in the atom table,
+    // and we anyway keep this old string until this JSString* is GC-ed. So it does not increase any memory pressure, we release at the same timing.
+    ASSERT(!isCompilationThread() && !Thread::mayBeGCThread());
+    String target(WTFMove(atom));
+    WTF::storeStoreFence(); // Ensure AtomStringImpl's string is fully initialized when it is exposed to concurrent threads.
+    valueInternal().swap(target);
+    vm.heap.appendPossiblyAccessedStringFromConcurrentThreads(WTFMove(target));
+}
+
+ALWAYS_INLINE Identifier JSString::toIdentifier(JSGlobalObject* globalObject) const
+{
+    if constexpr (validateDFGDoesGC)
+        vm().verifyCanGC();
+    if (isRope())
+        return static_cast<const JSRopeString*>(this)->toIdentifier(globalObject);
+    VM& vm = getVM(globalObject);
+    if (valueInternal().impl()->isAtom())
+        return Identifier::fromString(vm, Ref { *static_cast<AtomStringImpl*>(valueInternal().impl()) });
+    if (vm.lastAtomizedIdentifierStringImpl.ptr() != valueInternal().impl()) {
+        vm.lastAtomizedIdentifierStringImpl = *valueInternal().impl();
+        vm.lastAtomizedIdentifierAtomStringImpl = AtomStringImpl::add(valueInternal().impl()).releaseNonNull();
+    }
+    // It is possible that AtomStringImpl::add converts existing valueInternal()'s StringImpl to AtomicStringImpl,
+    // thus we need to recheck atomicity status here.
+    if (!valueInternal().impl()->isAtom())
+        swapToAtomString(vm, RefPtr { vm.lastAtomizedIdentifierAtomStringImpl.ptr() });
+    return Identifier::fromString(vm, Ref { vm.lastAtomizedIdentifierAtomStringImpl });
 }
 
 ALWAYS_INLINE AtomString JSString::toAtomString(JSGlobalObject* globalObject) const
@@ -774,7 +810,12 @@ ALWAYS_INLINE AtomString JSString::toAtomString(JSGlobalObject* globalObject) co
         vm().verifyCanGC();
     if (isRope())
         return static_cast<const JSRopeString*>(this)->resolveRopeToAtomString(globalObject);
-    return AtomString(valueInternal());
+    AtomString atom(valueInternal());
+    // It is possible that AtomString constructor converts existing valueInternal()'s StringImpl to AtomicStringImpl,
+    // thus we need to recheck atomicity status here.
+    if (!valueInternal().impl()->isAtom())
+        swapToAtomString(getVM(globalObject), RefPtr { atom.impl() });
+    return atom;
 }
 
 ALWAYS_INLINE RefPtr<AtomStringImpl> JSString::toExistingAtomString(JSGlobalObject* globalObject) const

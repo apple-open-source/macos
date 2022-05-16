@@ -154,6 +154,9 @@ struct Limitations
 
     // No compressed TEXTURE_3D support.
     bool noCompressedTexture3D = false;
+
+    // D3D does not support compressed textures where the base mip level is not a multiple of 4
+    bool compressedBaseMipLevelMultipleOfFour = false;
 };
 
 struct TypePrecision
@@ -164,6 +167,7 @@ struct TypePrecision
     TypePrecision &operator=(const TypePrecision &other);
 
     void setIEEEFloat();
+    void setIEEEHalfFloat();
     void setTwosComplementInt(unsigned int bits);
     void setSimulatedFloat(unsigned int range, unsigned int precision);
     void setSimulatedInt(unsigned int range);
@@ -645,6 +649,9 @@ struct DisplayExtensions
 
     // EGL_ANGLE_metal_create_context_ownership_identity
     bool metalCreateContextOwnershipIdentityANGLE = false;
+
+    // EGL_KHR_partial_update
+    bool partialUpdateKHR = false;
 };
 
 struct DeviceExtensions
@@ -713,6 +720,9 @@ struct ClientExtensions
 
     // EGL_ANGLE_platform_angle_device_context_volatile_cgl
     bool platformANGLEDeviceContextVolatileCgl = false;
+
+    // EGL_ANGLE_platform_angle_device_id
+    bool platformANGLEDeviceId = false;
 
     // EGL_ANGLE_device_creation
     bool deviceCreation = false;

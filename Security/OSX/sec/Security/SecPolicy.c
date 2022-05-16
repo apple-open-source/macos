@@ -1574,6 +1574,59 @@ errOut:
 	return (SecPolicyRef _Nonnull)result;
 }
 
+static void set_ssl_validity_periods(CFMutableDictionaryRef options) {
+    /*  System trust
+     *  Effective Date                  Maximum
+     *  1 March 2018 00:00:00 UTC       825 days
+     *  1 September 2020 00:00:00 UTC   398 days
+     */
+    CFMutableArrayRef march2018Rule = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    CFDateRef effectiveDate = CFDateCreate(NULL, 541555200.0); // 1 March 2018 00:00:00 UTC
+    double twoYears = 60*60*24*825 + 3600; // 825 days (and 1 hour slip)
+    CFNumberRef maximum = CFNumberCreate(NULL, kCFNumberDoubleType, &twoYears);
+    CFArrayAppendValue(march2018Rule, effectiveDate);
+    CFArrayAppendValue(march2018Rule, maximum);
+    CFReleaseNull(effectiveDate);
+    CFReleaseNull(maximum);
+
+    CFMutableArrayRef sept2020Rule = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    effectiveDate = CFDateCreate(NULL, 620611200.0); // 1 September 2020 00:00:00 UTC
+    double oneYear = 60*60*24*398; // 398 days
+    maximum = CFNumberCreate(NULL, kCFNumberDoubleType, &oneYear);
+    CFArrayAppendValue(sept2020Rule, effectiveDate);
+    CFArrayAppendValue(sept2020Rule, maximum);
+    CFReleaseNull(effectiveDate);
+    CFReleaseNull(maximum);
+
+    CFMutableArrayRef validityPeriods = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(validityPeriods, march2018Rule);
+    CFArrayAppendValue(validityPeriods, sept2020Rule);
+    CFReleaseNull(sept2020Rule);
+    CFReleaseNull(march2018Rule);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustValidityPeriod, validityPeriods);
+    CFReleaseNull(validityPeriods);
+
+    /*  Other trust
+     *  Effective Date                  Maximum
+     *  1 July 2019 00:00:00 UTC       825 days
+     */
+    CFMutableArrayRef july2019Rule = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    effectiveDate = CFDateCreate(NULL, 583628400.0); // 1 July 2019 00:00:00 UTC
+    maximum = CFNumberCreate(NULL, kCFNumberDoubleType, &twoYears);
+    CFArrayAppendValue(july2019Rule, effectiveDate);
+    CFArrayAppendValue(july2019Rule, maximum);
+    CFReleaseNull(effectiveDate);
+    CFReleaseNull(maximum);
+
+    validityPeriods = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(validityPeriods, july2019Rule);
+    CFReleaseNull(july2019Rule);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckOtherTrustValidityPeriod, validityPeriods);
+    CFReleaseNull(validityPeriods);
+}
+
 SecPolicyRef SecPolicyCreateSSLWithKeyUsage(Boolean server, CFStringRef hostname, uint32_t keyUsage) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
@@ -1596,7 +1649,7 @@ SecPolicyRef SecPolicyCreateSSLWithKeyUsage(Boolean server, CFStringRef hostname
         require_quiet(SecPolicyAddPinningRequiredIfInfoSpecified(options), errOut);
         SecPolicyAddATSpinningIfInfoSpecified(options);
         SecPolicyReconcilePinningRequiredIfInfoSpecified(options);
-        CFDictionaryAddValue(options, kSecPolicyCheckValidityPeriodMaximums, kCFBooleanTrue);
+        set_ssl_validity_periods(options);
         CFDictionaryAddValue(options, kSecPolicyCheckServerAuthEKU, kCFBooleanTrue); // enforces stricter EKU rules than set_ssl_ekus below for certain anchor types
 #if !TARGET_OS_BRIDGE
         CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustedCTRequired, kCFBooleanTrue);
@@ -2359,6 +2412,28 @@ errOut:
 	return result;
 }
 
+static void set_smime_validity_periods(CFMutableDictionaryRef options) {
+    /*  System trust
+     *  Effective Date                  Maximum
+     *  1 April 2022 00:00:00 UTC       1185 days
+     */
+    CFMutableArrayRef april2022Rule = CFArrayCreateMutable(NULL, 2, &kCFTypeArrayCallBacks);
+    CFDateRef effectiveDate = CFDateCreate(NULL, 670464000.0); //  1 April 2022 00:00:00 UTC
+    double threeYears = 60*60*24*1185; // 1185 days
+    CFNumberRef maximum = CFNumberCreate(NULL, kCFNumberDoubleType, &threeYears);
+    CFArrayAppendValue(april2022Rule, effectiveDate);
+    CFArrayAppendValue(april2022Rule, maximum);
+    CFReleaseNull(effectiveDate);
+    CFReleaseNull(maximum);
+
+    CFMutableArrayRef validityPeriods = CFArrayCreateMutable(NULL, 1, &kCFTypeArrayCallBacks);
+    CFArrayAppendValue(validityPeriods, april2022Rule);
+    CFReleaseNull(april2022Rule);
+
+    CFDictionaryAddValue(options, kSecPolicyCheckSystemTrustValidityPeriod, validityPeriods);
+    CFReleaseNull(validityPeriods);
+}
+
 SecPolicyRef SecPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email) {
 	CFMutableDictionaryRef options = NULL;
 	SecPolicyRef result = NULL;
@@ -2397,7 +2472,12 @@ SecPolicyRef SecPolicyCreateSMIME(CFIndex smimeUsage, CFStringRef email) {
     add_eku(options, NULL); /* eku extension is optional */
     add_eku(options, &oidExtendedKeyUsageEmailProtection);
 
+    // Stricter checks for system-trusted certs
+    CFDictionaryAddValue(options, kSecPolicyCheckEmailProtectionEKU, kCFBooleanTrue);
+    set_smime_validity_periods(options);
+
     require_quiet(SecPolicyAddStrongKeySizeOptions(options), errOut);
+    require_quiet(SecPolicyRemoveWeakHashOptions(options), errOut);
 
 #if !TARGET_OS_IPHONE
     // Check revocation on OS X

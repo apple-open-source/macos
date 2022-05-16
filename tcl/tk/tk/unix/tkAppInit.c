@@ -16,6 +16,13 @@
 #include "tk.h"
 #include "locale.h"
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#ifdef __APPLE__
+#include <CoreFoundation/CoreFoundation.h>
+#endif /* __APPLE__ */
+
 #ifdef TK_TEST
 extern int		Tktest_Init _ANSI_ARGS_((Tcl_Interp *interp));
 #endif /* TK_TEST */
@@ -42,6 +49,30 @@ main(
     int argc,			/* Number of command-line arguments. */
     char **argv)		/* Values of command-line arguments. */
 {
+#ifdef __APPLE__
+    /*
+     * rdar://90261888 (App Sandbox Escape in Wish.app Using TCL_LIBRARY)
+     *
+     * Unset TCL_LIBRARY for Wish.app; as it's trusted by Sandbox by virtue
+     * of living in /System, TCL_LIBRARY could be used to force loading of
+     * arbitrary code from another app.
+     *
+     * It's important that we do this before calling into Tk_Main() below,
+     * as that will call into TclSetupEnv() which bootstraps the environ
+     * vector into the interpreter.
+     */
+    CFBundleRef bundleRef = CFBundleGetMainBundle();
+    if (bundleRef) {
+	CFStringRef identifier = CFBundleGetIdentifier(bundleRef);
+	CFStringRef wishIdentifier = CFSTR("com.tcltk.wish");
+
+	if (identifier &&
+	    (CFStringCompare(identifier, wishIdentifier, 0) == kCFCompareEqualTo)) {
+	    (void)unsetenv("TCL_LIBRARY");
+	}
+    }
+#endif /* __APPLE__ */
+
     /*
      * The following #if block allows you to change the AppInit function by
      * using a #define of TCL_LOCAL_APPINIT instead of rewriting this entire

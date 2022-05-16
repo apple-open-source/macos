@@ -583,6 +583,16 @@ AuthLDAPMaxSubGroupDepth 1</pre>
     <code>ldap-filter</code>, en particulier dans le cas d'un annuaire
     LDAP de grande taille.</p>
 
+     <p>Lorsqu'on utilise une <a href="../expr.html">expression</a> dans un
+     filtre, il faut s'assurer que les filtres LDAP sont correctement échappés
+     afin de se prémunir contre toute injection LDAP. Pour ce faire,
+     il est possible d'utiliser la fonction <strong>ldap</strong>.</p>
+
+<pre class="prettyprint lang-config">&lt;LocationMatch ^/dav/(?&lt;SITENAME&gt;[^/]+)/&gt;
+  Require ldap-filter (memberOf=cn=%{ldap:%{unescape:%{env:MATCH_SITENAME}},ou=Websites,o=Example)
+&lt;/LocationMatch&gt;</pre>
+
+
 
 
 </div><div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1447,7 +1457,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/mod/mod_authnz_ldap.
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2021 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2022 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="../glossary.html">Glossaire</a> | <a href="../sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

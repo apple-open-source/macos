@@ -334,7 +334,7 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
 
     /* Create a "tls-alpn-01" certificate for the domain we want to authenticate.
      * The server will need to answer a TLS connection with SNI == authz->domain
-     * and ALPN procotol "acme-tls/1" with this certificate.
+     * and ALPN protocol "acme-tls/1" with this certificate.
      */
     md_data_init_str(&data, cha->key_authz);
     rv = md_crypt_sha256_digest_hex(&token, p, &data);
@@ -393,7 +393,13 @@ static apr_status_t cha_tls_alpn_01_setup(md_acme_authz_cha_t *cha, md_acme_auth
         /* Raise event that challenge data has been set up before we tell the
            ACME server. Clusters might want to distribute it. */
         event = apr_psprintf(p, "challenge-setup:%s:%s", MD_AUTHZ_TYPE_TLSALPN01, authz->domain);
-        md_result_holler(result, event, p);
+        rv = md_result_raise(result, event, p);
+        if (APR_SUCCESS != rv) {
+            md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p,
+                          "%s: event '%s' failed. aborting challenge setup",
+                          authz->domain, event);
+            goto out;
+        }
         /* challenge is setup or was changed from previous data, tell ACME server
          * so it may (re)try verification */        
         authz_req_ctx_init(&ctx, acme, NULL, authz, p);
@@ -463,7 +469,13 @@ static apr_status_t cha_dns_01_setup(md_acme_authz_cha_t *cha, md_acme_authz_t *
     /* Raise event that challenge data has been set up before we tell the
        ACME server. Clusters might want to distribute it. */
     event = apr_psprintf(p, "challenge-setup:%s:%s", MD_AUTHZ_TYPE_DNS01, authz->domain);
-    md_result_holler(result, event, p);
+    rv = md_result_raise(result, event, p);
+    if (APR_SUCCESS != rv) {
+        md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p,
+                      "%s: event '%s' failed. aborting challenge setup",
+                      authz->domain, event);
+        goto out;
+    }
     /* challenge is setup, tell ACME server so it may (re)try verification */
     md_log_perror(MD_LOG_MARK, MD_LOG_DEBUG, rv, p, "%s: dns-01 setup succeeded for %s",
        mdomain, authz->domain);

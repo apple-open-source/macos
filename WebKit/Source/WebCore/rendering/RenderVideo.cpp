@@ -65,16 +65,6 @@ RenderVideo::~RenderVideo()
 void RenderVideo::willBeDestroyed()
 {
     visibleInViewportStateChanged();
-
-#if ENABLE(VIDEO_PRESENTATION_MODE)
-    auto player = videoElement().player();
-    if (player && videoElement().webkitPresentationMode() != HTMLVideoElement::VideoPresentationMode::PictureInPicture)
-        player->setPageIsVisible(false);
-#else
-    if (auto player = videoElement().player())
-        player->setPageIsVisible(false);
-#endif
-
     RenderMedia::willBeDestroyed();
 }
 
@@ -272,18 +262,10 @@ void RenderVideo::updatePlayer()
     if (!mediaPlayer)
         return;
 
-    if (!videoElement().inActiveDocument()) {
-        mediaPlayer->setPageIsVisible(false);
-        return;
-    }
+    if (videoElement().inActiveDocument())
+        contentChanged(VideoChanged);
 
-    contentChanged(VideoChanged);
-    
-    IntRect videoBounds = videoBox(); 
-    mediaPlayer->setSize(IntSize(videoBounds.width(), videoBounds.height()));
-    mediaPlayer->setPageIsVisible(!videoElement().elementIsHidden());
-    mediaPlayer->setVisibleInViewport(videoElement().isVisibleInViewport());
-    mediaPlayer->setShouldMaintainAspectRatio(style().objectFit() != ObjectFit::Fill);
+    videoElement().updateMediaPlayer(videoBox().size(), style().objectFit() != ObjectFit::Fill);
 }
 
 LayoutUnit RenderVideo::computeReplacedLogicalWidth(ShouldComputePreferred shouldComputePreferred) const

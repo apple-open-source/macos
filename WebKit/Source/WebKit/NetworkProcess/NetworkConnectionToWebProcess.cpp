@@ -388,8 +388,10 @@ void NetworkConnectionToWebProcess::didClose(IPC::Connection& connection)
         networkSession->broadcastChannelRegistry().removeConnection(connection);
         for (auto& url : m_blobURLs)
             networkSession->blobRegistry().unregisterBlobURL(url);
-        for (auto& url : m_blobURLHandles)
-            networkSession->blobRegistry().unregisterBlobURLHandle(url);
+        for (auto& [url, count] : m_blobURLHandles) {
+            for (unsigned i = 0; i < count; ++i)
+                networkSession->blobRegistry().unregisterBlobURLHandle(url);
+        }
     }
 
     // All trackers of resources that were in the middle of being loaded were
@@ -438,10 +440,10 @@ void NetworkConnectionToWebProcess::createSocketStream(URL&& url, String cachePa
     m_networkSocketStreams.add(identifier, NetworkSocketStream::create(m_networkProcess.get(), WTFMove(url), m_sessionID, cachePartition, identifier, m_connection, WTFMove(token), acceptInsecureCertificates));
 }
 
-void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier,  WebPageProxyIdentifier webPageProxyID, const ClientOrigin& clientOrigin)
+void NetworkConnectionToWebProcess::createSocketChannel(const ResourceRequest& request, const String& protocol, WebSocketIdentifier identifier,  WebPageProxyIdentifier webPageProxyID, const ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed)
 {
     ASSERT(!m_networkSocketChannels.contains(identifier));
-    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, clientOrigin))
+    if (auto channel = NetworkSocketChannel::create(*this, m_sessionID, request, protocol, identifier, webPageProxyID, clientOrigin, hadMainFrameMainResourcePrivateRelayed))
         m_networkSocketChannels.add(identifier, WTFMove(channel));
 }
 
@@ -538,7 +540,7 @@ void NetworkConnectionToWebProcess::scheduleResourceLoad(NetworkResourceLoadPara
             if (auto existingLoader = session->takeLoaderAwaitingWebProcessTransfer(*existingLoaderToResume)) {
                 CONNECTION_RELEASE_LOG(Loading, "scheduleResourceLoad: Resuming existing NetworkResourceLoader");
                 m_networkResourceLoaders.add(identifier, *existingLoader);
-                existingLoader->transferToNewWebProcess(*this, identifier);
+                existingLoader->transferToNewWebProcess(*this, loadParameters);
                 return;
             }
             CONNECTION_RELEASE_LOG_ERROR(Loading, "scheduleResourceLoad: Could not find existing NetworkResourceLoader to resume, will do a fresh load");
@@ -643,7 +645,7 @@ void NetworkConnectionToWebProcess::sendH2Ping(NetworkResourceLoadParameters&& p
         return completionHandler(makeUnexpected(internalError(parameters.request.url())));
 
     URL url = parameters.request.url();
-    auto* task = new PreconnectTask(*networkSession, WTFMove(parameters), [] (const ResourceError&) { });
+    auto* task = new PreconnectTask(*networkSession, WTFMove(parameters), [] (const ResourceError&, const WebCore::NetworkLoadMetrics&) { });
     task->setH2PingCallback(url, WTFMove(completionHandler));
     task->start();
 #else
@@ -673,7 +675,7 @@ void NetworkConnectionToWebProcess::preconnectTo(std::optional<WebCore::Resource
 #if ENABLE(SERVER_PRECONNECT)
     auto* session = networkSession();
     if (session && session->allowsServerPreconnect()) {
-        (new PreconnectTask(*session, WTFMove(loadParameters), [completionHandler = WTFMove(completionHandler)] (const ResourceError& error) {
+        (new PreconnectTask(*session, WTFMove(loadParameters), [completionHandler = WTFMove(completionHandler)] (const ResourceError& error, const WebCore::NetworkLoadMetrics&) {
             completionHandler(error);
         }))->start();
         return;

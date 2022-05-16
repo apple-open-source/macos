@@ -1,4 +1,4 @@
-﻿// © 2016 and later: Unicode, Inc. and others.
+// © 2016 and later: Unicode, Inc. and others.
 // License & terms of use: http://www.unicode.org/copyright.html
 // Generated using tools/cldr/cldr-to-icu/build-icu-data.xml
 en_CA{
@@ -216,24 +216,6 @@ en_CA{
                     M{"y-MM-dd – y-MM-dd"}
                     d{"y-MM-dd – y-MM-dd"}
                     y{"y-MM-dd – y-MM-dd"}
-                }
-            }
-            monthNames{
-                stand-alone{
-                    abbreviated{
-                        "Jan",
-                        "Feb",
-                        "Mar",
-                        "Apr",
-                        "May",
-                        "Jun",
-                        "Jul",
-                        "Aug",
-                        "Sept",
-                        "Oct",
-                        "Nov",
-                        "Dec",
-                    }
                 }
             }
         }

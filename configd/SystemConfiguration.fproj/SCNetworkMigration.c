@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2014-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -1650,7 +1650,9 @@ create_bsd_name_service_protocol_mapping(const void *value, void *context)
 	SCNetworkServiceRef	service					= (SCNetworkServiceRef)value;
 
 	interface = SCNetworkServiceGetInterface(service);
-
+	if (interface == NULL) {
+		return;
+	}
 	if (CFArrayContainsValue(interfacesToPreserveServiceInformation, CFRangeMake(0, CFArrayGetCount(interfacesToPreserveServiceInformation)), interface)) {
 		CFStringRef bsdName = SCNetworkInterfaceGetBSDName(interface);
 		if (isA_CFString(bsdName)) {
@@ -1695,6 +1697,9 @@ remove_service(const void *value, void *context)
 	CFArrayRef		toBeRemoved	= ctx->interfacesToRemove;
 
 	interface = SCNetworkServiceGetInterface(service);
+	if (interface == NULL) {
+		return;
+	}
 	if (CFArrayContainsValue(toBeRemoved, CFRangeMake(0, CFArrayGetCount(toBeRemoved)), interface)) {
 		CFStringRef	bsdName;
 		CFStringRef	serviceID;

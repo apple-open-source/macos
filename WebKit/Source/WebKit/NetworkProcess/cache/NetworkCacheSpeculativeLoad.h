@@ -31,6 +31,7 @@
 #include "NetworkCacheEntry.h"
 #include "NetworkLoadClient.h"
 #include "PolicyDecision.h"
+#include "PrivateRelayed.h"
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SharedBuffer.h>
@@ -60,7 +61,7 @@ private:
     bool isSynchronous() const override { return false; }
     bool isAllowedToAskUserForCredentials() const final { return false; }
     void willSendRedirectedRequest(WebCore::ResourceRequest&&, WebCore::ResourceRequest&& redirectRequest, WebCore::ResourceResponse&& redirectResponse) override;
-    void didReceiveResponse(WebCore::ResourceResponse&&, ResponseCompletionHandler&&) override;
+    void didReceiveResponse(WebCore::ResourceResponse&&, PrivateRelayed, ResponseCompletionHandler&&) override;
     void didReceiveBuffer(const WebCore::FragmentedSharedBuffer&, int reportedEncodedDataLength) override;
     void didFinishLoading(const WebCore::NetworkLoadMetrics&) override;
     void didFailLoading(const WebCore::ResourceError&) override;
@@ -78,6 +79,7 @@ private:
     WebCore::SharedBufferBuilder m_bufferedDataForCache;
     std::unique_ptr<NetworkCache::Entry> m_cacheEntry;
     bool m_didComplete { false };
+    PrivateRelayed m_privateRelayed { PrivateRelayed::No };
 };
 
 bool requestsHeadersMatch(const WebCore::ResourceRequest& speculativeValidationRequest, const WebCore::ResourceRequest& actualRequest);

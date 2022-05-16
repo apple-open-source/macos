@@ -1,0 +1,302 @@
+== Why BootX? ==
+
+BootX, the Mac OS X Secondary Loader, exists to bootstrap execution of
+the Mac OS X kernel, xnu (named /mach_kernel in the filesystem). It serves
+a few purposes.
+
+* Filesystem abstraction. Mac OS X supports many filesystems, and
+  can root off a handful of them. However, OpenFirmware mainly only
+  supports HFS and/or HFS+, ISO9660, tftp. In order to root off
+  non-native (to OF) filesystems, BootX must be placed somewhere that
+  is accessible, and then BootX's filesystem code can be used to access
+  the root filesystem. This is used for UFS booting, for example, which
+  is not directly supported by OpenFirmware. Since BootX lives on-disk,
+  it can also be updated to support new filesystems trivially, while
+  it is harder to update OpenFirmware (although BootROM upgrades do
+  exist)
+* I/O abstraction. Even if OF could load xnu directly (in the case of
+  an HFS+ root partition), the kernel would need to have device drivers
+  to access the the drive containing kernel extensions. Since even
+  device drivers are loadable kernel models, this is clearly a paradox.
+  BootX runs in the OpenFirmware execution environment, and can use
+  generic ATA, SCSI, ethernet drivers to load multiple files needed
+  by the kernel
+* File-format abstraction. The xnu kernel is in the Mach-O file format,
+  which was not and is not considered "native" to OpenFirmware.
+  Different versions of OpenFirmware support different file formats,
+  including XCOFF, ELF, and bootinfo.
+* Security measures. BootX for Mac OS X 10.2 implements restrictions
+  on the owner and mode of files that it loads. For example, if
+  mach_kernel was world writable, it's possible that someone
+  may have modified it during the last boot, and executing it could
+  compromise the system and data on the machine. If OF directly
+  executed xnu, and had not been updated to honor these restrictions,
+  there would be no way to stop a boot once it started.
+
+Two questions follow from this summary. How does OpenFirmware find
+BootX, and how does BootX find the root filesystem to start booting
+Mac OS X.
+
+The process of finding BootX is a function of the model of the computer
+(Old World vs. New World) and the root filesystem that will be booted.
+
+== New World booting from HFS+ ==
+New World machines (with OF 3.0+) support HFS+, ISO9660, and FAT. When
+Mac OS X is installed on an HFS+ volume, BootX is typically placed
+in the /System/Library/CoreServices directory, and given the HFS+
+type attribute of 'tbxi'. Furthermore, the CoreServices folder is
+"blessed", which means that it's directory ID (analogous to an inum
+in FFS terminology) is recorded, in the HFS+ volume header.
+
+When Open Firmware begins searching for an operating system, it starts
+by building up a device tree based on all buses and peripherals it knows
+about. It then consults the boot-device open firmware variable
+(use "nvram boot-device") to see what this is set to. A typical
+boot-device is "mac-io/ata-4@1f000/@0:8,\\:tbxi", which can be
+logically tokenized into "mac-io/ata-4@1f000/@0", 8, "\\", "tbxi".
+
+First, OF uses the device path ("mac-io...") to find the hard drive or
+CD-ROM or DVD-ROM containing the operating system. Once it has
+determined this, some OF code responsible for parsing Apple Partition
+Maps analyzes the beginning of the disk and determines the location of
+the 8th partition (partitions are 1-indexed, with the first partition
+being the partition map partition). The next two components of
+boot-device are used to located the BootX secondary loader. The first
+("\\") is a special syntax denoting the blessed system folder
+mentioned above. The HFS+ volume format allows a directory ID to
+quickly map to the directory entry and its contents. Because a
+directory (and not a file) was specified, ":tbxi" is used to filter
+entries that have the HFS+ type of 'tbxi'. If multiple files in the
+directory have the same HFS+ type, the first one (in directory order)
+is used, which is somewhat non-deterministic from the operating system
+point of view, and is not necessarily the alphabetically first entry.
+
+Above, we used "\\" to denote the blessed system folder. However,
+this could have been made explicit by using
+"\System\Library\CoreServices\". Directory paths should always end in
+a trailing "\", while files should not. A '\' is used instead of the
+typical Unix path delimiter '/' because '/' is a valid filename
+character on HFS+, and '\' somewhat disambiguates this. Also, we could
+have avoided the filter mechanism and specified the path to BootX
+directly. The following forms are all equivalent, and would occur
+after the last comma in boot-device variable (assuming the path itself
+doesn't have commas itself):
+
+\\:tbxi
+\\BootX
+\System\Library\CoreServices\:tbxi
+\System\Library\CoreServices\BootX
+
+In the new world situation, BootX is in the bootinfo format, which is
+to say that it is an XCOFF with XML headers which specify additional
+Forth commands.
+
+You can create a new bootingo-format BootX in the CoreServices folder
+by running:
+bless -folder /Volumes/test/System/Library/CoreServices -bootinfo \
+	/usr/standalone/ppc/bootx.bootinfo
+To set the OF boot-device variable to point at a volume, use
+bless -mount /Volumes/test -setOF
+or
+bless -device /dev/disk0s13 -setOF
+To simultaneously bless and set OF, use:
+bless -folder /Volumes/test/System/Library/CoreServices -bootinfo \
+        /usr/standalone/ppc/bootx.bootinfo -setOF
+
+
+== Old World booting from HFS+ ==
+Old World machines (OF < 3.0) mainly support HFS only (not HFS+). This
+is quite a predicament if your operating system is on an HFS+
+volume. Additionally, Old World machines will automatically begin
+executing the Mac OS ROM (for traditional Mac OS) on boot, which it
+should not do if it will be booting Mac OS X. The solution to this is
+multi-pronged
+
+* Store the BootX in some special location
+* Store a pointer to the BootX location somewhere known
+* Patch open firmware to not execute the Mac OS ROM, and instead load
+  BootX from the special location
+* Include a stub HFS filesystem in front of the HFS+ filesystem with
+  code to repatch OF if the patches are erased (e.g. if PRAM is zapped)
+
+Under Mac OS X, the XCOFF version of BootX (slightly modified) is
+stored in part of the extents overflow file. On an HFS+ volume, the
+B-Tree Catalog directly stores up to 8 extents (contiguous on-disk
+blocks representing part of the file) per file. Further extents are
+stored in the extents file. Files typically do not get fragmented
+badly enough to overflow, and certainly not frequently such that the
+extents file would be filled up. In the event that this unlikely event
+does occur, the extents file (like all HFS+ special files) can be
+grown. Because of this, Storing the BootX in part of the space
+originally allocated for the extents overflow file is safe, and
+prevents direct modification in the filesystem by the user (which
+might cause the file to get split or moved without updating the
+pointer mentioned above). Since the HFS+ volume header subtracts space
+from the extents file allocated extent, the space is marked as
+belonging to the HFS+ Startup File (just so all allocation blocks in
+the volume are marked as used, and so BootX doesn't get overwritten by
+the runtime HFS+ allocator). It is important to note that because
+BootX is listed as belonging to the Startup File extents, nothing
+actually semantically interprets this as having boot code. It's just
+for bookkeeping purposes, and is, at a cosmic level, appropriate
+because that area is being used to boot an OS.
+
+The OpenFirmware patch used on Old World machines for booting OS X
+is derived from similar patches used to boot A/UX. OpenFirmware
+completely ignores the boot-device variable (which was used for New
+World booting), and instead looks at the drive partition map. It looks
+for map entries set like so:
+      pmLgBootStart              0x00003840 (14400)
+      pmBootSize                 0x000C1000 (790528)
+      pmBootAddr                 0x01C00000 (29360128)
+      pmBootAddr2                0x00000000 (0)
+      pmBootEntry                0x01C00CB0 (29363376)
+      pmBootEntry2               0x00000000 (0)
+      pmBootCksum                0x00000000 (0)
+      pmProcessor                powerpc
+
+The first such map entry is used to find BootX. pmLgBootStart is
+the sector location of the start of BootX (same as the Startup File
+extent start), and is pmBootSize bytes (usually less than the total
+amount of space reserved for the Startup File). Once the code is
+loaded into memory, Open Firmware begins executing at the speicifed
+entry point.
+
+Since Old World OF does not use boot-device to find BootX, it is
+important that there only be one partition with this information set,
+and that it is compatible with the OS being booted.
+
+As you can see, none of this process actually tries to interpret the
+volume as HFS or HFS+. But how then does Open Firmware get patched
+initially? The answer is that most HFS+ volumes are actually wrapped
+HFS+ volumes. Graphically, the volume looks approximately like:
+
+volume
+start   2     3            n    n+2  n+3
++-------+-----+------------+---------------------------
+|       |     |            +=====+====+============
+| BB    | MDB | HFS data   |     | VH | HFS+ data  ...
+|       |     |            +=====+====+============
++-------+-----+------------+---------------------------
+
+To an older HFS client (like Old World OF), the volume looks like a
+pure HFS volume with a bunch of used space taking up most of the
+volume. The used space corresponds exactly to a pure HFS+ volume
+(except it's a few MB smaller than the size of the partition would
+otherwise hold because of the wrapper goo.
+
+When OF is unpatched, the Mac OS ROM looks for HFS volumes with valid boot
+blocks in the first 2 sectors. If a volume has this, it looks for a
+System file contain the Mac OS. At this point, one of two System files
+can be used. One system file actually has code to patch OF and trigger
+a reboot. The default wrapper installed by newfs_hfs has just enough
+code to delve into the HFS+ embedded volume to find a System file in
+the embedded blessed volume, which has a full HFS+ read/write stack in
+one of its resources. Once the wrapper system file has loaded the
+code, it searches the embedded for the System file again. Once it
+finds it, at this point, OF is patched and the machine is
+rebooted. The version to repatch OF in the wrapper is typically used
+on CDs, and the version to repatched OF in the embedded volume is
+typically used on hard drives.
+
+To set up the fake system file that will repatch OF:
+bless -folder /Volumes/test/System/Library/CoreServices \
+	-folder9 /Volumes/test/System/Library/CoreServices \
+	-bootinfo /usr/standalone/ppc/bootx.bootinfo \
+	-bootBlockFile /usr/share/misc/bootblockdata \
+	-systemfile /usr/share/misc/hdbootdata
+Then, to set up the XCOFF, unmount the partition, and run:
+bless -device /dev/disk3s9 -xcoff /usr/standalone/ppc/bootx.xcoff 
+
+== New World booting from UFS (and other foreign file systems) ==
+Since even New World OF (currently) does not support UFS and other
+filesystems which the Mac OS X kernel might root off of (or which a
+third-party might add support for), some alternate mechanism is
+needed. The Old World solution of patching OF is not applicable, since
+arbitrary filesystems won't support HFS/HFS+ wrappers. The alternative
+is adding an auxiliary partition with an HFS+ filesystem.
+
+Under Mac OS X, this is referred to as a booter partition, and has
+partition type Apple_Boot. The partition has a regular, blessed HFS+
+filesystem, complete with BootX. If the UFS (or other) partition is
+partition n, the Apple_Boot should be either n-2 or n-1 (see below).
+
+== Old World booting from UFS ==
+For old world booting, something auxiliary is also needed. The
+traditional solution has been to create a small partition of type
+Apple_Loader. This has no filesystem, but rather has the BootX XCOFF
+written into it. The partition map entry has the A/UX boot settings,
+with the start address being just 0 (i.e. load the XCOFF from the
+beginning of the partition).
+
+In order to make a UFS volume bootable for both Old World and New
+World, the partition layout might look like:
+
+## Type_________________ Name____________ Start___ Size____ End_____
+...
+ 8 Apple_Boot            MOSX_OF3_Booter      1544    16384    17927       
+ 9 Apple_Loader          SecondaryLoader     17928     1024    18951       
+10 Apple_UFS             Mac_OS_X            18952  5102592  5121543       
+
+On a New World machine, BootX will look for the root filesystem two
+partitions up from boot-device is pointing to. On an Old World
+machine, BootX will look for the root filesystem one partition up.
+
+A new scheme is being developer post-10.2 which uses a single
+partition for both Old and New World. It will have a type Apple_Boot,
+and have a wrapper HFS+ filesystem, which a blessed BootX for New
+World, and the XCOFF as the Startup File (with corresponding partition
+additions) for Old World. In this case, New World will only look to
+the next partition for the root filesystem.
+
+To create a combined booter partition, either use SPI in MediaKit, or
+create an 8.5MB (17408 512-byte sectors) partition of type Apple_Boot
+and partition name "eXternal booter". Then:
+bless -device /dev/disk1s10 -format -label "Boot OSX" -fsargs \
+	"-c e=1024" -xcoff /usr/standalone/ppc/bootx.xcoff
+mkdir -p /mnt
+mount -t hfs /dev/disk1s10 /mnt
+bless -folder /mnt -folder9 /mnt -bootinfo \
+	/usr/standalone/ppc/bootx.bootinfo -systemfile \
+	/usr/share/misc/hdbootdata -bootBlockFile \
+	/usr/share/misc/bootblockdata
+umount /mnt
+New World machines will immediately load the bootinfo BootX. Old World
+machines will get repatched if necessary, and otherwise load the XCOFF
+
+== What version of Open Firmware do I have ==
+Run "ioreg -p IODeviceTree -n openprom" and look for the "model" key.
+Versions 1 and 2 are Old World. Version 3 is New World. Not that this
+discussion is limited to PCI bus Macintoshes. A more useful programmatic
+method is to use "sysctl hw.epoch", which can be implemented programmatically
+with sysctl(3). 0 is Old World, and 1 is New World.
+
+A list of Hardware to OF versions can be found at
+http://www.netbsd.org/Ports/macppc/models.html
+
+== References == http://louis.gerbarg.org/papers/BootX.pdf
+
+"TN1061: Fundamentals of Open Firmware, Part I: The User Interface" - http://developer.apple.com/technotes/tn/tn1061.html
+
+"TN1062: Fundamentals of Open Firmware, Part II: The Device Tree" - http://developer.apple.com/technotes/tn/tn1062.html
+
+"TN1044: Fundamentals of Open Firmware, Part III: Understanding PCI Expansion ROM Choices for Mac OS 8" - http://developer.apple.com/technotes/tn/tn1044.html
+
+"TN1167: The Mac ROM Enters a New World" - http://developer.apple.com/technotes/tn/tn1167.html
+
+http://bananajr6000.apple.com/
+
+http://www.netbsd.org/Ports/macppc/faq.html#ofw
+
+Darwin CVS project bless
+
+Darwin CVS project boot
+
+Darwin CVS project xnu
+
+Darwin CVS project diskdev_cmds - newfs_hfs, pdisk
+
+Darwin CVS project system_cmds - nvram
+
+http://www.netbsd.org/Ports/macppc/models.html
+

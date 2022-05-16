@@ -403,6 +403,7 @@ void DOMWindow::didSecureTransitionTo(Document& document)
     m_crypto = nullptr;
     m_navigator = nullptr;
     m_performance = nullptr;
+    m_customElementRegistry = nullptr;
 }
 
 void DOMWindow::prewarmLocalStorageIfNecessary()
@@ -574,6 +575,7 @@ CustomElementRegistry& DOMWindow::ensureCustomElementRegistry()
 {
     if (!m_customElementRegistry)
         m_customElementRegistry = CustomElementRegistry::create(*this, scriptExecutionContext());
+    ASSERT(m_customElementRegistry->scriptExecutionContext() == document());
     return *m_customElementRegistry;
 }
 
@@ -2398,6 +2400,10 @@ void DOMWindow::setLocation(DOMWindow& activeWindow, const URL& completedURL, Se
         return;
 
     if (isInsecureScriptAccess(activeWindow, completedURL.string()))
+        return;
+
+    // Check the CSP of the embedder to determine if we allow execution of javascript: URLs via child frame navigation.
+    if (completedURL.protocolIsJavaScript() && frameElement() && !frameElement()->document().contentSecurityPolicy()->allowJavaScriptURLs(aboutBlankURL().string(), { }, completedURL.string(), frameElement()))
         return;
 
     // We want a new history item if we are processing a user gesture.

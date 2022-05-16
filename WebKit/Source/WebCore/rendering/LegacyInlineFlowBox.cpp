@@ -186,6 +186,8 @@ void LegacyInlineFlowBox::addToLine(LegacyInlineBox* child)
         if (knownToHaveNoOverflow() && is<LegacyInlineFlowBox>(*child) && !downcast<LegacyInlineFlowBox>(*child).knownToHaveNoOverflow())
             clearKnownToHaveNoOverflow();
     }
+    if (auto* renderInline = is<RenderInline>(child->renderer()) ? &downcast<RenderInline>(child->renderer()) : nullptr; renderInline && renderInline->hasSelfPaintingLayer())
+        m_hasSelfPaintInlineBox = true;
 
     checkConsistency();
 }

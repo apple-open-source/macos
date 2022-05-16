@@ -736,17 +736,17 @@ Vector<String> Element::getAttributeNames() const
 
 bool Element::isFocusable() const
 {
-    if (!isConnected() || !supportsFocus() || deprecatedIsInert())
+    if (!isConnected() || !supportsFocus())
         return false;
 
     if (!renderer()) {
         // Elements in canvas fallback content are not rendered, but they are allowed to be
         // focusable as long as their canvas is displayed and visible.
         if (auto* canvas = ancestorsOfType<HTMLCanvasElement>(*this).first())
-            return canvas->isVisibleWithoutResolvingFullStyle();
+            return canvas->isFocusableWithoutResolvingFullStyle();
     }
 
-    return isVisibleWithoutResolvingFullStyle();
+    return isFocusableWithoutResolvingFullStyle();
 }
 
 bool Element::isUserActionElementInActiveChain() const
@@ -1786,7 +1786,7 @@ IntRect Element::screenRect() const
 
 const AtomString& Element::getAttribute(const AtomString& qualifiedName) const
 {
-    if (!elementData())
+    if (!elementData() || qualifiedName.isEmpty())
         return nullAtom();
     synchronizeAttribute(qualifiedName);
     if (const Attribute* attribute = elementData()->findAttributeByName(qualifiedName, shouldIgnoreAttributeCase(*this)))
@@ -2407,11 +2407,10 @@ void Element::removedFromAncestor(RemovalType removalType, ContainerNode& oldPar
     if (hasPendingResources())
         document().accessSVGExtensions().removeElementFromPendingResources(*this);
 
-    RefPtr<Frame> frame = document().frame();
     Styleable::fromElement(*this).elementWasRemoved();
 
 #if ENABLE(WHEEL_EVENT_LATCHING)
-    if (frame && frame->page()) {
+    if (RefPtr frame = document().frame(); frame && frame->page()) {
         if (auto* scrollLatchingController = frame->page()->scrollLatchingControllerIfExists())
             scrollLatchingController->removeLatchingStateForTarget(*this);
     }
@@ -3063,7 +3062,7 @@ void Element::focus(const FocusOptions& options)
     Ref document { this->document() };
     if (document->focusedElement() == this) {
         if (document->page())
-            document->page()->chrome().client().elementDidRefocus(*this);
+            document->page()->chrome().client().elementDidRefocus(*this, options);
         return;
     }
 
@@ -3081,7 +3080,7 @@ void Element::focus(const FocusOptions& options)
         RefPtr currentlyFocusedElement = document->focusedElement();
         if (root->containsIncludingShadowDOM(currentlyFocusedElement.get())) {
             if (document->page())
-                document->page()->chrome().client().elementDidRefocus(*currentlyFocusedElement);
+                document->page()->chrome().client().elementDidRefocus(*currentlyFocusedElement, options);
             return;
         }
 
@@ -3198,10 +3197,10 @@ void Element::dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement)
     dispatchScopedEvent(FocusEvent::create(eventNames().focusoutEvent, Event::CanBubble::Yes, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(newFocusedElement)));
 }
 
-void Element::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection)
+void Element::dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions& options)
 {
     if (auto* page = document().page())
-        page->chrome().client().elementDidFocus(*this);
+        page->chrome().client().elementDidFocus(*this, options);
     dispatchEvent(FocusEvent::create(eventNames().focusEvent, Event::CanBubble::No, Event::IsCancelable::No, document().windowProxy(), 0, WTFMove(oldFocusedElement)));
 }
 
@@ -3243,7 +3242,10 @@ bool Element::dispatchMouseForceWillBegin()
 void Element::enqueueSecurityPolicyViolationEvent(SecurityPolicyViolationEventInit&& eventInit)
 {
     document().eventLoop().queueTask(TaskSource::DOMManipulation, [this, protectedThis = Ref { *this }, event = SecurityPolicyViolationEvent::create(eventNames().securitypolicyviolationEvent, WTFMove(eventInit), Event::IsTrusted::Yes)] {
-        dispatchEvent(event);
+        if (!isConnected())
+            document().dispatchEvent(event);
+        else
+            dispatchEvent(event);
     });
 }
 
@@ -3432,6 +3434,16 @@ void Element::removeFromTopLayer()
         layer.establishesTopLayerWillChange();
     });
 
+    // We need to call Styleable::fromRenderer() while this element is still contained in
+    // Document::topLayerElements(), since Styleable::fromRenderer() relies on this to
+    // find the backdrop's associated element.
+    if (auto* renderer = this->renderer()) {
+        if (auto backdrop = renderer->backdropRenderer()) {
+            if (auto styleable = Styleable::fromRenderer(*backdrop))
+                styleable->cancelDeclarativeAnimations();
+        }
+    }
+
     document().removeTopLayerElement(*this);
     clearNodeFlag(NodeFlag::IsInTopLayer);
 
@@ -3545,11 +3557,10 @@ bool Element::hasValidStyle() const
     return true;
 }
 
-bool Element::isVisibleWithoutResolvingFullStyle() const
+bool Element::isFocusableWithoutResolvingFullStyle() const
 {
-
     if (renderStyle() || hasValidStyle())
-        return renderStyle() && renderStyle()->visibility() == Visibility::Visible;
+        return renderStyle() && renderStyle()->visibility() == Visibility::Visible && !renderStyle()->effectiveInert();
 
     auto computedStyleForElement = [](Element& element) -> const RenderStyle* {
         auto* style = element.hasNodeFlag(NodeFlag::IsComputedStyleInvalidFlag) ? nullptr : element.existingComputedStyle();
@@ -3564,7 +3575,7 @@ bool Element::isVisibleWithoutResolvingFullStyle() const
     if (style->display() == DisplayType::None || style->display() == DisplayType::Contents)
         return false;
 
-    if (style->visibility() != Visibility::Visible)
+    if (style->visibility() != Visibility::Visible || style->effectiveInert())
         return false;
 
     for (auto& element : composedTreeAncestors(const_cast<Element&>(*this))) {
@@ -3721,18 +3732,16 @@ static void disconnectPseudoElement(PseudoElement* pseudoElement)
     pseudoElement->clearHostElement();
 }
 
-void Element::clearBeforePseudoElement()
+void Element::clearBeforePseudoElementSlow()
 {
-    if (!hasRareData())
-        return;
+    ASSERT(hasRareData());
     disconnectPseudoElement(elementRareData()->beforePseudoElement());
     elementRareData()->setBeforePseudoElement(nullptr);
 }
 
-void Element::clearAfterPseudoElement()
+void Element::clearAfterPseudoElementSlow()
 {
-    if (!hasRareData())
-        return;
+    ASSERT(hasRareData());
     disconnectPseudoElement(elementRareData()->afterPseudoElement());
     elementRareData()->setAfterPseudoElement(nullptr);
 }
@@ -4040,6 +4049,8 @@ CSSAnimationCollection& Element::animationsCreatedByMarkup(PseudoId pseudoId)
 
 void Element::setAnimationsCreatedByMarkup(PseudoId pseudoId, CSSAnimationCollection&& animations)
 {
+    if (animations.isEmpty() && !animationRareData(pseudoId))
+        return;
     ensureAnimationRareData(pseudoId).setAnimationsCreatedByMarkup(WTFMove(animations));
 }
 
@@ -4305,10 +4316,9 @@ IntPoint Element::savedLayerScrollPosition() const
     return hasRareData() ? elementRareData()->savedLayerScrollPosition() : IntPoint();
 }
 
-void Element::setSavedLayerScrollPosition(const IntPoint& position)
+void Element::setSavedLayerScrollPositionSlow(const IntPoint& position)
 {
-    if (position.isZero() && !hasRareData())
-        return;
+    ASSERT(!position.isZero() || hasRareData());
     ensureElementRareData().setSavedLayerScrollPosition(position);
 }
 

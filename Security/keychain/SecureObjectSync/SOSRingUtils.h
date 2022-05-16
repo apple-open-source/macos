@@ -27,13 +27,16 @@ struct __OpaqueSOSRing {
 };
 
 static inline
-void SOSRingAssertStable(SOSRingRef ring)
-{
-    assert(ring);
-    assert(ring->unSignedInformation);
-    assert(ring->signedInformation);
-    assert(ring->signatures);
-    assert(ring->data);
+bool SOSRingAssertStable(SOSRingRef ring) {
+    bool retval = false;
+    require_action_quiet(ring != NULL, errOut, secdebug("ring", "no ring passed in"));
+    require_action_quiet(ring->unSignedInformation != NULL, errOut, secdebug("ring", "ring has no unSignedInformation"));
+    require_action_quiet(ring->signedInformation != NULL, errOut, secdebug("ring", "ring has no signedInformation"));
+    require_action_quiet(ring->signatures != NULL, errOut, secdebug("ring", "ring has no signatures"));
+    require_action_quiet(ring->data != NULL, errOut, secdebug("ring", "ring has no data"));
+    retval = true;
+errOut:
+    return retval;
 }
 
 static inline

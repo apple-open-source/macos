@@ -869,7 +869,8 @@ void IOPCIDevice::configWrite8( UInt8 offset, UInt8 data )
 
 UInt32 IOPCIDevice::extendedConfigRead32( IOByteCount offset )
 {
-	if (!configAccess(false)) return (0xFFFFFFFF);
+    // Access must be within 4KB configuration space
+	if (!configAccess(false) || offset > (0x1000 - sizeof(uint32_t))) return (0xFFFFFFFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     return (configRead32(_space, offset));
@@ -877,7 +878,8 @@ UInt32 IOPCIDevice::extendedConfigRead32( IOByteCount offset )
 
 void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
 {
-	if (!configAccess(true)) return;
+    // Access must be within 4KB configuration space
+	if (!configAccess(true) || offset > (0x1000 - sizeof(uint32_t))) return;
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite32(_space, offset, data);
@@ -885,7 +887,8 @@ void IOPCIDevice::extendedConfigWrite32( IOByteCount offset, UInt32 data )
 
 UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset )
 {
-	if (!configAccess(false)) return (0xFFFF);
+    // Access must be within 4KB configuration space
+	if (!configAccess(false) || offset > (0x1000 - sizeof(uint16_t))) return (0xFFFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     return (configRead16(_space, offset));
@@ -893,7 +896,8 @@ UInt16 IOPCIDevice::extendedConfigRead16( IOByteCount offset )
 
 void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
 {
-	if (!configAccess(true)) return;
+    // Access must be within 4KB configuration space
+	if (!configAccess(true) || offset > (0x1000 - sizeof(uint16_t))) return;
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite16(_space, offset, data);
@@ -901,7 +905,8 @@ void IOPCIDevice::extendedConfigWrite16( IOByteCount offset, UInt16 data )
 
 UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
 {
-	if (!configAccess(false)) return (0xFF);
+    // Access must be within 4KB configuration space
+	if (!configAccess(false) || offset > (0x1000 - sizeof(uint8_t))) return (0xFF);
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     return (configRead8(_space, offset));
@@ -909,7 +914,8 @@ UInt8 IOPCIDevice::extendedConfigRead8( IOByteCount offset )
 
 void IOPCIDevice::extendedConfigWrite8( IOByteCount offset, UInt8 data )
 {
-	if (!configAccess(true)) return;
+    // Access must be within 4KB configuration space
+	if (!configAccess(true) || offset > (0x1000 - sizeof(uint8_t))) return;
     IOPCIAddressSpace _space = space;
     _space.es.registerNumExtended = ((offset >> 8) & 0xF);
     configWrite8(_space, offset, data);
@@ -1689,7 +1695,25 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
                                          uint64_t  offset,
                                          uint64_t* readData)
 {
+    IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
+
+    if(deviceMemoryMap != NULL)
+    {
+        IOByteCount length = deviceMemoryMap->getLength();
+        uint64_t    sum = 0;
+
+        if(   (offset + sizeof(uint64_t)) > length
+           || (os_add_overflow(offset, sizeof(uint64_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+    }
+    else
+    {
+        DLOG("IOPCIDevice::deviceMemoryRead64: index %u could not get mapping\n", memoryIndex);
+        return kIOReturnNoMemory;
+    }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
     if(   (reserved->offloadEngineMMIODisable == 0)
@@ -1724,17 +1748,8 @@ IOReturn IOPCIDevice::deviceMemoryRead64(uint8_t   memoryIndex,
     // if the host bridge can't do the access through a DMA transaction, directly do the transaction ourself
     if(result == kIOReturnUnsupported)
     {
-        IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
-        if(deviceMemoryMap != NULL)
-        {
-            *readData = ml_io_read64(deviceMemoryMap->getVirtualAddress() + offset);
-            result = kIOReturnSuccess;
-        }
-        else
-        {
-            DLOG("IOPCIDevice::deviceMemoryRead64: index %u could not get mapping\n", memoryIndex);
-            return kIOReturnNoMemory;
-        }
+        *readData = ml_io_read64(deviceMemoryMap->getVirtualAddress() + offset);
+        result = kIOReturnSuccess;
     }
 
     return result;
@@ -1744,7 +1759,25 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
                                    uint64_t  offset,
                                    uint32_t* readData)
 {
+    IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
+
+    if(deviceMemoryMap != NULL)
+    {
+        IOByteCount length = deviceMemoryMap->getLength();
+        uint64_t    sum = 0;
+
+        if(   (offset + sizeof(uint32_t)) > length
+           || (os_add_overflow(offset, sizeof(uint32_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+    }
+    else
+    {
+        DLOG("IOPCIDevice::deviceMemoryRead32: index %u could not get mapping\n", memoryIndex);
+        return kIOReturnNoMemory;
+    }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
     if(   (reserved->offloadEngineMMIODisable == 0)
@@ -1778,17 +1811,8 @@ IOReturn IOPCIDevice::deviceMemoryRead32(uint8_t   memoryIndex,
     // if the host bridge can't do the access through a DMA transaction, directly do the transaction ourself
     if(result == kIOReturnUnsupported)
     {
-        IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
-        if(deviceMemoryMap != NULL)
-        {
-            *readData = ml_io_read32(deviceMemoryMap->getVirtualAddress() + offset);
-            result = kIOReturnSuccess;
-        }
-        else
-        {
-            DLOG("IOPCIDevice::deviceMemoryRead32: index %u could not get mapping\n", memoryIndex);
-            return kIOReturnNoMemory;
-        }
+        *readData = ml_io_read32(deviceMemoryMap->getVirtualAddress() + offset);
+        result = kIOReturnSuccess;
     }
 
     return result;
@@ -1798,7 +1822,25 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
                                  uint64_t  offset,
                                  uint16_t* readData)
 {
+    IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
+
+    if(deviceMemoryMap != NULL)
+    {
+        IOByteCount length = deviceMemoryMap->getLength();
+        uint64_t    sum = 0;
+
+        if(   (offset + sizeof(uint16_t)) > length
+           || (os_add_overflow(offset, sizeof(uint16_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+    }
+    else
+    {
+        DLOG("IOPCIDevice::deviceMemoryRead16: index %u could not get mapping\n", memoryIndex);
+        return kIOReturnNoMemory;
+    }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
     if(   (reserved->offloadEngineMMIODisable == 0)
@@ -1832,17 +1874,8 @@ IOReturn IOPCIDevice::deviceMemoryRead16(uint8_t   memoryIndex,
     // if the host bridge can't do the access through a DMA transaction, directly do the transaction ourself
     if(result == kIOReturnUnsupported)
     {
-        IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
-        if(deviceMemoryMap != NULL)
-        {
-            *readData = ml_io_read16(deviceMemoryMap->getVirtualAddress() + offset);
-            result = kIOReturnSuccess;
-        }
-        else
-        {
-            DLOG("IOPCIDevice::deviceMemoryRead16: index %u could not get mapping\n", memoryIndex);
-            return kIOReturnNoMemory;
-        }
+        *readData = ml_io_read16(deviceMemoryMap->getVirtualAddress() + offset);
+        result = kIOReturnSuccess;
     }
 
     return result;
@@ -1852,7 +1885,25 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
                                         uint64_t offset,
                                         uint8_t* readData)
 {
+    IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     IOReturn result = kIOReturnUnsupported;
+
+    if(deviceMemoryMap != NULL)
+    {
+        IOByteCount length = deviceMemoryMap->getLength();
+        uint64_t    sum = 0;
+
+        if(   (offset + sizeof(uint8_t)) > length
+           || (os_add_overflow(offset, sizeof(uint8_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+    }
+    else
+    {
+        DLOG("IOPCIDevice::deviceMemoryRead8: index %u could not get mapping\n", memoryIndex);
+        return kIOReturnNoMemory;
+    }
 
 #if TARGET_CPU_ARM || TARGET_CPU_ARM64
     if(   (reserved->offloadEngineMMIODisable == 0)
@@ -1886,17 +1937,8 @@ IOReturn IOPCIDevice::deviceMemoryRead8(uint8_t  memoryIndex,
     // if the host bridge can't do the access through a DMA transaction, directly do the transaction ourself
     if(result == kIOReturnUnsupported)
     {
-        IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
-        if(deviceMemoryMap != NULL)
-        {
-            *readData = ml_io_read8(deviceMemoryMap->getVirtualAddress() + offset);
-            result = kIOReturnSuccess;
-        }
-        else
-        {
-            DLOG("IOPCIDevice::deviceMemoryRead8: index %u could not get mapping\n", memoryIndex);
-            return kIOReturnNoMemory;
-        }
+        *readData = ml_io_read8(deviceMemoryMap->getVirtualAddress() + offset);
+        result = kIOReturnSuccess;
     }
 
     return result;
@@ -1912,12 +1954,22 @@ IOReturn IOPCIDevice::deviceMemoryWrite64(uint8_t  memoryIndex,
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     if(deviceMemoryMap != NULL)
     {
-        ml_io_write(deviceMemoryMap->getVirtualAddress() + offset, data, sizeof(uint64_t));
+        IOVirtualAddress address = deviceMemoryMap->getVirtualAddress();
+        IOByteCount      length  = deviceMemoryMap->getLength();
+        uint64_t         sum = 0;
+
+        if(   (offset + sizeof(uint64_t)) > length
+           || (os_add_overflow(offset, sizeof(uint64_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+
+        ml_io_write(address + offset, data, sizeof(uint64_t));
         result = kIOReturnSuccess;
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead64: index %u could not get mapping\n", memoryIndex);
+        DLOG("IOPCIDevice::deviceMemoryWrite64: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -1933,12 +1985,22 @@ IOReturn IOPCIDevice::deviceMemoryWrite32(uint8_t  memoryIndex,
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     if(deviceMemoryMap != NULL)
     {
-        ml_io_write(deviceMemoryMap->getVirtualAddress() + offset, data, sizeof(uint32_t));
+        IOVirtualAddress address = deviceMemoryMap->getVirtualAddress();
+        IOByteCount      length  = deviceMemoryMap->getLength();
+        uint64_t         sum = 0;
+
+        if(   (offset + sizeof(uint32_t)) > length
+           || (os_add_overflow(offset, sizeof(uint32_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+
+        ml_io_write(address + offset, data, sizeof(uint32_t));
         result = kIOReturnSuccess;
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead32: index %u could not get mapping\n", memoryIndex);
+        DLOG("IOPCIDevice::deviceMemoryWrite32: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -1954,12 +2016,22 @@ IOReturn IOPCIDevice::deviceMemoryWrite16(uint8_t  memoryIndex,
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     if(deviceMemoryMap != NULL)
     {
-        ml_io_write(deviceMemoryMap->getVirtualAddress() + offset, data, sizeof(uint16_t));
+        IOVirtualAddress address = deviceMemoryMap->getVirtualAddress();
+        IOByteCount      length  = deviceMemoryMap->getLength();
+        uint64_t         sum = 0;
+
+        if(   (offset + sizeof(uint16_t)) > length
+           || (os_add_overflow(offset, sizeof(uint16_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+
+        ml_io_write(address + offset, data, sizeof(uint16_t));
         result = kIOReturnSuccess;
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead16: index %u could not get mapping\n", memoryIndex);
+        DLOG("IOPCIDevice::deviceMemoryWrite16: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 
@@ -1974,12 +2046,22 @@ IOReturn IOPCIDevice::deviceMemoryWrite8(uint8_t  memoryIndex,
     IOMemoryMap* deviceMemoryMap = reserved->deviceMemoryMap[memoryIndex];
     if(deviceMemoryMap != NULL)
     {
-        ml_io_write(deviceMemoryMap->getVirtualAddress() + offset, data, sizeof(uint8_t));
+        IOVirtualAddress address = deviceMemoryMap->getVirtualAddress();
+        IOByteCount      length  = deviceMemoryMap->getLength();
+        uint64_t         sum = 0;
+
+        if(   (offset + sizeof(uint8_t)) > length
+           || (os_add_overflow(offset, sizeof(uint8_t), &sum)))
+        {
+            return kIOReturnOverrun;
+        }
+
+        ml_io_write(address + offset, data, sizeof(uint8_t));
         result = kIOReturnSuccess;
     }
     else
     {
-        DLOG("IOPCIDevice::deviceMemoryRead8: index %u could not get mapping\n", memoryIndex);
+        DLOG("IOPCIDevice::deviceMemoryWrite8: index %u could not get mapping\n", memoryIndex);
         return kIOReturnNoMemory;
     }
 

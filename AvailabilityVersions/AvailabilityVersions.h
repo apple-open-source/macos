@@ -67,6 +67,7 @@
 #define __MAC_12_1          120100
 #define __MAC_12_2          120200
 #define __MAC_12_3          120300
+#define __MAC_12_4          120400
 /* __MAC_NA is not defined to a value but is used as a token by macros to indicate that the API is unavailable */
 
 #define __IPHONE_2_0      20000
@@ -129,6 +130,7 @@
 #define __IPHONE_15_2    150200
 #define __IPHONE_15_3    150300
 #define __IPHONE_15_4    150400
+#define __IPHONE_15_5    150500
 /* __IPHONE_NA is not defined to a value but is used as a token by macros to indicate that the API is unavailable */
 
 #define __TVOS_9_0        90000
@@ -164,6 +166,7 @@
 #define __TVOS_15_2      150200
 #define __TVOS_15_3      150300
 #define __TVOS_15_4      150400
+#define __TVOS_15_5      150500
 
 #define __WATCHOS_1_0     10000
 #define __WATCHOS_2_0     20000
@@ -196,6 +199,7 @@
 #define __WATCHOS_8_3     80300
 #define __WATCHOS_8_4     80400
 #define __WATCHOS_8_5     80500
+#define __WATCHOS_8_6     80600
 
 /*
  * Set up standard Mac OS X versions

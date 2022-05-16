@@ -60,8 +60,6 @@ AuthenticatorPresenterCoordinator::AuthenticatorPresenterCoordinator(const Authe
         if ((transports.contains(AuthenticatorTransport::Usb) || transports.contains(AuthenticatorTransport::Nfc)) && !transports.contains(AuthenticatorTransport::Internal))
             [m_context addLoginChoice:adoptNS([allocASCSecurityKeyPublicKeyCredentialLoginChoiceInstance() initAssertionPlaceholderChoice]).get()];
         break;
-    default:
-        ASSERT_NOT_REACHED();
     }
 
     m_presenterDelegate = adoptNS([[WKASCAuthorizationPresenterDelegate alloc] initWithCoordinator:*this]);
@@ -246,7 +244,6 @@ void AuthenticatorPresenterCoordinator::dimissPresenter(WebAuthenticationResult 
         // FIXME(219767): Replace the ASCAppleIDCredential with the upcoming WebAuthn credentials one.
         // This is just a place holder to tell the UI that the ceremony succeeds.
         m_credentialRequestHandler(adoptNS([WebKit::allocASCAppleIDCredentialInstance() initWithUser:@"" identityToken:adoptNS([[NSData alloc] init]).get() state:nil]).get(), nil);
-        return;
     }
 
     [m_presenter dismissWithError:nil];

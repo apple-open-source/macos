@@ -159,6 +159,18 @@ public:
 	using Hash<CC_SHA1_DIGEST_LENGTH, SHA1>::finish;
 };
 
+//
+// A concrete SHA256 class, used in a very many different places.
+// Note that its digestLength is a constant (not a function).
+//
+class SHA256 : public CC_SHA256_CTX, public Hash<CC_SHA256_DIGEST_LENGTH, SHA256>    {
+public:
+    SHA256() { CC_SHA256_Init(this); }
+    void update(const void *data, size_t length)
+    { CC_SHA256_Update(this, data, (CC_LONG)length); }
+    void finish(Byte *digest) { CC_SHA256_Final(digest, this); }
+    using Hash<CC_SHA256_DIGEST_LENGTH, SHA256>::finish;
+};
 
 }	// Security
 

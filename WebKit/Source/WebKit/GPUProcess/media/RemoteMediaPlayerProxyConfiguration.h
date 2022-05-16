@@ -28,6 +28,7 @@
 #if ENABLE(GPU_PROCESS)
 
 #include <WebCore/ContentType.h>
+#include <WebCore/LayoutRect.h>
 #include <WebCore/PlatformTextTrack.h>
 #include <WebCore/SecurityOriginData.h>
 #include <wtf/text/WTFString.h>
@@ -40,6 +41,7 @@ struct RemoteMediaPlayerProxyConfiguration {
     String sourceApplicationIdentifier;
     String networkInterfaceName;
     Vector<WebCore::ContentType> mediaContentTypesRequiringHardwareSupport;
+    WebCore::LayoutRect playerContentBoxRect;
     Vector<String> preferredAudioCharacteristics;
 #if ENABLE(AVF_CAPTIONS)
     Vector<WebCore::PlatformTextTrackData> outOfBandTrackData;
@@ -58,6 +60,7 @@ struct RemoteMediaPlayerProxyConfiguration {
         encoder << sourceApplicationIdentifier;
         encoder << networkInterfaceName;
         encoder << mediaContentTypesRequiringHardwareSupport;
+        encoder << playerContentBoxRect;
         encoder << preferredAudioCharacteristics;
 #if ENABLE(AVF_CAPTIONS)
         encoder << outOfBandTrackData;
@@ -95,6 +98,11 @@ struct RemoteMediaPlayerProxyConfiguration {
         std::optional<Vector<WebCore::ContentType>> mediaContentTypesRequiringHardwareSupport;
         decoder >> mediaContentTypesRequiringHardwareSupport;
         if (!mediaContentTypesRequiringHardwareSupport)
+            return std::nullopt;
+
+        std::optional<WebCore::LayoutRect> playerContentBoxRect;
+        decoder >> playerContentBoxRect;
+        if (!playerContentBoxRect)
             return std::nullopt;
 
         std::optional<Vector<String>> preferredAudioCharacteristics;
@@ -140,6 +148,7 @@ struct RemoteMediaPlayerProxyConfiguration {
             WTFMove(*sourceApplicationIdentifier),
             WTFMove(*networkInterfaceName),
             WTFMove(*mediaContentTypesRequiringHardwareSupport),
+            WTFMove(*playerContentBoxRect),
             WTFMove(*preferredAudioCharacteristics),
 #if ENABLE(AVF_CAPTIONS)
             WTFMove(*outOfBandTrackData),

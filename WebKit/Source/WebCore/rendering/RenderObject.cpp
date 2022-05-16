@@ -111,6 +111,7 @@ struct SameSizeAsRenderObject {
     virtual ~SameSizeAsRenderObject() = default; // Allocate vtable pointer.
 #if ASSERT_ENABLED
     bool weakPtrFactorWasConstructedOnMainThread;
+    HashSet<void*> cachedResourceClientAssociatedResources;
 #endif
     void* pointers[5];
 #if ASSERT_ENABLED
@@ -2249,7 +2250,7 @@ auto RenderObject::collectSelectionGeometriesInternal(const SimpleRange& range) 
     for (auto& node : intersectingNodesWithDeprecatedZeroOffsetStartQuirk(range)) {
         auto renderer = node.renderer();
         // Only ask leaf render objects for their line box rects.
-        if (renderer && !renderer->firstChildSlow() && renderer->style().userSelectIncludingInert() != UserSelect::None) {
+        if (renderer && !renderer->firstChildSlow() && renderer->style().effectiveUserSelect() != UserSelect::None) {
             bool isStartNode = renderer->node() == range.start.container.ptr();
             bool isEndNode = renderer->node() == range.end.container.ptr();
             if (hasFlippedWritingMode != renderer->style().isFlippedBlocksWritingMode())

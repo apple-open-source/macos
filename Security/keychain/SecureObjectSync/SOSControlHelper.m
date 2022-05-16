@@ -50,6 +50,7 @@ _SOSControlSetupInterface(NSXPCInterface *interface)
 
         [interface setClasses:errClasses forSelector:@selector(iCloudIdentityStatus:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(accountStatus:) argumentIndex:1 ofReply:YES];
+        [interface setClasses:errClasses forSelector:@selector(keyStatusFor:complete:) argumentIndex:1 ofReply:YES];
 
         [interface setClasses:errClasses forSelector:@selector(myPeerInfo:) argumentIndex:1 ofReply:YES];
         [interface setClasses:errClasses forSelector:@selector(circleHash:) argumentIndex:1 ofReply:YES];

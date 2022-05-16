@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2007-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -130,6 +130,10 @@
 #include <wtf/Ref.h>
 #include <wtf/text/CString.h>
 
+#if USE(AUDIO_SESSION)
+#include "AudioSession.h"
+#endif
+
 #if ENABLE(WEB_AUDIO)
 #include "AudioSourceProvider.h"
 #include "MediaElementAudioSourceNode.h"
@@ -210,12 +214,6 @@ static const Seconds ScanRepeatDelay { 1.5_s };
 static const double ScanMaximumRate = 8;
 static const double AutoplayInterferenceTimeThreshold = 10;
 static const Seconds hideMediaControlsAfterEndedDelay { 6_s };
-
-#ifndef LOG_CACHED_TIME_WARNINGS
-// Default to not logging warnings about excessive drift in the cached media time because it adds a
-// fair amount of overhead and logging.
-#define LOG_CACHED_TIME_WARNINGS 0
-#endif
 
 #if ENABLE(MEDIA_SOURCE)
 // URL protocol used to signal that the media source API is being used.
@@ -464,6 +462,9 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document& docum
     , m_logger(&document.logger())
     , m_logIdentifier(uniqueLogIdentifier())
 #endif
+#if USE(AUDIO_SESSION)
+    , m_categoryAtMostRecentPlayback(AudioSessionCategory::None)
+#endif
 {
     allMediaElements().add(this);
 
@@ -691,6 +692,8 @@ void HTMLMediaElement::unregisterWithDocument(Document& document)
 
 void HTMLMediaElement::didMoveToNewDocument(Document& oldDocument, Document& newDocument)
 {
+    ALWAYS_LOG(LOGIDENTIFIER);
+
     ASSERT_WITH_SECURITY_IMPLICATION(&document() == &newDocument);
     if (m_shouldDelayLoadEvent) {
         oldDocument.decrementLoadEventDelayCount();
@@ -900,6 +903,9 @@ inline void HTMLMediaElement::updateRenderer()
 
     if (m_mediaControlsHost)
         m_mediaControlsHost->updateCaptionDisplaySizes();
+
+    if (m_player)
+        m_player->playerContentBoxRectChanged(mediaPlayerContentBoxRect());
 }
 
 void HTMLMediaElement::didAttachRenderers()
@@ -1726,15 +1732,16 @@ void HTMLMediaElement::updateActiveTextTrackCues(const MediaTime& movieTime)
     if (nextCue)
         nextInterestingTime = std::min(nextInterestingTime, nextCue->low());
 
-    INFO_LOG(LOGIDENTIFIER, "nextInterestingTime:", nextInterestingTime);
+    auto identifier = LOGIDENTIFIER;
+    INFO_LOG(identifier, "nextInterestingTime:", nextInterestingTime);
 
     if (nextInterestingTime.isValid() && m_player) {
-        m_player->performTaskAtMediaTime([this, weakThis = WeakPtr { *this }] {
+        m_player->performTaskAtMediaTime([this, weakThis = WeakPtr { *this }, identifier] {
             if (!weakThis)
                 return;
 
             auto currentMediaTime = this->currentMediaTime();
-            INFO_LOG(LOGIDENTIFIER, " lambda, currentMediaTime: ", currentMediaTime);
+            INFO_LOG(identifier, "lambda(), currentMediaTime: ", currentMediaTime);
             this->updateActiveTextTrackCues(currentMediaTime);
         }, nextInterestingTime);
     }
@@ -2000,8 +2007,11 @@ void HTMLMediaElement::endIgnoringTrackDisplayUpdateRequests()
 {
     ASSERT(m_ignoreTrackDisplayUpdate);
     --m_ignoreTrackDisplayUpdate;
-    if (!m_ignoreTrackDisplayUpdate && m_inActiveDocument)
-        updateActiveTextTrackCues(currentMediaTime());
+
+    queueCancellableTaskKeepingObjectAlive(*this, TaskSource::MediaElement, m_updateTextTracksTaskCancellationGroup, [this] {
+        if (!m_ignoreTrackDisplayUpdate && m_inActiveDocument)
+            updateActiveTextTrackCues(currentMediaTime());
+    });
 }
 
 void HTMLMediaElement::textTrackAddCues(TextTrack& track, const TextTrackCueList& cues)
@@ -2444,6 +2454,13 @@ void HTMLMediaElement::dispatchPlayPauseEventsIfNeedsQuirks()
     scheduleEvent(eventNames().pauseEvent);
 }
 
+void HTMLMediaElement::durationChanged()
+{
+    if (m_textTracks)
+        m_textTracks->setDuration(durationMediaTime());
+    scheduleEvent(eventNames().durationchangeEvent);
+}
+
 void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
 {
     // Set "wasPotentiallyPlaying" BEFORE updating m_readyState, potentiallyPlaying() uses it
@@ -2504,7 +2521,7 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
         // HAVE_METADATA.
         if (m_readyState >= HAVE_METADATA && oldState < HAVE_METADATA) {
             prepareMediaFragmentURI();
-            scheduleEvent(eventNames().durationchangeEvent);
+            durationChanged();
             scheduleResizeEvent();
             scheduleEvent(eventNames().loadedmetadataEvent);
 
@@ -3341,9 +3358,7 @@ double HTMLMediaElement::currentTime() const
 
 MediaTime HTMLMediaElement::currentMediaTime() const
 {
-#if LOG_CACHED_TIME_WARNINGS
-    static const MediaTime minCachedDeltaForWarning = MediaTime::create(1, 100);
-#endif
+    static const MediaTime minCachedDeltaForWarning = MediaTime::createWithDouble(1);
 
     if (!m_player)
         return MediaTime::zeroTime();
@@ -3356,12 +3371,14 @@ MediaTime HTMLMediaElement::currentMediaTime() const
         return m_lastSeekTime;
     }
 
+    bool shouldCheckDrift = willLog(WTFLogLevel::Debug);
     if (m_cachedTime.isValid() && m_paused) {
-#if LOG_CACHED_TIME_WARNINGS
-        MediaTime delta = m_cachedTime - m_player->currentTime();
-        if (delta > minCachedDeltaForWarning)
-            WARNING_LOG(LOGIDENTIFIER, "cached time is ", delta, " seconds off of media time when paused");
-#endif
+        if (shouldCheckDrift) {
+            MediaTime delta = m_cachedTime - m_player->currentTime();
+            if (delta > minCachedDeltaForWarning)
+                WARNING_LOG(LOGIDENTIFIER, "cached time is ", delta, " seconds off of media time when paused");
+        }
+
         return m_cachedTime;
     }
 
@@ -3376,22 +3393,22 @@ MediaTime HTMLMediaElement::currentMediaTime() const
         if (clockDelta.seconds() < maximumDurationToCacheMediaTime) {
             MediaTime adjustedCacheTime = m_cachedTime + MediaTime::createWithDouble(effectivePlaybackRate() * clockDelta.seconds());
 
-#if LOG_CACHED_TIME_WARNINGS
-            MediaTime delta = adjustedCacheTime - m_player->currentTime();
-            if (delta > minCachedDeltaForWarning)
-                WARNING_LOG(LOGIDENTIFIER, "cached time is ", delta, " seconds off of media time when playing");
-#endif
+            if (shouldCheckDrift) {
+                auto delta = adjustedCacheTime - m_player->currentTime();
+                if (delta > minCachedDeltaForWarning)
+                    WARNING_LOG(LOGIDENTIFIER, "cached time is ", delta, " seconds off of media time when playing");
+            }
+
             return adjustedCacheTime;
         }
     }
 
-#if LOG_CACHED_TIME_WARNINGS
-    if (maximumDurationToCacheMediaTime && now > m_minimumClockTimeToUpdateCachedTime && m_cachedTime != MediaPlayer::invalidTime()) {
+    if (shouldCheckDrift && m_cachedTime.isValid() && maximumDurationToCacheMediaTime && now > m_minimumClockTimeToUpdateCachedTime) {
         Seconds clockDelta = now - m_clockTimeAtLastCachedTimeUpdate;
-        MediaTime delta = m_cachedTime + MediaTime::createWithDouble(effectivePlaybackRate() * clockDelta.seconds()) - m_player->currentTime();
-        WARNING_LOG(LOGIDENTIFIER, "cached time was ", delta, " seconds off of media time when it expired");
+        auto delta = m_cachedTime + MediaTime::createWithDouble(effectivePlaybackRate() * clockDelta.seconds()) - m_player->currentTime();
+        if (delta > minCachedDeltaForWarning)
+            WARNING_LOG(LOGIDENTIFIER, "cached time was ", delta, " seconds off of media time when it expired");
     }
-#endif
 
     refreshCachedTime();
 
@@ -5152,7 +5169,7 @@ void HTMLMediaElement::mediaPlayerDurationChanged()
 {
     beginProcessingMediaPlayerCallback();
 
-    scheduleEvent(eventNames().durationchangeEvent);
+    durationChanged();
     mediaPlayerCharacteristicChanged();
 
     MediaTime now = currentMediaTime();
@@ -5160,9 +5177,6 @@ void HTMLMediaElement::mediaPlayerDurationChanged()
     ALWAYS_LOG(LOGIDENTIFIER, "duration = ", dur, ", current time = ", now);
     if (now > dur)
         seekInternal(dur);
-
-    if (m_textTracks)
-        m_textTracks->setDuration(dur);
 
     endProcessingMediaPlayerCallback();
 }
@@ -5190,17 +5204,19 @@ void HTMLMediaElement::mediaPlayerPlaybackStateChanged()
     if (!m_player || m_pausedInternal)
         return;
 
+    updateSleepDisabling();
+
     auto playerPaused = m_player->paused();
-    ALWAYS_LOG(LOGIDENTIFIER, playerPaused);
+    bool shouldBePaused = !potentiallyPlaying();
+    ALWAYS_LOG(LOGIDENTIFIER, "playerPaused: ", playerPaused, ", shouldBePaused: ", shouldBePaused);
+    if (playerPaused == shouldBePaused)
+        return;
 
     beginProcessingMediaPlayerCallback();
     if (playerPaused)
         pauseInternal();
     else
         playInternal();
-
-    updateSleepDisabling();
-
     endProcessingMediaPlayerCallback();
 }
 
@@ -5666,6 +5682,10 @@ void HTMLMediaElement::playPlayer()
     if (!m_player)
         return;
 
+#if USE(AUDIO_SESSION)
+    m_categoryAtMostRecentPlayback = AudioSession::sharedSession().category();
+#endif
+
 #if ENABLE(MEDIA_SESSION) && ENABLE(MEDIA_SESSION_COORDINATOR)
     do {
         if (!m_player->supportsPlayAtHostTime())
@@ -5747,6 +5767,7 @@ void HTMLMediaElement::stopPeriodicTimers()
 void HTMLMediaElement::cancelPendingTasks()
 {
     m_configureTextTracksTaskCancellationGroup.cancel();
+    m_updateTextTracksTaskCancellationGroup.cancel();
     m_checkPlaybackTargetCompatibilityTaskCancellationGroup.cancel();
     m_updateMediaStateTaskCancellationGroup.cancel();
     m_mediaEngineUpdatedTaskCancellationGroup.cancel();
@@ -5865,10 +5886,12 @@ void HTMLMediaElement::clearMediaPlayer()
     if (m_textTracks)
         configureTextTrackDisplay();
 
-    if (m_mediaSession) {
-        m_mediaSession->clientCharacteristicsChanged();
-        m_mediaSession->canProduceAudioChanged();
-    }
+    queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
+        if (m_mediaSession) {
+            m_mediaSession->clientCharacteristicsChanged();
+            m_mediaSession->canProduceAudioChanged();
+        }
+    });
 
     m_resourceSelectionTaskCancellationGroup.cancel();
 
@@ -6014,9 +6037,23 @@ void HTMLMediaElement::mediaVolumeDidChange()
 #endif
 }
 
+bool HTMLMediaElement::elementIsHidden() const
+{
+#if ENABLE(FULLSCREEN_API)
+    auto& fullscreenManager = document().fullscreenManager();
+    if (isVideo() && fullscreenManager.isFullscreen() && fullscreenManager.currentFullscreenElement())
+        return false;
+#endif
+
+    if (m_videoFullscreenMode != VideoFullscreenModeNone)
+        return false;
+
+    return document().hidden();
+}
+
 void HTMLMediaElement::visibilityStateChanged()
 {
-    bool elementIsHidden = document().hidden() && m_videoFullscreenMode == VideoFullscreenModeNone;
+    bool elementIsHidden = this->elementIsHidden();
     if (elementIsHidden == m_elementIsHidden)
         return;
 
@@ -7992,8 +8029,10 @@ bool HTMLMediaElement::shouldOverrideBackgroundPlaybackRestriction(PlatformMedia
             return true;
         }
 #if ENABLE(VIDEO_PRESENTATION_MODE)
-        if (m_videoFullscreenMode == VideoFullscreenModePictureInPicture)
+        if (m_videoFullscreenMode == VideoFullscreenModePictureInPicture) {
+            INFO_LOG(LOGIDENTIFIER, "returning true, in PiP");
             return true;
+        }
 #endif
 #if ENABLE(MEDIA_STREAM)
         if (hasMediaStreamSrcObject() && mediaState().containsAny(MediaProducerMediaState::IsPlayingAudio) && document().mediaState().containsAny(MediaProducerMediaState::HasActiveAudioCaptureDevice)) {
@@ -8163,10 +8202,10 @@ void HTMLMediaElement::setAutoplayEventPlaybackState(AutoplayEventPlaybackState 
 
 void HTMLMediaElement::pageMutedStateDidChange()
 {
-    if (Page* page = document().page()) {
+    if (auto* page = document().page()) {
         // Propagate the new state to the platform player.
         if (m_player)
-            m_player->setMuted(page->isAudioMuted());
+            m_player->setMuted(effectiveMuted());
         if (hasAudio() && !muted() && page->isAudioMuted())
             userDidInterfereWithAutoplay();
     }
@@ -8259,6 +8298,7 @@ void HTMLMediaElement::isVisibleInViewportChanged()
 {
     if (m_player)
         m_player->setVisibleInViewport(isVisibleInViewport());
+
     queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [this] {
         if (isContextStopped())
             return;
@@ -8447,6 +8487,15 @@ MediaElementSession& HTMLMediaElement::mediaSession() const
     if (!m_mediaSession)
         const_cast<HTMLMediaElement&>(*this).initializeMediaSession();
     return *m_mediaSession;
+}
+
+void HTMLMediaElement::updateMediaPlayer(IntSize elementSize, bool shouldMaintainAspectRatio)
+{
+    ALWAYS_LOG(LOGIDENTIFIER);
+    m_player->setSize(elementSize);
+    visibilityStateChanged();
+    m_player->setVisibleInViewport(isVisibleInViewport());
+    m_player->setShouldMaintainAspectRatio(shouldMaintainAspectRatio);
 }
 
 void HTMLMediaElement::mediaPlayerQueueTaskOnEventLoop(Function<void()>&& task)

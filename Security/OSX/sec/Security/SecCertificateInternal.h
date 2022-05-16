@@ -245,6 +245,7 @@ bool SecCertificateIsOidString(CFStringRef oid);
 DERItem *SecCertificateGetExtensionValue(SecCertificateRef certificate, CFTypeRef oid);
 
 CFArrayRef SecCertificateCopyRFC822NamesFromSubject(SecCertificateRef certificate);
+CFArrayRef SecCertificateCopyRFC822NamesFromSAN(SecCertificateRef certificate);
 CFArrayRef SecCertificateCopyDNSNamesFromSAN(SecCertificateRef certificate);
 CFArrayRef SecCertificateCopyIPAddressDatas(SecCertificateRef certificate);
 

@@ -75,7 +75,7 @@ LegacyRootInlineBox::~LegacyRootInlineBox()
 {
     detachEllipsisBox();
 
-    if (blockFlow().enclosingFragmentedFlow())
+    if (!renderer().document().renderTreeBeingDestroyed() && blockFlow().enclosingFragmentedFlow())
         containingFragmentMap(blockFlow()).remove(this);
 }
 
@@ -360,7 +360,7 @@ LayoutUnit LegacyRootInlineBox::lineSnapAdjustment(LayoutUnit delta) const
     // FIXME: Need to handle crazy line-box-contain values that cause the root line box to not be considered. I assume
     // the grid should honor line-box-contain.
     LayoutUnit gridLineHeight = lineGridBox->lineBoxBottom() - lineGridBox->lineBoxTop();
-    if (!gridLineHeight)
+    if (!roundToInt(gridLineHeight))
         return 0;
 
     LayoutUnit lineGridFontAscent = lineGrid->style().fontMetrics().ascent(baselineType());

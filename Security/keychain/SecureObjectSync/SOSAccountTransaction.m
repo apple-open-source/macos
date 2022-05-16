@@ -289,7 +289,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
         // Also, there might be some view set change. Ensure that the engine knows...
         notifyEngines = true;
     }
-    if(sosIsEnabled && self.account.need_backup_peers_created_after_backup_key_set) { // if we need to keep backup peers this needs to be re-enabled.
+    if(self.account.need_backup_peers_created_after_backup_key_set) {
         self.account.need_backup_peers_created_after_backup_key_set = false;
         notifyEngines = true;
     }
@@ -300,7 +300,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     CFReleaseNull(currentViews);
     notifyEngines |= viewSetChanged;
 
-    if (sosIsEnabled && notifyEngines) {
+    if (notifyEngines) {
 #if OCTAGON
         if(!SecCKKSTestDisableSOS()) {
 #endif
@@ -310,7 +310,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
 #endif
     }
 
-    if(sosIsEnabled && self.account.key_interests_need_updating && !self.account.consolidateKeyInterest) {
+    if(self.account.key_interests_need_updating && !self.account.consolidateKeyInterest) {
         SOSUpdateKeyInterest(self.account);
     }
 
@@ -393,7 +393,7 @@ static void SOSViewsSetCachedStatus(SOSAccount *account) {
     if(doViewChanged) {
         SOSViewsSetCachedStatus(_account);
     }
-    if(sosIsEnabled && self.account.notifyBackupOnExit) {
+    if(self.account.notifyBackupOnExit) {
         notify_post(kSecItemBackupNotification);
         self.account.notifyBackupOnExit = false;
     }

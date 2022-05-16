@@ -491,12 +491,15 @@ listfunction ::= listfuncname "<strong>(</strong>" word "<strong>)</strong>"</pr
 <tr class="odd"><td><code>file</code></td>
         <td>Lit le contenu d'un fichier(fins de lignes incluses, si
 	elles existent)</td><td>limité</td></tr>
-<tr><td><code>filemod</code></td>
-        <td>Renvoie la date de dernière modification d'un fichier (ou 0 si le
-	fichier n'existe pas ou n'est pas un fichier régulier)</td><td>limité</td></tr>
-<tr class="odd"><td><code>filesize</code></td>
+<tr><td><code>filesize</code></td>
         <td>Renvoie la taille d'un fichier (ou 0 si le fichier n'existe
 	pas ou ne correspond pas à un fichier régulier)</td><td>limité</td></tr>
+<tr class="odd"><td><code>ldap</code></td>
+        <td>Echappe les caractères selon la RFC4514 (Echappement des
+	noms distinctifs LDAP - DN) et la RFC4515 (Echappement des
+	filtres LDAP).<br />
+	Disponible à partir de la version 2.4.53 du serveur HTTP
+	Apache.</td><td /></tr>
 </table>
 
     <p>Les fonctions marquées comme "limité" dans la dernière colonne ne sont
@@ -681,7 +684,7 @@ var comments_identifier = 'http://httpd.apache.org/docs/2.4/expr.html';
     }
 })(window, document);
 //--><!]]></script></div><div id="footer">
-<p class="apache">Copyright 2021 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2022 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="http://wiki.apache.org/httpd/FAQ">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div><script type="text/javascript"><!--//--><![CDATA[//><!--
 if (typeof(prettyPrint) !== 'undefined') {
     prettyPrint();

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2019-2020 Apple Inc. All rights reserved.
+ * Copyright (C) 2019-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -121,14 +121,14 @@ MediaPlayerPrivateRemote::MediaPlayerPrivateRemote(MediaPlayer* player, MediaPla
     , m_id(playerIdentifier)
     , m_documentSecurityOrigin(player->documentSecurityOrigin())
 {
-    INFO_LOG(LOGIDENTIFIER);
+    ALWAYS_LOG(LOGIDENTIFIER);
 
     acceleratedRenderingStateChanged();
 }
 
 MediaPlayerPrivateRemote::~MediaPlayerPrivateRemote()
 {
-    INFO_LOG(LOGIDENTIFIER);
+    ALWAYS_LOG(LOGIDENTIFIER);
 #if PLATFORM(COCOA)
     m_videoLayerManager->didDestroyVideoLayer();
 #endif
@@ -160,9 +160,10 @@ void MediaPlayerPrivateRemote::prepareForPlayback(bool privateMode, MediaPlayer:
         if (!player)
             return;
 
-        m_videoLayer = createVideoLayerRemote(this, inlineLayerHostingContextId.value(), m_videoFullscreenGravity);
+        auto contentBox = snappedIntRect(player->playerContentBoxRect()).size();
+        m_videoLayer = createVideoLayerRemote(this, inlineLayerHostingContextId.value(), m_videoFullscreenGravity, contentBox);
 #if PLATFORM(COCOA)
-        m_videoLayerManager->setVideoLayer(m_videoLayer.get(), snappedIntRect(player->playerContentBoxRect()).size());
+        m_videoLayerManager->setVideoLayer(m_videoLayer.get(), contentBox);
 #endif
     }, m_id);
 }
@@ -428,21 +429,27 @@ void MediaPlayerPrivateRemote::sizeChanged(WebCore::FloatSize naturalSize)
 
 void MediaPlayerPrivateRemote::currentTimeChanged(const MediaTime& mediaTime, const MonotonicTime& queryTime, bool timeIsProgressing)
 {
+    auto reverseJump = mediaTime < m_cachedMediaTime;
     m_timeIsProgressing = timeIsProgressing;
     m_cachedMediaTime = mediaTime;
     m_cachedMediaTimeQueryTime = queryTime;
+
+    if (reverseJump) {
+        if (RefPtr player = m_player.get())
+            player->timeChanged();
+    }
 }
 
 void MediaPlayerPrivateRemote::firstVideoFrameAvailable()
 {
-    INFO_LOG(LOGIDENTIFIER);
+    ALWAYS_LOG(LOGIDENTIFIER);
     if (RefPtr player = m_player.get())
         player->firstVideoFrameAvailable();
 }
 
 void MediaPlayerPrivateRemote::renderingModeChanged()
 {
-    INFO_LOG(LOGIDENTIFIER);
+    ALWAYS_LOG(LOGIDENTIFIER);
     if (RefPtr player = m_player.get())
         player->renderingModeChanged();
 }
@@ -557,11 +564,21 @@ void MediaPlayerPrivateRemote::prepareForRendering()
 
 void MediaPlayerPrivateRemote::setPageIsVisible(bool visible)
 {
+    if (m_pageIsVisible == visible)
+        return;
+
+    ALWAYS_LOG(LOGIDENTIFIER, visible);
+
+    m_pageIsVisible = visible;
     connection().send(Messages::RemoteMediaPlayerProxy::SetPageIsVisible(visible), m_id);
 }
 
 void MediaPlayerPrivateRemote::setShouldMaintainAspectRatio(bool maintainRatio)
 {
+    if (maintainRatio == m_shouldMaintainAspectRatio)
+        return;
+
+    m_shouldMaintainAspectRatio = maintainRatio;
     connection().send(Messages::RemoteMediaPlayerProxy::SetShouldMaintainAspectRatio(maintainRatio), m_id);
 }
 
@@ -1004,6 +1021,9 @@ bool MediaPlayerPrivateRemote::copyVideoTextureToPlatformTexture(WebCore::Graphi
 
 std::optional<WebCore::MediaSampleVideoFrame> MediaPlayerPrivateRemote::videoFrameForCurrentTime()
 {
+    if (readyState() < MediaPlayer::ReadyState::HaveCurrentData)
+        return { };
+
     std::optional<WebCore::MediaSampleVideoFrame> result;
     bool changed = false;
     if (!connection().sendSync(Messages::RemoteMediaPlayerProxy::VideoFrameForCurrentTimeIfChanged(), Messages::RemoteMediaPlayerProxy::VideoFrameForCurrentTimeIfChanged::Reply(result, changed), m_id))
@@ -1403,6 +1423,11 @@ void MediaPlayerPrivateRemote::stopVideoFrameMetadataGathering()
     m_pixelBufferGatheredWithVideoFrameMetadata = nullptr;
 #endif
     connection().send(Messages::RemoteMediaPlayerProxy::StopVideoFrameMetadataGathering(), m_id);
+}
+
+void MediaPlayerPrivateRemote::playerContentBoxRectChanged(const LayoutRect& contentRect)
+{
+    connection().send(Messages::RemoteMediaPlayerProxy::PlayerContentBoxRectChanged(contentRect), m_id);
 }
 
 void MediaPlayerPrivateRemote::requestResource(RemoteMediaResourceIdentifier remoteMediaResourceIdentifier, WebCore::ResourceRequest&& request, WebCore::PlatformMediaResourceLoader::LoadOptions options, CompletionHandler<void()>&& completionHandler)

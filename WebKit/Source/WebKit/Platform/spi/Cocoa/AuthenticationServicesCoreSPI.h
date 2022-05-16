@@ -167,6 +167,8 @@ typedef NS_ENUM(NSUInteger, ASCPublicKeyCredentialKind) {
 
 @property (nonatomic, nullable, readonly, copy) NSArray<ASCPublicKeyCredentialDescriptor *> *allowedCredentials;
 
+@property (nonatomic, nullable, copy) NSString *destinationSiteForCrossSiteAssertion;
+
 @end
 
 
@@ -321,6 +323,8 @@ typedef NS_OPTIONS(NSUInteger, ASCCredentialRequestTypes) {
 
 - (void)requestCompletedWithCredential:(nullable id<ASCCredentialProtocol>)credential error:(nullable NSError *)error;
 #endif
+
+- (void)cancelCurrentRequest;
 
 @end
 

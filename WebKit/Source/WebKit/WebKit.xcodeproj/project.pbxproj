@@ -4681,6 +4681,7 @@
 		57FE688A260ABB3D00BF45E4 /* PrivateClickMeasurementNetworkLoader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PrivateClickMeasurementNetworkLoader.h; sourceTree = "<group>"; };
 		57FE688B260ABB3D00BF45E4 /* PrivateClickMeasurementNetworkLoader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PrivateClickMeasurementNetworkLoader.cpp; sourceTree = "<group>"; };
 		5C00993B2417FB7E00D53C25 /* ResourceLoadStatisticsParameters.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ResourceLoadStatisticsParameters.h; sourceTree = "<group>"; };
+		5C05FDF227AB4FA5003A2487 /* PrivateRelayed.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PrivateRelayed.h; sourceTree = "<group>"; };
 		5C0A10C1235241A30053E2CA /* NetworkSchemeRegistry.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = NetworkSchemeRegistry.cpp; sourceTree = "<group>"; };
 		5C0B17741E7C879C00E9123C /* NetworkSocketStreamMessageReceiver.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = NetworkSocketStreamMessageReceiver.cpp; path = DerivedSources/WebKit/NetworkSocketStreamMessageReceiver.cpp; sourceTree = BUILT_PRODUCTS_DIR; };
 		5C0B17751E7C879C00E9123C /* NetworkSocketStreamMessages.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NetworkSocketStreamMessages.h; path = DerivedSources/WebKit/NetworkSocketStreamMessages.h; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -7077,6 +7078,7 @@
 				49ECA41B23FCA4860023358D /* PolicyDecision.h */,
 				E18C92F312DB9E7100CF2AEB /* PrintInfo.cpp */,
 				E1CC1B8E12D7EADF00625838 /* PrintInfo.h */,
+				5C05FDF227AB4FA5003A2487 /* PrivateRelayed.h */,
 				463FD4811EB94EAD00A2982C /* ProcessTerminationReason.h */,
 				517B5F94275EBA62002DC22D /* PushMessageForTesting.h */,
 				9B1229D023FF2A5E008CA751 /* RemoteAudioDestinationIdentifier.h */,
@@ -14080,6 +14082,7 @@
 				99CA3862207286DB00BAD578 /* Copy WebDriver Atoms to Framework Private Headers */,
 				37E531011B2391090074F0DF /* Copy iOS Sandbox Profiles for Manual Sandboxing */,
 				1A07D2F71919B36500ECDA16 /* Copy Message Generation Scripts */,
+				F4CDF3CC27E918D900191928 /* Copy Profiling Data */,
 				8DC2EF540486A6940098B216 /* Sources */,
 				8DC2EF560486A6940098B216 /* Frameworks */,
 				5DF408C5131DD46700130071 /* Check For Weak VTables and Externals */,
@@ -15136,6 +15139,28 @@
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
 			shellScript = "if [ \"${XCODE_VERSION_ACTUAL}\" -ge \"1140\" -a \"${WK_USE_NEW_BUILD_SYSTEM}\" = \"YES\" ]; then\n    # In this configuration, post-processing is performed at the same time as copying in the postprocess-header-rule script, so there's no need for this separate step.\n    exit 0\nfi\n\nif [ \"${ACTION}\" = \"analyze\" -o \"${ACTION}\" = \"build\" -o \"${ACTION}\" = \"install\" -o \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    for HEADERS_DIRECTORY in \"${PUBLIC_HEADERS_FOLDER_PATH}\" \"${PRIVATE_HEADERS_FOLDER_PATH}\"; do\n        for HEADER_PATH in \"${TARGET_BUILD_DIR}/${HEADERS_DIRECTORY}/\"*.*; do\n            if [[ ! -z `grep '#import <WebKitAdditions/.*>' \"${HEADER_PATH}\"` ]]; then\n                python \"${SRCROOT}/mac/replace-webkit-additions-includes.py\" \"${HEADER_PATH}\" \"${BUILT_PRODUCTS_DIR}\" \"${SDKROOT}\" || exit $?\n            fi\n        done\n    done\nfi\n\n\n";
+		};
+		F4CDF3CC27E918D900191928 /* Copy Profiling Data */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 12;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/usr/local/include/WebKitAdditions/Profiling/WebKit.profdata.compressed",
+				"$(SRCROOT)/../../Tools/Profiling/Empty.profdata",
+				"$(SDK_DIR)/usr/local/include/WebKitAdditions/Profiling/WebKit.profdata.compressed",
+			);
+			name = "Copy Profiling Data";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(BUILT_PRODUCTS_DIR)/DerivedSources/WebKit/WebKit.profdata",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "if [ \"${ACTION}\" = \"installhdrs\" -o \"${ACTION}\" = \"installapi\" ]; then\n    exit 0;\nfi\n\nif [ -z \"${PROFILE_DATA_FLAGS}\" ]; then\n    exit 0;\nfi\n\nRELATIVE_PROFILE_DATA_PATH=\"usr/local/include/WebKitAdditions/Profiling/WebKit.profdata.compressed\";\nABSOLUTE_PROFILE_DATA_PATH=\"${BUILT_PRODUCTS_DIR}/${RELATIVE_PROFILE_DATA_PATH}\";\n\nif [ ! -f \"${ABSOLUTE_PROFILE_DATA_PATH}\" ]; then\n    ABSOLUTE_PROFILE_DATA_PATH=\"${SDK_DIR}/${RELATIVE_PROFILE_DATA_PATH}\";\nfi\n\nif [ ! -f \"${ABSOLUTE_PROFILE_DATA_PATH}\" ] || [ $(wc -c <${ABSOLUTE_PROFILE_DATA_PATH}) -lt 4096 ]; then\n    if [ \"${CONFIGURATION}\" = \"Production\" ]; then\n        echo \"Error: production build missing profiling data at both ${ABSOLUTE_PROFILE_DATA_PATH} and ${BUILT_PRODUCTS_DIR}/${RELATIVE_PROFILE_DATA_PATH}\";\n        exit 1;\n    fi\n    echo \"Missing or invalid profiling data at both ${ABSOLUTE_PROFILE_DATA_PATH} and ${BUILT_PRODUCTS_DIR}/${RELATIVE_PROFILE_DATA_PATH} - falling back to empty file\";\n    cp ${SRCROOT}/../../Tools/Profiling/Empty.profdata ${BUILT_PRODUCTS_DIR}/DerivedSources/WebKit/WebKit.profdata;\nelse\n    echo \"Copying profiling data at ${ABSOLUTE_PROFILE_DATA_PATH}\";\n    compression_tool -decode -i ${ABSOLUTE_PROFILE_DATA_PATH} -o ${BUILT_PRODUCTS_DIR}/DerivedSources/WebKit/WebKit.profdata -a lzfse;\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 

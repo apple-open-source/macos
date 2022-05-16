@@ -106,6 +106,7 @@
 
 // Slows down all outgoing queue operations
 @property CKKSNearFutureScheduler* outgoingQueueOperationScheduler;
+@property CKKSNearFutureScheduler* outgoingQueuePriorityOperationScheduler;
 
 @property CKKSResultOperation* resultsOfNextIncomingQueueOperationOperation;
 
@@ -198,6 +199,17 @@
                                                                         keepProcessAlive:false
                                                                dependencyDescriptionCode:CKKSResultDescriptionPendingOutgoingQueueScheduling
                                                                                    block:^{
+            STRONGIFY(self);
+            [self.stateMachine handleFlag:CKKSFlagOutgoingQueueOperationRateToken];
+        }];
+
+
+        _outgoingQueuePriorityOperationScheduler = [[CKKSNearFutureScheduler alloc] initWithName:[NSString stringWithFormat: @"outgoing-queue-priority-scheduler"]
+                                                                                    initialDelay:NSEC_PER_SEC*1
+                                                                                 continuingDelay:NSEC_PER_SEC*1
+                                                                                keepProcessAlive:false
+                                                                       dependencyDescriptionCode:CKKSResultDescriptionPendingOutgoingQueueScheduling
+                                                                                           block:^{
             STRONGIFY(self);
             [self.stateMachine handleFlag:CKKSFlagOutgoingQueueOperationRateToken];
         }];
@@ -1872,7 +1884,8 @@
             }
         }
 
-        [self _onqueueProcessOutgoingQueue:operationGroup];
+        BOOL priorityRush = [[CKKSViewManager manager] peekCallbackForUUID:oqe.uuid];
+        [self _onqueueProcessOutgoingQueue:operationGroup priorityRush:priorityRush];
 
 #if TARGET_OS_IOS
             if(SecCKKSTestsEnabled() && preexistingMusrUUID != nil) {
@@ -2233,13 +2246,15 @@
     [self.stateMachine registerStateTransitionWatcher:watcher];
 
     dispatch_sync(self.queue, ^{
-        [self _onqueueProcessOutgoingQueue:ckoperationGroup];
+        // Keep normal rate-limiting to avoid clients abusing the call to generate CK traffic
+        [self _onqueueProcessOutgoingQueue:ckoperationGroup priorityRush:NO];
     });
 
     return watcher.result;
 }
 
 - (void)_onqueueProcessOutgoingQueue:(CKOperationGroup* _Nullable)ckoperationGroup
+                        priorityRush:(BOOL)priorityRush
 {
     dispatch_assert_queue(self.queue);
 
@@ -2252,7 +2267,13 @@
     }
 
     [self.stateMachine _onqueueHandleFlag:CKKSFlagProcessOutgoingQueue];
-    [self.outgoingQueueOperationScheduler trigger];
+
+
+    if(priorityRush) {
+        [self.outgoingQueuePriorityOperationScheduler trigger];
+    } else {
+        [self.outgoingQueueOperationScheduler trigger];
+    }
 }
 
 - (CKKSResultOperation*)resultsOfNextProcessIncomingQueueOperation {

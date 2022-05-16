@@ -377,7 +377,7 @@ public:
     bool needsStyleInvalidation() const;
 
     bool hasValidStyle() const;
-    bool isVisibleWithoutResolvingFullStyle() const;
+    bool isFocusableWithoutResolvingFullStyle() const;
 
     // Methods for indicating the style is affected by dynamic updates (e.g., children changing, our position changing in our sibling list, etc.)
     bool styleAffectedByEmpty() const { return hasStyleFlag(NodeStyleFlag::StyleAffectedByEmpty); }
@@ -573,7 +573,7 @@ public:
     // FIXME: Consider changing signature to accept Element* because all callers perform copyRef().
     void dispatchFocusInEventIfNeeded(RefPtr<Element>&& oldFocusedElement);
     void dispatchFocusOutEventIfNeeded(RefPtr<Element>&& newFocusedElement);
-    virtual void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, FocusDirection);
+    virtual void dispatchFocusEvent(RefPtr<Element>&& oldFocusedElement, const FocusOptions&);
     virtual void dispatchBlurEvent(RefPtr<Element>&& newFocusedElement);
     void dispatchWebKitImageReadyEventForTesting();
 
@@ -662,6 +662,8 @@ public:
     bool hasDuplicateAttribute() const { return m_hasDuplicateAttribute; };
     void setHasDuplicateAttribute(bool hasDuplicateAttribute) { m_hasDuplicateAttribute = hasDuplicateAttribute; };
 
+    virtual void updateUserAgentShadowTree() { }
+
 protected:
     Element(const QualifiedName&, Document&, ConstructionType);
 
@@ -734,6 +736,10 @@ private:
     void addAttributeInternal(const QualifiedName&, const AtomString& value, SynchronizationOfLazyAttribute);
     void removeAttributeInternal(unsigned index, SynchronizationOfLazyAttribute);
 
+    void setSavedLayerScrollPositionSlow(const IntPoint&);
+    void clearBeforePseudoElementSlow();
+    void clearAfterPseudoElementSlow();
+
     LayoutRect absoluteEventBounds(bool& boundsIncludeAllDescendantElements, bool& includesFixedPositionElements);
     LayoutRect absoluteEventBoundsOfElementAndDescendants(bool& includesFixedPositionElements);
 
@@ -780,6 +786,25 @@ private:
 
     bool m_hasDuplicateAttribute { false };
 };
+
+inline void Element::setSavedLayerScrollPosition(const IntPoint& position)
+{
+    if (position.isZero() && !hasRareData())
+        return;
+    setSavedLayerScrollPositionSlow(position);
+}
+
+inline void Element::clearBeforePseudoElement()
+{
+    if (hasRareData())
+        clearBeforePseudoElementSlow();
+}
+
+inline void Element::clearAfterPseudoElement()
+{
+    if (hasRareData())
+        clearAfterPseudoElementSlow();
+}
 
 void invalidateForSiblingCombinators(Element* sibling);
 

@@ -27,12 +27,12 @@
 #import <Security/SecItemPriv.h>
 #import <Security/SecureObjectSync/SOSTypes.h>
 #include "keychain/SecureObjectSync/SOSControlHelper.h"
+#include "keychain/SecureObjectSync/SOSAccountPriv.h"
 #import <ipc/securityd_client.h>
 #import <err.h>
 #import <getopt.h>
 
 #include "builtin_commands.h"
-
 
 @interface SOSStatus : NSObject
 @property NSXPCConnection *connection;
@@ -162,6 +162,16 @@ static void printControlFailureMessage(NSError *error) {
     printf("%s", [[NSString stringWithFormat:@"Failed to send messages to soscontrol object: %@\n", error] UTF8String]);
 }
 
+static char *keyStatusToString(SOSBackupPublicKeyStatus kstat) {
+    switch(kstat) {
+        case kSOSKeyNotRegistered:          return "kSOSKeyNotRegistered";
+        case kSOSKeyRegisteredInAccount:    return "kSOSKeyRegisteredInAccount";
+        case kSOSKeyRecordedInRing:         return "kSOSKeyRecordedInRing";
+        case kSOSKeyPushedInRing:           return "kSOSKeyPushedInRing";
+        default:                            return "not recognized";
+    }
+}
+
 int
 command_sos_control(__unused int argc, __unused char * const * argv)
 {
@@ -182,6 +192,7 @@ command_sos_control(__unused int argc, __unused char * const * argv)
         bool accountStatus = false;
         bool removeV0Peers = false;
         bool sosQueryEnabled = false;
+        bool keyStatus = false;
 
         static struct option long_options[] =
         {
@@ -201,13 +212,18 @@ command_sos_control(__unused int argc, __unused char * const * argv)
             {"logAccountStatus",   optional_argument, NULL, 'l'},
             {"removeV0Peers",   optional_argument, NULL, 'V'},
             {"querySOSMode",   no_argument, NULL, 'Q'},
+            {"keyStatus",   no_argument, NULL, 'k'},
             {0, 0, 0, 0}
         };
 
-        while ((ch = getopt_long(argc, argv, "as:AB:GHIMQRSTilV", long_options, &option_index)) != -1) {
+        while ((ch = getopt_long(argc, argv, "aks:AB:GHIMQRSTilV", long_options, &option_index)) != -1) {
             switch  (ch) {
                 case 'a': {
                     assertStashAccountKey = true;
+                    break;
+                }
+                case 'k': {
+                    keyStatus = true;
                     break;
                 }
                 case 's': {
@@ -410,7 +426,26 @@ command_sos_control(__unused int argc, __unused char * const * argv)
                     printf("%s", [[NSString stringWithFormat:@"failed to get account status: %@\n", error] UTF8String]);
                 }
             }];
-
+        } else if (keyStatus) {
+            [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
+                printControlFailureMessage(error);
+            }] keyStatusFor:kSOSBackupKeyStatus complete:^(SOSBackupPublicKeyStatus status, NSError *error) {
+                if(error) {
+                    printf("%s", [[NSString stringWithFormat:@"Failed to get status for Backup Key -  %@\n", error] UTF8String]);
+                } else {
+                    printf("Backup Key Status: %s\n", keyStatusToString(status));
+                }
+            }];
+            
+            [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
+                printControlFailureMessage(error);
+            }] keyStatusFor:kSOSRecoveryKeyStatus complete:^(SOSBackupPublicKeyStatus status, NSError *error) {
+                if(error) {
+                    printf("%s", [[NSString stringWithFormat:@"Failed to get status for Recovery Key -  %@\n", error] UTF8String]);
+                } else {
+                    printf("Recovery Key Status: %s\n", keyStatusToString(status));
+                }
+            }];
         } else if (removeV0Peers) {
             [[control.connection synchronousRemoteObjectProxyWithErrorHandler:^(NSError *error) {
                 printControlFailureMessage(error);

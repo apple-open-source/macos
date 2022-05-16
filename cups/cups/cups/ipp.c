@@ -3115,6 +3115,14 @@ ippReadIO(void       *src,		/* I - Data source */
 
                   if (ippSetValueTag(ipp, &attr, tag) == 0)
                   {
+		    // If that failed, and we were converting from IPP_TAG_NAME to IPP_TAG_TEXT, then
+		    // act like we did before and let it slide; other conversions should still be failed
+		    if (value_tag == IPP_TAG_NAME && tag == IPP_TAG_TEXT) {
+		      // this is the epson fax case
+		    } else if (value_tag == IPP_TAG_TEXT && tag == IPP_TAG_NAME) {
+		      // We can allow this as well
+		    } else {
+		      // We'll fail this one
                       _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
                                     _("IPP 1setOf attribute with incompatible value "
                                       "tags."), 1);
@@ -3122,6 +3130,7 @@ ippReadIO(void       *src,		/* I - Data source */
                                     attr->name, ippTagString(value_tag), ippTagString(tag)));
                       _cupsBufferRelease((char *)buffer);
                       return (IPP_STATE_ERROR);
+		    }
                   }
 	      }
             }

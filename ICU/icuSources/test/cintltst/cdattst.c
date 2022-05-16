@@ -75,6 +75,7 @@ static void WriteCountryFallbackResults(void); /* Apple <rdar://problem/26911014
 #endif
 static void TestCountryFallback(void); /* Apple <rdar://problem/26911014> */
 static void TestSpanishDayPeriods(void);    /* Apple <rdar://72624367> */
+static void TestAbbreviationForSeptember(void); /* Apple <rdar://87654639> */
 
 void addDateForTest(TestNode** root);
 
@@ -119,6 +120,7 @@ void addDateForTest(TestNode** root)
     TESTCASE(TestCountryFallback); /* Apple <rdar://problem/26911014> */
     TESTCASE(TestSpanishDayPeriods);    /* Apple <rdar://72624367> */
     TESTCASE(TestNarrowQuarters);   /* Apple <rdar://79238094> */
+    TESTCASE(TestAbbreviationForSeptember); /* Apple <rdar://87654639> */
 }
 
 /* Testing the DateFormat API */
@@ -4188,6 +4190,68 @@ static void TestSpanishDayPeriods(void) {
         udat_close(df);
         udatpg_close(dtpg);
     }
+}
+
+static void TestAbbreviationForSeptember(void) {
+    // Test for rdar://87654639
+    UErrorCode err = U_ZERO_ERROR;
+    UChar formattedDate[200];
+    
+    UCalendar* cal = ucal_open(u"UTC", -1, "en", UCAL_GREGORIAN, &err);
+    UCalendar* cal2 = ucal_open(u"UTC", -1, "en", UCAL_GREGORIAN, &err);
+    
+    if (assertSuccess("Failed to create calendar", &err)) {
+        ucal_set(cal, UCAL_MONTH, UCAL_SEPTEMBER);
+        ucal_set(cal, UCAL_DAY_OF_MONTH, 16);
+        ucal_set(cal, UCAL_YEAR, 2013);
+
+        UDateFormat* df = udat_open(UDAT_NONE, UDAT_MEDIUM, "en", u"UTC", -1, NULL, 0, &err);
+        if (assertSuccess("Error creating date formatter for en", &err)) {
+            udat_formatCalendar(df, cal, formattedDate, 200, NULL, &err);
+            if (assertSuccess("Error formatting date for en", &err)) {
+                assertUEquals("Wrong formatting result for en", u"Sep 16, 2013", formattedDate);
+                
+                udat_parseCalendar(df, cal2, formattedDate, -1, NULL, &err);
+                assertSuccess("Error parsing date for en", &err);
+                assertTrue("Wrong parsing result for en", ucal_get(cal, UCAL_YEAR, &err) == ucal_get(cal2, UCAL_YEAR, &err)
+                           && ucal_get(cal, UCAL_MONTH, &err) == ucal_get(cal2, UCAL_MONTH, &err)
+                           && ucal_get(cal, UCAL_DAY_OF_MONTH, &err) == ucal_get(cal2, UCAL_DAY_OF_MONTH, &err));
+            }
+        }
+        udat_close(df);
+        
+        df = udat_open(UDAT_NONE, UDAT_MEDIUM, "en_CA", u"UTC", -1, NULL, 0, &err);
+        if (assertSuccess("Error creating date formatter for en_CA", &err)) {
+            udat_formatCalendar(df, cal, formattedDate, 200, NULL, &err);
+            if (assertSuccess("Error formatting date for en_CA", &err)) {
+                assertUEquals("Wrong formatting result for en_CA", u"Sep 16, 2013", formattedDate);
+                
+                udat_parseCalendar(df, cal2, formattedDate, -1, NULL, &err);
+                assertSuccess("Error parsing date for en_CA", &err);
+                assertTrue("Wrong parsing result for en_CA", ucal_get(cal, UCAL_YEAR, &err) == ucal_get(cal2, UCAL_YEAR, &err)
+                           && ucal_get(cal, UCAL_MONTH, &err) == ucal_get(cal2, UCAL_MONTH, &err)
+                           && ucal_get(cal, UCAL_DAY_OF_MONTH, &err) == ucal_get(cal2, UCAL_DAY_OF_MONTH, &err));
+            }
+        }
+        udat_close(df);
+        
+        df = udat_open(UDAT_NONE, UDAT_MEDIUM, "en_GB", u"UTC", -1, NULL, 0, &err);
+        if (assertSuccess("Error creating date formatter for en_GB", &err)) {
+            udat_formatCalendar(df, cal, formattedDate, 200, NULL, &err);
+            if (assertSuccess("Error formatting date for en_GB", &err)) {
+                assertUEquals("Wrong formatting result for en_GB", u"16 Sep 2013", formattedDate);
+                
+                udat_parseCalendar(df, cal2, formattedDate, -1, NULL, &err);
+                assertSuccess("Error parsing date for en_GB", &err);
+                assertTrue("Wrong parsing result for en_GB", ucal_get(cal, UCAL_YEAR, &err) == ucal_get(cal2, UCAL_YEAR, &err)
+                           && ucal_get(cal, UCAL_MONTH, &err) == ucal_get(cal2, UCAL_MONTH, &err)
+                           && ucal_get(cal, UCAL_DAY_OF_MONTH, &err) == ucal_get(cal2, UCAL_DAY_OF_MONTH, &err));
+            }
+        }
+        udat_close(df);
+    }
+    ucal_close(cal);
+    ucal_close(cal2);
 }
 
 #endif /* #if !UCONFIG_NO_FORMATTING */

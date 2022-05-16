@@ -19,6 +19,11 @@
 NSString *testDir = @"SMIMEPolicyTests-data";
 const CFStringRef emailAddr = CFSTR("test@example.com");
 
+const uint8_t _testSMIMERootHash[] = {
+    0xe3, 0x35, 0x16, 0x42, 0xfe, 0xe9, 0xc9, 0xf8, 0x38, 0xae, 0x40, 0xb8, 0x3b, 0x06, 0x18, 0xa4,
+    0x51, 0x57, 0xda, 0x4a, 0x05, 0xb1, 0x2b, 0xcb, 0x6f, 0x65, 0x58, 0x5a, 0x5a, 0xaf, 0x3a, 0xfd
+};
+
 @implementation SMIMEPolicyTests
 
 - (NSArray *)anchors
@@ -34,13 +39,23 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
     return [NSDate dateWithTimeIntervalSinceReferenceDate:600000000.0]; // January 6, 2020 at 2:40:00 AM PST
 }
 
-- (bool)runTrustEvalForLeaf:(id)leaf policy:(SecPolicyRef)policy
+- (NSDate *)postApr2022Date
+{
+    return [NSDate dateWithTimeIntervalSinceReferenceDate:680000000.0]; // July 20, 2022 at 1:53:20 AM PDT
+}
+
+- (bool)runTrustEvalForLeaf:(id)leaf verifyDate:(NSDate *)date policy:(SecPolicyRef)policy
 {
     TestTrustEvaluation *eval = [[TestTrustEvaluation alloc] initWithCertificates:@[leaf] policies:@[(__bridge id)policy]];
     XCTAssertNotNil(eval);
     [eval setAnchors:[self anchors]];
-    [eval setVerifyDate:[self verifyDate]];
+    [eval setVerifyDate:date];
     return [eval evaluate:nil];
+}
+
+- (bool)runTrustEvalForLeaf:(id)leaf policy:(SecPolicyRef)policy
+{
+    return [self runTrustEvalForLeaf:leaf verifyDate:[self verifyDate] policy:policy];
 }
 
 // MARK: Expiration tests
@@ -110,11 +125,15 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
 - (void)testEmailNameSAN
 {
     id leaf = [self SecCertificateCreateFromResource:@"san_name" subdirectory:testDir];
+    id postApr2022Leaf = [self SecCertificateCreateFromResource:@"after20220401" subdirectory:testDir];
     XCTAssertNotNil(leaf);
+    XCTAssertNotNil(postApr2022Leaf);
 
     // Address match
+    [self setTestRootAsSystem:_testSMIMERootHash];
     SecPolicyRef policy = SecPolicyCreateSMIME(kSecAnyEncryptSMIME | kSecSignSMIMEUsage, emailAddr);
     XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
+    XCTAssert([self runTrustEvalForLeaf:postApr2022Leaf verifyDate:[self postApr2022Date] policy:policy]);
 
     // Address mismatch
     CFReleaseNull(policy);
@@ -125,9 +144,11 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
     CFReleaseNull(policy);
     policy = SecPolicyCreateSMIME(kSecAnyEncryptSMIME | kSecSignSMIMEUsage, CFSTR("TEST@example.com"));
     XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
+    [self removeTestRootAsSystem];
 
     CFReleaseNull(policy);
     CFRelease((SecCertificateRef)leaf);
+    CFRelease((SecCertificateRef)postApr2022Leaf);
 }
 
 - (void)testEmailCommonName
@@ -146,11 +167,19 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
 - (void)testEmailAddressField
 {
     id leaf = [self SecCertificateCreateFromResource:@"email_field" subdirectory:testDir];
+    id postApr2022Leaf = [self SecCertificateCreateFromResource:@"email_field_after20220401" subdirectory:testDir];
     XCTAssertNotNil(leaf);
+    XCTAssertNotNil(postApr2022Leaf);
 
     // Address match but subject name matches not supported
     SecPolicyRef policy = SecPolicyCreateSMIME(kSecAnyEncryptSMIME | kSecSignSMIMEUsage, emailAddr);
     XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
+
+    // Test system-trust email name checks
+    [self setTestRootAsSystem:_testSMIMERootHash];
+    XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
+    XCTAssertFalse([self runTrustEvalForLeaf:postApr2022Leaf verifyDate:[self postApr2022Date] policy:policy]);
+    [self removeTestRootAsSystem];
 
     // Address mismatch
     CFReleaseNull(policy);
@@ -164,6 +193,7 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
 
     CFReleaseNull(policy);
     CFRelease((SecCertificateRef)leaf);
+    CFRelease((SecCertificateRef)postApr2022Leaf);
 }
 
 // MARK: KU tests
@@ -403,13 +433,21 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
 - (void)testNoEKU
 {
     id leaf = [self SecCertificateCreateFromResource:@"digital_signature" subdirectory:testDir];
+    id postApr2022Leaf = [self SecCertificateCreateFromResource:@"no_eku_after20220401" subdirectory:testDir];
     XCTAssertNotNil(leaf);
+    XCTAssertNotNil(postApr2022Leaf);
 
     SecPolicyRef policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, emailAddr);
     XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
 
+    [self setTestRootAsSystem:_testSMIMERootHash];
+    XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
+    XCTAssertFalse([self runTrustEvalForLeaf:postApr2022Leaf verifyDate:[self postApr2022Date] policy:policy]);
+    [self removeTestRootAsSystem];
+
     CFReleaseNull(policy);
     CFRelease((SecCertificateRef)leaf);
+    CFRelease((SecCertificateRef)postApr2022Leaf);
 }
 
 - (void)testAnyEKU
@@ -427,13 +465,18 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
 - (void)testEmailEKU
 {
     id leaf = [self SecCertificateCreateFromResource:@"email_protection" subdirectory:testDir];
+    id postApr2022Leaf = [self SecCertificateCreateFromResource:@"after20220401" subdirectory:testDir];
     XCTAssertNotNil(leaf);
 
+    [self setTestRootAsSystem:_testSMIMERootHash];
     SecPolicyRef policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, emailAddr);
     XCTAssert([self runTrustEvalForLeaf:leaf policy:policy]);
+    XCTAssert([self runTrustEvalForLeaf:postApr2022Leaf verifyDate:[self postApr2022Date] policy:policy]);
+    [self removeTestRootAsSystem];
 
     CFReleaseNull(policy);
     CFRelease((SecCertificateRef)leaf);
+    CFRelease((SecCertificateRef)postApr2022Leaf);
 }
 
 // MARK: Key Size tests
@@ -447,6 +490,46 @@ const CFStringRef emailAddr = CFSTR("test@example.com");
 
     CFReleaseNull(policy);
     CFRelease((SecCertificateRef)leaf);
+}
+
+// MARK: Hash Algorithm tests
+- (void)testSha1
+{
+    id leaf = [self SecCertificateCreateFromResource:@"sha1" subdirectory:testDir];
+    XCTAssertNotNil(leaf);
+
+    SecPolicyRef policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, emailAddr);
+    XCTAssertFalse([self runTrustEvalForLeaf:leaf verifyDate:[self postApr2022Date] policy:policy]);
+
+    CFReleaseNull(policy);
+    CFRelease((SecCertificateRef)leaf);
+}
+
+// MARK: Lifetime tests
+- (void)testValidityPeriodMaximums
+{
+    id leaf = [self SecCertificateCreateFromResource:@"longLifetime" subdirectory:testDir];
+    id postApr2022BadLeaf = [self SecCertificateCreateFromResource:@"longLifetime_after20220401" subdirectory:testDir];
+    id postApr2022GoodLeaf = [self SecCertificateCreateFromResource:@"after20220401" subdirectory:testDir];
+    XCTAssertNotNil(leaf);
+    XCTAssertNotNil(postApr2022BadLeaf);
+    XCTAssertNotNil(postApr2022GoodLeaf);
+
+    // Non-system trusted lifetime maximum not enforced
+    SecPolicyRef policy = SecPolicyCreateSMIME(kSecSignSMIMEUsage, emailAddr);
+    XCTAssert([self runTrustEvalForLeaf:postApr2022BadLeaf verifyDate:[self postApr2022Date] policy:policy]);
+
+    // System trust limits lifetimes for certs issued after effective date
+    [self setTestRootAsSystem:_testSMIMERootHash];
+    XCTAssert([self runTrustEvalForLeaf:leaf verifyDate:[self postApr2022Date] policy:policy]);
+    XCTAssertFalse([self runTrustEvalForLeaf:postApr2022BadLeaf verifyDate:[self postApr2022Date] policy:policy]);
+    XCTAssert([self runTrustEvalForLeaf:postApr2022GoodLeaf verifyDate:[self postApr2022Date] policy:policy]);
+    [self removeTestRootAsSystem];
+
+    CFReleaseNull(policy);
+    CFRelease((SecCertificateRef)leaf);
+    CFRelease((SecCertificateRef)postApr2022BadLeaf);
+    CFRelease((SecCertificateRef)postApr2022GoodLeaf);
 }
 
 @end

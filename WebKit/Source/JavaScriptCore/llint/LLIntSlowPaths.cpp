@@ -66,6 +66,7 @@
 #include "ShadowChicken.h"
 #include "SuperSampler.h"
 #include "VMInlines.h"
+#include "VMTrapsInlines.h"
 #include <wtf/NeverDestroyed.h>
 #include <wtf/StringPrintStream.h>
 
@@ -780,7 +781,7 @@ static void setupGetByIdPrototypeCache(JSGlobalObject* globalObject, VM& vm, Cod
     unsigned index = 0;
     for (ObjectPropertyCondition condition : conditions) {
         auto& watchpoint = watchpoints[index++];
-        if (!condition.isWatchable())
+        if (!condition.isWatchable(PropertyCondition::MakeNoChanges))
             return;
         if (condition.condition().kind() == PropertyCondition::Presence)
             offset = condition.condition().offset();
@@ -1904,8 +1905,9 @@ inline SlowPathReturnType setUpCall(CallFrame* calleeFrame, CodeSpecializationKi
     JSScope* scope = callee->scopeUnchecked();
     ExecutableBase* executable = callee->executable();
 
+    DeferTraps deferTraps(vm); // We can't jettison this code if we're about to run it.
+
     MacroAssemblerCodePtr<JSEntryPtrTag> codePtr;
-    CodeBlock* codeBlock = nullptr;
     // FIXME: Support wasm IC.
     // https://bugs.webkit.org/show_bug.cgi?id=220339
     if (executable->isHostFunction())
@@ -1919,7 +1921,7 @@ inline SlowPathReturnType setUpCall(CallFrame* calleeFrame, CodeSpecializationKi
         functionExecutable->prepareForExecution<FunctionExecutable>(vm, callee, scope, kind, *codeBlockSlot);
         LLINT_CALL_CHECK_EXCEPTION(globalObject);
 
-        codeBlock = *codeBlockSlot;
+        CodeBlock* codeBlock = *codeBlockSlot;
         ASSERT(codeBlock);
 
         ArityCheckMode arity;

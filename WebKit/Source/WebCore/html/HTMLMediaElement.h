@@ -202,6 +202,7 @@ public:
     void resolvePendingPlayPromises(PlayPromiseVector&&);
     void scheduleNotifyAboutPlaying();
     void notifyAboutPlaying(PlayPromiseVector&&);
+    void durationChanged();
     
     MediaPlayer::MovieLoadType movieLoadType() const;
     
@@ -293,8 +294,6 @@ public:
     WEBCORE_EXPORT bool webkitHasClosedCaptions() const;
     WEBCORE_EXPORT bool webkitClosedCaptionsVisible() const;
     WEBCORE_EXPORT void setWebkitClosedCaptionsVisible(bool);
-
-    bool elementIsHidden() const { return m_elementIsHidden; }
 
 #if ENABLE(MEDIA_STATISTICS)
 // Statistics
@@ -604,6 +603,12 @@ public:
 
     WEBCORE_EXPORT bool mediaPlayerRenderingCanBeAccelerated() final;
 
+    void updateMediaPlayer(IntSize, bool);
+    WEBCORE_EXPORT bool elementIsHidden() const;
+#if USE(AUDIO_SESSION)
+    WEBCORE_EXPORT AudioSessionCategory categoryAtMostRecentPlayback() const { return m_categoryAtMostRecentPlayback; }
+#endif
+
 protected:
     HTMLMediaElement(const QualifiedName&, Document&, bool createdByParser);
     virtual ~HTMLMediaElement();
@@ -640,7 +645,6 @@ protected:
     void setChangingVideoFullscreenMode(bool value) { m_changingVideoFullscreenMode = value; }
     bool isChangingVideoFullscreenMode() const { return m_changingVideoFullscreenMode; }
 
-protected:
     void mediaPlayerEngineUpdated() override;
 
 private:
@@ -976,6 +980,7 @@ private:
     Timer m_playbackControlsManagerBehaviorRestrictionsTimer;
     Timer m_seekToPlaybackPositionEndedTimer;
     TaskCancellationGroup m_configureTextTracksTaskCancellationGroup;
+    TaskCancellationGroup m_updateTextTracksTaskCancellationGroup;
     TaskCancellationGroup m_checkPlaybackTargetCompatibilityTaskCancellationGroup;
     TaskCancellationGroup m_updateMediaStateTaskCancellationGroup;
     TaskCancellationGroup m_mediaEngineUpdatedTaskCancellationGroup;
@@ -1231,6 +1236,10 @@ private:
     String m_audioOutputHashedDeviceId;
 #endif
     String m_id;
+
+#if USE(AUDIO_SESSION)
+    AudioSessionCategory m_categoryAtMostRecentPlayback;
+#endif
 };
 
 String convertEnumerationToString(HTMLMediaElement::AutoplayEventPlaybackState);

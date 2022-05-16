@@ -46,6 +46,7 @@
 			<string>patch-quarantine</string>
 			<string>&lt;rdar://problem/25537454&gt; Format string misuse in zip [-Wformat-security]</string>
 			<string>Remove unsupported MacOS9 options from man page (4126223)</string>
+			<string>Fix CVE-2022-0530 (89134229)</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>unzip</string>

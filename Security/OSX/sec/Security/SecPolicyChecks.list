@@ -21,7 +21,7 @@
 ************** Unverified Leaf Checks ******************
 ********************************************************/
 POLICYCHECKMACRO(SSLHostname,                    R, N, L,  , O, H, 0x80012400, errSecHostNameMismatch) //CSSMERR_APPLETP_HOSTNAME_MISMATCH
-POLICYCHECKMACRO(Email,                          R, N, L,  , O, H, 0x80012418, errSecSMIMEEmailAddressesNotFound) //CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
+POLICYCHECKMACRO(Email,                          R, N, L, A, O, H, 0x80012418, errSecSMIMEEmailAddressesNotFound) //CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND
 POLICYCHECKMACRO(TemporalValidity,               R, E, L, A, O, C, 0x8001210A, errSecCertificateExpired) //CSSMERR_TP_CERT_EXPIRED
 POLICYCHECKMACRO(WeakKeySize,                    F, S, L, A, O, K, 0x80012115, errSecUnsupportedKeySize) //CSSMERR_TP_INVALID_CERTIFICATE
 POLICYCHECKMACRO(WeakSignature,                  F, H, L, A, O, S, 0x80010955, errSecInvalidDigestAlgorithm) //CSSMERR_CSP_INVALID_DIGEST_ALGORITHM
@@ -96,7 +96,10 @@ POLICYCHECKMACRO(SystemTrustedCTRequired,        R, C,  , A,  , P, 0x80012114, e
 POLICYCHECKMACRO(IssuerPolicyConstraints,        F, B,  ,  ,  , R, 0x80012120, errSecCertificatePolicyNotAllowed) //CSSMERR_TP_INVALID_POLICY_IDENTIFIERS
 POLICYCHECKMACRO(IssuerNameConstraints,          F, B,  ,  ,  , R, 0x8001211F, errSecCertificateNameNotAllowed) //CSSMERR_TP_INVALID_NAME
 POLICYCHECKMACRO(ValidityPeriodMaximums,         R, C,  , A,  , P, 0x8001210D, errSecCertificateValidityPeriodTooLong) //CSSMERR_TP_CERT_SUSPENDED
+POLICYCHECKMACRO(SystemTrustValidityPeriod,      R, C,  , A,  , P, 0x8001210D, errSecCertificateValidityPeriodTooLong) //CSSMERR_TP_CERT_SUSPENDED
+POLICYCHECKMACRO(OtherTrustValidityPeriod,       R, C,  , A,  , P, 0x8001210D, errSecCertificateValidityPeriodTooLong) //CSSMERR_TP_CERT_SUSPENDED
 POLICYCHECKMACRO(ServerAuthEKU,                  R, U,  , A,  , P, 0x80012407, errSecInvalidExtendedKeyUsage) //CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
+POLICYCHECKMACRO(EmailProtectionEKU,             R, U,  , A,  , P, 0x80012407, errSecInvalidExtendedKeyUsage) //CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE
 POLICYCHECKMACRO(UnparseableExtension,           R, C,  , A, O, C, 0x80012410, errSecUnknownCertExtension) //CSSMERR_APPLETP_UNKNOWN_CERT_EXTEN
 POLICYCHECKMACRO(NonTlsCTRequired,               R, T,  , A,  , P, 0x80012114, errSecVerifyActionFailed) //CSSMERR_TP_VERIFY_ACTION_FAILED
 POLICYCHECKMACRO(DuplicateExtension,             R, C,  , A, O, C, 0x80012410, errSecCertificateDuplicateExtension) //CSSMERR_APPLETP_UNKNOWN_CERT_EXTEN

@@ -289,9 +289,11 @@ static void tests(bool recKeyFirst)
     if(!recKeyFirst) registerRecoveryKeyNow(changes, alice_account, bob_account, pubKeyBytes, recKeyFirst);
     
     ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Recovery Key is also in the backup");
+    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kSOSViewiCloudIdentity), "Recovery Key is also in the backup");
     ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Recovery Key is also in the backup");
-    
-    SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kTestView1, &error);
+    ok(SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kSOSViewiCloudIdentity), "Recovery Key is also in the backup");
+
+    SOSBackupSliceKeyBagRef bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kSOSViewiCloudIdentity, &error);
     CFReleaseNull(error);
     
     ok(SOSBSKBHasRecoveryKey(bskb), "BSKB should have recovery key");
@@ -310,9 +312,11 @@ static void tests(bool recKeyFirst)
     registerRecoveryKeyNow(changes, alice_account, bob_account, NULL, recKeyFirst);
     
     ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kTestView1), "Recovery Key is not in the backup");
+    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(alice_account, kSOSViewiCloudIdentity), "Recovery Key is not in the backup");
     ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kTestView1), "Recovery Key is not in the backup");
+    ok(!SOSAccountRecoveryKeyIsInBackupAndCurrentInView_wTxn(bob_account, kSOSViewiCloudIdentity), "Recovery Key is not in the backup");
 
-    bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kTestView1, &error);
+    bskb = SOSAccountBackupSliceKeyBagForView_wTxn(alice_account, kSOSViewiCloudIdentity, &error);
     CFReleaseNull(error);
     
     ok(SOSBSKBHasRecoveryKey(bskb), "BSKB will still have recovery key");

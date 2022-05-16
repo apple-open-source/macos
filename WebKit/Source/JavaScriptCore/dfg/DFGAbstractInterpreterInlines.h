@@ -750,6 +750,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     case ValueRep: {
         JSValue value = forNode(node->child1()).value();
         if (value) {
+            if (node->child1().useKind() == Int52RepUse) {
+                if (auto int32 = value.tryGetAsInt32())
+                    value = jsNumber(*int32);
+            }
             setConstant(node, value);
             break;
         }
@@ -3123,25 +3127,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case ObjectCreate: {
-        if (JSValue base = forNode(node->child1()).m_value) {
-            JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
-            Structure* structure = nullptr;
-            if (base.isNull())
-                structure = globalObject->nullPrototypeObjectStructure();
-            else if (base.isObject()) {
-                // Having a bad time clears the structureCache, and so it should invalidate this structure.
-                bool isHavingABadTime = globalObject->isHavingABadTime();
-                // Normally, we would always install a watchpoint. In this case, however, if we haveABadTime, we
-                // still want to optimize. There is no watchpoint for that case though, so we need to make sure this load
-                // does not get hoisted above the check.
-                WTF::loadLoadFence();
-                if (!isHavingABadTime)
-                    m_graph.watchpoints().addLazily(globalObject->havingABadTimeWatchpoint());
-                structure = m_vm.structureCache.emptyObjectStructureConcurrently(globalObject, base.getObject(), JSFinalObject::defaultInlineCapacity());
-            }
-            
-            if (structure) {
-                m_state.setShouldTryConstantFolding(true);
+        if (JSValue prototype = forNode(node->child1()).m_value) {
+            m_state.setShouldTryConstantFolding(true);
+            if (prototype.isNull()) {
+                Structure* structure = m_graph.globalObjectFor(node->origin.semantic)->nullPrototypeObjectStructure();
                 if (node->child1().useKind() == UntypedUse)
                     didFoldClobberWorld();
                 setForNode(node, structure);
@@ -3803,11 +3792,28 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
     }
     case GetIndexedPropertyStorage: {
+        ASSERT(node->arrayMode().type() != Array::String);
         JSArrayBufferView* view = m_graph.tryGetFoldableView(
             forNode(node->child1()).m_value, node->arrayMode());
         if (view)
             m_state.setShouldTryConstantFolding(true);
         clearForNode(node);
+        break;
+    }
+    case ResolveRope: {
+        JSValue childConst = forNode(node->child1()).value();
+        if (childConst && childConst.isString() && !asString(childConst)->isRope()) {
+            setConstant(node, *m_graph.freeze(childConst));
+            break;
+        }
+
+        if (!(forNode(node->child1()).m_type & ~SpecStringIdent)) {
+            m_state.setShouldTryConstantFolding(true);
+            setForNode(node, forNode(node->child1()));
+            break;
+        }
+
+        setTypeForNode(node, SpecString);
         break;
     }
     case ConstantStoragePointer: {

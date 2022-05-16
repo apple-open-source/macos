@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010, 2012-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010, 2012-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -929,6 +929,24 @@ updatePrebootVolume(void)
 {
 	(void)syncNetworkConfigurationToPrebootVolume();
 }
+
+static Boolean
+haveCurrentSet(SCPreferencesRef prefs)
+{
+	SCNetworkSetRef	current;
+	Boolean		have_current;
+
+	current = SCNetworkSetCopyCurrent(prefs);
+	if (current != NULL) {
+		CFRelease(current);
+		have_current = TRUE;
+	}
+	else {
+		have_current = FALSE;
+	}
+	return (have_current);
+}
+
 #endif /* TARGET_OS_OSX*/
 
 static void
@@ -937,20 +955,19 @@ updateConfiguration(SCPreferencesRef		prefs,
 		    void			*info)
 {
 #pragma unused(info)
-#if	TARGET_OS_OSX
 	if ((notificationType & kSCPreferencesNotificationCommit) != 0) {
-		SCNetworkSetRef	current;
-
-		current = SCNetworkSetCopyCurrent(prefs);
-		if (current != NULL) {
-			/* network configuration available, disable template creation */
+		if (!rofs) {
+			SCPreferencesSynchronize(prefs);
+		}
+#if	TARGET_OS_OSX
+		/* if network configuration available, disable template creation */
+		if (haveCurrentSet(prefs)) {
 			haveConfiguration = TRUE;
-			CFRelease(current);
 		}
 		/* copy configuration to preboot volume */
 		updatePrebootVolume();
-	}
 #endif	/* TARGET_OS_OSX */
+	}
 
 	if ((notificationType & kSCPreferencesNotificationApply) == 0) {
 		goto done;

@@ -281,14 +281,19 @@ errOut:
     static uint bckRingProcessed = 0;
     
     const char * __unused localRemote = localUpdate ? "local": "remote";
+    bool ringIsBackup       = SOSRingGetType(prospectiveRing) == kSOSRingBackup;
+    bool ringIsRecovery     = SOSRingGetType(prospectiveRing) == kSOSRingRecovery;
+    if(!(ringIsBackup || ringIsRecovery)) {
+        secnotice("ring", "start:[%s] halt processing invalid ring", localRemote);
+        return false;
+    }
+    
     SOSFullPeerInfoRef fpi = self.fullPeerInfo;
     SOSPeerInfoRef     pi = SOSFullPeerInfoGetPeerInfo(fpi);
     CFStringRef        peerID = SOSPeerInfoGetPeerID(pi);
     SecKeyRef          peerPrivKey = SOSFullPeerInfoCopyDeviceKey(fpi, NULL);
     SecKeyRef          peerPubKey = SOSFullPeerInfoCopyPubKey(fpi, NULL);
     __block bool       peerActive = (fpi && pi && peerID && [self isInCircleOnly:NULL]);
-    bool ringIsBackup       = SOSRingGetType(prospectiveRing) == kSOSRingBackup;
-    bool ringIsRecovery     = SOSRingGetType(prospectiveRing) == kSOSRingRecovery;
     CFStringRef ringName = SOSRingGetName(prospectiveRing);
     CFMutableSetRef peers   = SOSCircleCopyPeers(self.trustedCircle, kCFAllocatorDefault); // retirement tickets and iCloud key filtered out
     CFMutableSetRef filteredPeerIDs = CFSetCreateMutableForCFTypes(kCFAllocatorDefault);

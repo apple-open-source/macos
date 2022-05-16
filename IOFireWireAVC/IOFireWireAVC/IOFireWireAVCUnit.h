@@ -47,7 +47,7 @@ const UInt16 kIOFWAVCAsyncCmdFreed = 0xdead;
 /*!
 @class IOFireWireAVCAsynchronousCommand
 */
-class __exported IOFireWireAVCAsynchronousCommand : public IOCommand 
+class IOFireWireAVCAsynchronousCommand : public IOCommand 
 {
     OSDeclareDefaultStructors(IOFireWireAVCAsynchronousCommand)
 	void free(void);
@@ -102,7 +102,7 @@ private:
     @class IOFireWireAVCNub
     @abstract nub for AVC devices
 */
-class __exported IOFireWireAVCNub : public IOService
+class IOFireWireAVCNub : public IOService
 {
     OSDeclareDefaultStructors(IOFireWireAVCNub)
 
@@ -163,7 +163,7 @@ private:
     @class IOFireWireAVCUnit
     @abstract nub for AVC devices
 */
-class __exported IOFireWireAVCUnit : public IOFireWireAVCNub
+class IOFireWireAVCUnit : public IOFireWireAVCNub
 {
     OSDeclareDefaultStructors(IOFireWireAVCUnit)
 
@@ -304,7 +304,7 @@ private:
     @class IOFireWireAVCSubUnit
     @abstract nub for sub unit of AVC devices. Just for matching, calls the AVC unit for all functions.
 */
-class __exported IOFireWireAVCSubUnit : public IOFireWireAVCNub
+class IOFireWireAVCSubUnit : public IOFireWireAVCNub
 {
     OSDeclareDefaultStructors(IOFireWireAVCSubUnit)
 	

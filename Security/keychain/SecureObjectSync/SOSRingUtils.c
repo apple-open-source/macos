@@ -136,10 +136,14 @@ static bool SOSRingCheckType(SOSRingType type, CFErrorRef *error) {
 
 uint32_t SOSRingGetType(SOSRingRef ring) {
     uint32_t retval = kSOSRingTypeError; // Error return
-    SOSRingAssertStable(ring);
+    if(!SOSRingAssertStable(ring)) {
+        return retval;
+    }
     if(!ring->signedInformation) return retval;
-    CFNumberRef ringtype = (CFNumberRef) CFDictionaryGetValue(ring->signedInformation, sTypeKey);
-    CFNumberGetValue(ringtype, kCFNumberSInt32Type, &retval);
+    CFNumberRef ringtype = (CFNumberRef) asNumber(CFDictionaryGetValue(ring->signedInformation, sTypeKey), NULL);
+    if(ringtype) {
+        CFNumberGetValue(ringtype, kCFNumberSInt32Type, &retval);
+    }
     return retval;
 }
 

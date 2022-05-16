@@ -1129,7 +1129,7 @@ bool IOPMFeatureIsAvailableWithSupportedTable(
         if (CFEqual(power_source, CFSTR(kIOPMUPSPowerKey))) {
             ret = false;
         } else {
-            bool hasBattery = checkPowerSourceSupported(CFSTR(kIOPMBatteryPowerKey));
+            bool hasBattery = IOPSPowerSourceSupported(NULL, CFSTR(kIOPMBatteryPowerKey));
             // Only supported currently on Skylake+ MacBook Pro and Air (2016+)
             if (modelFound != kIOReturnSuccess) {
                 // Try again

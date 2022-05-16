@@ -139,7 +139,7 @@ int main(int argc, const char * argv[])
   desc.opaque = &opaque;
   
   // encode file
-  res = deflateInit2(&desc, 5, Z_DEFLATED,(-15),8,Z_DEFAULT_STRATEGY);
+  res = deflateInit2(&desc, 7, Z_DEFLATED,(-15),1,Z_DEFAULT_STRATEGY);
   
   res = deflate(&desc, Z_FINISH);
   if (res != Z_STREAM_END) { fprintf(stderr, "zlib: encode failed\n"); return -1; }

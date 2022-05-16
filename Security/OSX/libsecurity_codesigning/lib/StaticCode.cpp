@@ -1275,8 +1275,12 @@ void SecStaticCode::validateExecutable()
 				MacOSError::throwMe(errSecCSUnsigned);
 			AutoFileDesc fd(mainExecutablePath(), O_RDONLY);
 			fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
-			if (Universal *fat = mRep->mainExecutableImage())
+			if (Universal *fat = mRep->mainExecutableImage()) {
 				fd.seek(fat->archOffset());
+			} else if (mRep->signingBase()) {
+				// If the signing base is non-zero, we need to seek forward.
+				fd.seek(mRep->signingBase());
+			}
 			size_t pageSize = cd->pageSize ? (1 << cd->pageSize) : 0;
 			size_t remaining = cd->signingLimit();
 			for (uint32_t slot = 0; slot < cd->nCodeSlots; ++slot) {

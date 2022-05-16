@@ -36,16 +36,21 @@ class ShareGroupVk : public ShareGroupImpl
     DescriptorSetLayoutCache &getDescriptorSetLayoutCache() { return mDescriptorSetLayoutCache; }
     ContextVkSet *getContexts() { return &mContexts; }
 
-    std::vector<vk::ResourceUseList> &&releaseResourceUseLists()
-    {
-        return std::move(mResourceUseLists);
-    }
+    void releaseResourceUseLists(const Serial &submitSerial);
     void acquireResourceUseList(vk::ResourceUseList &&resourceUseList)
     {
         mResourceUseLists.emplace_back(std::move(resourceUseList));
     }
+    void copyResourceUseList(vk::ResourceUseList &resourceUseList)
+    {
+        vk::ResourceUseList copyResourceUseList;
+        copyResourceUseList.copy(resourceUseList);
+        mResourceUseLists.emplace_back(std::move(copyResourceUseList));
+    }
 
-    vk::BufferPool *getDefaultBufferPool(RendererVk *renderer, uint32_t memoryTypeIndex);
+    vk::BufferPool *getDefaultBufferPool(RendererVk *renderer,
+                                         VkDeviceSize size,
+                                         uint32_t memoryTypeIndex);
     void pruneDefaultBufferPools(RendererVk *renderer);
     bool isDueForBufferPoolPrune();
 
@@ -65,6 +70,11 @@ class ShareGroupVk : public ShareGroupImpl
 
     // The per shared group buffer pools that all buffers should sub-allocate from.
     vk::BufferPoolPointerArray mDefaultBufferPools;
+
+    // The pool dedicated for small allocations that uses faster buddy algorithm
+    std::unique_ptr<vk::BufferPool> mSmallBufferPool;
+    static constexpr VkDeviceSize kMaxSizeToUseSmallBufferPool = 256;
+
     // The system time when last pruneEmptyBuffer gets called.
     double mLastPruneTime;
 };
@@ -88,7 +98,7 @@ class DisplayVk : public DisplayImpl, public vk::Context
 
     std::string getRendererDescription() override;
     std::string getVendorString() override;
-    std::string getVersionString() override;
+    std::string getVersionString(bool includeFullVersion) override;
 
     DeviceImpl *createDevice() override;
 

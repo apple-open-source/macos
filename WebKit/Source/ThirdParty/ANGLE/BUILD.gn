@@ -745,6 +745,10 @@ config("angle_backend_config") {
     defines += [ "ANGLE_EXPOSE_NON_CONFORMANT_EXTENSIONS_AND_VERSIONS" ]
   }
 
+  if (angle_use_spirv_gen_through_glslang) {
+    defines += [ "ANGLE_USE_SPIRV_GENERATION_THROUGH_GLSLANG" ]
+  }
+
   configs = []
 
   if (angle_enable_d3d11) {
@@ -830,6 +834,8 @@ angle_source_set("libANGLE_headers") {
 if (angle_enable_vulkan || angle_enable_metal) {
   angle_source_set("angle_glslang_wrapper") {
     sources = [
+      "src/libANGLE/renderer/ShaderInterfaceVariableInfoMap.cpp",
+      "src/libANGLE/renderer/ShaderInterfaceVariableInfoMap.h",
       "src/libANGLE/renderer/glslang_wrapper_utils.cpp",
       "src/libANGLE/renderer/glslang_wrapper_utils.h",
     ]

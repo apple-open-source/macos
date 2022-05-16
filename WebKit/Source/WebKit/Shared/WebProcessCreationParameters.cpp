@@ -170,6 +170,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    encoder << dynamicMachExtensionHandles;
     encoder << dynamicIOKitExtensionHandles;
 #endif
 
@@ -203,6 +204,7 @@ void WebProcessCreationParameters::encode(IPC::Encoder& encoder) const
 
 #if HAVE(IOSURFACE)
     encoder << maximumIOSurfaceSize;
+    encoder << bytesPerRowIOSurfaceAlignment;
 #endif
 
     encoder << accessibilityPreferences;
@@ -477,6 +479,12 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 #endif
 
 #if PLATFORM(IOS_FAMILY)
+    std::optional<Vector<SandboxExtension::Handle>> dynamicMachExtensionHandles;
+    decoder >> dynamicMachExtensionHandles;
+    if (!dynamicMachExtensionHandles)
+        return false;
+    parameters.dynamicMachExtensionHandles = WTFMove(*dynamicMachExtensionHandles);
+
     std::optional<Vector<SandboxExtension::Handle>> dynamicIOKitExtensionHandles;
     decoder >> dynamicIOKitExtensionHandles;
     if (!dynamicIOKitExtensionHandles)
@@ -552,6 +560,8 @@ bool WebProcessCreationParameters::decode(IPC::Decoder& decoder, WebProcessCreat
 
 #if HAVE(IOSURFACE)
     if (!decoder.decode(parameters.maximumIOSurfaceSize))
+        return false;
+    if (!decoder.decode(parameters.bytesPerRowIOSurfaceAlignment))
         return false;
 #endif
 

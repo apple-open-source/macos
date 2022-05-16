@@ -36,6 +36,7 @@
 #import "NetworkLoad.h"
 #import "NetworkProcess.h"
 #import "NetworkSessionCreationParameters.h"
+#import "PrivateRelayed.h"
 #import "WebPageNetworkParameters.h"
 #import "WebSocketTask.h"
 #import <Foundation/NSURLSession.h>
@@ -596,31 +597,13 @@ static void updateIgnoreStrictTransportSecuritySetting(RetainPtr<NSURLRequest>& 
         WebCore::ResourceResponse resourceResponse(response);
         networkDataTask->checkTAO(resourceResponse);
 
-        bool isAppInitiated = true;
-#if ENABLE(APP_PRIVACY_REPORT)
-        isAppInitiated = request.attribution == NSURLRequestAttributionDeveloper;
-#endif
-
-        networkDataTask->willPerformHTTPRedirection(WTFMove(resourceResponse), request, [session = networkDataTask->networkSession(), completionHandler = makeBlockPtr(completionHandler), taskIdentifier, shouldIgnoreHSTS, isAppInitiated](auto&& request) {
+        networkDataTask->willPerformHTTPRedirection(WTFMove(resourceResponse), request, [session = networkDataTask->networkSession(), completionHandler = makeBlockPtr(completionHandler), taskIdentifier, shouldIgnoreHSTS](auto&& request) {
 #if !LOG_DISABLED
             LOG(NetworkSession, "%llu willPerformHTTPRedirection completionHandler (%s)", taskIdentifier, request.url().string().utf8().data());
 #else
             UNUSED_PARAM(taskIdentifier);
 #endif
             auto nsRequest = retainPtr(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::UpdateHTTPBody));
-
-#if ENABLE(APP_PRIVACY_REPORT)
-            if (session) {
-                RetainPtr<NSMutableURLRequest> mutableRequest = adoptNS([nsRequest mutableCopy]);
-                mutableRequest.get().attribution = isAppInitiated ? NSURLRequestAttributionDeveloper : NSURLRequestAttributionUser;
-                nsRequest = mutableRequest.get();
-
-                session->appPrivacyReportTestingData().didLoadAppInitiatedRequest(nsRequest.get().attribution == NSURLRequestAttributionDeveloper);
-            }
-#else
-            UNUSED_PARAM(isAppInitiated);
-            UNUSED_PARAM(session);
-#endif
             updateIgnoreStrictTransportSecuritySetting(nsRequest, shouldIgnoreHSTS);
             completionHandler(nsRequest.get());
         });
@@ -946,6 +929,13 @@ ALLOW_DEPRECATED_DECLARATIONS_END
         NSURLSessionTaskMetrics *taskMetrics = dataTask._incompleteTaskMetrics;
 
         NSURLSessionTaskTransactionMetrics *metrics = taskMetrics.transactionMetrics.lastObject;
+#if HAVE(NETWORK_CONNECTION_PRIVACY_STANCE)
+        auto privateRelayed = metrics._privacyStance == nw_connection_privacy_stance_direct
+            || metrics._privacyStance == nw_connection_privacy_stance_not_eligible
+            ? PrivateRelayed::No : PrivateRelayed::Yes;
+#else
+        auto privateRelayed = PrivateRelayed::No;
+#endif
         auto tlsVersion = (tls_protocol_version_t)metrics.negotiatedTLSProtocolVersion.unsignedShortValue;
 ALLOW_DEPRECATED_DECLARATIONS_BEGIN
         if (tlsVersion == tls_protocol_version_TLSv10 || tlsVersion == tls_protocol_version_TLSv11)
@@ -968,7 +958,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
         resourceResponse.setDeprecatedNetworkLoadMetrics(WebCore::copyTimingData(taskMetrics, networkDataTask->networkLoadMetrics()));
 
-        networkDataTask->didReceiveResponse(WTFMove(resourceResponse), negotiatedLegacyTLS, [completionHandler = makeBlockPtr(completionHandler), taskIdentifier](WebCore::PolicyAction policyAction) {
+        networkDataTask->didReceiveResponse(WTFMove(resourceResponse), negotiatedLegacyTLS, privateRelayed, [completionHandler = makeBlockPtr(completionHandler), taskIdentifier](WebCore::PolicyAction policyAction) {
 #if !LOG_DISABLED
             LOG(NetworkSession, "%llu didReceiveResponse completionHandler (%d)", taskIdentifier, policyAction);
 #else
@@ -1706,7 +1696,7 @@ DMFWebsitePolicyMonitor *NetworkSessionCocoa::deviceManagementPolicyMonitor()
 }
 
 #if HAVE(NSURLSESSION_WEBSOCKET)
-std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin)
+std::unique_ptr<WebSocketTask> NetworkSessionCocoa::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, NetworkSocketChannel& channel, const WebCore::ResourceRequest& request, const String& protocol, const WebCore::ClientOrigin& clientOrigin, bool hadMainFrameMainResourcePrivateRelayed)
 {
     ASSERT(!request.hasHTTPHeaderField(WebCore::HTTPHeaderName::SecWebSocketProtocol));
     auto nsRequest = retainPtr(request.nsURLRequest(WebCore::HTTPBodyUpdatePolicy::DoNotUpdateHTTPBody));

@@ -4,7 +4,7 @@
 
 # Project info
 Project		      = zsh
-ProjectVersion	      = 5.8
+ProjectVersion	      = 5.8.1
 UserType	      = Administration
 ToolType	      = Commands
 Extra_CC_Flags	      = -no-cpp-precomp

@@ -349,6 +349,7 @@ State::State(const State *shareContextState,
       mClientType(clientType),
       mContextPriority(contextPriority),
       mHasProtectedContent(hasProtectedContent),
+      mIsDebugContext(debug),
       mClientVersion(clientVersion),
       mShareGroup(shareGroup),
       mBufferManager(AllocateOrGetSharedResourceManager(shareContextState, &State::mBufferManager)),
@@ -2177,6 +2178,10 @@ angle::Result State::detachBuffer(Context *context, const Buffer *buffer)
     if (curTransformFeedback)
     {
         ANGLE_TRY(curTransformFeedback->detachBuffer(context, bufferID));
+        if (isTransformFeedbackActiveUnpaused())
+        {
+            context->getStateCache().onActiveTransformFeedbackChange(context);
+        }
     }
 
     if (getVertexArray()->detachBuffer(context, bufferID))

@@ -1035,6 +1035,9 @@ void MediaPlayer::setVisibleForCanvas(bool visible)
 
 void MediaPlayer::setVisibleInViewport(bool visible)
 {
+    if (visible == m_visibleInViewport)
+        return;
+
     m_visibleInViewport = visible;
     m_private->setVisibleInViewport(visible);
 }
@@ -1727,6 +1730,11 @@ void MediaPlayer::stopVideoFrameMetadataGathering()
 {
     m_isGatheringVideoFrameMetadata = false;
     m_private->stopVideoFrameMetadataGathering();
+}
+
+void MediaPlayer::playerContentBoxRectChanged(const LayoutRect& rect)
+{
+    m_private->playerContentBoxRectChanged(rect);
 }
 
 #if PLATFORM(COCOA)
