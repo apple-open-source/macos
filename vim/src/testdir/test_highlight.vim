@@ -4,7 +4,7 @@ source view_util.vim
 source screendump.vim
 source check.vim
 source script_util.vim
-source vim9.vim
+import './vim9.vim' as v9
 
 func ClearDict(d)
   for k in keys(a:d)
@@ -592,6 +592,61 @@ func Test_cursorline_with_visualmode()
   call delete('Xtest_cursorline_with_visualmode')
 endfunc
 
+func Test_cursorcolumn_insert_on_tab()
+  CheckScreendump
+
+  let lines =<< trim END
+    call setline(1, ['123456789', "a\tb"])
+    set cursorcolumn
+    call cursor(2, 2)
+  END
+  call writefile(lines, 'Xcuc_insert_on_tab')
+
+  let buf = RunVimInTerminal('-S Xcuc_insert_on_tab', #{rows: 8})
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_cursorcolumn_insert_on_tab_1', {})
+
+  call term_sendkeys(buf, 'i')
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_cursorcolumn_insert_on_tab_2', {})
+
+  call term_sendkeys(buf, "\<C-O>")
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_cursorcolumn_insert_on_tab_3', {})
+
+  call term_sendkeys(buf, 'i')
+  call TermWait(buf)
+  call VerifyScreenDump(buf, 'Test_cursorcolumn_insert_on_tab_2', {})
+
+  call StopVimInTerminal(buf)
+  call delete('Xcuc_insert_on_tab')
+endfunc
+
+func Test_cursorcolumn_callback()
+  CheckScreendump
+  CheckFeature timers
+
+  let lines =<< trim END
+      call setline(1, ['aaaaa', 'bbbbb', 'ccccc', 'ddddd'])
+      set cursorcolumn
+      call cursor(4, 5)
+
+      func Func(timer)
+        call cursor(1, 1)
+      endfunc
+
+      call timer_start(300, 'Func')
+  END
+  call writefile(lines, 'Xcuc_timer')
+
+  let buf = RunVimInTerminal('-S Xcuc_timer', #{rows: 8})
+  call TermWait(buf, 310)
+  call VerifyScreenDump(buf, 'Test_cursorcolumn_callback_1', {})
+
+  call StopVimInTerminal(buf)
+  call delete('Xcuc_timer')
+endfunc
+
 func Test_wincolor()
   CheckScreendump
   " make sure the width is enough for the test
@@ -662,7 +717,6 @@ func Test_colorcolumn()
   call writefile(lines, 'Xtest_colorcolumn')
   let buf = RunVimInTerminal('-S Xtest_colorcolumn', {'rows': 10})
   call term_sendkeys(buf, ":\<CR>")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_colorcolumn_1', {})
 
   " clean up
@@ -680,7 +734,6 @@ func Test_colorcolumn_bri()
   call writefile(lines, 'Xtest_colorcolumn_bri')
   let buf = RunVimInTerminal('-S Xtest_colorcolumn_bri', {'rows': 10,'columns': 40})
   call term_sendkeys(buf, ":set co=40 linebreak bri briopt=shift:2 cc=40,41,43\<CR>")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_colorcolumn_2', {})
 
   " clean up
@@ -698,7 +751,6 @@ func Test_colorcolumn_sbr()
   call writefile(lines, 'Xtest_colorcolumn_srb')
   let buf = RunVimInTerminal('-S Xtest_colorcolumn_srb', {'rows': 10,'columns': 40})
   call term_sendkeys(buf, ":set co=40 showbreak=+++>\\  cc=40,41,43\<CR>")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_colorcolumn_3', {})
 
   " clean up
@@ -715,7 +767,7 @@ func Test_1_highlight_Normalgroup_exists()
   elseif has('gui_gtk2') || has('gui_gnome') || has('gui_gtk3')
     " expect is DEFAULT_FONT of gui_gtk_x11.c
     call assert_match('hi Normal\s*font=Monospace 10', hlNormal)
-  elseif has('gui_motif') || has('gui_athena')
+  elseif has('gui_motif')
     " expect is DEFAULT_FONT of gui_x11.c
     call assert_match('hi Normal\s*font=7x13', hlNormal)
   elseif has('win32')
@@ -1011,7 +1063,7 @@ func Test_hlget()
     call assert_equal([], hlget(test_null_string()))
     call assert_equal([], hlget(""))
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for resolving highlight group links
   let lines =<< trim END
@@ -1042,7 +1094,7 @@ func Test_hlget()
     call assert_equal([{'id': hlgCid, 'name': 'hlgC',
                       \ 'term': {'bold': v:true}}], hlget('hlgC', v:true))
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   call assert_fails('call hlget([])', 'E1174:')
   call assert_fails('call hlget("abc", "xyz")', 'E1212:')
@@ -1098,7 +1150,7 @@ func Test_hlset()
     call assert_equal('Search', hlget('NewHLGroup')[0].linksto)
     highlight clear NewHLGroup
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for clearing the 'term', 'cterm' and 'gui' attributes of a highlight
   " group.
@@ -1117,7 +1169,7 @@ func Test_hlset()
                 \ hlget('myhlg1'))
     highlight clear myhlg1
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for setting all the 'term', 'cterm' and 'gui' attributes of a
   " highlight group
@@ -1134,7 +1186,7 @@ func Test_hlset()
     call assert_equal([{'id': id2, 'name': 'myhlg2', 'gui': attr,
                       \ 'term': attr, 'cterm': attr}], hlget('myhlg2'))
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for clearing some of the 'term', 'cterm' and 'gui' attributes of a
   " highlight group
@@ -1150,7 +1202,7 @@ func Test_hlset()
     call assert_equal([{'id': id2, 'name': 'myhlg2', 'gui': attr,
                       \ 'term': attr, 'cterm': attr}], hlget('myhlg2'))
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for clearing the attributes and link of a highlight group
   let lines =<< trim END
@@ -1162,7 +1214,7 @@ func Test_hlset()
                       \ hlget('myhlg3'))
     highlight clear hlg3
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for setting default attributes for a highlight group
   let lines =<< trim END
@@ -1187,7 +1239,7 @@ func Test_hlset()
                     \ hlget('hlg6'))
     highlight clear hlg6
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for setting default links for a highlight group
   let lines =<< trim END
@@ -1217,7 +1269,7 @@ func Test_hlset()
                     \ 'linksto': 'ErrorMsg'}], hlget('hlg9dup'))
     highlight clear hlg9
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for force creating a link to a highlight group
   let lines =<< trim END
@@ -1231,7 +1283,7 @@ func Test_hlset()
                     \ 'linksto': 'Search'}], hlget('hlg10'))
     highlight clear hlg10
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Test for empty values of attributes
   call hlset([{'name': 'hlg11', 'cterm': {}}])

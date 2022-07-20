@@ -216,7 +216,7 @@ readfile(
     int		using_b_ffname;
     int		using_b_fname;
     static char *msg_is_a_directory = N_("is a directory");
-    int         eof;
+    int		eof;
 
     au_did_filetype = FALSE; // reset before triggering any autocommands
 
@@ -759,8 +759,13 @@ readfile(
 		// Also write a message in the GUI window, if there is one.
 		if (gui.in_use && !gui.dying && !gui.starting)
 		{
-		    p = (char_u *)_("Reading from stdin...");
-		    gui_write(p, (int)STRLEN(p));
+		    // make a copy, gui_write() may try to change it
+		    p = vim_strsave((char_u *)_("Reading from stdin..."));
+		    if (p != NULL)
+		    {
+			gui_write(p, (int)STRLEN(p));
+			vim_free(p);
+		    }
 		}
 #endif
 	    }
@@ -1240,30 +1245,29 @@ retry:
 				read_buf_col += n;
 				break;
 			    }
-			    else
+
+			    // Append whole line and new-line.  Change NL
+			    // to NUL to reverse the effect done below.
+			    for (ni = 0; ni < n; ++ni)
 			    {
-				// Append whole line and new-line.  Change NL
-				// to NUL to reverse the effect done below.
-				for (ni = 0; ni < n; ++ni)
-				{
-				    if (p[ni] == NL)
-					ptr[tlen++] = NUL;
-				    else
-					ptr[tlen++] = p[ni];
-				}
-				ptr[tlen++] = NL;
-				read_buf_col = 0;
-				if (++read_buf_lnum > from)
-				{
-				    // When the last line didn't have an
-				    // end-of-line don't add it now either.
-				    if (!curbuf->b_p_eol)
-					--tlen;
-				    size = tlen;
-				    eof = TRUE;
-				    break;
-				}
+				if (p[ni] == NL)
+				    ptr[tlen++] = NUL;
+				else
+				    ptr[tlen++] = p[ni];
 			    }
+			    ptr[tlen++] = NL;
+			    read_buf_col = 0;
+			    if (++read_buf_lnum > from)
+			    {
+				// When the last line didn't have an
+				// end-of-line don't add it now either.
+				if (!curbuf->b_p_eol)
+				    --tlen;
+				size = tlen;
+				eof = TRUE;
+				break;
+			    }
+
 			}
 		    }
 		}
@@ -1300,7 +1304,7 @@ retry:
 		    cryptkey = check_for_cryptkey(cryptkey, ptr, &size,
 						  &filesize, newfile, sfname,
 						  &did_ask_for_key);
-# ifdef CRYPT_NOT_INPLACE
+# if defined(CRYPT_NOT_INPLACE) && defined(FEAT_PERSISTENT_UNDO)
 		    if (curbuf->b_cryptstate != NULL
 				 && !crypt_works_inplace(curbuf->b_cryptstate))
 			// reading undo file requires crypt_decode_inplace()
@@ -2708,7 +2712,7 @@ readfile_linenr(
 }
 
 /*
- * Fill "*eap" to force the 'fileencoding', 'fileformat' and 'binary to be
+ * Fill "*eap" to force the 'fileencoding', 'fileformat' and 'binary' to be
  * equal to the buffer "buf".  Used for calling readfile().
  * Returns OK or FAIL.
  */
@@ -2952,7 +2956,7 @@ check_for_cryptkey(
     // When starting to edit a new file which does not have encryption, clear
     // the 'key' option, except when starting up (called with -x argument)
     else if (newfile && *curbuf->b_p_key != NUL && !starting)
-	set_option_value((char_u *)"key", 0L, (char_u *)"", OPT_LOCAL);
+	set_option_value_give_err((char_u *)"key", 0L, (char_u *)"", OPT_LOCAL);
 
     return cryptkey;
 }
@@ -4052,7 +4056,11 @@ buf_check_timestamp(
     char	*mesg = NULL;
     char	*mesg2 = "";
     int		helpmesg = FALSE;
-    int		reload = FALSE;
+    enum {
+	RELOAD_NONE,
+	RELOAD_NORMAL,
+	RELOAD_DETECT
+    }		reload = RELOAD_NONE;
     char	*reason;
 #if defined(FEAT_CON_DIALOG) || defined(FEAT_GUI_DIALOG)
     int		can_reload = FALSE;
@@ -4128,7 +4136,7 @@ buf_check_timestamp(
 	 */
 	else if ((buf->b_p_ar >= 0 ? buf->b_p_ar : p_ar)
 				       && !bufIsChanged(buf) && stat_res >= 0)
-	    reload = TRUE;
+	    reload = RELOAD_NORMAL;
 	else
 	{
 	    if (stat_res < 0)
@@ -4169,7 +4177,9 @@ buf_check_timestamp(
 #ifdef FEAT_EVAL
 		s = get_vim_var_str(VV_FCS_CHOICE);
 		if (STRCMP(s, "reload") == 0 && *reason != 'd')
-		    reload = TRUE;
+		    reload = RELOAD_NORMAL;
+		else if (STRCMP(s, "edit") == 0)
+		    reload = RELOAD_DETECT;
 		else if (STRCMP(s, "ask") == 0)
 		    n = FALSE;
 		else
@@ -4250,14 +4260,23 @@ buf_check_timestamp(
 		    STRCAT(tbuf, "\n");
 		    STRCAT(tbuf, mesg2);
 		}
-		if (do_dialog(VIM_WARNING, (char_u *)_("Warning"),
-			    (char_u *)tbuf,
-			  (char_u *)_("&OK\n&Load File"), 1, NULL, TRUE) == 2)
-		    reload = TRUE;
+		switch (do_dialog(VIM_WARNING, (char_u *)_("Warning"),
+			(char_u *)tbuf,
+			(char_u *)_("&OK\n&Load File\nLoad File &and Options"),
+			1, NULL, TRUE))
+		{
+		    case 2:
+			reload = RELOAD_NORMAL;
+			break;
+		    case 3:
+			reload = RELOAD_DETECT;
+			break;
+		}
 	    }
 	    else
 #endif
-	    if (State > NORMAL_BUSY || (State & CMDLINE) || already_warned)
+	    if (State > MODE_NORMAL_BUSY || (State & MODE_CMDLINE)
+							     || already_warned)
 	    {
 		if (*mesg2 != NUL)
 		{
@@ -4298,10 +4317,10 @@ buf_check_timestamp(
 	}
     }
 
-    if (reload)
+    if (reload != RELOAD_NONE)
     {
 	// Reload the buffer.
-	buf_reload(buf, orig_mode);
+	buf_reload(buf, orig_mode, reload == RELOAD_DETECT);
 #ifdef FEAT_PERSISTENT_UNDO
 	if (buf->b_p_udf && buf->b_ffname != NULL)
 	{
@@ -4337,7 +4356,7 @@ buf_check_timestamp(
  * buf->b_orig_mode may have been reset already.
  */
     void
-buf_reload(buf_T *buf, int orig_mode)
+buf_reload(buf_T *buf, int orig_mode, int reload_options)
 {
     exarg_T	ea;
     pos_T	old_cursor;
@@ -4348,14 +4367,20 @@ buf_reload(buf_T *buf, int orig_mode)
     int		saved = OK;
     aco_save_T	aco;
     int		flags = READ_NEW;
+    int		prepped = OK;
 
     // set curwin/curbuf for "buf" and save some things
     aucmd_prepbuf(&aco, buf);
 
-    // We only want to read the text from the file, not reset the syntax
-    // highlighting, clear marks, diff status, etc.  Force the fileformat
-    // and encoding to be the same.
-    if (prep_exarg(&ea, buf) == OK)
+    // Unless reload_options is set, we only want to read the text from the
+    // file, not reset the syntax highlighting, clear marks, diff status, etc.
+    // Force the fileformat and encoding to be the same.
+    if (reload_options)
+	memset(&ea, 0, sizeof(ea));
+    else
+	prepped = prep_exarg(&ea, buf);
+
+    if (prepped == OK)
     {
 	old_cursor = curwin->w_cursor;
 	old_topline = curwin->w_topline;
@@ -4770,7 +4795,7 @@ readdir_core(
     int		withattr UNUSED,
     void	*context,
     int		(*checkitem)(void *context, void *item),
-    int         sort)
+    int		sort)
 {
     int			failed = FALSE;
     char_u		*p;
@@ -4790,7 +4815,7 @@ readdir_core(
 # ifdef FEAT_EVAL
 #  define FREE_ITEM(item)   do { \
 	if (withattr) \
-	    dict_unref((dict_T*)item); \
+	    dict_unref((dict_T*)(item)); \
 	else \
 	    vim_free(item); \
     } while (0)
@@ -4919,7 +4944,7 @@ readdir_core(
 		break;
 	    }
 
-	    if (!ignore && checkitem != NULL)
+	    if (checkitem != NULL)
 	    {
 		int r = checkitem(context, item);
 
@@ -5003,13 +5028,16 @@ delete_recursive(char_u *name)
 		vim_snprintf((char *)NameBuff, MAXPATHL, "%s/%s", exp,
 					    ((char_u **)ga.ga_data)[i]);
 		if (delete_recursive(NameBuff) != 0)
+		    // Remember the failure but continue deleting any further
+		    // entries.
 		    result = -1;
 	    }
 	    ga_clear_strings(&ga);
+	    if (mch_rmdir(exp) != 0)
+		result = -1;
 	}
 	else
 	    result = -1;
-	(void)mch_rmdir(exp);
 	vim_free(exp);
     }
     else

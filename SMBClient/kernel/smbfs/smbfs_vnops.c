@@ -7981,9 +7981,8 @@ static int32_t smbfs_vnop_ioctl(struct vnop_ioctl_args *ap)
 		
         case smbfsGetSessionSockaddrFSCTL2: {
             struct smbSockAddrPB *pb = (struct smbSockAddrPB *) ap->a_data;
-
-            pb->sessionp = sessionp;
-
+            memcpy(pb->session_uuid, sessionp->uuid, sizeof(sessionp->uuid));
+            
             /* <72239144> Return original server IP address that was used */
             if (sessionp->session_saddr) {
                 memcpy(&pb->addr, sessionp->session_saddr,

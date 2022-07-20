@@ -110,8 +110,8 @@ public:
 #endif
     void fillPath(const WebCore::Path&);
     void fillEllipse(const WebCore::FloatRect&);
-    void getPixelBuffer(const WebCore::IntRect& srcRect, const WebCore::PixelBufferFormat& outputFormat);
-    void putPixelBuffer(const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint, const WebCore::PixelBuffer&, WebCore::AlphaPremultiplication destFormat);
+    void convertToLuminanceMask();
+    void transformToColorSpace(const WebCore::DestinationColorSpace&);
     void paintFrameForMedia(WebCore::MediaPlayerIdentifier, const WebCore::FloatRect& destination);
     void strokeRect(const WebCore::FloatRect&, float lineWidth);
 #if ENABLE(INLINE_PATH_DATA)
@@ -153,7 +153,7 @@ private:
     }
 
     void startListeningForIPC();
-    void didReceiveStreamMessage(IPC::StreamServerConnectionBase&, IPC::Decoder&) final;
+    void didReceiveStreamMessage(IPC::StreamServerConnection&, IPC::Decoder&) final;
 
     WeakPtr<WebCore::ImageBuffer> m_imageBuffer;
     QualifiedRenderingResourceIdentifier m_imageBufferIdentifier;

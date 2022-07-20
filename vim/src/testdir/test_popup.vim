@@ -325,6 +325,21 @@ func Test_compl_vim_cmds_after_register_expr()
   bwipe!
 endfunc
 
+func Test_compl_ignore_mappings()
+  call setline(1, ['foo', 'bar', 'baz', 'foobar'])
+  inoremap <C-P> (C-P)
+  inoremap <C-N> (C-N)
+  normal! G
+  call feedkeys("o\<C-X>\<C-N>\<C-N>\<C-N>\<C-P>\<C-N>\<C-Y>", 'tx')
+  call assert_equal('baz', getline('.'))
+  " Also test with unsimplified keys
+  call feedkeys("o\<C-X>\<*C-N>\<*C-N>\<*C-N>\<*C-P>\<*C-N>\<C-Y>", 'tx')
+  call assert_equal('baz', getline('.'))
+  iunmap <C-P>
+  iunmap <C-N>
+  bwipe!
+endfunc
+
 func DummyCompleteOne(findstart, base)
   if a:findstart
     return 0
@@ -640,7 +655,7 @@ func Test_complete_func_mess()
   set completefunc=MessComplete
   new
   call setline(1, 'Ju')
-  call assert_fails('call feedkeys("A\<c-x>\<c-u>/\<esc>", "tx")', 'E578:')
+  call assert_fails('call feedkeys("A\<c-x>\<c-u>/\<esc>", "tx")', 'E565:')
   call assert_equal('Jan/', getline(1))
   bwipe!
   set completefunc=
@@ -1164,7 +1179,6 @@ func Test_pum_rightleft()
   let buf = RunVimInTerminal('--cmd "set rightleft" Xtest1', {})
   call term_wait(buf)
   call term_sendkeys(buf, "Go\<C-P>")
-  call term_wait(buf)
   call VerifyScreenDump(buf, 'Test_pum_rightleft_01', {'rows': 8})
   call term_sendkeys(buf, "\<C-P>\<C-Y>")
   call term_wait(buf)
@@ -1206,7 +1220,6 @@ func Test_pum_scrollbar()
   let buf = RunVimInTerminal('--cmd "set pumheight=2" Xtest1', {})
   call term_wait(buf)
   call term_sendkeys(buf, "Go\<C-P>\<C-P>\<C-P>")
-  call term_wait(buf)
   call VerifyScreenDump(buf, 'Test_pum_scrollbar_01', {'rows': 7})
   call term_sendkeys(buf, "\<C-E>\<Esc>dd")
   call term_wait(buf)
@@ -1215,7 +1228,6 @@ func Test_pum_scrollbar()
     call term_sendkeys(buf, ":set rightleft\<CR>")
     call term_wait(buf)
     call term_sendkeys(buf, "Go\<C-P>\<C-P>\<C-P>")
-    call term_wait(buf)
     call VerifyScreenDump(buf, 'Test_pum_scrollbar_02', {'rows': 7})
   endif
 

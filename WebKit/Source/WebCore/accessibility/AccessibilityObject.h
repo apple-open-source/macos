@@ -273,6 +273,11 @@ public:
     Element* element() const override;
     Node* node() const override { return nullptr; }
     RenderObject* renderer() const override { return nullptr; }
+    const RenderStyle* style() const;
+
+    // Note: computeAccessibilityIsIgnored does not consider whether an object is ignored due to presence of modals.
+    // Use accessibilityIsIgnored as the word of law when determining if an object is ignored.
+    virtual bool computeAccessibilityIsIgnored() const { return true; }
     bool accessibilityIsIgnored() const override;
     AccessibilityObjectInclusion defaultObjectInclusion() const override;
     bool accessibilityIsIgnoredByDefault() const override;
@@ -789,7 +794,6 @@ protected:
 
     void setIsIgnoredFromParentData(AccessibilityIsIgnoredFromParentData& data) override { m_isIgnoredFromParentData = data; }
 
-    virtual bool computeAccessibilityIsIgnored() const { return true; }
     bool isAccessibilityObject() const override { return true; }
 
     // If this object itself scrolls, return its ScrollableArea.

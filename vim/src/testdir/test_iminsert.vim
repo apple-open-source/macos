@@ -2,7 +2,7 @@
 
 source view_util.vim
 source check.vim
-source vim9.vim
+import './vim9.vim' as v9
 
 let s:imactivatefunc_called = 0
 let s:imstatusfunc_called = 0
@@ -61,6 +61,35 @@ func Test_getimstatus()
 
   set imactivatefunc=
   set imstatusfunc=
+endfunc
+
+func Test_imactivatefunc_imstatusfunc_callback_no_breaks_foldopen()
+  CheckScreendump
+
+  let lines =<< trim END
+    func IM_activatefunc(active)
+    endfunc
+    func IM_statusfunc()
+      return 0
+    endfunc
+    set imactivatefunc=IM_activatefunc
+    set imstatusfunc=IM_statusfunc
+    set foldmethod=marker
+    set foldopen=search
+    call setline(1, ['{{{', 'abc', '}}}'])
+    %foldclose
+  END
+  call writefile(lines, 'Xscript')
+  let buf = RunVimInTerminal('-S Xscript', {})
+  call term_wait(buf)
+  call assert_notequal('abc', term_getline(buf, 2))
+  call term_sendkeys(buf, "/abc\n")
+  call term_wait(buf)
+  call assert_equal('abc', term_getline(buf, 2))
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('Xscript')
 endfunc
 
 " Test for using an lmap in insert mode
@@ -165,28 +194,28 @@ func Test_imactivatefunc_imstatusfunc_callback()
     normal! i
 
     #" Test for using a lambda function
-    VAR optval = "LSTART a LMIDDLE IMactivatefunc1(a) LEND"
+    VAR optval = "LSTART a LMIDDLE g:IMactivatefunc1(a) LEND"
     LET optval = substitute(optval, ' ', '\\ ', 'g')
     exe "set imactivatefunc=" .. optval
-    LET optval = "LSTART LMIDDLE IMstatusfunc1() LEND"
+    LET optval = "LSTART LMIDDLE g:IMstatusfunc1() LEND"
     LET optval = substitute(optval, ' ', '\\ ', 'g')
     exe "set imstatusfunc=" .. optval
     normal! i
 
     #" Set 'imactivatefunc' and 'imstatusfunc' to a lambda expression
-    LET &imactivatefunc = LSTART a LMIDDLE IMactivatefunc1(a) LEND
-    LET &imstatusfunc = LSTART LMIDDLE IMstatusfunc1() LEND
+    LET &imactivatefunc = LSTART a LMIDDLE g:IMactivatefunc1(a) LEND
+    LET &imstatusfunc = LSTART LMIDDLE g:IMstatusfunc1() LEND
     normal! i
 
     #" Set 'imactivatefunc' and 'imstatusfunc' to a string(lambda expression)
-    LET &imactivatefunc = 'LSTART a LMIDDLE IMactivatefunc1(a) LEND'
-    LET &imstatusfunc = 'LSTART LMIDDLE IMstatusfunc1() LEND'
+    LET &imactivatefunc = 'LSTART a LMIDDLE g:IMactivatefunc1(a) LEND'
+    LET &imstatusfunc = 'LSTART LMIDDLE g:IMstatusfunc1() LEND'
     normal! i
 
     #" Set 'imactivatefunc' 'imstatusfunc' to a variable with a lambda
     #" expression
-    VAR Lambda1 = LSTART a LMIDDLE IMactivatefunc1(a) LEND
-    VAR Lambda2 = LSTART LMIDDLE IMstatusfunc1() LEND
+    VAR Lambda1 = LSTART a LMIDDLE g:IMactivatefunc1(a) LEND
+    VAR Lambda2 = LSTART LMIDDLE g:IMstatusfunc1() LEND
     LET &imactivatefunc = Lambda1
     LET &imstatusfunc = Lambda2
     normal! i
@@ -223,7 +252,7 @@ func Test_imactivatefunc_imstatusfunc_callback()
     call assert_equal(14, g:IMactivatefunc_called)
     call assert_equal(28, g:IMstatusfunc_called)
   END
-  call CheckLegacyAndVim9Success(lines)
+  call v9.CheckLegacyAndVim9Success(lines)
 
   " Using Vim9 lambda expression in legacy context should fail
   set imactivatefunc=(a)\ =>\ IMactivatefunc1(a)
@@ -285,7 +314,7 @@ func Test_imactivatefunc_imstatusfunc_callback()
     set imactivatefunc=
     set imstatusfunc=
   END
-  call CheckScriptSuccess(lines)
+  call v9.CheckScriptSuccess(lines)
 
   " cleanup
   set iminsert=0

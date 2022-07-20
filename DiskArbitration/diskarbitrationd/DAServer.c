@@ -608,7 +608,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
                     if ( unmount )
                     {
-                        DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
+                        DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
                     }
                 }
             }
@@ -811,7 +811,7 @@ void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void 
 
                 if ( unmount )
                 {
-                    DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
+                    DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
 
 ///w:start
                     if ( lvfUUID )
@@ -2600,6 +2600,23 @@ void _DAVolumeMountedCallback( CFMachPortRef port, void * parameter, CFIndex mes
                     {
 
                         DALogInfo( "created disk, id = %@.", disk );
+                        
+                        /*
+                         * If this is a snapshot mount, set the NoDefer flag based on its live volume.
+                         */
+                        if ( ( mountList[mountListIndex].f_flags & MNT_SNAPSHOT ) )
+                        {
+                            char *endStr = strrchr( mountList[mountListIndex].f_mntfromname, '@' ) + 1;
+                            if ( endStr && ( strncmp( endStr, _PATH_DEV "disk", strlen( _PATH_DEV "disk" ) ) == 0 ) )
+                            {
+                                DADiskRef liveDisk = __DADiskListGetDisk( endStr );
+                                
+                                if ( liveDisk && ( DADiskGetState( liveDisk, _kDADiskStateMountAutomaticNoDefer ) == FALSE ) )
+                                {
+                                    DADiskSetState( disk, _kDADiskStateMountAutomaticNoDefer, FALSE );
+                                }
+                            }
+                        }
 
                         CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
 

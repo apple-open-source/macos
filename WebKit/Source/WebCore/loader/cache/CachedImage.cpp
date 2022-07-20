@@ -166,7 +166,7 @@ void CachedImage::addClientWaitingForAsyncDecoding(CachedImageClient& client)
     ASSERT(client.resourceClientType() == CachedImageClient::expectedType());
     if (m_clientsWaitingForAsyncDecoding.contains(&client))
         return;
-    if (!m_clients.contains(&client)) {
+    if (!m_clients.contains(client)) {
         // If the <html> element does not have its own background specified, painting the root box
         // renderer uses the style of the <body> element, see RenderView::rendererForRootBackground().
         // In this case, the client we are asked to add is the root box renderer. Since we can't add
@@ -471,9 +471,9 @@ inline void CachedImage::clearImage()
     m_updateImageDataCount = 0;
 }
 
-void CachedImage::updateBufferInternal(const SharedBuffer& data)
+void CachedImage::updateBufferInternal(const FragmentedSharedBuffer& data)
 {
-    m_data = data.makeContiguous();
+    m_data = const_cast<FragmentedSharedBuffer*>(&data);
     setEncodedSize(m_data->size());
     createImage();
 
@@ -506,10 +506,10 @@ void CachedImage::updateBufferInternal(const SharedBuffer& data)
     if (encodedDataStatus == EncodedDataStatus::Error || m_image->isNull()) {
         // Image decoding failed. Either we need more image data or the image data is malformed.
         error(errorOccurred() ? status() : DecodeError);
-        if (m_loader && encodedDataStatus == EncodedDataStatus::Error)
-            m_loader->cancel();
         if (inCache())
             MemoryCache::singleton().remove(*this);
+        if (m_loader && encodedDataStatus == EncodedDataStatus::Error)
+            m_loader->cancel();
         return;
     }
 
@@ -553,15 +553,13 @@ EncodedDataStatus CachedImage::updateImageData(bool allDataReceived)
 void CachedImage::updateBuffer(const FragmentedSharedBuffer& buffer)
 {
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::BufferData);
-    updateBufferInternal(buffer.makeContiguous());
-    CachedResource::updateBuffer(buffer);
+    updateBufferInternal(buffer);
 }
 
 void CachedImage::updateData(const SharedBuffer& data)
 {
     ASSERT(dataBufferingPolicy() == DataBufferingPolicy::DoNotBufferData);
     updateBufferInternal(data);
-    CachedResource::updateData(data);
 }
 
 void CachedImage::finishLoading(const FragmentedSharedBuffer* data, const NetworkLoadMetrics& metrics)

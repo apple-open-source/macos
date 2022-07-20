@@ -139,6 +139,7 @@ _isTranslationEnabled(true)
     }
     _declareActivityThreshold = ns_to_absolute_time(kIOHIDDeclareActivityThresholdMS * NSEC_PER_MSEC);
     _updateActivityQueue = dispatch_queue_create("com.apple.HID.updateActivity", NULL);
+    _modifiersQueue = dispatch_queue_create("com.apple.HID.globlaModifiers", DISPATCH_QUEUE_SERIAL);
 }
 //------------------------------------------------------------------------------
 // IOHIDNXEventTranslatorSessionFilter::IOHIDNXEventTranslatorSessionFilter
@@ -671,7 +672,7 @@ void IOHIDNXEventTranslatorSessionFilter::updateModifiers() {
         
         NSSet *modifiers = [NSSet setWithSet:(__bridge NSSet *)_reportModifiers.Reference()];
         
-        dispatch_async(dispatch_get_main_queue(), ^{
+        dispatch_async(_modifiersQueue, ^{
             [modifiers enumerateObjectsUsingBlock:^(id obj,
                                                     BOOL *stop __unused) {
                 IOHIDServiceRef service = (__bridge IOHIDServiceRef)obj;

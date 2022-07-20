@@ -44,20 +44,36 @@ static int selinux_enabled = -1;
 #endif
 
 #ifdef __CYGWIN__
-# ifndef MSWIN
-#  include <cygwin/version.h>
-#  include <sys/cygwin.h>	// for cygwin_conv_to_posix_path() and/or
+# include <cygwin/version.h>
+# include <sys/cygwin.h>	// for cygwin_conv_to_posix_path() and/or
 				// for cygwin_conv_path()
-#  ifdef FEAT_CYGWIN_WIN32_CLIPBOARD
-#   define WIN32_LEAN_AND_MEAN
-#   include <windows.h>
-#   include "winclip.pro"
-#  endif
+# ifdef FEAT_CYGWIN_WIN32_CLIPBOARD
+#  define WIN32_LEAN_AND_MEAN
+#  include <windows.h>
+#  include "winclip.pro"
 # endif
 #endif
 
 #ifdef FEAT_MOUSE_GPM
+
 # include <gpm.h>
+
+# ifdef DYNAMIC_GPM
+#  define Gpm_Open     (*dll_Gpm_Open)
+#  define Gpm_Close    (*dll_Gpm_Close)
+#  define Gpm_GetEvent (*dll_Gpm_GetEvent)
+#  define gpm_flag     (dll_gpm_flag != NULL ? *dll_gpm_flag :  0)
+#  define gpm_fd       (dll_gpm_fd   != NULL ? *dll_gpm_fd   : -1)
+
+static int (*dll_Gpm_Open)     (Gpm_Connect *, int);
+static int (*dll_Gpm_Close)    (void);
+static int (*dll_Gpm_GetEvent) (Gpm_Event *);
+static int *dll_gpm_flag;
+static int *dll_gpm_fd;
+
+static void *libgpm_hinst;
+# endif
+
 // <linux/keyboard.h> contains defines conflicting with "keymap.h",
 // I just copied relevant defines here. A cleaner solution would be to put gpm
 // code into separate file and include there linux/keyboard.h
@@ -894,10 +910,14 @@ sig_tstp SIGDEFARG(sigarg)
 	signal(SIGTSTP, ignore_sigtstp ? SIG_IGN : SIG_DFL);
 	raise(sigarg);
     }
+    else
+	got_tstp = TRUE;
 
-    // this is not required on all systems, but it doesn't hurt anybody
+#if !defined(__ANDROID__) && !defined(__OpenBSD__) && !defined(__DragonFly__)
+    // This is not required on all systems.  On some systems (at least Android,
+    // OpenBSD, and DragonFlyBSD) this breaks suspending with CTRL-Z.
     signal(SIGTSTP, (RETSIGTYPE (*)())sig_tstp);
-    got_tstp = TRUE;
+#endif
     SIGRETURN;
 }
 #endif
@@ -1403,7 +1423,14 @@ set_signals(void)
 
 #ifdef SIGTSTP
     // See mch_init() for the conditions under which we ignore SIGTSTP.
-    signal(SIGTSTP, ignore_sigtstp ? SIG_IGN : (RETSIGTYPE (*)())sig_tstp);
+    // In the GUI default TSTP processing is OK.
+    // Checking both gui.in_use and gui.starting because gui.in_use is not set
+    // at this point (set after menus are displayed), but gui.starting is set.
+    signal(SIGTSTP, ignore_sigtstp ? SIG_IGN
+# ifdef FEAT_GUI
+				: gui.in_use || gui.starting ? SIG_DFL
+# endif
+				    : (RETSIGTYPE (*)())sig_tstp);
 #endif
 #if defined(SIGCONT)
     signal(SIGCONT, sigcont_handler);
@@ -1777,10 +1804,10 @@ ex_xrestore(exarg_T *eap)
 {
     if (eap->arg != NULL && STRLEN(eap->arg) > 0)
     {
-        if (xterm_display_allocated)
-            vim_free(xterm_display);
-        xterm_display = (char *)vim_strsave(eap->arg);
-        xterm_display_allocated = TRUE;
+	if (xterm_display_allocated)
+	    vim_free(xterm_display);
+	xterm_display = (char *)vim_strsave(eap->arg);
+	xterm_display_allocated = TRUE;
     }
     smsg(_("restoring display %s"), xterm_display == NULL
 		    ? (char *)mch_getenv((char_u *)"DISPLAY") : xterm_display);
@@ -3761,7 +3788,7 @@ get_tty_info(int fd, ttyinfo_T *info)
 static int	mouse_ison = FALSE;
 
 /*
- * Set mouse clicks on or off.
+ * Set mouse clicks on or off and possible enable mouse movement events.
  */
     void
 mch_setmouse(int on)
@@ -3791,10 +3818,7 @@ mch_setmouse(int on)
 #ifdef FEAT_MOUSE_URXVT
     if (ttym_flags == TTYM_URXVT)
     {
-	out_str_nf((char_u *)
-		   (on
-		   ? IF_EB("\033[?1015h", ESC_STR "[?1015h")
-		   : IF_EB("\033[?1015l", ESC_STR "[?1015l")));
+	out_str_nf((char_u *)(on ? "\033[?1015h" : "\033[?1015l"));
 	mouse_ison = on;
     }
 #endif
@@ -3802,10 +3826,7 @@ mch_setmouse(int on)
     if (ttym_flags == TTYM_SGR)
     {
 	// SGR mode supports columns above 223
-	out_str_nf((char_u *)
-		   (on
-		   ? IF_EB("\033[?1006h", ESC_STR "[?1006h")
-		   : IF_EB("\033[?1006l", ESC_STR "[?1006l")));
+	out_str_nf((char_u *)(on ? "\033[?1006h" : "\033[?1006l"));
 	mouse_ison = on;
     }
 
@@ -3815,8 +3836,7 @@ mch_setmouse(int on)
 	bevalterm_ison = (p_bevalterm && on);
 	if (xterm_mouse_vers > 1 && !bevalterm_ison)
 	    // disable mouse movement events, enabling is below
-	    out_str_nf((char_u *)
-			(IF_EB("\033[?1003l", ESC_STR "[?1003l")));
+	    out_str_nf((char_u *)("\033[?1003l"));
     }
 #endif
 
@@ -3827,16 +3847,13 @@ mch_setmouse(int on)
 		       (xterm_mouse_vers > 1
 			? (
 #ifdef FEAT_BEVAL_TERM
-			    bevalterm_ison
-			       ? IF_EB("\033[?1003h", ESC_STR "[?1003h") :
+			    bevalterm_ison ? "\033[?1003h" :
 #endif
-			      IF_EB("\033[?1002h", ESC_STR "[?1002h"))
-			: IF_EB("\033[?1000h", ESC_STR "[?1000h")));
+			      "\033[?1002h")
+			: "\033[?1000h"));
 	else	// disable mouse events, could probably always send the same
 	    out_str_nf((char_u *)
-		       (xterm_mouse_vers > 1
-			? IF_EB("\033[?1002l", ESC_STR "[?1002l")
-			: IF_EB("\033[?1000l", ESC_STR "[?1000l")));
+		       (xterm_mouse_vers > 1 ? "\033[?1002l" : "\033[?1000l"));
 	mouse_ison = on;
     }
 
@@ -3904,18 +3921,15 @@ mch_setmouse(int on)
 	    //	  5 = Windows UP Arrow
 # ifdef JSBTERM_MOUSE_NONADVANCED
 	    // Disables full feedback of pointer movements
-	    out_str_nf((char_u *)IF_EB("\033[0~ZwLMRK1Q\033\\",
-					 ESC_STR "[0~ZwLMRK1Q" ESC_STR "\\"));
+	    out_str_nf((char_u *)"\033[0~ZwLMRK1Q\033\\");
 # else
-	    out_str_nf((char_u *)IF_EB("\033[0~ZwLMRK+1Q\033\\",
-					ESC_STR "[0~ZwLMRK+1Q" ESC_STR "\\"));
+	    out_str_nf((char_u *)"\033[0~ZwLMRK+1Q\033\\");
 # endif
 	    mouse_ison = TRUE;
 	}
 	else
 	{
-	    out_str_nf((char_u *)IF_EB("\033[0~ZwQ\033\\",
-					      ESC_STR "[0~ZwQ" ESC_STR "\\"));
+	    out_str_nf((char_u *)"\033[0~ZwQ\033\\");
 	    mouse_ison = FALSE;
 	}
     }
@@ -3961,8 +3975,7 @@ check_mouse_termcode(void)
 	    )
     {
 	set_mouse_termcode(KS_MOUSE, (char_u *)(term_is_8bit(T_NAME)
-		    ? IF_EB("\233M", CSI_STR "M")
-		    : IF_EB("\033[M", ESC_STR "[M")));
+							? "\233M" : "\033[M"));
 	if (*p_mouse != NUL)
 	{
 	    // force mouse off and maybe on to send possibly new mouse
@@ -3981,8 +3994,7 @@ check_mouse_termcode(void)
 	    && !gui.in_use
 #  endif
 	    )
-	set_mouse_termcode(KS_GPM_MOUSE,
-				      (char_u *)IF_EB("\033MG", ESC_STR "MG"));
+	set_mouse_termcode(KS_GPM_MOUSE, (char_u *)"\033MG");
     else
 	del_mouse_termcode(KS_GPM_MOUSE);
 # endif
@@ -3993,7 +4005,7 @@ check_mouse_termcode(void)
 	    && !gui.in_use
 #  endif
 	    )
-	set_mouse_termcode(KS_MOUSE, (char_u *)IF_EB("\033MS", ESC_STR "MS"));
+	set_mouse_termcode(KS_MOUSE, (char_u *)"\033MS");
 # endif
 
 # ifdef FEAT_MOUSE_JSB
@@ -4003,8 +4015,7 @@ check_mouse_termcode(void)
 	    && !gui.in_use
 #  endif
 	    )
-	set_mouse_termcode(KS_JSBTERM_MOUSE,
-			       (char_u *)IF_EB("\033[0~zw", ESC_STR "[0~zw"));
+	set_mouse_termcode(KS_JSBTERM_MOUSE, (char_u *)"\033[0~zw");
     else
 	del_mouse_termcode(KS_JSBTERM_MOUSE);
 # endif
@@ -4017,8 +4028,7 @@ check_mouse_termcode(void)
 	    && !gui.in_use
 #  endif
 	    )
-	set_mouse_termcode(KS_NETTERM_MOUSE,
-				       (char_u *)IF_EB("\033}", ESC_STR "}"));
+	set_mouse_termcode(KS_NETTERM_MOUSE, (char_u *)"\033}");
     else
 	del_mouse_termcode(KS_NETTERM_MOUSE);
 # endif
@@ -4031,7 +4041,7 @@ check_mouse_termcode(void)
 #  endif
 	    )
 	set_mouse_termcode(KS_DEC_MOUSE, (char_u *)(term_is_8bit(T_NAME)
-		     ? IF_EB("\233", CSI_STR) : IF_EB("\033[", ESC_STR "[")));
+							  ? "\233" : "\033["));
     else
 	del_mouse_termcode(KS_DEC_MOUSE);
 # endif
@@ -4042,8 +4052,7 @@ check_mouse_termcode(void)
 	    && !gui.in_use
 #  endif
 	    )
-	set_mouse_termcode(KS_PTERM_MOUSE,
-				      (char_u *) IF_EB("\033[", ESC_STR "["));
+	set_mouse_termcode(KS_PTERM_MOUSE, (char_u *)"\033[");
     else
 	del_mouse_termcode(KS_PTERM_MOUSE);
 # endif
@@ -4055,8 +4064,7 @@ check_mouse_termcode(void)
 	    )
     {
 	set_mouse_termcode(KS_URXVT_MOUSE, (char_u *)(term_is_8bit(T_NAME)
-		    ? IF_EB("\233*M", CSI_STR "*M")
-		    : IF_EB("\033[*M", ESC_STR "[*M")));
+						      ? "\233*M" : "\033[*M"));
 
 	if (*p_mouse != NUL)
 	{
@@ -4074,12 +4082,10 @@ check_mouse_termcode(void)
 	    )
     {
 	set_mouse_termcode(KS_SGR_MOUSE, (char_u *)(term_is_8bit(T_NAME)
-		    ? IF_EB("\233<*M", CSI_STR "<*M")
-		    : IF_EB("\033[<*M", ESC_STR "[<*M")));
+						    ? "\233<*M" : "\033[<*M"));
 
 	set_mouse_termcode(KS_SGR_MOUSE_RELEASE, (char_u *)(term_is_8bit(T_NAME)
-		    ? IF_EB("\233<*m", CSI_STR "<*m")
-		    : IF_EB("\033[<*m", ESC_STR "[<*m")));
+						    ? "\233<*m" : "\033[<*m"));
 
 	if (*p_mouse != NUL)
 	{
@@ -5000,7 +5006,7 @@ mch_call_shell_fork(
 		p_more_save = p_more;
 		p_more = FALSE;
 		old_State = State;
-		State = EXTERNCMD;	// don't redraw at window resize
+		State = MODE_EXTERNCMD;	// don't redraw at window resize
 
 		if ((options & SHELL_WRITE) && toshell_fd >= 0)
 		{
@@ -5504,6 +5510,9 @@ mch_call_shell(
     char_u	*cmd,
     int		options)	// SHELL_*, see vim.h
 {
+#ifdef FEAT_JOB_CHANNEL
+    ch_log(NULL, "executing shell command: %s", cmd);
+#endif
 #if defined(FEAT_GUI) && defined(FEAT_TERMINAL)
     if (gui.in_use && vim_strchr(p_go, GO_TERMINAL) != NULL)
 	return mch_call_shell_terminal(cmd, options);
@@ -5688,7 +5697,7 @@ mch_job_start(char **argv, job_T *job, jobopt_T *options, int is_terminal)
 		{
 		    typval_T *item = &dict_lookup(hi)->di_tv;
 
-		    vim_setenv((char_u*)hi->hi_key, tv_get_string(item));
+		    vim_setenv(hi->hi_key, tv_get_string(item));
 		    --todo;
 		}
 	}
@@ -6126,7 +6135,7 @@ WaitForCharOrMouse(long msec, int *interrupted, int ignore_input)
     {
 	WantQueryMouse = FALSE;
 	if (!no_query_mouse_for_testing)
-	    mch_write((char_u *)IF_EB("\033[1'|", ESC_STR "[1'|"), 5);
+	    mch_write((char_u *)"\033[1'|", 5);
     }
 #endif
 
@@ -6386,7 +6395,7 @@ select_eintr:
 	FD_ZERO(&wfds);
 	FD_ZERO(&efds);
 	FD_SET(fd, &rfds);
-# if !defined(__QNX__) && !defined(__CYGWIN32__)
+# ifndef __QNX__
 	// For QNX select() always returns 1 if this is set.  Why?
 	FD_SET(fd, &efds);
 # endif
@@ -6444,6 +6453,7 @@ select_eintr:
 	    if (got_tstp && !in_mch_suspend)
 	    {
 		exarg_T ea;
+
 		ea.forceit = TRUE;
 		ex_stop(&ea);
 		got_tstp = FALSE;
@@ -6490,7 +6500,7 @@ select_eintr:
 	}
 # endif
 # ifdef FEAT_MOUSE_GPM
-	if (ret > 0 && gpm_flag && check_for_gpm != NULL && gpm_fd >= 0)
+	if (ret > 0 && check_for_gpm != NULL && gpm_flag && gpm_fd >= 0)
 	{
 	    if (FD_ISSET(gpm_fd, &efds))
 		gpm_close();
@@ -7216,6 +7226,49 @@ mch_rename(const char *src, const char *dest)
 #endif // !HAVE_RENAME
 
 #if defined(FEAT_MOUSE_GPM) || defined(PROTO)
+# if defined(DYNAMIC_GPM) || defined(PROTO)
+/*
+ * Initialize Gpm's symbols for dynamic linking.
+ * Must be called only if libgpm_hinst is NULL.
+ */
+    static int
+load_libgpm(void)
+{
+    libgpm_hinst = dlopen("libgpm.so", RTLD_LAZY|RTLD_GLOBAL);
+
+    if (libgpm_hinst == NULL)
+    {
+	if (p_verbose > 0)
+	    smsg_attr(HL_ATTR(HLF_W),
+			       _("Could not load gpm library: %s"), dlerror());
+	return FAIL;
+    }
+
+    if (
+	    (dll_Gpm_Open     = dlsym(libgpm_hinst, "Gpm_Open"))     == NULL
+	||  (dll_Gpm_Close    = dlsym(libgpm_hinst, "Gpm_Close"))    == NULL
+	||  (dll_Gpm_GetEvent = dlsym(libgpm_hinst, "Gpm_GetEvent")) == NULL
+	||  (dll_gpm_flag     = dlsym(libgpm_hinst, "gpm_flag"))     == NULL
+	||  (dll_gpm_fd       = dlsym(libgpm_hinst, "gpm_fd"))       == NULL
+      )
+    {
+	semsg(_(e_could_not_load_library_str_str), "gpm", dlerror());
+	dlclose(libgpm_hinst);
+	libgpm_hinst = NULL;
+	dll_gpm_flag = NULL;
+	dll_gpm_fd   = NULL;
+	return FAIL;
+    }
+    return OK;
+}
+
+    int
+gpm_available(void)
+{
+    return libgpm_hinst != NULL || load_libgpm() == OK;
+}
+# endif // DYNAMIC_GPM
+
 /*
  * Initializes connection with gpm (if it isn't already opened)
  * Return 1 if succeeded (or connection already opened), 0 if failed
@@ -7224,6 +7277,11 @@ mch_rename(const char *src, const char *dest)
 gpm_open(void)
 {
     static Gpm_Connect gpm_connect; // Must it be kept till closing ?
+
+#ifdef DYNAMIC_GPM
+    if (!gpm_available())
+	return 0;
+#endif
 
     if (!gpm_flag)
     {
@@ -7508,7 +7566,7 @@ mch_libcall(
     if (hinstLib == NULL)
     {
 	// "dlerr" must be used before dlclose()
-	dlerr = (char *)dlerror();
+	dlerr = dlerror();
 	if (dlerr != NULL)
 	    semsg(_("dlerror = \"%s\""), dlerr);
     }
@@ -7543,7 +7601,7 @@ mch_libcall(
 	    {
 # if defined(USE_DLOPEN)
 		*(void **)(&ProcAdd) = dlsym(hinstLib, (const char *)funcname);
-		dlerr = (char *)dlerror();
+		dlerr = dlerror();
 # else
 		if (shl_findsym(&hinstLib, (const char *)funcname,
 					TYPE_PROCEDURE, (void *)&ProcAdd) < 0)
@@ -7565,7 +7623,7 @@ mch_libcall(
 	    {
 # if defined(USE_DLOPEN)
 		*(void **)(&ProcAddI) = dlsym(hinstLib, (const char *)funcname);
-		dlerr = (char *)dlerror();
+		dlerr = dlerror();
 # else
 		if (shl_findsym(&hinstLib, (const char *)funcname,
 				       TYPE_PROCEDURE, (void *)&ProcAddI) < 0)
@@ -8228,114 +8286,3 @@ xsmp_close(void)
     }
 }
 #endif // USE_XSMP
-
-
-#ifdef EBCDIC
-// Translate character to its CTRL- value
-char CtrlTable[] =
-{
-/* 00 - 5E */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* ^ */ 0x1E,
-/* - */ 0x1F,
-/* 61 - 6C */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* _ */ 0x1F,
-/* 6E - 80 */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* a */ 0x01,
-/* b */ 0x02,
-/* c */ 0x03,
-/* d */ 0x37,
-/* e */ 0x2D,
-/* f */ 0x2E,
-/* g */ 0x2F,
-/* h */ 0x16,
-/* i */ 0x05,
-/* 8A - 90 */
-	0, 0, 0, 0, 0, 0, 0,
-/* j */ 0x15,
-/* k */ 0x0B,
-/* l */ 0x0C,
-/* m */ 0x0D,
-/* n */ 0x0E,
-/* o */ 0x0F,
-/* p */ 0x10,
-/* q */ 0x11,
-/* r */ 0x12,
-/* 9A - A1 */
-	0, 0, 0, 0, 0, 0, 0, 0,
-/* s */ 0x13,
-/* t */ 0x3C,
-/* u */ 0x3D,
-/* v */ 0x32,
-/* w */ 0x26,
-/* x */ 0x18,
-/* y */ 0x19,
-/* z */ 0x3F,
-/* AA - AC */
-	0, 0, 0,
-/* [ */ 0x27,
-/* AE - BC */
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-/* ] */ 0x1D,
-/* BE - C0 */ 0, 0, 0,
-/* A */ 0x01,
-/* B */ 0x02,
-/* C */ 0x03,
-/* D */ 0x37,
-/* E */ 0x2D,
-/* F */ 0x2E,
-/* G */ 0x2F,
-/* H */ 0x16,
-/* I */ 0x05,
-/* CA - D0 */ 0, 0, 0, 0, 0, 0, 0,
-/* J */ 0x15,
-/* K */ 0x0B,
-/* L */ 0x0C,
-/* M */ 0x0D,
-/* N */ 0x0E,
-/* O */ 0x0F,
-/* P */ 0x10,
-/* Q */ 0x11,
-/* R */ 0x12,
-/* DA - DF */ 0, 0, 0, 0, 0, 0,
-/* \ */ 0x1C,
-/* E1 */ 0,
-/* S */ 0x13,
-/* T */ 0x3C,
-/* U */ 0x3D,
-/* V */ 0x32,
-/* W */ 0x26,
-/* X */ 0x18,
-/* Y */ 0x19,
-/* Z */ 0x3F,
-/* EA - FF*/ 0, 0, 0, 0, 0, 0,
-	0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-};
-
-char MetaCharTable[]=
-{//   0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-      0,  0,  0,  0,'\\', 0,'F',  0,'W','M','N',  0,  0,  0,  0,  0,
-      0,  0,  0,  0,']',  0,  0,'G',  0,  0,'R','O',  0,  0,  0,  0,
-    '@','A','B','C','D','E',  0,  0,'H','I','J','K','L',  0,  0,  0,
-    'P','Q',  0,'S','T','U','V',  0,'X','Y','Z','[',  0,  0,'^',  0
-};
-
-
-// TODO: Use characters NOT numbers!!!
-char CtrlCharTable[]=
-{//   0   1   2   3   4   5   6   7   8   9   A   B   C   D   E   F
-    124,193,194,195,  0,201,  0,  0,  0,  0,  0,210,211,212,213,214,
-    215,216,217,226,  0,209,200,  0,231,232,  0,  0,224,189, 95,109,
-      0,  0,  0,  0,  0,  0,230,173,  0,  0,  0,  0,  0,197,198,199,
-      0,  0,229,  0,  0,  0,  0,196,  0,  0,  0,  0,227,228,  0,233,
-};
-
-
-#endif

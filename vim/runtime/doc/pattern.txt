@@ -1,4 +1,4 @@
-*pattern.txt*   For Vim version 8.2.  Last change: 2022 Jan 08
+*pattern.txt*   For Vim version 8.2.  Last change: 2022 Mar 04
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -19,7 +19,7 @@ explanations are in chapter 27 |usr_27.txt|.
 8. Composing characters		|patterns-composing|
 9. Compare with Perl patterns	|perl-patterns|
 10. Highlighting matches	|match-highlight|
-11. Fuzzy matching		|fuzzy-match|
+11. Fuzzy matching		|fuzzy-matching|
 
 ==============================================================================
 1. Search commands				*search-commands*
@@ -164,9 +164,12 @@ index, on which the cursor is. This can look like this: >
 Note: the count does not take offset into account.
 
 When no match is found you get the error: *E486* Pattern not found
-Note that for the |:global| command this behaves like a normal message, for Vi
-compatibility.  For the |:s| command the "e" flag can be used to avoid the
-error message |:s_flags|.
+Note that for the `:global` command, when used in legacy script, you get a
+normal message "Pattern not found", for Vi compatibility.
+In |Vim9| script you get E486 for "pattern not found" or *E538* when the pattern
+matches in every line with `:vglobal`.
+For the |:s| command the "e" flag can be used to avoid the error message
+|:s_flags|.
 
 					*search-offset* *{offset}*
 These commands search for the specified pattern.  With "/" and "?" an
@@ -376,7 +379,7 @@ Vim includes two regexp engines:
 1. An old, backtracking engine that supports everything.
 2. A new, NFA engine that works much faster on some patterns, possibly slower
    on some patterns.
-
+								 *E1281*
 Vim will automatically select the right engine for you.  However, if you run
 into a problem or want to specifically select one engine or the other, you can
 prepend one of the following to the pattern:
@@ -925,7 +928,7 @@ $	At end of pattern or in front of "\|", "\)" or "\n" ('magic' on):
 	becomes invalid.  Vim doesn't automatically update the matches.
 	Similar to moving the cursor for "\%#" |/\%#|.
 
-						*/\%l* */\%>l* */\%<l* *E951*
+					*/\%l* */\%>l* */\%<l* *E951* *E1204*
 \%23l	Matches in a specific line.
 \%<23l	Matches above a specific line (lower line number).
 \%>23l	Matches below a specific line (higher line number).
@@ -963,7 +966,7 @@ $	At end of pattern or in front of "\|", "\)" or "\n" ('magic' on):
 	the cursor moves the display isn't updated for this change.  An update
 	is done when using the |CTRL-L| command (the whole screen is updated).
 	Example, to highlight the column where the cursor currently is: >
-		:exe '/\%' . col(".") . 'c'
+		:exe '/\%' .. col(".") .. 'c'
 <	Alternatively use: >
 		/\%.c
 <	When 'hlsearch' is set and you move the cursor around and make changes
@@ -1457,7 +1460,7 @@ Finally, these constructs are unique to Perl:
 		":2match" for another plugin.
 
 ==============================================================================
-11. Fuzzy matching					*fuzzy-match*
+11. Fuzzy matching					*fuzzy-matching*
 
 Fuzzy matching refers to matching strings using a non-exact search string.
 Fuzzy matching will match a string, if all the characters in the search string

@@ -1419,9 +1419,6 @@ prt_write_file(char_u *buffer)
     static void
 prt_write_file_len(char_u *buffer, int bytes)
 {
-#ifdef EBCDIC
-    ebcdic2ascii(buffer, bytes);
-#endif
     prt_write_file_raw_len(buffer, bytes);
 }
 
@@ -1626,8 +1623,6 @@ prt_flush_buffer(void)
 	    prt_write_string("ul\n");
 	}
 	// Draw the text
-	// Note: we write text out raw - EBCDIC conversion is handled in the
-	// PostScript world via the font encoding vector.
 	if (prt_out_mbyte)
 	    prt_write_string("<");
 	else
@@ -2769,9 +2764,9 @@ mch_print_begin(prt_settings_T *psettings)
 	// derive the bbox from that point.  We have the expected cpl chars
 	// across the media and lpp lines down the media.
 	bbox[1] = (int)(top - (psettings->lines_per_page + prt_header_height())
-							    * prt_line_height);
-	bbox[2] = (int)(left + psettings->chars_per_line * prt_char_width
-									+ 0.5);
+						    * (double)prt_line_height);
+	bbox[2] = (int)(left + psettings->chars_per_line
+					       * (double)prt_char_width + 0.5);
 	bbox[3] = (int)(top + 0.5);
     }
     else
@@ -2782,8 +2777,8 @@ mch_print_begin(prt_settings_T *psettings)
 	bbox[1] = (int)bottom;
 	bbox[2] = (int)(left + ((psettings->lines_per_page
 			      + prt_header_height()) * prt_line_height) + 0.5);
-	bbox[3] = (int)(bottom + psettings->chars_per_line * prt_char_width
-									+ 0.5);
+	bbox[3] = (int)(bottom + psettings->chars_per_line
+					       * (double)prt_char_width + 0.5);
     }
     prt_dsc_ints("BoundingBox", 4, bbox);
     // The media width and height does not change with landscape printing!
@@ -2797,7 +2792,7 @@ mch_print_begin(prt_settings_T *psettings)
     if (prt_out_mbyte)
     {
 	prt_dsc_font_resource((prt_use_courier ? NULL
-				 : "DocumentNeededResources"), &prt_ps_mb_font);
+				: "DocumentNeededResources"), &prt_ps_mb_font);
 	if (!prt_custom_cmap)
 	    prt_dsc_resources(NULL, "cmap", prt_cmap);
     }
@@ -3119,7 +3114,7 @@ mch_print_end(prt_settings_T *psettings)
 
     // Write CTRL-D to close serial communication link if used.
     // NOTHING MUST BE WRITTEN AFTER THIS!
-    prt_write_file((char_u *)IF_EB("\004", "\067"));
+    prt_write_file((char_u *)"\004");
 
     if (!prt_file_error && psettings->outfile == NULL
 					&& !got_int && !psettings->user_abort)
@@ -3379,26 +3374,21 @@ mch_print_text_out(char_u *textp, int len UNUSED)
 	{
 	    // Convert non-printing characters to either their escape or octal
 	    // sequence, ensures PS sent over a serial line does not interfere
-	    // with the comms protocol.  Note: For EBCDIC we need to write out
-	    // the escape sequences as ASCII codes!
-	    // Note 2: Char codes < 32 are identical in EBCDIC and ASCII AFAIK!
-	    ga_append(&prt_ps_buffer, IF_EB('\\', 0134));
+	    // with the comms protocol.
+	    ga_append(&prt_ps_buffer, '\\');
 	    switch (ch)
 	    {
-		case BS:   ga_append(&prt_ps_buffer, IF_EB('b', 0142)); break;
-		case TAB:  ga_append(&prt_ps_buffer, IF_EB('t', 0164)); break;
-		case NL:   ga_append(&prt_ps_buffer, IF_EB('n', 0156)); break;
-		case FF:   ga_append(&prt_ps_buffer, IF_EB('f', 0146)); break;
-		case CAR:  ga_append(&prt_ps_buffer, IF_EB('r', 0162)); break;
-		case '(':  ga_append(&prt_ps_buffer, IF_EB('(', 0050)); break;
-		case ')':  ga_append(&prt_ps_buffer, IF_EB(')', 0051)); break;
-		case '\\': ga_append(&prt_ps_buffer, IF_EB('\\', 0134)); break;
+		case BS:   ga_append(&prt_ps_buffer, 'b'); break;
+		case TAB:  ga_append(&prt_ps_buffer, 't'); break;
+		case NL:   ga_append(&prt_ps_buffer, 'n'); break;
+		case FF:   ga_append(&prt_ps_buffer, 'f'); break;
+		case CAR:  ga_append(&prt_ps_buffer, 'r'); break;
+		case '(':  ga_append(&prt_ps_buffer, '('); break;
+		case ')':  ga_append(&prt_ps_buffer, ')'); break;
+		case '\\': ga_append(&prt_ps_buffer, '\\'); break;
 
 		default:
 			   sprintf((char *)ch_buff, "%03o", (unsigned int)ch);
-#ifdef EBCDIC
-			   ebcdic2ascii(ch_buff, 3);
-#endif
 			   ga_append(&prt_ps_buffer, ch_buff[0]);
 			   ga_append(&prt_ps_buffer, ch_buff[1]);
 			   ga_append(&prt_ps_buffer, ch_buff[2]);

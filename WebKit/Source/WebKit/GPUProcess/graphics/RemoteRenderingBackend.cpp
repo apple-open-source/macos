@@ -74,23 +74,22 @@
 namespace WebKit {
 using namespace WebCore;
 
-Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
+Ref<RemoteRenderingBackend> RemoteRenderingBackend::create(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::Attachment&& connectionIdentifier, IPC::StreamConnectionBuffer&& streamBuffer)
 {
-    auto instance = adoptRef(*new RemoteRenderingBackend(gpuConnectionToWebProcess, WTFMove(creationParameters), WTFMove(streamBuffer)));
+    auto instance = adoptRef(*new RemoteRenderingBackend(gpuConnectionToWebProcess, WTFMove(creationParameters), WTFMove(connectionIdentifier), WTFMove(streamBuffer)));
     instance->startListeningForIPC();
     return instance;
 }
 
-RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::StreamConnectionBuffer&& streamBuffer)
+RemoteRenderingBackend::RemoteRenderingBackend(GPUConnectionToWebProcess& gpuConnectionToWebProcess, RemoteRenderingBackendCreationParameters&& creationParameters, IPC::Attachment&& connectionIdentifier, IPC::StreamConnectionBuffer&& streamBuffer)
     : m_workQueue(IPC::StreamConnectionWorkQueue::create("RemoteRenderingBackend work queue"))
-    , m_streamConnection(IPC::StreamServerConnection::create(gpuConnectionToWebProcess.connection(), WTFMove(streamBuffer), m_workQueue.get()))
+    , m_streamConnection(IPC::StreamServerConnection::createWithDedicatedConnection(WTFMove(connectionIdentifier), WTFMove(streamBuffer), m_workQueue.get()))
     , m_remoteResourceCache(gpuConnectionToWebProcess.webProcessIdentifier())
     , m_gpuConnectionToWebProcess(gpuConnectionToWebProcess)
     , m_resourceOwner(gpuConnectionToWebProcess.webProcessIdentity())
     , m_renderingBackendIdentifier(creationParameters.identifier)
 {
     ASSERT(RunLoop::isMain());
-    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue->wakeUpSemaphore()), m_renderingBackendIdentifier);
 }
 
 RemoteRenderingBackend::~RemoteRenderingBackend() = default;
@@ -101,17 +100,15 @@ void RemoteRenderingBackend::startListeningForIPC()
         Locker locker { m_remoteDisplayListsLock };
         m_canRegisterRemoteDisplayLists = true;
     }
-
     m_streamConnection->startReceivingMessages(*this, Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
-    // RemoteDisplayListRecorder messages depend on RemoteRenderingBackend, because RemoteRenderingBackend creates RemoteDisplayListRecorder and
-    // makes a receive queue for it. In order to guarantee correct ordering, ensure that all RemoteDisplayListRecorder messages are processed in
-    // the same sequence as RemoteRenderingBackend messages.
-    m_streamConnection->startReceivingMessages(Messages::RemoteDisplayListRecorder::messageReceiverName());
+    m_streamConnection->open();
+    send(Messages::RemoteRenderingBackendProxy::DidCreateWakeUpSemaphoreForDisplayListStream(m_workQueue->wakeUpSemaphore()), m_renderingBackendIdentifier);
 }
 
 void RemoteRenderingBackend::stopListeningForIPC()
 {
     ASSERT(RunLoop::isMain());
+    m_streamConnection->invalidate();
 
     // This item is dispatched to the WorkQueue before calling stopAndWaitForCompletion() such that it will process it last, after any existing work.
     m_workQueue->dispatch([&] {
@@ -123,7 +120,6 @@ void RemoteRenderingBackend::stopListeningForIPC()
     m_workQueue->stopAndWaitForCompletion();
 
     m_streamConnection->stopReceivingMessages(Messages::RemoteRenderingBackend::messageReceiverName(), m_renderingBackendIdentifier.toUInt64());
-    m_streamConnection->stopReceivingMessages(Messages::RemoteDisplayListRecorder::messageReceiverName());
 
     {
         Locker locker { m_remoteDisplayListsLock };
@@ -140,7 +136,7 @@ void RemoteRenderingBackend::dispatch(Function<void()>&& task)
 
 IPC::Connection* RemoteRenderingBackend::messageSenderConnection() const
 {
-    return &m_gpuConnectionToWebProcess->connection();
+    return &m_streamConnection->connection();
 }
 
 uint64_t RemoteRenderingBackend::messageSenderDestinationID() const
@@ -200,47 +196,30 @@ void RemoteRenderingBackend::createImageBufferWithQualifiedIdentifier(const Floa
     updateRenderingResourceRequest();
 }
 
-std::optional<SharedMemory::IPCHandle> RemoteRenderingBackend::updateSharedMemoryForGetPixelBufferHelper(size_t byteCount)
+void RemoteRenderingBackend::getPixelBufferForImageBuffer(RenderingResourceIdentifier imageBuffer, WebCore::PixelBufferFormat&& destinationFormat, WebCore::IntRect&& srcRect, CompletionHandler<void()>&& completionHandler)
 {
-    MESSAGE_CHECK_WITH_RETURN_VALUE(!m_getPixelBufferSharedMemory || byteCount > m_getPixelBufferSharedMemory->size(), std::nullopt, "The existing Shmem for getPixelBuffer() is already big enough to handle the request");
-
-    if (byteCount > HTMLCanvasElement::maxActivePixelMemory()) {
-        // Just a sanity check.
-        return std::nullopt;
+    MESSAGE_CHECK(m_getPixelBufferSharedMemory, "No shared memory for getPixelBufferForImageBuffer");
+    MESSAGE_CHECK(PixelBuffer::supportedPixelFormat(destinationFormat.pixelFormat), "Pixel format not supported");
+    QualifiedRenderingResourceIdentifier qualifiedImageBuffer { imageBuffer, m_gpuConnectionToWebProcess->webProcessIdentifier() };
+    if (auto imageBuffer = m_remoteResourceCache.cachedImageBuffer(qualifiedImageBuffer)) {
+        auto pixelBuffer = imageBuffer->getPixelBuffer(destinationFormat, srcRect);
+        if (pixelBuffer) {
+            MESSAGE_CHECK(pixelBuffer->data().byteLength() <= m_getPixelBufferSharedMemory->size(), "Shmem for return of getPixelBuffer is too small");
+            memcpy(m_getPixelBufferSharedMemory->data(), pixelBuffer->data().data(), pixelBuffer->data().byteLength());
+        } else
+            memset(m_getPixelBufferSharedMemory->data(), 0, m_getPixelBufferSharedMemory->size());
     }
-
-    destroyGetPixelBufferSharedMemory();
-    m_getPixelBufferSharedMemory = SharedMemory::allocate(byteCount);
-    SharedMemory::Handle handle;
-    if (m_getPixelBufferSharedMemory)
-        m_getPixelBufferSharedMemory->createHandle(handle, SharedMemory::Protection::ReadOnly);
-    return SharedMemory::IPCHandle { WTFMove(handle), m_getPixelBufferSharedMemory ? m_getPixelBufferSharedMemory->size() : 0 };
+    completionHandler();
 }
 
-void RemoteRenderingBackend::updateSharedMemoryForGetPixelBuffer(uint32_t byteCount, CompletionHandler<void(const SharedMemory::IPCHandle&)>&& completionHandler)
+void RemoteRenderingBackend::getPixelBufferForImageBufferWithNewMemory(RenderingResourceIdentifier imageBuffer, SharedMemory::IPCHandle&& handle, WebCore::PixelBufferFormat&& destinationFormat, WebCore::IntRect&& srcRect, CompletionHandler<void()>&& completionHandler)
 {
-    ASSERT(!RunLoop::isMain());
-
-    if (auto handle = updateSharedMemoryForGetPixelBufferHelper(byteCount))
-        completionHandler(WTFMove(handle.value()));
-    else
-        completionHandler({ });
-}
-
-void RemoteRenderingBackend::semaphoreForGetPixelBuffer(CompletionHandler<void(const IPC::Semaphore&)>&& completionHandler)
-{
-    ASSERT(!RunLoop::isMain());
-    completionHandler(m_getPixelBufferSemaphore);
-}
-
-void RemoteRenderingBackend::updateSharedMemoryAndSemaphoreForGetPixelBuffer(uint32_t byteCount, CompletionHandler<void(const SharedMemory::IPCHandle&, const IPC::Semaphore&)>&& completionHandler)
-{
-    ASSERT(!RunLoop::isMain());
-
-    if (auto handle = updateSharedMemoryForGetPixelBufferHelper(byteCount))
-        completionHandler(WTFMove(handle.value()), m_getPixelBufferSemaphore);
-    else
-        completionHandler({ }, m_getPixelBufferSemaphore);
+    m_getPixelBufferSharedMemory = nullptr;
+    auto sharedMemory = WebKit::SharedMemory::map(handle.handle, WebKit::SharedMemory::Protection::ReadWrite);
+    MESSAGE_CHECK(sharedMemory, "Shared memory could not be mapped.");
+    MESSAGE_CHECK(sharedMemory->size() <= HTMLCanvasElement::maxActivePixelMemory(), "Shared memory too big.");
+    m_getPixelBufferSharedMemory = WTFMove(sharedMemory);
+    getPixelBufferForImageBuffer(imageBuffer, WTFMove(destinationFormat), WTFMove(srcRect), WTFMove(completionHandler));
 }
 
 void RemoteRenderingBackend::destroyGetPixelBufferSharedMemory()
@@ -248,17 +227,11 @@ void RemoteRenderingBackend::destroyGetPixelBufferSharedMemory()
     m_getPixelBufferSharedMemory = nullptr;
 }
 
-void RemoteRenderingBackend::populateGetPixelBufferSharedMemory(std::optional<WebCore::PixelBuffer>&& pixelBuffer)
+void RemoteRenderingBackend::putPixelBufferForImageBuffer(WebCore::RenderingResourceIdentifier imageBuffer, WebCore::PixelBuffer&& pixelBuffer, WebCore::IntRect&& srcRect, WebCore::IntPoint&& destPoint, WebCore::AlphaPremultiplication destFormat)
 {
-    MESSAGE_CHECK(m_getPixelBufferSharedMemory, "We can't run getPixelBuffer without a buffer to write into");
-
-    if (pixelBuffer) {
-        MESSAGE_CHECK(pixelBuffer->data().byteLength() <= m_getPixelBufferSharedMemory->size(), "Shmem for return of getPixelBuffer is too small");
-        memcpy(m_getPixelBufferSharedMemory->data(), pixelBuffer->data().data(), pixelBuffer->data().byteLength());
-    } else
-        memset(m_getPixelBufferSharedMemory->data(), 0, m_getPixelBufferSharedMemory->size());
-
-    m_getPixelBufferSemaphore.signal();
+    QualifiedRenderingResourceIdentifier qualifiedImageBuffer { imageBuffer, m_gpuConnectionToWebProcess->webProcessIdentifier() };
+    if (auto imageBuffer = m_remoteResourceCache.cachedImageBuffer(qualifiedImageBuffer))
+        imageBuffer->putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
 }
 
 void RemoteRenderingBackend::getDataURLForImageBuffer(const String& mimeType, std::optional<double> quality, WebCore::PreserveResolution preserveResolution, WebCore::RenderingResourceIdentifier renderingResourceIdentifier, CompletionHandler<void(String&&)>&& completionHandler)

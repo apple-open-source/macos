@@ -2018,7 +2018,7 @@ static void init_spellfile(void);
 // In the postponed prefixes tree wn_flags is used to store the WFP_ flags,
 // but it must be negative to indicate the prefix tree to tree_add_word().
 // Use a negative number with the lower 8 bits zero.
-#define PFX_FLAGS	-256
+#define PFX_FLAGS	(-256)
 
 // flags for "condit" argument of store_aff_word()
 #define CONDIT_COMB	1	// affix must combine
@@ -3618,7 +3618,7 @@ spell_read_dic(spellinfo_T *spin, char_u *fname, afffile_T *affile)
 	}
 
 	// Store the word in the hashtable to be able to find duplicates.
-	dw = (char_u *)getroom_save(spin, w);
+	dw = getroom_save(spin, w);
 	if (dw == NULL)
 	{
 	    retval = FAIL;
@@ -4389,6 +4389,10 @@ store_word(
     char_u	foldword[MAXWLEN];
     int		res = OK;
     char_u	*p;
+
+    // Avoid adding illegal bytes to the word tree.
+    if (enc_utf8 && !utf_valid_string(word, NULL))
+	return FAIL;
 
     (void)spell_casefold(curwin, word, len, foldword, MAXWLEN);
     for (p = pfxlist; res == OK; ++p)
@@ -5976,7 +5980,7 @@ mkspell(
 	}
 	if (mch_isdir(wfname))
 	{
-	    semsg(_(e_src_is_directory), wfname);
+	    semsg(_(e_str_is_directory), wfname);
 	    goto theend;
 	}
 
@@ -6190,6 +6194,12 @@ spell_add_word(
     int		i;
     char_u	*spf;
 
+    if (enc_utf8 && !utf_valid_string(word, NULL))
+    {
+	emsg(_(e_illegal_character_in_word));
+	return;
+    }
+
     if (idx == 0)	    // use internal wordlist
     {
 	if (int_wordlist == NULL)
@@ -6256,6 +6266,8 @@ spell_add_word(
 	    {
 		fpos = fpos_next;
 		fpos_next = ftell(fd);
+		if (fpos_next < 0)
+		    break;  // should never happen
 		if (STRNCMP(word, line, len) == 0
 			&& (line[len] == '/' || line[len] < ' '))
 		{
@@ -6336,7 +6348,7 @@ spell_add_word(
 
 	// If the .add file is edited somewhere, reload it.
 	if (buf != NULL)
-	    buf_reload(buf, buf->b_orig_mode);
+	    buf_reload(buf, buf->b_orig_mode, FALSE);
 
 	redraw_all_later(SOME_VALID);
     }
@@ -6412,7 +6424,8 @@ init_spellfile(void)
 			fname != NULL
 			  && strstr((char *)gettail(fname), ".ascii.") != NULL
 				       ? (char_u *)"ascii" : spell_enc());
-		set_option_value((char_u *)"spellfile", 0L, buf, OPT_LOCAL);
+		set_option_value_give_err((char_u *)"spellfile",
+							   0L, buf, OPT_LOCAL);
 		break;
 	    }
 	    aspath = FALSE;

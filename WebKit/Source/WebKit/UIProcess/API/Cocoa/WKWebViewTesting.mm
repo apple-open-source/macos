@@ -30,6 +30,7 @@
 #import "GPUProcessProxy.h"
 #import "MediaSessionCoordinatorProxyPrivate.h"
 #import "PlaybackSessionManagerProxy.h"
+#import "PrintInfo.h"
 #import "UserMediaProcessManager.h"
 #import "ViewGestureController.h"
 #import "WebPageProxy.h"
@@ -428,6 +429,15 @@
 {
     _page->isLayerTreeFrozen([completionHandler = makeBlockPtr(completionHandler)](bool isFrozen) {
         completionHandler(isFrozen);
+    });
+}
+
+- (void)_computePagesForPrinting:(_WKFrameHandle *)handle completionHandler:(void(^)(void))completionHandler
+{
+    WebKit::PrintInfo printInfo;
+    auto* webFrameProxy = _page->process().webFrame(handle->_frameHandle->frameID());
+    _page->computePagesForPrinting(webFrameProxy, printInfo, [completionHandler = makeBlockPtr(completionHandler)] (const Vector<WebCore::IntRect>&, double, const WebCore::FloatBoxExtent&) {
+        completionHandler();
     });
 }
 

@@ -493,7 +493,7 @@ void RenderLayer::insertOnlyThisLayer(LayerChangeTiming timing)
 
     // Remove all descendant layers from the hierarchy and add them to the new position.
     for (auto& child : childrenOfType<RenderElement>(renderer()))
-        child.moveLayers(m_parent, *this);
+        child.moveLayers(*this);
 
     if (parent()) {
         if (timing == LayerChangeTiming::StyleChange)
@@ -2408,17 +2408,17 @@ bool RenderLayer::allowsCurrentScroll() const
     if (renderer().parent() && !renderer().parent()->style().lineClamp().isNone())
         return false;
 
-    RenderBox* box = renderBox();
-    ASSERT(box); // Only boxes can have overflowClip set.
+    // Only boxes can have overflowClip set.
+    auto& box = *renderBox();
 
-    if (renderer().frame().eventHandler().autoscrollInProgress()) {
+    if (box.frame().eventHandler().autoscrollInProgress()) {
         // The "programmatically" here is misleading; this asks whether the box has scrollable overflow,
         // or is a special case like a form control.
-        return box->canBeProgramaticallyScrolled();
+        return box.canBeProgramaticallyScrolled();
     }
 
-    // Programmatic scrolls can scroll overflow:hidden.
-    return box->hasHorizontalOverflow() || box->hasVerticalOverflow();
+    // Programmatic scrolls can scroll overflow: hidden but not overflow: clip.
+    return box.hasPotentiallyScrollableOverflow() && (box.hasHorizontalOverflow() || box.hasVerticalOverflow());
 }
 
 void RenderLayer::scrollRectToVisible(const LayoutRect& absoluteRect, bool insideFixed, const ScrollRectToVisibleOptions& options)
@@ -5441,8 +5441,10 @@ void RenderLayer::createReflection()
 
 void RenderLayer::removeReflection()
 {
-    if (!m_reflection->renderTreeBeingDestroyed())
-        m_reflection->removeLayers(this);
+    if (!m_reflection->renderTreeBeingDestroyed()) {
+        if (auto* layer = m_reflection->layer())
+            removeChild(*layer);
+    }
 
     m_reflection->setParent(nullptr);
     m_reflection = nullptr;

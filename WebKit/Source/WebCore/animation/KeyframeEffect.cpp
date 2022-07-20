@@ -637,12 +637,13 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(JSGlobalObject& lexicalGlo
         auto* target = m_target.get();
         auto* renderer = this->renderer();
         auto* lastStyleChangeEventStyle = targetStyleable()->lastStyleChangeEventStyle();
+        auto& elementStyle = lastStyleChangeEventStyle ? *lastStyleChangeEventStyle : currentStyle();
 
         auto computedStyleExtractor = ComputedStyleExtractor(target, false, m_pseudoId);
 
         KeyframeList computedKeyframes(m_blendingKeyframes.animationName());
         computedKeyframes.copyKeyframes(m_blendingKeyframes);
-        computedKeyframes.fillImplicitKeyframes(*m_target, m_target->styleResolver(), lastStyleChangeEventStyle, nullptr);
+        computedKeyframes.fillImplicitKeyframes(*this, elementStyle);
 
         auto keyframeRules = [&]() -> const Vector<Ref<StyleRuleKeyframe>> {
             if (!is<CSSAnimation>(animation()))
@@ -674,22 +675,6 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(JSGlobalObject& lexicalGlo
             if (is<StyledElement>(m_target) && m_pseudoId == PseudoId::None) {
                 if (auto* inlineProperties = downcast<StyledElement>(*m_target).inlineStyle())
                     styleProperties->mergeAndOverrideOnConflict(*inlineProperties);
-            }
-        }
-
-        // We need to establish which properties are implicit for 0% and 100%.
-        HashSet<CSSPropertyID> zeroKeyframeProperties = computedKeyframes.properties();
-        HashSet<CSSPropertyID> oneKeyframeProperties = computedKeyframes.properties();
-        zeroKeyframeProperties.remove(CSSPropertyCustom);
-        oneKeyframeProperties.remove(CSSPropertyCustom);
-        for (size_t i = 0; i < computedKeyframes.size(); ++i) {
-            auto& keyframe = computedKeyframes[i];
-            if (!keyframe.key()) {
-                for (auto cssPropertyId : keyframe.properties())
-                    zeroKeyframeProperties.remove(cssPropertyId);
-            } else if (keyframe.key() == 1) {
-                for (auto cssPropertyId : keyframe.properties())
-                    oneKeyframeProperties.remove(cssPropertyId);
             }
         }
 
@@ -750,19 +735,6 @@ Vector<Strong<JSObject>> KeyframeEffect::getKeyframes(JSGlobalObject& lexicalGlo
                 if (cssPropertyId == CSSPropertyCustom)
                     continue;
                 addPropertyToKeyframe(cssPropertyId);
-            }
-
-            // Now add the implicit properties in case there are any and we're dealing with a 0% or 100% keyframe.
-            if (lastStyleChangeEventStyle) {
-                if (!keyframe.key()) {
-                    for (auto cssPropertyId : zeroKeyframeProperties)
-                        addPropertyToKeyframe(cssPropertyId);
-                    zeroKeyframeProperties.clear();
-                } else if (keyframe.key() == 1) {
-                    for (auto cssPropertyId : oneKeyframeProperties)
-                        addPropertyToKeyframe(cssPropertyId);
-                    oneKeyframeProperties.clear();
-                }
             }
 
             // 5. Append output keyframe to result.
@@ -947,7 +919,7 @@ void KeyframeEffect::updateBlendingKeyframes(RenderStyle& elementStyle, const St
             keyframeList.addProperty(styleProperties->propertyAt(i).id());
 
         auto keyframeRule = StyleRuleKeyframe::create(WTFMove(styleProperties));
-        keyframeValue.setStyle(styleResolver.styleForKeyframe(*m_target, &elementStyle, resolutionContext, keyframeRule.ptr(), keyframeValue));
+        keyframeValue.setStyle(styleResolver.styleForKeyframe(*m_target, elementStyle, resolutionContext, keyframeRule.get(), keyframeValue));
         keyframeList.insert(WTFMove(keyframeValue));
     }
 
@@ -1143,7 +1115,7 @@ void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const RenderStyle& una
 
     KeyframeList keyframeList(backingAnimation.name().string);
     if (auto* styleScope = Style::Scope::forOrdinal(*m_target, backingAnimation.nameStyleScopeOrdinal()))
-        styleScope->resolver().keyframeStylesForAnimation(*m_target, &unanimatedStyle, resolutionContext, keyframeList);
+        styleScope->resolver().keyframeStylesForAnimation(*m_target, unanimatedStyle, resolutionContext, keyframeList);
 
     // Ensure resource loads for all the frames.
     for (auto& keyframe : keyframeList.keyframes()) {
@@ -1571,12 +1543,8 @@ void KeyframeEffect::setAnimatedPropertiesInStyle(RenderStyle& targetStyle, doub
         for (size_t i = 0; i < m_blendingKeyframes.size(); ++i) {
             auto& keyframe = m_blendingKeyframes[i];
             auto offset = keyframe.key();
-            if (!keyframe.containsProperty(cssPropertyId)) {
-                // If we're dealing with a CSS animation, we consider the first and last keyframes to always have the property listed
-                // since the underlying style was provided and should be captured.
-                if (m_blendingKeyframesSource == BlendingKeyframesSource::WebAnimation || (offset && offset < 1))
-                    continue;
-            }
+            if (!keyframe.containsProperty(cssPropertyId))
+                continue;
             if (!offset)
                 numberOfKeyframesWithZeroOffset++;
             if (offset == 1)
@@ -1899,7 +1867,7 @@ OptionSet<AcceleratedActionApplicationResult> KeyframeEffect::applyPendingAccele
 
         KeyframeList explicitKeyframes(m_blendingKeyframes.animationName());
         explicitKeyframes.copyKeyframes(m_blendingKeyframes);
-        explicitKeyframes.fillImplicitKeyframes(*m_target, m_target->styleResolver(), underlyingStyle.get(), nullptr);
+        explicitKeyframes.fillImplicitKeyframes(*this, *underlyingStyle);
         return renderer->startAnimation(timeOffset, backingAnimationForCompositedRenderer(), explicitKeyframes) ? RunningAccelerated::Yes : RunningAccelerated::No;
     };
 

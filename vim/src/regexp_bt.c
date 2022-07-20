@@ -533,22 +533,6 @@ reg_equi_class(int c)
     if (enc_utf8 || STRCMP(p_enc, "latin1") == 0
 					 || STRCMP(p_enc, "iso-8859-15") == 0)
     {
-#ifdef EBCDIC
-	int i;
-
-	// This might be slower than switch/case below.
-	for (i = 0; i < 16; i++)
-	{
-	    if (vim_strchr(EQUIVAL_CLASS_C[i], c) != NULL)
-	    {
-		char *p = EQUIVAL_CLASS_C[i];
-
-		while (*p != 0)
-		    regmbc(*p++);
-		return;
-	    }
-	}
-#else
 	/* <rdar://problem/54102067>
 	 * POSIX or C locales require equivalance classes to only recognize
 	 * the English alphabet
@@ -1023,7 +1007,6 @@ reg_equi_class(int c)
 		      regmbc(0x1e95); regmbc(0x2c6c);
 		      return;
 	}
-#endif
     }
     regmbc(c);
 }
@@ -1531,6 +1514,14 @@ regatom(int *flagp)
 		    break;
 
 		case '#':
+		    if (regparse[0] == '=' && regparse[1] >= 48
+							  && regparse[1] <= 50)
+		    {
+			// misplaced \%#=1
+			semsg(_(e_atom_engine_must_be_at_start_of_pattern),
+								  regparse[1]);
+			return FAIL;
+		    }
 		    ret = regnode(CURSOR);
 		    break;
 
@@ -1645,6 +1636,7 @@ regatom(int *flagp)
 			      long_u	n = 0;
 			      int	cmp;
 			      int	cur = FALSE;
+			      int	got_digit = FALSE;
 
 			      cmp = c;
 			      if (cmp == '<' || cmp == '>')
@@ -1656,6 +1648,7 @@ regatom(int *flagp)
 			      }
 			      while (VIM_ISDIGIT(c))
 			      {
+				  got_digit = TRUE;
 				  n = n * 10 + (c - '0');
 				  c = getchr();
 			      }
@@ -1673,11 +1666,13 @@ regatom(int *flagp)
 				  }
 				  break;
 			      }
-			      else if (c == 'l' || c == 'c' || c == 'v')
+			      else if ((c == 'l' || c == 'c' || c == 'v')
+					  && (cur || got_digit))
 			      {
 				  if (cur && n)
 				  {
-				    semsg(_(e_regexp_number_after_dot_pos_search), no_Magic(c));
+				    semsg(_(e_regexp_number_after_dot_pos_search_chr),
+								  no_Magic(c));
 				    rc_did_emsg = TRUE;
 				    return NULL;
 				  }
@@ -1805,19 +1800,8 @@ collection:
 			    }
 			    else
 			    {
-#ifdef EBCDIC
-				int	alpha_only = FALSE;
-
-				// for alphabetical range skip the gaps
-				// 'i'-'j', 'r'-'s', 'I'-'J' and 'R'-'S'.
-				if (isalpha(startc) && isalpha(endc))
-				    alpha_only = TRUE;
-#endif
 				while (++startc <= endc)
-#ifdef EBCDIC
-				    if (!alpha_only || isalpha(startc))
-#endif
-					regc(startc);
+				    regc(startc);
 			    }
 			    startc = -1;
 			}
@@ -3298,8 +3282,10 @@ regmatch(
 	    break;
 	}
 #ifdef FEAT_RELTIME
-	// Check for timeout once in a 100 times to avoid overhead.
-	if (tm != NULL && ++tm_count == 100)
+	// Check for timeout once in 250 times to avoid excessive overhead from
+	// reading the clock.  The value has been picked to check about once
+	// per msec on a modern CPU.
+	if (tm != NULL && ++tm_count == 250)
 	{
 	    tm_count = 0;
 	    if (profile_passed_limit(tm))
@@ -3340,7 +3326,7 @@ regmatch(
 	op = OP(scan);
 	// Check for character class with NL added.
 	if (!rex.reg_line_lbr && WITH_NL(op) && REG_MULTI
-			     && *rex.input == NUL && rex.lnum <= rex.reg_maxline)
+			   && *rex.input == NUL && rex.lnum <= rex.reg_maxline)
 	{
 	    reg_nextline();
 	}
@@ -3399,8 +3385,17 @@ regmatch(
 		int	mark = OPERAND(scan)[0];
 		int	cmp = OPERAND(scan)[1];
 		pos_T	*pos;
+		size_t	col = REG_MULTI ? rex.input - rex.line : 0;
 
 		pos = getmark_buf(rex.reg_buf, mark, FALSE);
+
+		// Line may have been freed, get it again.
+		if (REG_MULTI)
+		{
+		    rex.line = reg_getline(rex.lnum);
+		    rex.input = rex.line + col;
+		}
+
 		if (pos == NULL		     // mark doesn't exist
 			|| pos->lnum <= 0)   // mark isn't set in reg_buf
 		{
@@ -4654,6 +4649,11 @@ regmatch(
 			    if (rex.input == rex.line)
 			    {
 				// backup to last char of previous line
+				if (rex.lnum == 0)
+				{
+				    status = RA_NOMATCH;
+				    break;
+				}
 				--rex.lnum;
 				rex.line = reg_getline(rex.lnum);
 				// Just in case regrepeat() didn't count
@@ -5003,8 +5003,10 @@ bt_regexec_both(
 	    else
 		++col;
 #ifdef FEAT_RELTIME
-	    // Check for timeout once in a twenty times to avoid overhead.
-	    if (tm != NULL && ++tm_count == 20)
+	    // Check for timeout once in 500 times to avoid excessive overhead
+	    // from reading the clock.  The value has been picked to check
+	    // about once per msec on a modern CPU.
+	    if (tm != NULL && ++tm_count == 500)
 	    {
 		tm_count = 0;
 		if (profile_passed_limit(tm))

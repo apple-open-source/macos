@@ -1,5 +1,7 @@
 " Tests for cursor() and other functions that get/set the cursor position
 
+source check.vim
+
 func Test_wrong_arguments()
   call assert_fails('call cursor(1. 3)', 'E474:')
   call assert_fails('call cursor(test_null_list())', 'E474:')
@@ -124,7 +126,7 @@ func Test_screenpos()
 	\ 'col': wincol + 7,
 	\ 'curscol': wincol + 7,
 	\ 'endcol': wincol + 7}, winid->screenpos(line('$'), 8))
-  call assert_equal({'row': winrow - 1, 'col': 0, 'curscol': 0, 'endcol': 0},
+  call assert_equal({'row': 0, 'col': 0, 'curscol': 0, 'endcol': 0},
         \ winid->screenpos(line('$'), 22))
 
   close
@@ -133,10 +135,25 @@ func Test_screenpos()
   bwipe!
   set display&
 
-  call assert_equal({'col': 1, 'row': 1, 'endcol': 1, 'curscol': 1}, screenpos(win_getid(), 1, 1))
+  call assert_equal(#{col: 1, row: 1, endcol: 1, curscol: 1}, screenpos(win_getid(), 1, 1))
   nmenu WinBar.TEST :
-  call assert_equal({'col': 1, 'row': 2, 'endcol': 1, 'curscol': 1}, screenpos(win_getid(), 1, 1))
+  call assert_equal(#{col: 1, row: 2, endcol: 1, curscol: 1}, screenpos(win_getid(), 1, 1))
   nunmenu WinBar.TEST
+endfunc
+
+func Test_screenpos_fold()
+  CheckFeature folding
+
+  enew!
+  call setline(1, range(10))
+  3,5fold
+  redraw
+  call assert_equal(2, screenpos(1, 2, 1).row)
+  call assert_equal(#{col: 1, row: 3, endcol: 1, curscol: 1}, screenpos(1, 3, 1))
+  call assert_equal(3, screenpos(1, 4, 1).row)
+  call assert_equal(3, screenpos(1, 5, 1).row)
+  call assert_equal(4, screenpos(1, 6, 1).row)
+  bwipe!
 endfunc
 
 func Test_screenpos_number()
@@ -171,12 +188,12 @@ func Test_getcharpos()
   call assert_fails('call getcharpos({})', 'E731:')
   call assert_equal([0, 0, 0, 0], getcharpos(0))
   new
-  call setline(1, ['', "01\tà4è678", 'Ⅵ', '012345678'])
+  call setline(1, ['', "01\tà4è678", 'Ⅵ', '012345678', ' │  x'])
 
   " Test for '.' and '$'
   normal 1G
   call assert_equal([0, 1, 1, 0], getcharpos('.'))
-  call assert_equal([0, 4, 1, 0], getcharpos('$'))
+  call assert_equal([0, 5, 1, 0], getcharpos('$'))
   normal 2G6l
   call assert_equal([0, 2, 7, 0], getcharpos('.'))
   normal 3G$
@@ -189,6 +206,12 @@ func Test_getcharpos()
   call assert_equal([0, 2, 8, 0], getcharpos("'m"))
   delmarks m
   call assert_equal([0, 0, 0, 0], getcharpos("'m"))
+
+  " Check mark does not move
+  normal 5Gfxma
+  call assert_equal([0, 5, 5, 0], getcharpos("'a"))
+  call assert_equal([0, 5, 5, 0], getcharpos("'a"))
+  call assert_equal([0, 5, 5, 0], getcharpos("'a"))
 
   " Test for the visual start column
   vnoremap <expr> <F3> SaveVisualStartCharPos()

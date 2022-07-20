@@ -1925,8 +1925,11 @@ bool SecDbItemUpdate(SecDbItemRef old_item, SecDbItemRef new_item, SecDbConnecti
         SecDbItemRef tombstone = SecDbItemCopyTombstone(old_item, makeTombstone, false, error);
         ok = tombstone;
         if (tombstone) {
-            ok = (SecDbItemClearRowId(tombstone, error) &&
+            CFUUIDRef uuid = CFUUIDCreate(kCFAllocatorDefault);
+            ok = (SecDbItemSetValueWithName(tombstone, kSecAttrPersistentReference, uuid, error) &&
+                  SecDbItemClearRowId(tombstone, error) &&
                   SecDbItemDoInsert(tombstone, dbconn, error));
+            CFReleaseNull(uuid);
             CFRelease(tombstone);
         }
     }

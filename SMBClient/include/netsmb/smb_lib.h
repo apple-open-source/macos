@@ -161,6 +161,7 @@ int smb_ctx_clone(struct smb_ctx *new_ctx, struct smb_ctx *old_ctx,
 int findMountPointSession(void *inRef, const char *mntPoint);
 void *create_smb_ctx(void);
 int  create_smb_ctx_with_url(struct smb_ctx **out_ctx, const char *url);
+int smb_ctx_gethandle(struct smb_ctx *ctx);
 void smb_ctx_cancel_connection(struct smb_ctx *ctx);
 void smb_ctx_done(void *);
 int already_mounted(struct smb_ctx *ctx, char *uppercaseShareName, struct statfs *fs, 

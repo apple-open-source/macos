@@ -244,7 +244,7 @@ void RemoteDisplayListRecorder::drawFilteredImageBuffer(std::optional<RenderingR
         }
 
         if (auto nativeImage = resourceCache().cachedNativeImage({ *resourceIdentifier, m_webProcessIdentifier })) {
-            feImage.setImageSource(Ref<Image> { BitmapImage::create(nativeImage) });
+            feImage.setImageSource(Ref<Image> { BitmapImage::create(Ref<NativeImage> { *nativeImage }) });
             continue;
         }
 
@@ -443,14 +443,14 @@ void RemoteDisplayListRecorder::fillEllipse(const FloatRect& rect)
     handleItem(DisplayList::FillEllipse(rect));
 }
 
-void RemoteDisplayListRecorder::getPixelBuffer(const IntRect& srcRect, const PixelBufferFormat& outputFormat)
+void RemoteDisplayListRecorder::convertToLuminanceMask()
 {
-    m_renderingBackend->populateGetPixelBufferSharedMemory(m_imageBuffer->getPixelBuffer(outputFormat, srcRect));
+    m_imageBuffer->convertToLuminanceMask();
 }
 
-void RemoteDisplayListRecorder::putPixelBuffer(const IntRect& srcRect, const IntPoint& destPoint, const PixelBuffer& pixelBuffer, AlphaPremultiplication destFormat)
+void RemoteDisplayListRecorder::transformToColorSpace(const WebCore::DestinationColorSpace& colorSpace)
 {
-    m_imageBuffer->putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
+    m_imageBuffer->transformToColorSpace(colorSpace);
 }
 
 void RemoteDisplayListRecorder::paintFrameForMedia(MediaPlayerIdentifier identifier, const FloatRect& destination)

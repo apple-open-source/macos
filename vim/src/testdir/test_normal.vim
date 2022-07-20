@@ -3,7 +3,7 @@
 source shared.vim
 source check.vim
 source view_util.vim
-source vim9.vim
+import './vim9.vim' as v9
 
 func Setup_NewWindow()
   10new
@@ -626,7 +626,7 @@ func Test_opfunc_callback()
     normal! g@l
     call assert_equal([23, 'char'], g:OpFunc1Args)
   END
-  call CheckTransLegacySuccess(lines)
+  call v9.CheckTransLegacySuccess(lines)
 
   " Test for using a script-local function name
   func s:OpFunc3(type)
@@ -684,16 +684,16 @@ func Test_opfunc_callback()
     bw!
 
     # Test for using a script-local function name
-    def s:LocalOpFunc(type: string): void
+    def LocalOpFunc(type: string): void
       g:LocalOpFuncArgs = [type]
     enddef
-    &opfunc = s:LocalOpFunc
+    &opfunc = LocalOpFunc
     g:LocalOpFuncArgs = []
     normal! g@l
     assert_equal(['char'], g:LocalOpFuncArgs)
     bw!
   END
-  call CheckScriptSuccess(lines)
+  call v9.CheckScriptSuccess(lines)
 
   " setting 'opfunc' to a script local function outside of a script context
   " should fail
@@ -891,6 +891,7 @@ endfunc
 func Test_normal_z_error()
   call assert_beeps('normal! z2p')
   call assert_beeps('normal! zq')
+  call assert_beeps('normal! cz1')
 endfunc
 
 func Test_normal15_z_scroll_vert()
@@ -930,7 +931,7 @@ func Test_normal15_z_scroll_vert()
   call assert_equal(10, winheight(0))
   exe "norm! z12\<cr>"
   call assert_equal(12, winheight(0))
-  exe "norm! z10\<cr>"
+  exe "norm! z15\<Del>0\<cr>"
   call assert_equal(10, winheight(0))
 
   " Test for z.
@@ -2638,6 +2639,15 @@ func Test_normal33_g_cmd2()
 
   " clean up
   bw!
+endfunc
+
+func Test_normal_ex_substitute()
+  " This was hanging on the substitute prompt.
+  new
+  call setline(1, 'a')
+  exe "normal! gggQs/a/b/c\<CR>"
+  call assert_equal('a', getline(1))
+  bwipe!
 endfunc
 
 " Test for g CTRL-G

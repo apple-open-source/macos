@@ -71,7 +71,7 @@ tabstop_set(char_u *var, int **array)
 	int n = atoi((char *)cp);
 
 	// Catch negative values, overflow and ridiculous big values.
-	if (n < 0 || n > 9999)
+	if (n <= 0 || n > TABSTOP_MAX)
 	{
 	    semsg(_(e_invalid_argument_str), cp);
 	    vim_free(*array);
@@ -161,7 +161,7 @@ tabstop_start(colnr_T col, int ts, int *vts)
     int		tabcount;
     colnr_T	tabcol = 0;
     int		t;
-    int         excess;
+    int		excess;
 
     if (vts == NULL || vts[0] == 0)
 	return (col / ts) * ts;
@@ -828,7 +828,7 @@ get_number_indent(linenr_T lnum)
     pos.lnum = 0;
 
     // In format_lines() (i.e. not insert mode), fo+=q is needed too...
-    if ((State & INSERT) || has_format_option(FO_Q_COMS))
+    if ((State & MODE_INSERT) || has_format_option(FO_Q_COMS))
 	lead_len = get_leader_len(ml_get(lnum), NULL, FALSE, TRUE);
 
     regmatch.regprog = vim_regcomp(curbuf->b_p_flp, RE_MAGIC);
@@ -866,6 +866,7 @@ briopt_check(win_T *wp)
     long	bri_min = 20;
     int		bri_sbr = FALSE;
     int		bri_list = 0;
+    int		bri_vcol = 0;
 
     p = wp->w_p_briopt;
     while (*p != NUL)
@@ -891,6 +892,11 @@ briopt_check(win_T *wp)
 	    p += 5;
 	    bri_list = getdigits(&p);
 	}
+	else if (STRNCMP(p, "column:", 7) == 0)
+	{
+	    p += 7;
+	    bri_vcol = getdigits(&p);
+	}
 	if (*p != ',' && *p != NUL)
 	    return FAIL;
 	if (*p == ',')
@@ -901,6 +907,7 @@ briopt_check(win_T *wp)
     wp->w_briopt_min   = bri_min;
     wp->w_briopt_sbr   = bri_sbr;
     wp->w_briopt_list  = bri_list;
+    wp->w_briopt_vcol  = bri_vcol;
 
     return OK;
 }
@@ -953,11 +960,13 @@ get_breakindent_win(
 	prev_tick = CHANGEDTICK(wp->w_buffer);
 # ifdef FEAT_VARTABS
 	prev_vts = wp->w_buffer->b_p_vts_array;
-	prev_indent = get_indent_str_vtab(line,
+	if (wp->w_briopt_vcol == 0)
+	    prev_indent = get_indent_str_vtab(line,
 				     (int)wp->w_buffer->b_p_ts,
 				    wp->w_buffer->b_p_vts_array, wp->w_p_list);
 # else
-	prev_indent = get_indent_str(line,
+	if (wp->w_briopt_vcol == 0)
+	    prev_indent = get_indent_str(line,
 				     (int)wp->w_buffer->b_p_ts, wp->w_p_list);
 # endif
 	prev_listopt = wp->w_briopt_list;
@@ -965,7 +974,7 @@ get_breakindent_win(
 	vim_free(prev_flp);
 	prev_flp = vim_strsave(get_flp_value(wp->w_buffer));
 	// add additional indent for numbered lists
-	if (wp->w_briopt_list != 0)
+	if (wp->w_briopt_list != 0 && wp->w_briopt_vcol == 0)
 	{
 	    regmatch_T	    regmatch;
 
@@ -986,7 +995,14 @@ get_breakindent_win(
 	    }
 	}
     }
-    bri = prev_indent + wp->w_briopt_shift;
+    if (wp->w_briopt_vcol != 0)
+    {
+	// column value has priority
+	bri = wp->w_briopt_vcol;
+	prev_list = 0;
+    }
+    else
+	bri = prev_indent + wp->w_briopt_shift;
 
     // Add offset for number column, if 'n' is in 'cpoptions'
     bri += win_col_off2(wp);
@@ -1039,14 +1055,13 @@ inindent(int extra)
 	return FALSE;
 }
 
-#if defined(FEAT_LISP) || defined(FEAT_CINDENT) || defined(PROTO)
 /*
  * op_reindent - handle reindenting a block of lines.
  */
     void
 op_reindent(oparg_T *oap, int (*how)(void))
 {
-    long	i;
+    long	i = 0;
     char_u	*l;
     int		amount;
     linenr_T	first_changed = 0;
@@ -1060,40 +1075,42 @@ op_reindent(oparg_T *oap, int (*how)(void))
 	return;
     }
 
-    for (i = oap->line_count; --i >= 0 && !got_int; )
-    {
-	// it's a slow thing to do, so give feedback so there's no worry that
-	// the computer's just hung.
-
-	if (i > 1
-		&& (i % 50 == 0 || i == oap->line_count - 1)
-		&& oap->line_count > p_report)
-	    smsg(_("%ld lines to indent... "), i);
-
-	// Be vi-compatible: For lisp indenting the first line is not
-	// indented, unless there is only one line.
-# ifdef FEAT_LISP
-	if (i != oap->line_count - 1 || oap->line_count == 1
-						    || how != get_lisp_indent)
-# endif
+    // Save for undo.  Do this once for all lines, much faster than doing this
+    // for each line separately, especially when undoing.
+    if (u_savecommon(start_lnum - 1, start_lnum + oap->line_count,
+				     start_lnum + oap->line_count, FALSE) == OK)
+	for (i = oap->line_count; --i >= 0 && !got_int; )
 	{
-	    l = skipwhite(ml_get_curline());
-	    if (*l == NUL)		    // empty or blank line
-		amount = 0;
-	    else
-		amount = how();		    // get the indent for this line
+	    // it's a slow thing to do, so give feedback so there's no worry
+	    // that the computer's just hung.
 
-	    if (amount >= 0 && set_indent(amount, SIN_UNDO))
+	    if (i > 1
+		    && (i % 50 == 0 || i == oap->line_count - 1)
+		    && oap->line_count > p_report)
+		smsg(_("%ld lines to indent... "), i);
+
+	    // Be vi-compatible: For lisp indenting the first line is not
+	    // indented, unless there is only one line.
+	    if (i != oap->line_count - 1 || oap->line_count == 1
+						     || how != get_lisp_indent)
 	    {
-		// did change the indent, call changed_lines() later
-		if (first_changed == 0)
-		    first_changed = curwin->w_cursor.lnum;
-		last_changed = curwin->w_cursor.lnum;
+		l = skipwhite(ml_get_curline());
+		if (*l == NUL)		    // empty or blank line
+		    amount = 0;
+		else
+		    amount = how();	    // get the indent for this line
+
+		if (amount >= 0 && set_indent(amount, 0))
+		{
+		    // did change the indent, call changed_lines() later
+		    if (first_changed == 0)
+			first_changed = curwin->w_cursor.lnum;
+		    last_changed = curwin->w_cursor.lnum;
+		}
 	    }
+	    ++curwin->w_cursor.lnum;
+	    curwin->w_cursor.col = 0;  // make sure it's valid
 	}
-	++curwin->w_cursor.lnum;
-	curwin->w_cursor.col = 0;  // make sure it's valid
-    }
 
     // put cursor on first non-blank of indented line
     curwin->w_cursor.lnum = start_lnum;
@@ -1122,9 +1139,7 @@ op_reindent(oparg_T *oap, int (*how)(void))
 	curbuf->b_op_end = oap->end;
     }
 }
-#endif // defined(FEAT_LISP) || defined(FEAT_CINDENT)
 
-#if defined(FEAT_SMARTINDENT) || defined(FEAT_CINDENT) || defined(PROTO)
 /*
  * Return TRUE if lines starting with '#' should be left aligned.
  */
@@ -1132,22 +1147,26 @@ op_reindent(oparg_T *oap, int (*how)(void))
 preprocs_left(void)
 {
     return
-# ifdef FEAT_SMARTINDENT
-#  ifdef FEAT_CINDENT
 	(curbuf->b_p_si && !curbuf->b_p_cin) ||
-#  else
-	curbuf->b_p_si
-#  endif
-# endif
-# ifdef FEAT_CINDENT
 	(curbuf->b_p_cin && in_cinkeys('#', ' ', TRUE)
 					   && curbuf->b_ind_hash_comment == 0)
-# endif
 	;
 }
-#endif
 
-#ifdef FEAT_SMARTINDENT
+/*
+ * Return TRUE if the conditions are OK for smart indenting.
+ */
+    int
+may_do_si()
+{
+    return curbuf->b_p_si
+	&& !curbuf->b_p_cin
+# ifdef FEAT_EVAL
+	&& *curbuf->b_p_inde == NUL
+# endif
+	&& !p_paste;
+}
+
 /*
  * Try to do some very smart auto-indenting.
  * Used when inserting a "normal" character.
@@ -1161,7 +1180,8 @@ ins_try_si(int c)
     int		temp;
 
     // do some very smart indenting when entering '{' or '}'
-    if (((did_si || can_si_back) && c == '{') || (can_si && c == '}'))
+    if (((did_si || can_si_back) && c == '{')
+	    || (can_si && c == '}' && inindent(0)))
     {
 	// for '}' set indent equal to indent of line containing matching '{'
 	if (c == '}' && (pos = findmatch(NULL, '{')) != NULL)
@@ -1215,7 +1235,7 @@ ins_try_si(int c)
     }
 
     // set indent of '#' always to 0
-    if (curwin->w_cursor.col > 0 && can_si && c == '#')
+    if (curwin->w_cursor.col > 0 && can_si && c == '#' && inindent(0))
     {
 	// remember current indent for next line
 	old_indent = get_indent();
@@ -1226,7 +1246,6 @@ ins_try_si(int c)
     if (ai_col > curwin->w_cursor.col)
 	ai_col = curwin->w_cursor.col;
 }
-#endif
 
 /*
  * Insert an indent (for <Tab> or CTRL-T) or delete an indent (for CTRL-D).
@@ -1256,7 +1275,7 @@ change_indent(
     colnr_T	orig_col = 0;		// init for GCC
     char_u	*new_line, *orig_line = NULL;	// init for GCC
 
-    // VREPLACE mode needs to know what the line was like before changing
+    // MODE_VREPLACE state needs to know what the line was like before changing
     if (State & VREPLACE_FLAG)
     {
 	orig_line = vim_strsave(ml_get_curline());  // Deal with NULL below
@@ -1298,7 +1317,7 @@ change_indent(
 
 	// Avoid being called recursively.
 	if (State & VREPLACE_FLAG)
-	    State = INSERT;
+	    State = MODE_INSERT;
 	shift_line(type == INDENT_DEC, round, 1, call_changed_bytes);
 	State = save_State;
     }
@@ -1319,7 +1338,7 @@ change_indent(
 	    insstart_less = MAXCOL;
 	new_cursor_col += curwin->w_cursor.col;
     }
-    else if (!(State & INSERT))
+    else if (!(State & MODE_INSERT))
 	new_cursor_col = curwin->w_cursor.col;
     else
     {
@@ -1338,6 +1357,8 @@ change_indent(
 		new_cursor_col += (*mb_ptr2len)(ptr + new_cursor_col);
 	    else
 		++new_cursor_col;
+	    if (ptr[new_cursor_col] == NUL)
+		break;
 	    vcol += lbr_chartabsize(ptr, ptr + new_cursor_col, (colnr_T)vcol);
 	}
 	vcol = last_vcol;
@@ -1375,7 +1396,7 @@ change_indent(
     changed_cline_bef_curs();
 
     // May have to adjust the start of the insert.
-    if (State & INSERT)
+    if (State & MODE_INSERT)
     {
 	if (curwin->w_cursor.lnum == Insstart.lnum && Insstart.col != 0)
 	{
@@ -1390,9 +1411,9 @@ change_indent(
 	    ai_col -= insstart_less;
     }
 
-    // For REPLACE mode, may have to fix the replace stack, if it's possible.
-    // If the number of characters before the cursor decreased, need to pop a
-    // few characters from the replace stack.
+    // For MODE_REPLACE state, may have to fix the replace stack, if it's
+    // possible.  If the number of characters before the cursor decreased, need
+    // to pop a few characters from the replace stack.
     // If the number of characters before the cursor increased, need to push a
     // few NULs onto the replace stack.
     if (REPLACE_NORMAL(State) && start_col >= 0)
@@ -1414,9 +1435,9 @@ change_indent(
 	}
     }
 
-    // For VREPLACE mode, we also have to fix the replace stack.  In this case
-    // it is always possible because we backspace over the whole line and then
-    // put it back again the way we wanted it.
+    // For MODE_VREPLACE state, we also have to fix the replace stack.  In this
+    // case it is always possible because we backspace over the whole line and
+    // then put it back again the way we wanted it.
     if (State & VREPLACE_FLAG)
     {
 	// If orig_line didn't allocate, just return.  At least we did the job,
@@ -1607,6 +1628,7 @@ ex_retab(exarg_T *eap)
     long	start_col = 0;		// For start of white-space string
     long	start_vcol = 0;		// For start of white-space string
     long	old_len;
+    long	new_len;
     char_u	*ptr;
     char_u	*new_line = (char_u *)1; // init to non-NULL
     int		did_undo;		// called u_save for current line
@@ -1649,7 +1671,7 @@ ex_retab(exarg_T *eap)
 	emsg(_(e_argument_must_be_positive));
 	return;
     }
-    if (new_ts < 0 || new_ts > 9999)
+    if (new_ts < 0 || new_ts > TABSTOP_MAX)
     {
 	semsg(_(e_invalid_argument_str), eap->arg);
 	return;
@@ -1724,7 +1746,13 @@ ex_retab(exarg_T *eap)
 			// len is actual number of white characters used
 			len = num_spaces + num_tabs;
 			old_len = (long)STRLEN(ptr);
-			new_line = alloc(old_len - col + start_col + len + 1);
+			new_len = old_len - col + start_col + len + 1;
+			if (new_len <= 0 || new_len >= MAXCOL)
+			{
+			    emsg(_(e_resulting_text_too_long));
+			    break;
+			}
+			new_line = alloc(new_len);
 			if (new_line == NULL)
 			    break;
 			if (start_col > 0)
@@ -1750,6 +1778,11 @@ ex_retab(exarg_T *eap)
 	    if (ptr[col] == NUL)
 		break;
 	    vcol += chartabsize(ptr + col, (colnr_T)vcol);
+	    if (vcol >= MAXCOL)
+	    {
+		emsg(_(e_resulting_text_too_long));
+		break;
+	    }
 	    if (has_mbyte)
 		col += (*mb_ptr2len)(ptr + col);
 	    else
@@ -1770,7 +1803,7 @@ ex_retab(exarg_T *eap)
 	&& curbuf->b_p_ts == tabstop_first(new_vts_array))
 	; // not changed
     else if (tabstop_count(curbuf->b_p_vts_array) > 0
-        && tabstop_eq(curbuf->b_p_vts_array, new_vts_array))
+	&& tabstop_eq(curbuf->b_p_vts_array, new_vts_array))
 	; // not changed
     else
 	redraw_curbuf_later(NOT_VALID);
@@ -1814,7 +1847,7 @@ ex_retab(exarg_T *eap)
     u_clearline();
 }
 
-#if (defined(FEAT_CINDENT) && defined(FEAT_EVAL)) || defined(PROTO)
+#if defined(FEAT_EVAL) || defined(PROTO)
 /*
  * Get indent level from 'indentexpr'.
  */
@@ -1829,6 +1862,7 @@ get_expr_indent(void)
     int		save_State;
     int		use_sandbox = was_set_insecurely((char_u *)"indentexpr",
 								   OPT_LOCAL);
+    sctx_T	save_sctx = current_sctx;
 
     // Save and restore cursor position and curswant, in case it was changed
     // via :normal commands
@@ -1838,7 +1872,8 @@ get_expr_indent(void)
     set_vim_var_nr(VV_LNUM, curwin->w_cursor.lnum);
     if (use_sandbox)
 	++sandbox;
-    ++textwinlock;
+    ++textlock;
+    current_sctx = curbuf->b_p_script_ctx[BV_INDE];
 
     // Need to make a copy, the 'indentexpr' option could be changed while
     // evaluating it.
@@ -1851,13 +1886,14 @@ get_expr_indent(void)
 
     if (use_sandbox)
 	--sandbox;
-    --textwinlock;
+    --textlock;
+    current_sctx = save_sctx;
 
     // Restore the cursor position so that 'indentexpr' doesn't need to.
     // Pretend to be in Insert mode, allow cursor past end of line for "o"
     // command.
     save_State = State;
-    State = INSERT;
+    State = MODE_INSERT;
     curwin->w_cursor = save_pos;
     curwin->w_curswant = save_curswant;
     curwin->w_set_curswant = save_set_curswant;
@@ -1878,8 +1914,6 @@ get_expr_indent(void)
     return indent;
 }
 #endif
-
-#if defined(FEAT_LISP) || defined(PROTO)
 
     static int
 lisp_match(char_u *p)
@@ -2096,9 +2130,7 @@ get_lisp_indent(void)
 
     return amount;
 }
-#endif // FEAT_LISP
 
-#if defined(FEAT_LISP) || defined(FEAT_CINDENT) || defined(PROTO)
 /*
  * Re-indent the current line, based on the current contents of it and the
  * surrounding lines. Fixing the cursor position seems really easy -- I'm very
@@ -2127,19 +2159,12 @@ fix_indent(void)
 {
     if (p_paste)
 	return;
-# ifdef FEAT_LISP
     if (curbuf->b_p_lisp && curbuf->b_p_ai)
 	fixthisline(get_lisp_indent);
-# endif
-# if defined(FEAT_LISP) && defined(FEAT_CINDENT)
     else
-# endif
-# ifdef FEAT_CINDENT
 	if (cindent_on())
 	    do_c_expr_indent();
-# endif
 }
-#endif
 
 #if defined(FEAT_EVAL) || defined(PROTO)
 /*
@@ -2170,7 +2195,6 @@ f_indent(typval_T *argvars, typval_T *rettv)
     void
 f_lispindent(typval_T *argvars UNUSED, typval_T *rettv)
 {
-#ifdef FEAT_LISP
     pos_T	pos;
     linenr_T	lnum;
 
@@ -2188,7 +2212,6 @@ f_lispindent(typval_T *argvars UNUSED, typval_T *rettv)
     else if (in_vim9script())
 	semsg(_(e_invalid_line_number_nr), lnum);
     else
-#endif
 	rettv->vval.v_number = -1;
 }
 #endif

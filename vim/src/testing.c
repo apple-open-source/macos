@@ -101,7 +101,7 @@ ga_concat_shorten_esc(garray_T *gap, char_u *str)
     {
 	same_len = 1;
 	s = p;
-	c = mb_ptr2char_adv(&s);
+	c = mb_cptr2char_adv(&s);
 	clen = s - p;
 	while (*s != NUL && c == mb_ptr2char(s))
 	{
@@ -1053,6 +1053,8 @@ f_test_override(typval_T *argvars, typval_T *rettv UNUSED)
 	    ui_delay_for_testing = val;
 	else if (STRCMP(name, (char_u *)"term_props") == 0)
 	    reset_term_props_on_termresponse = val;
+	else if (STRCMP(name, (char_u *)"vterm_title") == 0)
+	    disable_vterm_title_for_testing = val;
 	else if (STRCMP(name, (char_u *)"uptime") == 0)
 	    override_sysinfo_uptime = val;
 	else if (STRCMP(name, (char_u *)"autoload") == 0)
@@ -1151,7 +1153,10 @@ f_test_garbagecollect_now(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
 {
     // This is dangerous, any Lists and Dicts used internally may be freed
     // while still in use.
-    garbage_collect(TRUE);
+    if (!get_vim_var_nr(VV_TESTING))
+	emsg(_(e_calling_test_garbagecollect_now_while_v_testing_is_not_set));
+    else
+	garbage_collect(TRUE);
 }
 
 /*
@@ -1248,50 +1253,6 @@ f_test_void(typval_T *argvars UNUSED, typval_T *rettv)
     rettv->v_type = VAR_VOID;
 }
 
-#ifdef FEAT_GUI
-    void
-f_test_scrollbar(typval_T *argvars, typval_T *rettv UNUSED)
-{
-    char_u	*which;
-    long	value;
-    int		dragging;
-    scrollbar_T *sb = NULL;
-
-    if (check_for_string_arg(argvars, 0) == FAIL
-	    || check_for_number_arg(argvars, 1) == FAIL
-	    || check_for_number_arg(argvars, 2) == FAIL)
-	return;
-
-    if (argvars[0].v_type != VAR_STRING
-	    || (argvars[1].v_type) != VAR_NUMBER
-	    || (argvars[2].v_type) != VAR_NUMBER)
-    {
-	emsg(_(e_invalid_argument));
-	return;
-    }
-    which = tv_get_string(&argvars[0]);
-    value = tv_get_number(&argvars[1]);
-    dragging = tv_get_number(&argvars[2]);
-
-    if (STRCMP(which, "left") == 0)
-	sb = &curwin->w_scrollbars[SBAR_LEFT];
-    else if (STRCMP(which, "right") == 0)
-	sb = &curwin->w_scrollbars[SBAR_RIGHT];
-    else if (STRCMP(which, "hor") == 0)
-	sb = &gui.bottom_sbar;
-    if (sb == NULL)
-    {
-	semsg(_(e_invalid_argument_str), which);
-	return;
-    }
-    gui_drag_scrollbar(sb, value, dragging);
-# ifndef USE_ON_FLY_SCROLL
-    // need to loop through normal_cmd() to handle the scroll events
-    exec_normal(FALSE, TRUE, FALSE);
-# endif
-}
-#endif
-
     void
 f_test_setmouse(typval_T *argvars, typval_T *rettv UNUSED)
 {
@@ -1310,30 +1271,256 @@ f_test_setmouse(typval_T *argvars, typval_T *rettv UNUSED)
     mouse_col = (time_t)tv_get_number(&argvars[1]) - 1;
 }
 
-    void
-f_test_gui_mouse_event(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
-{
 # ifdef FEAT_GUI
+    static int
+test_gui_drop_files(dict_T *args UNUSED)
+{
+#  if defined(HAVE_DROP_FILE)
+    int		row;
+    int		col;
+    int_u	mods;
+    char_u	**fnames;
+    int		count = 0;
+    typval_T	t;
+    list_T	*l;
+    listitem_T	*li;
+
+    if (!dict_has_key(args, "files")
+	    || !dict_has_key(args, "row")
+	    || !dict_has_key(args, "col")
+	    || !dict_has_key(args, "modifiers"))
+	return FALSE;
+
+    (void)dict_get_tv(args, (char_u *)"files", &t);
+    row = (int)dict_get_number(args, (char_u *)"row");
+    col = (int)dict_get_number(args, (char_u *)"col");
+    mods = (int)dict_get_number(args, (char_u *)"modifiers");
+
+    if (t.v_type != VAR_LIST || list_len(t.vval.v_list) == 0)
+	return FALSE;
+
+    l = t.vval.v_list;
+    fnames = ALLOC_MULT(char_u *, list_len(l));
+    if (fnames == NULL)
+	return FALSE;
+
+    FOR_ALL_LIST_ITEMS(l, li)
+    {
+	// ignore non-string items
+	if (li->li_tv.v_type != VAR_STRING
+		|| li->li_tv.vval.v_string == NULL)
+	    continue;
+
+	fnames[count] = vim_strsave(li->li_tv.vval.v_string);
+	if (fnames[count] == NULL)
+	{
+	    while (--count >= 0)
+		vim_free(fnames[count]);
+	    vim_free(fnames);
+	    return FALSE;
+	}
+	count++;
+    }
+
+    if (count > 0)
+	gui_handle_drop(TEXT_X(col - 1), TEXT_Y(row - 1), mods, fnames, count);
+    else
+	vim_free(fnames);
+#  endif
+
+    return TRUE;
+}
+
+#if defined(FIND_REPLACE_DIALOG)
+    static int
+test_gui_find_repl(dict_T *args)
+{
+    int		flags;
+    char_u	*find_text;
+    char_u	*repl_text;
+    int		forward;
+    int		retval;
+
+    if (!dict_has_key(args, "find_text")
+	    || !dict_has_key(args, "repl_text")
+	    || !dict_has_key(args, "flags")
+	    || !dict_has_key(args, "forward"))
+	return FALSE;
+
+    find_text = dict_get_string(args, (char_u *)"find_text", TRUE);
+    repl_text = dict_get_string(args, (char_u *)"repl_text", TRUE);
+    flags = (int)dict_get_number(args, (char_u *)"flags");
+    forward = (int)dict_get_number(args, (char_u *)"forward");
+
+    retval = gui_do_findrepl(flags, find_text, repl_text, forward);
+    vim_free(find_text);
+    vim_free(repl_text);
+
+    return retval;
+}
+#endif
+
+    static int
+test_gui_mouse_event(dict_T *args)
+{
     int		button;
     int		row;
     int		col;
     int		repeated_click;
     int_u	mods;
+    int		move;
 
-    if (check_for_number_arg(argvars, 0) == FAIL
-	    || check_for_number_arg(argvars, 1) == FAIL
-	    || check_for_number_arg(argvars, 2) == FAIL
-	    || check_for_number_arg(argvars, 3) == FAIL
-	    || check_for_number_arg(argvars, 4) == FAIL)
+    if (!dict_has_key(args, "row")
+	    || !dict_has_key(args, "col"))
+	return FALSE;
+
+    // Note: "move" is optional, requires fewer arguments
+    move = (int)dict_get_bool(args, (char_u *)"move", FALSE);
+
+    if (!move && (!dict_has_key(args, "button")
+	    || !dict_has_key(args, "multiclick")
+	    || !dict_has_key(args, "modifiers")))
+	return FALSE;
+
+    row = (int)dict_get_number(args, (char_u *)"row");
+    col = (int)dict_get_number(args, (char_u *)"col");
+
+    if (move)
+    {
+	if (dict_get_bool(args, (char_u *)"cell", FALSE))
+	{
+	    // click in the middle of the character cell
+	    row = row * gui.char_height + gui.char_height / 2;
+	    col = col * gui.char_width + gui.char_width / 2;
+	}
+	gui_mouse_moved(col, row);
+    }
+    else
+    {
+	button = (int)dict_get_number(args, (char_u *)"button");
+	repeated_click = (int)dict_get_number(args, (char_u *)"multiclick");
+	mods = (int)dict_get_number(args, (char_u *)"modifiers");
+
+	// Reset the scroll values to known values.
+	// XXX: Remove this when/if the scroll step is made configurable.
+	mouse_set_hor_scroll_step(6);
+	mouse_set_vert_scroll_step(3);
+
+	gui_send_mouse_event(button, TEXT_X(col - 1), TEXT_Y(row - 1),
+							repeated_click, mods);
+    }
+
+    return TRUE;
+}
+
+    static int
+test_gui_scrollbar(dict_T *args)
+{
+    char_u	*which;
+    long	value;
+    int		dragging;
+    scrollbar_T *sb = NULL;
+
+    if (!dict_has_key(args, "which")
+	    || !dict_has_key(args, "value")
+	    || !dict_has_key(args, "dragging"))
+	return FALSE;
+
+    which = dict_get_string(args, (char_u *)"which", FALSE);
+    value = (long)dict_get_number(args, (char_u *)"value");
+    dragging = (int)dict_get_number(args, (char_u *)"dragging");
+
+    if (STRCMP(which, "left") == 0)
+	sb = &curwin->w_scrollbars[SBAR_LEFT];
+    else if (STRCMP(which, "right") == 0)
+	sb = &curwin->w_scrollbars[SBAR_RIGHT];
+    else if (STRCMP(which, "hor") == 0)
+	sb = &gui.bottom_sbar;
+    if (sb == NULL)
+    {
+	semsg(_(e_invalid_argument_str), which);
+	return FALSE;
+    }
+    gui_drag_scrollbar(sb, value, dragging);
+#  ifndef USE_ON_FLY_SCROLL
+    // need to loop through normal_cmd() to handle the scroll events
+    exec_normal(FALSE, TRUE, FALSE);
+#  endif
+
+    return TRUE;
+}
+
+    static int
+test_gui_tabline_event(dict_T *args UNUSED)
+{
+#  ifdef FEAT_GUI_TABLINE
+    int		tabnr;
+
+    if (!dict_has_key(args, "tabnr"))
+	return FALSE;
+
+    tabnr = (int)dict_get_number(args, (char_u *)"tabnr");
+
+    return send_tabline_event(tabnr);
+#  else
+    return FALSE;
+#  endif
+}
+
+    static int
+test_gui_tabmenu_event(dict_T *args UNUSED)
+{
+#  ifdef FEAT_GUI_TABLINE
+    int	tabnr;
+    int	item;
+
+    if (!dict_has_key(args, "tabnr")
+	    || !dict_has_key(args, "item"))
+	return FALSE;
+
+    tabnr = (int)dict_get_number(args, (char_u *)"tabnr");
+    item = (int)dict_get_number(args, (char_u *)"item");
+
+    send_tabline_menu_event(tabnr, item);
+#  endif
+    return TRUE;
+}
+# endif
+
+    void
+f_test_gui_event(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
+{
+# ifdef FEAT_GUI
+    char_u	*event;
+
+    rettv->v_type = VAR_BOOL;
+    rettv->vval.v_number = FALSE;
+
+    if (check_for_string_arg(argvars, 0) == FAIL
+	    || check_for_dict_arg(argvars, 1) == FAIL
+	    || argvars[1].vval.v_dict == NULL)
 	return;
 
-    button = tv_get_number(&argvars[0]);
-    row = tv_get_number(&argvars[1]);
-    col = tv_get_number(&argvars[2]);
-    repeated_click = tv_get_number(&argvars[3]);
-    mods = tv_get_number(&argvars[4]);
-
-    gui_send_mouse_event(button, TEXT_X(col - 1), TEXT_Y(row - 1), repeated_click, mods);
+    event = tv_get_string(&argvars[0]);
+    if (STRCMP(event, "dropfiles") == 0)
+	rettv->vval.v_number = test_gui_drop_files(argvars[1].vval.v_dict);
+#  if defined(FIND_REPLACE_DIALOG)
+    else if (STRCMP(event, "findrepl") == 0)
+	rettv->vval.v_number = test_gui_find_repl(argvars[1].vval.v_dict);
+#  endif
+    else if (STRCMP(event, "mouse") == 0)
+	rettv->vval.v_number = test_gui_mouse_event(argvars[1].vval.v_dict);
+    else if (STRCMP(event, "scrollbar") == 0)
+	rettv->vval.v_number = test_gui_scrollbar(argvars[1].vval.v_dict);
+    else if (STRCMP(event, "tabline") == 0)
+	rettv->vval.v_number = test_gui_tabline_event(argvars[1].vval.v_dict);
+    else if (STRCMP(event, "tabmenu") == 0)
+	rettv->vval.v_number = test_gui_tabmenu_event(argvars[1].vval.v_dict);
+    else
+    {
+	semsg(_(e_invalid_argument_str), event);
+	return;
+    }
 # endif
 }
 
@@ -1344,60 +1531,6 @@ f_test_settime(typval_T *argvars, typval_T *rettv UNUSED)
 	return;
 
     time_for_testing = (time_t)tv_get_number(&argvars[0]);
-}
-
-    void
-f_test_gui_drop_files(typval_T *argvars UNUSED, typval_T *rettv UNUSED)
-{
-#if defined(HAVE_DROP_FILE)
-    int		row;
-    int		col;
-    int_u	mods;
-    char_u	**fnames;
-    int		count = 0;
-    list_T	*l;
-    listitem_T	*li;
-
-    if (check_for_list_arg(argvars, 0) == FAIL
-	    || check_for_number_arg(argvars, 1) == FAIL
-	    || check_for_number_arg(argvars, 2) == FAIL
-	    || check_for_number_arg(argvars, 3) == FAIL)
-	return;
-
-    row = tv_get_number(&argvars[1]);
-    col = tv_get_number(&argvars[2]);
-    mods = tv_get_number(&argvars[3]);
-
-    l = argvars[0].vval.v_list;
-    if (list_len(l) == 0)
-	return;
-
-    fnames = ALLOC_MULT(char_u *, list_len(l));
-    if (fnames == NULL)
-	return;
-
-    FOR_ALL_LIST_ITEMS(l, li)
-    {
-	// ignore non-string items
-	if (li->li_tv.v_type != VAR_STRING)
-	    continue;
-
-	fnames[count] = vim_strsave(li->li_tv.vval.v_string);
-	if (fnames[count] == NULL)
-	{
-	    while (--count >= 0)
-		vim_free(fnames[count]);
-	    vim_free(fnames);
-	    return;
-	}
-	count++;
-    }
-
-    if (count > 0)
-	gui_handle_drop(TEXT_X(col - 1), TEXT_Y(row - 1), mods, fnames, count);
-    else
-	vim_free(fnames);
-# endif
 }
 
 #endif // defined(FEAT_EVAL)

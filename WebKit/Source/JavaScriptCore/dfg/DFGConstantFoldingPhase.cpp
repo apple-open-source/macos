@@ -732,7 +732,8 @@ private:
                 if (JSValue base = m_state.forNode(node->child1()).m_value) {
                     if (auto* function = jsDynamicCast<JSFunction*>(m_graph.m_vm, base)) {
                         if (FunctionRareData* rareData = function->rareData()) {
-                            if (rareData->allocationProfileWatchpointSet().isStillValid()) {
+                            JSGlobalObject* globalObject = m_graph.globalObjectFor(node->origin.semantic);
+                            if (rareData->allocationProfileWatchpointSet().isStillValid() && m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject)) {
                                 Structure* structure = rareData->objectAllocationStructure();
                                 JSObject* prototype = rareData->objectAllocationPrototype();
                                 if (structure
@@ -774,7 +775,7 @@ private:
                     }
                     if (auto* function = jsDynamicCast<JSFunction*>(m_graph.m_vm, base)) {
                         if (FunctionRareData* rareData = function->rareData()) {
-                            if (rareData->allocationProfileWatchpointSet().isStillValid()) {
+                            if (rareData->allocationProfileWatchpointSet().isStillValid() && m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject)) {
                                 Structure* structure = rareData->internalFunctionAllocationStructure();
                                 if (structure
                                     && structure->classInfo() == (node->isInternalPromise() ? JSInternalPromise::info() : JSPromise::info())
@@ -799,7 +800,7 @@ private:
                     if (JSValue base = m_state.forNode(node->child1()).m_value) {
                         if (auto* function = jsDynamicCast<JSFunction*>(m_graph.m_vm, base)) {
                             if (FunctionRareData* rareData = function->rareData()) {
-                                if (rareData->allocationProfileWatchpointSet().isStillValid()) {
+                                if (rareData->allocationProfileWatchpointSet().isStillValid() && m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject)) {
                                     Structure* structure = rareData->internalFunctionAllocationStructure();
                                     if (structure
                                         && structure->classInfo() == classInfo
@@ -837,15 +838,8 @@ private:
                     if (base.isNull())
                         structure = globalObject->nullPrototypeObjectStructure();
                     else if (base.isObject()) {
-                        // Having a bad time clears the structureCache, and so it should invalidate this structure.
-                        bool isHavingABadTime = globalObject->isHavingABadTime();
-                        // Normally, we would always install a watchpoint. In this case, however, if we haveABadTime, we
-                        // still want to optimize. There is no watchpoint for that case though, so we need to make sure this load
-                        // does not get hoisted above the check.
-                        WTF::loadLoadFence();
-                        if (!isHavingABadTime)
-                            m_graph.watchpoints().addLazily(globalObject->havingABadTimeWatchpoint());
-                        structure = globalObject->vm().structureCache.emptyObjectStructureConcurrently(globalObject, base.getObject(), JSFinalObject::defaultInlineCapacity());
+                        if (m_graph.isWatchingStructureCacheClearedWatchpoint(globalObject))
+                            structure = globalObject->vm().structureCache.emptyObjectStructureConcurrently(globalObject, base.getObject(), JSFinalObject::defaultInlineCapacity());
                     }
                     
                     if (structure) {

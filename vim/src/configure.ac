@@ -291,8 +291,8 @@ if test "$vim_cv_uname_output" = Darwin; then
     CPPFLAGS="$CPPFLAGS -DMACOS_X_DARWIN"
 
      dnl Assume we don't want X11 unless it was specifically asked for
-     dnl (--with-x) or Motif, Athena or GTK GUI is used.
-     if test -z "$with_x" -a "X$enable_gui" != Xmotif -a "X$enable_gui" != Xathena -a "X$enable_gui" != Xgtk2 -a "X$enable_gui" != Xgtk3; then
+     dnl (--with-x) or Motif or GTK GUI is used.
+     if test -z "$with_x" -a "X$enable_gui" != Xmotif -a "X$enable_gui" != Xgtk2 -a "X$enable_gui" != Xgtk3; then
       with_x=no
      fi
   fi
@@ -540,6 +540,12 @@ esac
 AC_SUBST(dovimdiff)
 AC_SUBST(dogvimdiff)
 
+if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  has_eval=no
+else
+  has_eval=yes
+fi
+
 AC_MSG_CHECKING(--with-compiledby argument)
 AC_ARG_WITH(compiledby, [  --with-compiledby=NAME  name to show in :version message],
 	compiledby="$withval"; AC_MSG_RESULT($withval),
@@ -585,7 +591,7 @@ AC_ARG_ENABLE(luainterp,
 AC_MSG_RESULT($enable_luainterp)
 
 if test "$enable_luainterp" = "yes" -o "$enable_luainterp" = "dynamic"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_ERROR([cannot use Lua with tiny or small features])
   fi
 
@@ -1072,7 +1078,7 @@ AC_ARG_ENABLE(perlinterp,
 	[enable_perlinterp="no"])
 AC_MSG_RESULT($enable_perlinterp)
 if test "$enable_perlinterp" = "yes" -o "$enable_perlinterp" = "dynamic"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_ERROR([cannot use Perl with tiny or small features])
   fi
   AC_SUBST(vi_cv_path_perl)
@@ -1221,7 +1227,7 @@ AC_ARG_ENABLE(pythoninterp,
 	[enable_pythoninterp="no"])
 AC_MSG_RESULT($enable_pythoninterp)
 if test "$enable_pythoninterp" = "yes" -o "$enable_pythoninterp" = "dynamic"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_ERROR([cannot use Python with tiny or small features])
   fi
 
@@ -1456,7 +1462,7 @@ AC_ARG_ENABLE(python3interp,
 	[enable_python3interp="no"])
 AC_MSG_RESULT($enable_python3interp)
 if test "$enable_python3interp" = "yes" -o "$enable_python3interp" = "dynamic"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_ERROR([cannot use Python with tiny or small features])
   fi
 
@@ -1969,7 +1975,7 @@ AC_ARG_ENABLE(rubyinterp,
 	[enable_rubyinterp="no"])
 AC_MSG_RESULT($enable_rubyinterp)
 if test "$enable_rubyinterp" = "yes" -o "$enable_rubyinterp" = "dynamic"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_ERROR([cannot use Ruby with tiny or small features])
   fi
 
@@ -2082,7 +2088,7 @@ AC_ARG_ENABLE(netbeans,
 	[  --disable-netbeans      Disable NetBeans integration support.],
 	, [enable_netbeans="yes"])
 if test "$enable_netbeans" = "yes"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_RESULT([cannot use NetBeans with tiny or small features])
     enable_netbeans="no"
   else
@@ -2097,7 +2103,7 @@ AC_ARG_ENABLE(channel,
 	[  --disable-channel       Disable process communication support.],
 	, [enable_channel="yes"])
 if test "$enable_channel" = "yes"; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_RESULT([cannot use channels with tiny or small features])
     enable_channel="no"
   else
@@ -2205,7 +2211,7 @@ AC_ARG_ENABLE(terminal,
 	[  --enable-terminal       Enable terminal emulation support.],
 	, [enable_terminal="auto"])
 if test "$enable_terminal" = "yes" || test "$enable_terminal" = "auto" -a "x$features" = "xhuge" ; then
-  if test "x$features" = "xtiny" -o "x$features" = "xsmall"; then
+  if test "$has_eval" = "no"; then
     AC_MSG_RESULT([cannot use terminal emulator with tiny or small features])
     enable_terminal="no"
   else
@@ -2437,7 +2443,7 @@ test "x$with_x" = xno -a "x$HAIKU" != "xyes" -a "x$MACOS_X" != "xyes" -a "x$QNX"
 
 AC_MSG_CHECKING(--enable-gui argument)
 AC_ARG_ENABLE(gui,
- [  --enable-gui[=OPTS]       X11 GUI. [default=auto] [OPTS=auto/no/gtk2/gnome2/gtk3/motif/athena/neXtaw/haiku/photon/carbon]], , enable_gui="auto")
+ [  --enable-gui[=OPTS]       X11 GUI. [default=auto] [OPTS=auto/no/gtk2/gnome2/gtk3/motif/haiku/photon/carbon]], , enable_gui="auto")
 
 dnl Canonicalize the --enable-gui= argument so that it can be easily compared.
 dnl Do not use character classes for portability with old tools.
@@ -2449,8 +2455,6 @@ SKIP_GTK2=YES
 SKIP_GTK3=YES
 SKIP_GNOME=YES
 SKIP_MOTIF=YES
-SKIP_ATHENA=YES
-SKIP_NEXTAW=YES
 SKIP_PHOTON=YES
 SKIP_HAIKU=YES
 GUITYPE=NONE
@@ -2495,9 +2499,7 @@ else
 		SKIP_GTK2=
 		SKIP_GTK3=
 		SKIP_GNOME=
-		SKIP_MOTIF=
-		SKIP_ATHENA=
-		SKIP_NEXTAW=;;
+		SKIP_MOTIF=;;
     gtk2)	AC_MSG_RESULT(GTK+ 2.x GUI support)
 		SKIP_GTK2=;;
     gnome2)	AC_MSG_RESULT(GNOME 2.x GUI support)
@@ -2507,10 +2509,6 @@ else
 		SKIP_GTK3=;;
     motif)	AC_MSG_RESULT(Motif GUI support)
 		SKIP_MOTIF=;;
-    athena)	AC_MSG_RESULT(Athena GUI support)
-		SKIP_ATHENA=;;
-    nextaw)	AC_MSG_RESULT(neXtaw GUI support)
-		SKIP_NEXTAW=;;
     *)		AC_MSG_RESULT([Sorry, $enable_gui GUI is not supported]) ;;
   esac
 
@@ -2559,28 +2557,6 @@ if test "x$SKIP_MOTIF" != "xYES" -a "$enable_gui_canon" != "motif"; then
   AC_MSG_RESULT($enable_motif_check)
   if test "x$enable_motif_check" = "xno"; then
     SKIP_MOTIF=YES
-  fi
-fi
-
-if test "x$SKIP_ATHENA" != "xYES" -a "$enable_gui_canon" != "athena"; then
-  AC_MSG_CHECKING(whether or not to look for Athena)
-  AC_ARG_ENABLE(athena-check,
-	[  --enable-athena-check   If auto-select GUI, check for Athena [default=yes]],
-	, enable_athena_check="yes")
-  AC_MSG_RESULT($enable_athena_check)
-  if test "x$enable_athena_check" = "xno"; then
-    SKIP_ATHENA=YES
-  fi
-fi
-
-if test "x$SKIP_NEXTAW" != "xYES" -a "$enable_gui_canon" != "nextaw"; then
-  AC_MSG_CHECKING(whether or not to look for neXtaw)
-  AC_ARG_ENABLE(nextaw-check,
-	[  --enable-nextaw-check   If auto-select GUI, check for neXtaw [default=yes]],
-	, enable_nextaw_check="yes")
-  AC_MSG_RESULT($enable_nextaw_check);
-  if test "x$enable_nextaw_check" = "xno"; then
-    SKIP_NEXTAW=YES
   fi
 fi
 
@@ -2815,8 +2791,6 @@ if test -z "$SKIP_GTK2"; then
 		GUI_INC_LOC="$GTK_CFLAGS"], )
     if test "x$GTK_CFLAGS" != "x"; then
       SKIP_GTK3=YES
-      SKIP_ATHENA=YES
-      SKIP_NEXTAW=YES
       SKIP_MOTIF=YES
       GUITYPE=GTK
       AC_SUBST(GTK_LIBNAME)
@@ -2866,8 +2840,6 @@ if test -z "$SKIP_GTK3"; then
     if test "x$GTK_CFLAGS" != "x"; then
       SKIP_GTK2=YES
       SKIP_GNOME=YES
-      SKIP_ATHENA=YES
-      SKIP_NEXTAW=YES
       SKIP_MOTIF=YES
       GUITYPE=GTK
       AC_SUBST(GTK_LIBNAME)
@@ -2993,11 +2965,12 @@ if test -z "$SKIP_MOTIF"; then
 
     dnl Ubuntu has libXm.so in /usr/lib/i386-linux-gnu and elsewhere.  The
     dnl linker will figure out which one to use, we only check if one exists.
+    dnl Cygwin uses the .dll.a extension.
     AC_MSG_CHECKING(for location of Motif GUI libs)
     gui_libs="`echo $x_libraries|sed 's%/[^/][^/]*$%%'` `echo "$gui_XXX" | sed s/XXX/lib/g` /usr/lib/i386-linux-gnu /usr/lib/x86_64-linux-gnu `echo "$GUI_INC_LOC" | sed s/include/lib/` $GUI_LIB_LOC"
     GUI_LIB_LOC=
     for try in $gui_libs; do
-      for libtry in "$try"/libXm.a "$try"/libXm.so* "$try"/libXm.sl "$try"/libXm.dylib; do
+      for libtry in "$try"/libXm.a "$try"/libXm.dll.a "$try"/libXm.so* "$try"/libXm.sl "$try"/libXm.dylib; do
 	if test -f "$libtry"; then
 	  GUI_LIB_LOC=$try
 	fi
@@ -3028,49 +3001,11 @@ if test -z "$SKIP_MOTIF"; then
 fi
 
 if test -z "$SKIP_MOTIF"; then
-  SKIP_ATHENA=YES
-  SKIP_NEXTAW=YES
   GUITYPE=MOTIF
   AC_SUBST(MOTIF_LIBNAME)
 fi
 
-dnl Check if the Athena files can be found
-
-GUI_X_LIBS=
-
-if test -z "$SKIP_ATHENA"; then
-  AC_MSG_CHECKING(if Athena header files can be found)
-  cflags_save=$CFLAGS
-  CFLAGS="$CFLAGS $X_CFLAGS"
-  AC_TRY_COMPILE([
-#include <X11/Intrinsic.h>
-#include <X11/Xaw/Paned.h>], ,
-	AC_MSG_RESULT(yes),
-	AC_MSG_RESULT(no); SKIP_ATHENA=YES )
-  CFLAGS=$cflags_save
-fi
-
-if test -z "$SKIP_ATHENA"; then
-  GUITYPE=ATHENA
-fi
-
-if test -z "$SKIP_NEXTAW"; then
-  AC_MSG_CHECKING(if neXtaw header files can be found)
-  cflags_save=$CFLAGS
-  CFLAGS="$CFLAGS $X_CFLAGS"
-  AC_TRY_COMPILE([
-#include <X11/Intrinsic.h>
-#include <X11/neXtaw/Paned.h>], ,
-	AC_MSG_RESULT(yes),
-	AC_MSG_RESULT(no); SKIP_NEXTAW=YES )
-  CFLAGS=$cflags_save
-fi
-
-if test -z "$SKIP_NEXTAW"; then
-  GUITYPE=NEXTAW
-fi
-
-if test -z "$SKIP_ATHENA" -o -z "$SKIP_NEXTAW" -o -z "$SKIP_MOTIF"; then
+if test -z "$SKIP_MOTIF"; then
   dnl Prepend -I and -L to $GUI_INC_LOC and $GUI_LIB_LOC if not empty
   dnl Avoid adding it when it twice
   if test -n "$GUI_INC_LOC"; then
@@ -3132,7 +3067,7 @@ if test "$enable_xsmp" = "yes"; then
 fi
 
 
-if test -z "$SKIP_ATHENA" -o -z "$SKIP_NEXTAW" -o -z "$SKIP_MOTIF" -o -z "$SKIP_GTK2" -o -z "$SKIP_GTK3"; then
+if test -z "$SKIP_MOTIF" -o -z "$SKIP_GTK2" -o -z "$SKIP_GTK3"; then
   dnl Check for X11/xpm.h and X11/Sunkeysym.h with the GUI include path
   cppflags_save=$CPPFLAGS
   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
@@ -3154,7 +3089,7 @@ if test -z "$SKIP_ATHENA" -o -z "$SKIP_NEXTAW" -o -z "$SKIP_MOTIF" -o -z "$SKIP_
   fi
 fi
 
-if test -z "$SKIP_ATHENA" -o -z "$SKIP_NEXTAW" -o -z "$SKIP_MOTIF"; then
+if test -z "$SKIP_MOTIF"; then
   cppflags_save=$CPPFLAGS
   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
 dnl Xmu/Editres.h may exist but can only be used after including Intrinsic.h
@@ -3169,7 +3104,7 @@ dnl Xmu/Editres.h may exist but can only be used after including Intrinsic.h
   CPPFLAGS=$cppflags_save
 fi
 
-dnl Only use the Xm directory when compiling Motif, don't use it for Athena
+dnl Only use the Xm directory when compiling Motif.
 if test -z "$SKIP_MOTIF"; then
   cppflags_save=$CPPFLAGS
   CPPFLAGS="$CPPFLAGS $X_CFLAGS"
@@ -3794,7 +3729,12 @@ if test "$enable_canberra" = "maybe"; then
     enable_canberra="no"
   fi
 else
-  AC_MSG_RESULT($enable_canberra)
+  if test "$enable_canberra" = "yes" -a "$has_eval" = "no"; then
+    AC_MSG_RESULT([cannot use sound with tiny or small features])
+    enable_canberra="no"
+  else
+    AC_MSG_RESULT($enable_canberra)
+  fi
 fi
 if test "$enable_canberra" = "yes"; then
   if test "x$PKG_CONFIG" != "xno"; then
@@ -3808,7 +3748,7 @@ if test "$enable_canberra" = "yes"; then
   AC_MSG_CHECKING(for libcanberra)
   ac_save_CFLAGS="$CFLAGS"
   ac_save_LIBS="$LIBS"
-  if `echo "$CFLAGS" | grep -v "$canberra_cflags" >/dev/null`; then
+  if `echo "$CFLAGS" | grep -v "$canberra_cflags" 2>/dev/null`; then
     CFLAGS="$CFLAGS $canberra_cflags"
   fi
   LIBS="$LIBS $canberra_lib"
@@ -4085,13 +4025,13 @@ if test "x$GTK_CFLAGS" != "x"; then
   LIBS="$ac_save_LIBS"
 fi
 
-AC_MSG_CHECKING(--disable-gpm argument)
+AC_MSG_CHECKING(--enable-gpm argument)
 AC_ARG_ENABLE(gpm,
-	[  --disable-gpm           Don't use gpm (Linux mouse daemon).], ,
+	[  --enable-gpm=OPTS       Use gpm (Linux mouse daemon). default=yes OPTS=yes/no/dynamic], ,
 	[enable_gpm="yes"])
 
-if test "$enable_gpm" = "yes"; then
-  AC_MSG_RESULT(no)
+if test "$enable_gpm" = "yes" -o "$enable_gpm" = "dynamic"; then
+  AC_MSG_RESULT($enable_gpm)
   dnl Checking if gpm support can be compiled
   AC_CACHE_CHECK([for gpm], vi_cv_have_gpm,
 	[olibs="$LIBS" ; LIBS="-lgpm"]
@@ -4106,11 +4046,15 @@ if test "$enable_gpm" = "yes"; then
 	[LIBS="$olibs"]
     )
   if test $vi_cv_have_gpm = yes; then
-    LIBS="$LIBS -lgpm"
+    if test "$enable_gpm" = "yes"; then
+      LIBS="$LIBS -lgpm"
+    else
+      AC_DEFINE(DYNAMIC_GPM)
+    fi
     AC_DEFINE(HAVE_GPM)
   fi
 else
-  AC_MSG_RESULT(yes)
+  AC_MSG_RESULT(no)
 fi
 
 AC_MSG_CHECKING(--disable-sysmouse argument)

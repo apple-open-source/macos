@@ -434,6 +434,7 @@ private:
     IOPCIDevice *                  fBridgeDevice;
     IOTimerEventSource *           fTimerProbeES;
     IOTimerEventSource *           fAttnButtonTimer;
+    IOTimerEventSource *           fDLLSCEventTimer;
     IOWorkLoop *                   fWorkLoop;
     IOPMDriverAssertionID          fPMAssertion;
     IOSimpleLock *                 fISRLock;
@@ -567,6 +568,7 @@ public:
 private:
     void attnButtonTimer(IOTimerEventSource * es);
     IOReturn attnButtonHandlerFinish(thread_call_t threadCall);
+    void dllscEventTimer(IOTimerEventSource * es);
 };
 __exported_pop
 

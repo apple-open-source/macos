@@ -22,6 +22,7 @@ typedef struct ucmd
     int		uc_compl;	// completion type
     cmd_addr_T	uc_addr_type;	// The command's address type
     sctx_T	uc_script_ctx;	// SCTX where the command was defined
+    int		uc_flags;	// some UC_ flags
 # ifdef FEAT_EVAL
     char_u	*uc_compl_arg;	// completion argument if any
 # endif
@@ -90,6 +91,10 @@ static struct
     {EXPAND_TAGS_LISTFILES, "tag_listfiles"},
     {EXPAND_USER, "user"},
     {EXPAND_USER_VARS, "var"},
+#if defined(FEAT_EVAL)
+    {EXPAND_BREAKPOINT, "breakpoint"},
+    {EXPAND_SCRIPTNAMES, "scriptnames"},
+#endif
     {0, NULL}
 };
 
@@ -123,10 +128,10 @@ static struct
     char_u *
 find_ucmd(
     exarg_T	*eap,
-    char_u	*p,	// end of the command (possibly including count)
-    int		*full,	// set to TRUE for a full match
-    expand_T	*xp,	// used for completion, NULL otherwise
-    int		*complp UNUSED)	// completion flags or NULL
+    char_u	*p,	 // end of the command (possibly including count)
+    int		*full,	 // set to TRUE for a full match
+    expand_T	*xp,	 // used for completion, NULL otherwise
+    int		*complp) // completion flags or NULL
 {
     int		len = (int)(p - eap->cmd);
     int		j, k, matchlen = 0;
@@ -141,11 +146,7 @@ find_ucmd(
     /*
      * Look for buffer-local user commands first, then global ones.
      */
-    gap =
-#ifdef FEAT_CMDWIN
-	is_in_cmdwin() ? &prevwin->w_buffer->b_ucmds :
-#endif
-	&curbuf->b_ucmds;
+    gap = &prevwin_curwin()->w_buffer->b_ucmds;
     for (;;)
     {
 	for (j = 0; j < gap->ga_len; ++j)
@@ -231,6 +232,9 @@ find_ucmd(
     return p;
 }
 
+/*
+ * Set completion context for :command
+ */
     char_u *
 set_context_in_user_cmd(expand_T *xp, char_u *arg_in)
 {
@@ -292,6 +296,56 @@ set_context_in_user_cmd(expand_T *xp, char_u *arg_in)
     return skipwhite(p);
 }
 
+/*
+ * Set the completion context for the argument of a user defined command.
+ */
+    char_u *
+set_context_in_user_cmdarg(
+	char_u		*cmd UNUSED,
+	char_u		*arg,
+	long		argt,
+	int		context,
+	expand_T	*xp,
+	int		forceit)
+{
+    char_u	*p;
+
+    if (context == EXPAND_NOTHING)
+	return NULL;
+
+    if (argt & EX_XFILE)
+    {
+	// EX_XFILE: file names are handled before this call
+	xp->xp_context = context;
+	return NULL;
+    }
+
+#ifdef FEAT_MENU
+    if (context == EXPAND_MENUS)
+	return set_context_in_menu_cmd(xp, cmd, arg, forceit);
+#endif
+    if (context == EXPAND_COMMANDS)
+	return arg;
+    if (context == EXPAND_MAPPINGS)
+	return set_context_in_map_cmd(xp, (char_u *)"map", arg, forceit, FALSE,
+							FALSE, CMD_map);
+    // Find start of last argument.
+    p = arg;
+    while (*p)
+    {
+	if (*p == ' ')
+	    // argument starts after a space
+	    arg = p + 1;
+	else if (*p == '\\' && *(p + 1) != NUL)
+	    ++p; // skip over escaped character
+	MB_PTR_ADV(p);
+    }
+    xp->xp_pattern = arg;
+    xp->xp_context = context;
+
+    return NULL;
+}
+
     char_u *
 expand_user_command_name(int idx)
 {
@@ -305,11 +359,7 @@ expand_user_command_name(int idx)
 get_user_commands(expand_T *xp UNUSED, int idx)
 {
     // In cmdwin, the alternative buffer should be used.
-    buf_T *buf =
-#ifdef FEAT_CMDWIN
-	is_in_cmdwin() ? prevwin->w_buffer :
-#endif
-	curbuf;
+    buf_T *buf = prevwin_curwin()->w_buffer;
 
     if (idx < buf->b_ucmds.ga_len)
 	return USER_CMD_GA(&buf->b_ucmds, idx)->uc_name;
@@ -333,11 +383,7 @@ get_user_command_name(int idx, int cmdidx)
     if (cmdidx == CMD_USER_BUF)
     {
 	// In cmdwin, the alternative buffer should be used.
-	buf_T *buf =
-#ifdef FEAT_CMDWIN
-		    is_in_cmdwin() ? prevwin->w_buffer :
-#endif
-		    curbuf;
+	buf_T *buf = prevwin_curwin()->w_buffer;
 
 	if (idx < buf->b_ucmds.ga_len)
 	    return USER_CMD_GA(&buf->b_ucmds, idx)->uc_name;
@@ -397,6 +443,25 @@ get_user_cmd_complete(expand_T *xp UNUSED, int idx)
 }
 
 #ifdef FEAT_EVAL
+/*
+ * Get the name of completion type "expand" as a string.
+ */
+    char_u *
+cmdcomplete_type_to_str(int expand)
+{
+    int i;
+
+    for (i = 0; command_complete[i].expand != 0; i++)
+	if (command_complete[i].expand == expand)
+	    return (char_u *)command_complete[i].name;
+
+    return NULL;
+}
+
+/*
+ * Get the index of completion type "complete_str".
+ * Returns EXPAND_NOTHING if no match found.
+ */
     int
 cmdcomplete_str_to_type(char_u *complete_str)
 {
@@ -425,11 +490,7 @@ uc_list(char_u *name, size_t name_len)
     garray_T	*gap;
 
     // In cmdwin, the alternative buffer should be used.
-    gap =
-#ifdef FEAT_CMDWIN
-	    is_in_cmdwin() ? &prevwin->w_buffer->b_ucmds :
-#endif
-	    &curbuf->b_ucmds;
+    gap = &prevwin_curwin()->w_buffer->b_ucmds;
     for (;;)
     {
 	for (i = 0; i < gap->ga_len; ++i)
@@ -548,6 +609,15 @@ uc_list(char_u *name, size_t name_len)
 		{
 		    STRCPY(IObuff + len, command_complete[j].name);
 		    len += (int)STRLEN(IObuff + len);
+#ifdef FEAT_EVAL
+		    if (p_verbose > 0 && cmd->uc_compl_arg != NULL
+					    && STRLEN(cmd->uc_compl_arg) < 200)
+		    {
+			IObuff[len] = ',';
+			STRCPY(IObuff + len + 1, cmd->uc_compl_arg);
+			len += (int)STRLEN(IObuff + len);
+		    }
+#endif
 		    break;
 		}
 
@@ -989,6 +1059,7 @@ uc_add_command(
     cmd->uc_script_ctx = current_sctx;
     if (flags & UC_VIM9)
 	cmd->uc_script_ctx.sc_version = SCRIPT_VERSION_VIM9;
+    cmd->uc_flags = flags & UC_VIM9;
 #ifdef FEAT_EVAL
     cmd->uc_script_ctx.sc_lnum += SOURCING_LNUM;
     cmd->uc_compl_arg = compl_arg;
@@ -1676,6 +1747,9 @@ do_ucmd(exarg_T *eap)
     ucmd_T	*cmd;
     sctx_T	save_current_sctx;
     int		restore_current_sctx = FALSE;
+#ifdef FEAT_EVAL
+    int		restore_script_version = 0;
+#endif
 
     if (eap->cmdidx == CMD_USER)
 	cmd = USER_CMD(eap->useridx);
@@ -1781,6 +1855,14 @@ do_ucmd(exarg_T *eap)
 	current_sctx.sc_version = cmd->uc_script_ctx.sc_version;
 #ifdef FEAT_EVAL
 	current_sctx.sc_sid = cmd->uc_script_ctx.sc_sid;
+	if (cmd->uc_flags & UC_VIM9)
+	{
+	    // In a {} block variables use Vim9 script rules, even in a legacy
+	    // script.
+	    restore_script_version =
+				  SCRIPT_ITEM(current_sctx.sc_sid)->sn_version;
+	    SCRIPT_ITEM(current_sctx.sc_sid)->sn_version = SCRIPT_VERSION_VIM9;
+	}
 #endif
     }
 
@@ -1790,7 +1872,14 @@ do_ucmd(exarg_T *eap)
     // Careful: Do not use "cmd" here, it may have become invalid if a user
     // command was added.
     if (restore_current_sctx)
+    {
+#ifdef FEAT_EVAL
+	if (restore_script_version != 0)
+	    SCRIPT_ITEM(current_sctx.sc_sid)->sn_version =
+							restore_script_version;
+#endif
 	current_sctx = save_current_sctx;
+    }
     vim_free(buf);
     vim_free(split_buf);
 }

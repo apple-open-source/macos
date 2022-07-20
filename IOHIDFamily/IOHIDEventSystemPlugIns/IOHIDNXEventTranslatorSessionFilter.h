@@ -90,6 +90,7 @@ private:
     uint64_t                        _previousEventTime;
     uint64_t                        _declareActivityThreshold;
     dispatch_queue_t                _updateActivityQueue;
+    dispatch_queue_t                _modifiersQueue;
   
     CFMutableDictionaryRefWrap      _modifiers;
     CFMutableDictionaryRefWrap      _companions;

@@ -59,6 +59,24 @@ current_script_is_vim9(void)
 }
 #endif
 
+#ifdef FEAT_EVAL
+/*
+ * Clear Vim9 script-local variables and functions.
+ */
+    void
+clear_vim9_scriptlocal_vars(int sid)
+{
+    hashtab_T	*ht = &SCRIPT_VARS(sid);
+
+    hashtab_free_contents(ht);
+    hash_init(ht);
+    delete_script_functions(sid);
+
+    // old imports and script variables are no longer valid
+    free_imports_and_script_vars(sid);
+}
+#endif
+
 /*
  * ":vim9script".
  */
@@ -69,10 +87,9 @@ ex_vim9script(exarg_T *eap UNUSED)
     int		    sid = current_sctx.sc_sid;
     scriptitem_T    *si;
     int		    found_noclear = FALSE;
-    int		    found_autoload = FALSE;
     char_u	    *p;
 
-    if (!getline_equal(eap->getline, eap->cookie, getsourceline))
+    if (!sourcing_a_script(eap))
     {
 	emsg(_(e_vim9script_can_only_be_used_in_script));
 	return;
@@ -96,20 +113,6 @@ ex_vim9script(exarg_T *eap UNUSED)
 	    }
 	    found_noclear = TRUE;
 	}
-	else if (STRNCMP(p, "autoload", 8) == 0 && IS_WHITE_OR_NUL(p[8]))
-	{
-	    if (found_autoload)
-	    {
-		semsg(_(e_duplicate_argument_str), p);
-		return;
-	    }
-	    found_autoload = TRUE;
-	    if (script_name_after_autoload(si) == NULL)
-	    {
-		emsg(_(e_using_autoload_in_script_not_under_autoload_directory));
-		return;
-	    }
-	}
 	else
 	{
 	    semsg(_(e_invalid_argument_str), eap->arg);
@@ -118,18 +121,9 @@ ex_vim9script(exarg_T *eap UNUSED)
     }
 
     if (si->sn_state == SN_STATE_RELOAD && !found_noclear)
-    {
-	hashtab_T	*ht = &SCRIPT_VARS(sid);
-
 	// Reloading a script without the "noclear" argument: clear
 	// script-local variables and functions.
-	hashtab_free_contents(ht);
-	hash_init(ht);
-	delete_script_functions(sid);
-
-	// old imports and script variables are no longer valid
-	free_imports_and_script_vars(sid);
-    }
+	clear_vim9_scriptlocal_vars(sid);
     si->sn_state = SN_STATE_HAD_COMMAND;
 
     // Store the prefix with the script, it is used to find exported functions.
@@ -142,7 +136,8 @@ ex_vim9script(exarg_T *eap UNUSED)
     if (STRCMP(p_cpo, CPO_VIM) != 0)
     {
 	si->sn_save_cpo = vim_strsave(p_cpo);
-	set_option_value((char_u *)"cpo", 0L, (char_u *)CPO_VIM, OPT_NO_REDRAW);
+	set_option_value_give_err((char_u *)"cpo",
+					 0L, (char_u *)CPO_VIM, OPT_NO_REDRAW);
     }
 #else
     // No check for this being the first command, it doesn't matter.
@@ -340,7 +335,7 @@ free_all_script_vars(scriptitem_T *si)
     {
 	svar_T    *sv = ((svar_T *)si->sn_var_vals.ga_data) + idx;
 
-	if (sv->sv_type_allocated)
+	if (sv->sv_flags & SVFLAG_TYPE_ALLOCATED)
 	    free_type(sv->sv_type);
     }
     ga_clear(&si->sn_var_vals);
@@ -390,6 +385,48 @@ mark_imports_for_reload(int sid)
 }
 
 /*
+ * Part of "import" that handles a relative or absolute file name/
+ * Returns OK or FAIL.
+ */
+    static int
+handle_import_fname(char_u *fname, int is_autoload, int *sid)
+{
+    if (is_autoload)
+    {
+	scriptitem_T	*si;
+
+	*sid = find_script_by_name(fname);
+	if (*sid < 0)
+	{
+	    int error = OK;
+
+	    // Script does not exist yet, check name and create a new
+	    // scriptitem.
+	    if (!file_is_readable(fname))
+	    {
+		semsg(_(mch_isdir(fname) ? e_str_is_directory
+					  : e_cannot_read_from_str_2), fname);
+		return FAIL;
+	    }
+	    *sid = get_new_scriptitem_for_fname(&error, fname);
+	    if (error == FAIL)
+		return FAIL;
+	}
+
+	si = SCRIPT_ITEM(*sid);
+	si->sn_import_autoload = TRUE;
+
+	if (si->sn_autoload_prefix == NULL)
+	    si->sn_autoload_prefix = get_autoload_prefix(si);
+
+	// with testing override: load autoload script right away
+	if (!override_autoload || si->sn_state != SN_STATE_NOT_LOADED)
+	    return OK;
+    }
+    return do_source(fname, FALSE, DOSO_NONE, sid);
+}
+
+/*
  * Handle an ":import" command and add the resulting imported_T to "gap", when
  * not NULL, or script "import_sid" sn_imports.
  * "cctx" is NULL at the script level.
@@ -411,7 +448,7 @@ handle_import(
     int		ret = FAIL;
     char_u	*as_name = NULL;
     typval_T	tv;
-    int		sid = -1;
+    int		sid = -2;
     int		res;
     long	start_lnum = SOURCING_LNUM;
     garray_T	*import_gap;
@@ -448,33 +485,29 @@ handle_import(
 	char_u		*tail = gettail(si->sn_name);
 	char_u		*from_name;
 
-	if (is_autoload)
-	    res = FAIL;
-	else
-	{
+	// Relative to current script: "./name.vim", "../../name.vim".
+	len = STRLEN(si->sn_name) - STRLEN(tail) + STRLEN(tv.vval.v_string) + 2;
+	from_name = alloc((int)len);
+	if (from_name == NULL)
+	    goto erret;
+	vim_strncpy(from_name, si->sn_name, tail - si->sn_name);
+	add_pathsep(from_name);
+	STRCAT(from_name, tv.vval.v_string);
+	simplify_filename(from_name);
 
-	    // Relative to current script: "./name.vim", "../../name.vim".
-	    len = STRLEN(si->sn_name) - STRLEN(tail)
-						+ STRLEN(tv.vval.v_string) + 2;
-	    from_name = alloc((int)len);
-	    if (from_name == NULL)
-		goto erret;
-	    vim_strncpy(from_name, si->sn_name, tail - si->sn_name);
-	    add_pathsep(from_name);
-	    STRCAT(from_name, tv.vval.v_string);
-	    simplify_filename(from_name);
-
-	    res = do_source(from_name, FALSE, DOSO_NONE, &sid);
-	    vim_free(from_name);
-	}
+	res = handle_import_fname(from_name, is_autoload, &sid);
+	vim_free(from_name);
     }
-    else if (mch_isFullName(tv.vval.v_string))
+    else if (mch_isFullName(tv.vval.v_string)
+#ifdef BACKSLASH_IN_FILENAME
+	    // On MS-Windows omitting the drive is still handled like an
+	    // absolute path, not using 'runtimepath'.
+	    || *tv.vval.v_string == '/' || *tv.vval.v_string == '\\'
+#endif
+	    )
     {
 	// Absolute path: "/tmp/name.vim"
-	if (is_autoload)
-	    res = FAIL;
-	else
-	    res = do_source(tv.vval.v_string, FALSE, DOSO_NONE, &sid);
+	res = handle_import_fname(tv.vval.v_string, is_autoload, &sid);
     }
     else if (is_autoload)
     {
@@ -519,9 +552,15 @@ handle_import(
 
     if (res == FAIL || sid <= 0)
     {
-	semsg(_(is_autoload && sid <= 0
+	semsg(_(is_autoload && sid == -2
 		    ? e_autoload_import_cannot_use_absolute_or_relative_path
 		    : e_could_not_import_str), tv.vval.v_string);
+	goto erret;
+    }
+
+    if (sid == current_sctx.sc_sid)
+    {
+	emsg(_(e_script_cannot_import_itself));
 	goto erret;
     }
 
@@ -550,7 +589,7 @@ handle_import(
 	char_u *p;
 
 	if (getnext)
-	    arg = eval_next_line(evalarg);
+	    arg = eval_next_line(expr_end, evalarg);
 	else
 	    arg = nextarg;
 
@@ -596,14 +635,15 @@ handle_import(
     {
 	imported_T  *imported;
 
-	imported = find_imported(as_name, FALSE, STRLEN(as_name), cctx);
+	imported = find_imported(as_name, STRLEN(as_name), FALSE);
 	if (imported != NULL && imported->imp_sid != sid)
 	{
 	    semsg(_(e_name_already_defined_str), as_name);
 	    goto erret;
 	}
 	else if (imported == NULL
-		&& check_defined(as_name, STRLEN(as_name), cctx, FALSE) == FAIL)
+		&& check_defined(as_name, STRLEN(as_name), cctx, NULL,
+								FALSE) == FAIL)
 	    goto erret;
 
 	if (imported == NULL)
@@ -635,7 +675,7 @@ ex_import(exarg_T *eap)
     char_u	*cmd_end;
     evalarg_T	evalarg;
 
-    if (!getline_equal(eap->getline, eap->cookie, getsourceline))
+    if (!sourcing_a_script(eap))
     {
 	emsg(_(e_import_can_only_be_used_in_script));
 	return;
@@ -651,6 +691,7 @@ ex_import(exarg_T *eap)
 
 /*
  * Find an exported item in "sid" matching "name".
+ * Either "cctx" or "cstack" is NULL.
  * When it is a variable return the index.
  * When it is a user function return "*ufunc".
  * When not found returns -1 and "*ufunc" is NULL.
@@ -662,19 +703,30 @@ find_exported(
 	ufunc_T	    **ufunc,
 	type_T	    **type,
 	cctx_T	    *cctx,
+	cstack_T    *cstack,
 	int	    verbose)
 {
     int		idx = -1;
     svar_T	*sv;
     scriptitem_T *script = SCRIPT_ITEM(sid);
 
+    *ufunc = NULL;
+
+    if (script->sn_import_autoload && script->sn_state == SN_STATE_NOT_LOADED)
+    {
+	if (do_source(script->sn_name, FALSE, DOSO_NONE, NULL) == FAIL)
+	{
+	    semsg(_(e_cant_open_file_str), script->sn_name);
+	    return -1;
+	}
+    }
+
     // Find name in "script".
-    idx = get_script_item_idx(sid, name, 0, cctx);
+    idx = get_script_item_idx(sid, name, 0, cctx, cstack);
     if (idx >= 0)
     {
 	sv = ((svar_T *)script->sn_var_vals.ga_data) + idx;
-	*ufunc = NULL;
-	if (!sv->sv_export)
+	if ((sv->sv_flags & SVFLAG_EXPORTED) == 0)
 	{
 	    if (verbose)
 		semsg(_(e_item_not_exported_in_script_str), name);
@@ -716,29 +768,43 @@ find_exported(
 	    sprintf((char *)funcname + 3, "%ld_%s", (long)sid, name);
 	}
 	*ufunc = find_func(funcname, FALSE);
-	if (funcname != buffer)
-	    vim_free(funcname);
 
 	if (*ufunc == NULL)
 	{
 	    if (verbose)
-		semsg(_(e_item_not_found_in_script_str), name);
-	    return -1;
+	    {
+		ufunc_T *alt_ufunc = NULL;
+
+		if (script->sn_autoload_prefix != NULL)
+		{
+		    // try find the function by the script-local name
+		    funcname[0] = K_SPECIAL;
+		    funcname[1] = KS_EXTRA;
+		    funcname[2] = (int)KE_SNR;
+		    sprintf((char *)funcname + 3, "%ld_%s", (long)sid, name);
+		    alt_ufunc = find_func(funcname, FALSE);
+		}
+		if (alt_ufunc != NULL)
+		    semsg(_(e_item_not_exported_in_script_str), name);
+		else
+		    semsg(_(e_item_not_found_in_script_str), name);
+	    }
 	}
 	else if (((*ufunc)->uf_flags & FC_EXPORT) == 0)
 	{
 	    if (verbose)
 		semsg(_(e_item_not_exported_in_script_str), name);
 	    *ufunc = NULL;
-	    return -1;
 	}
+	if (funcname != buffer)
+	    vim_free(funcname);
     }
 
     return idx;
 }
 
 /*
- * Declare a script-local variable without init: "let var: type".
+ * Declare a script-local variable without init: "var name: type".
  * "const" is an error since the value is missing.
  * Returns a pointer to after the type.
  */
@@ -799,7 +865,7 @@ vim9_declare_scriptvar(exarg_T *eap, char_u *arg)
 	init_tv.v_type = VAR_NUMBER;
     else
 	init_tv.v_type = type->tt_type;
-    set_var_const(name, 0, type, &init_tv, FALSE, 0, 0);
+    set_var_const(name, 0, type, &init_tv, FALSE, ASSIGN_INIT, 0);
 
     vim_free(name);
     return p;
@@ -810,7 +876,7 @@ vim9_declare_scriptvar(exarg_T *eap, char_u *arg)
  * with a hashtable) and sn_var_vals (lookup by index).
  * When "create" is TRUE this is a new variable, otherwise find and update an
  * existing variable.
- * "flags" can have ASSIGN_FINAL or ASSIGN_CONST.
+ * "flags" can have ASSIGN_FINAL, ASSIGN_CONST or ASSIGN_INIT.
  * When "*type" is NULL use "tv" for the type and update "*type".  If
  * "do_member" is TRUE also use the member type, otherwise use "any".
  */
@@ -877,7 +943,9 @@ update_vim9_script_var(
 	    sv->sv_tv = &di->di_tv;
 	    sv->sv_const = (flags & ASSIGN_FINAL) ? ASSIGN_FINAL
 				   : (flags & ASSIGN_CONST) ? ASSIGN_CONST : 0;
-	    sv->sv_export = is_export;
+	    sv->sv_flags = is_export ? SVFLAG_EXPORTED : 0;
+	    if ((flags & ASSIGN_INIT) == 0)
+		sv->sv_flags |= SVFLAG_ASSIGNED;
 	    newsav->sav_var_vals_idx = si->sn_var_vals.ga_len;
 	    ++si->sn_var_vals.ga_len;
 	    STRCPY(&newsav->sav_key, name);
@@ -895,14 +963,21 @@ update_vim9_script_var(
     }
     else
     {
-	sv = find_typval_in_script(&di->di_tv, 0);
+	sv = find_typval_in_script(&di->di_tv, 0, TRUE);
     }
     if (sv != NULL)
     {
 	if (*type == NULL)
 	    *type = typval2type(tv, get_copyID(), &si->sn_type_list,
 					       do_member ? TVTT_DO_MEMBER : 0);
-	if (sv->sv_type_allocated)
+	else if ((flags & ASSIGN_INIT) == 0
+		&& (*type)->tt_type == VAR_BLOB && tv->v_type == VAR_BLOB
+						    && tv->vval.v_blob == NULL)
+	{
+	    // "var b: blob = null_blob" has a different type.
+	    *type = &t_blob_null;
+	}
+	if (sv->sv_flags & SVFLAG_TYPE_ALLOCATED)
 	    free_type(sv->sv_type);
 	if (*type != NULL && ((*type)->tt_type == VAR_FUNC
 					   || (*type)->tt_type == VAR_PARTIAL))
@@ -911,12 +986,12 @@ update_vim9_script_var(
 	    // function is freed, but the script variable may keep the type.
 	    // Make a copy to avoid using freed memory.
 	    sv->sv_type = alloc_type(*type);
-	    sv->sv_type_allocated = TRUE;
+	    sv->sv_flags |= SVFLAG_TYPE_ALLOCATED;
 	}
 	else
 	{
 	    sv->sv_type = *type;
-	    sv->sv_type_allocated = FALSE;
+	    sv->sv_flags &= ~SVFLAG_TYPE_ALLOCATED;
 	}
     }
 
@@ -985,10 +1060,11 @@ hide_script_var(scriptitem_T *si, int idx, int func_defined)
 /*
  * Find the script-local variable that links to "dest".
  * If "sid" is zero use the current script.
+ * if "must_find" is TRUE and "dest" cannot be found report an internal error.
  * Returns NULL if not found and give an internal error.
  */
     svar_T *
-find_typval_in_script(typval_T *dest, scid_T sid)
+find_typval_in_script(typval_T *dest, scid_T sid, int must_find)
 {
     scriptitem_T    *si = SCRIPT_ITEM(sid == 0 ? current_sctx.sc_sid : sid);
     int		    idx;
@@ -1008,7 +1084,8 @@ find_typval_in_script(typval_T *dest, scid_T sid)
 	if (sv->sv_name != NULL && sv->sv_tv == dest)
 	    return sv;
     }
-    iemsg("find_typval_in_script(): not found");
+    if (must_find)
+	iemsg("find_typval_in_script(): not found");
     return NULL;
 }
 
@@ -1048,6 +1125,14 @@ static char *reserved[] = {
     "true",
     "false",
     "null",
+    "null_blob",
+    "null_dict",
+    "null_function",
+    "null_list",
+    "null_partial",
+    "null_string",
+    "null_channel",
+    "null_job",
     "this",
     NULL
 };

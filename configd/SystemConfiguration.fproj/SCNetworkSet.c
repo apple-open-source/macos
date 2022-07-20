@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -511,6 +511,20 @@ ensure_unique_service_name(SCNetworkServiceRef service)
 }
 #endif	// PREVENT_DUPLICATE_SERVICE_NAMES
 
+static Boolean
+_SCNetworkSetContainsService(SCNetworkSetRef set, SCNetworkServiceRef service)
+{
+	Boolean		already_there = FALSE;
+	CFArrayRef	list = SCNetworkSetCopyServices(set);
+
+	if (list != NULL) {
+		CFRange	r = CFRangeMake(0, CFArrayGetCount(list));
+
+		already_there = CFArrayContainsValue(list, r, service);
+		CFRelease(list);
+	}
+	return (already_there);
+}
 
 Boolean
 SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
@@ -550,6 +564,10 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		_SC_crash_once("SCNetworkSetAddService() w/removed service", NULL, NULL);
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
+	}
+	if (_SCNetworkSetContainsService(set, service)) {
+		/* already in the set, pretend that we added it */
+		return TRUE;
 	}
 
 	// make sure that we do not add an orphaned network service if its

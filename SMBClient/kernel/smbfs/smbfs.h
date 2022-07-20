@@ -186,7 +186,7 @@ struct smb_reconnect_stats {
 };
 
 struct smbSockAddrPB {
-	void *sessionp;
+	uint8_t session_uuid[16];
 	struct sockaddr_storage addr;
 };
 

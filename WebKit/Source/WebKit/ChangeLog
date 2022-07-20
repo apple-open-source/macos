@@ -1,4 +1,1203 @@
-2022-05-02  Russell Epstein  <repstein@apple.com>
+2022-02-27  Chris Dumez  <cdumez@apple.com>
+
+        Simplify SerializedScriptValue construction
+        https://bugs.webkit.org/show_bug.cgi?id=237241
+
+        Reviewed by Darin Adler.
+
+        Update code base to reflect SerializedScriptValue API changes.
+
+        * Shared/API/APISerializedScriptValue.h:
+        (API::SerializedScriptValue::createFromWireBytes):
+        (API::SerializedScriptValue::dataReference const):
+        (API::SerializedScriptValue::adopt): Deleted.
+        * Shared/SessionState.cpp:
+        (WebKit::PageState::encode const):
+        * Shared/UserData.cpp:
+        (WebKit::UserData::decode):
+        * UIProcess/API/Cocoa/WKWebView.mm:
+        (-[WKWebView _evaluateJavaScript:asAsyncFunction:withSourceURL:withArguments:forceUserGesture:inFrame:inWorld:completionHandler:]):
+        * UIProcess/Inspector/WebInspectorUIExtensionControllerProxy.cpp:
+        (WebKit::WebInspectorUIExtensionControllerProxy::evaluateScriptForExtension):
+        (WebKit::WebInspectorUIExtensionControllerProxy::evaluateScriptInExtensionTab):
+        * UIProcess/UserContent/WebUserContentControllerProxy.cpp:
+        (WebKit::WebUserContentControllerProxy::didPostMessage):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::WebPageProxy::runJavaScriptInFrameInScriptWorld):
+        * WebProcess/Inspector/WebInspectorUIExtensionController.cpp:
+        (WebKit::WebInspectorUIExtensionController::evaluateScriptForExtension):
+        (WebKit::WebInspectorUIExtensionController::evaluateScriptInExtensionTab):
+        * WebProcess/UserContent/WebUserContentController.cpp:
+        * WebProcess/WebCoreSupport/SessionStateConversion.cpp:
+        (WebKit::toFrameState):
+        (WebKit::applyFrameState):
+        * WebProcess/WebPage/WebPage.cpp:
+        (WebKit::WebPage::runJavaScript):
+
+2022-02-27  Chris Dumez  <cdumez@apple.com>
+
+        Call WKNavigationDelegate.didFailProvisionalNavigation even after a cross-origin navigation with COOP
+        https://bugs.webkit.org/show_bug.cgi?id=237071
+        <rdar://problem/89354367>
+
+        Reviewed by Darin Adler.
+
+        When doing a process swap on navigation (PSON), we start a new provisional load in the new provisional
+        process and ask the committed process to stop all loads. Since we swap in decidePolicyForNavigationAction,
+        no provisional load has started in the committed process yet. If the provisional process sends us a
+        didFailProvisionalLoad though, we know the provisional load has failed and we take this into consideration
+        and notify the client app.
+
+        When doing a process swap on resource response (due to COOP), we were behaving differently and it was
+        causing some confusion. Since we swap on resource response, the provisional load has started in the
+        committed process by the time we process-swap (unlike PSON). We were also not asking for the committed
+        process to stop/cancel this provisional load. As a result, a provisional load would still be going on
+        in the committed process while another provisional load starts happening in the provisional page / process.
+        Then, if the provisional process would send us a didFailProvisional, we would not pass it along to the
+        client app. Instead we would destroy the ProvisionalPageProxy, which would tell the committed process to
+        stop loading and send its own didFailProvisionalLoad, and the client app would eventually get notified.
+
+        Even though the difference in behavior was confusing, it was working in most cases. There was however
+        an edge case where it didn't work and we would fail to tell the client app that the provisional load
+        had failed. In particular, we would run into trouble when navigating cross-site to a site that adopted
+        the COOP header. We would first do a process-swap on navigation, stop the provisional load in the committed
+        process A, then start a provisional load in process B. We would then get the COOP header and we would
+        start a new provisional load in process C. Process B would go away since we cannot have 2 provisional
+        pages / processes at the same time for the same WebPageProxy. Then if the provisional load fails in
+        process C, we would ignore the didFailProvisionalLoad from process C and destroy the provisional page.
+        We would tell the committed process A to stop loading, expecting it to send its own didFailProvisionalLoad
+        but it wouldn't happen since PSON had already stopped all loading in process A earlier when swapping to
+        process B.
+
+        To address the issue, we align COOP process swap with PSON process swap. We now has the committed process
+        to stop all loads when process swapping on resource response due to COOP. As a result, when the provisional
+        load fails in the provisional process, we can simply pass it along to the client, no matter if the process
+        swap occurred due to PSON or COOP.
+
+        Covered by new API test.
+
+        ASSERTION FAILED: !m_isInitializingSendSource crashes on the bots
+        https://bugs.webkit.org/show_bug.cgi?id=239399
+
+        Reviewed by Chris Dumez.
+
+        Avoid sending messages to IPC::Connection before the connection is open.
+        There's multiple logic problems as well as a race to toggle m_isInitializingSendSource.
+
+        Commit "RemoteRenderingBackend should have dedicated IPC::Connection for out-of-stream messages"
+        would make RRBProxy in WP create the "server" IPC::Connection and send that to RRB in GPUP.
+        This would cause RRB in GPUP to ASSERT(... || !m_isInitializingSendSource) fail in
+        the IPC work queue.
+
+        For "client" connection, IPC::Connection::open() will run in the calling queue, toggling
+        m_isInitializingSendSource = true. The m_isInitializingSendSource = false will be toggled
+        in the message send queue by the send source initialization callback.
+
+        If the caller has already enqueued messages before calling open(), the callbacks the
+        sendMessage() or open() schedules might run the functions which do not expect to be dispatched unless
+        m_isInitializingSendSource == false.
+
+        This commit just fixes the send vs open order, but does not fix the underlying problems.
+        They are tracked in bug 239494, which should also add tests for the case.
+
+        * GPUProcess/graphics/RemoteRenderingBackend.cpp:
+        (WebKit::RemoteRenderingBackend::RemoteRenderingBackend):
+        (WebKit::RemoteRenderingBackend::startListeningForIPC):
+        * Platform/IPC/cocoa/ConnectionCocoa.mm:
+        (IPC::Connection::sendOutgoingMessage):
+        Expand one ASSERT(!a && !b) to individual assertions in order to catch the exact problem easier.
+
+2022-04-13  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        RemoteRenderingBackend should have dedicated IPC::Connection for out-of-stream messages
+        https://bugs.webkit.org/show_bug.cgi?id=238516
+
+        Reviewed by Simon Fraser.
+
+        Use dedicated IPC::Connection for RemoteRenderingBackend IPC stream connection instead
+        of using the WP-GPUP main connection. RemoteDisplayListRecorder starts listening to
+        its messages in the worker thread. At that point, some out-of-stream message for that
+        id might already have been dispatched to main thread, causing missing message and assert.
+
+        Instead, use dedicated connection and route all the messages to the StreamServerConnection
+        in a "message queue". This way when each out-of-stream message marker is processed, the
+        message will be, directly or eventually, found from the message queue.
+
+        Remove workarounds:
+         - Adding a listener to the main WP-GPUP connection for all RemoteDisplayListRecorder messages
+           and routing them to particular StreamServerConnection. This was problematic since
+           there are many RRB StreamServerConnection instances, one per Page, but only one WP-GPUP
+           connection.
+         - RELEASE_LOG in MessageReceiveQueueMap about warning for the above. Turn this back into an
+           ASSERT.
+
+        Since IPC::StreamClientConnection and IPC::StreamServerConnection are like IPC::Connection,
+        add open() and invalidate() calls. These have same contract as with IPC::Connection:
+        open() should be called if connection is to be used, invalidate() must be called if open() was called.
+        These calls have an effect currently only with dedicated connections, but these are added to all
+        IPC::Stream*Connection clients for consistency and future uses.
+
+        Changes semantics of IPC::Connection slightly:
+        Before, there was no untrusted holders of "server" IPC::Connection, e.g. the IPC::Connection instances
+        were never instantiated by WP.
+        After, untrusted WP instantiates these IPC stream dedicated connections.
+        This is accounted in the case where IPC::Connection ensures that IPC::MessageNames::InitializeConnection
+        message is not acted on twice.
+
+        Tested by imported/w3c/web-platform-tests/html/semantics/links/links-created-by-a-and-area-elements/target_blank_implicit_noopener.html
+                  --child-processes=1 --experimental-feature=UseGPUProcessForDOMRenderingEnabled=true --iterations=100 --force --simulator
+
+        * GPUProcess/GPUConnectionToWebProcess.cpp:
+        (WebKit::GPUConnectionToWebProcess::createRenderingBackend):
+        * GPUProcess/GPUConnectionToWebProcess.h:
+        * GPUProcess/GPUConnectionToWebProcess.messages.in:
+        * GPUProcess/graphics/RemoteGraphicsContextGL.cpp:
+        (WebKit::RemoteGraphicsContextGL::initialize):
+        (WebKit::RemoteGraphicsContextGL::stopListeningForIPC):
+        * GPUProcess/graphics/RemoteRenderingBackend.cpp:
+        (WebKit::RemoteRenderingBackend::create):
+        (WebKit::RemoteRenderingBackend::RemoteRenderingBackend):
+        (WebKit::RemoteRenderingBackend::startListeningForIPC):
+        (WebKit::RemoteRenderingBackend::stopListeningForIPC):
+        (WebKit::RemoteRenderingBackend::messageSenderConnection const):
+        * GPUProcess/graphics/RemoteRenderingBackend.h:
+        * GPUProcess/graphics/WebGPU/RemoteGPU.cpp:
+        (WebKit::RemoteGPU::initialize):
+        (WebKit::RemoteGPU::stopListeningForIPC):
+        * Platform/IPC/MessageReceiveQueueMap.cpp:
+        (IPC::MessageReceiveQueueMap::addImpl):
+        (IPC::MessageReceiveQueueMap::remove):
+        * Platform/IPC/StreamClientConnection.cpp:
+        (IPC::StreamClientConnection::createWithDedicatedConnection):
+        (IPC::StreamClientConnection::StreamClientConnection):
+        (IPC::StreamClientConnection::~StreamClientConnection):
+        (IPC::StreamClientConnection::open):
+        (IPC::StreamClientConnection::invalidate):
+        (IPC::StreamClientConnection::connectionForTesting):
+        * Platform/IPC/StreamClientConnection.h:
+        (IPC::StreamClientConnection::send):
+        (IPC::StreamClientConnection::sendSync):
+        (IPC::StreamClientConnection::waitForAndDispatchImmediately):
+        (IPC::StreamClientConnection::trySendSyncStream):
+        * Platform/IPC/StreamServerConnection.cpp:
+        (IPC::StreamServerConnection::create):
+        (IPC::StreamServerConnection::createWithDedicatedConnection):
+        (IPC::StreamServerConnectionBase::StreamServerConnectionBase):
+        (IPC::StreamServerConnectionBase::~StreamServerConnectionBase):
+        (IPC::StreamServerConnectionBase::open):
+        (IPC::StreamServerConnectionBase::invalidate):
+        (IPC::StreamServerConnectionBase::startReceivingMessagesImpl):
+        (IPC::StreamServerConnectionBase::stopReceivingMessagesImpl):
+        * Platform/IPC/StreamServerConnection.h:
+        * Shared/IPCStreamTester.cpp:
+        (WebKit::IPCStreamTester::initialize):
+        (WebKit::IPCStreamTester::stopListeningForIPC):
+        * WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.cpp:
+        (WebKit::RemoteGraphicsContextGLProxy::RemoteGraphicsContextGLProxy):
+        (WebKit::RemoteGraphicsContextGLProxy::disconnectGpuProcessIfNeeded):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp:
+        (WebKit::RemoteRenderingBackendProxy::ensureGPUProcessConnection):
+        (WebKit::RemoteRenderingBackendProxy::disconnectGPUProcess):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.cpp:
+        (WebKit::RemoteGPUProxy::RemoteGPUProxy):
+        (WebKit::RemoteGPUProxy::abandonGPUProcess):
+        * WebProcess/WebPage/IPCTestingAPI.cpp:
+        (WebKit::IPCTestingAPI::JSIPCStreamClientConnection::sendMessage):
+        (WebKit::IPCTestingAPI::JSIPCStreamClientConnection::sendSyncMessage):
+
+2022-04-07  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        IPC::Connection should support diverting all messages to a message queue in other thread
+        https://bugs.webkit.org/show_bug.cgi?id=238608
+
+        Reviewed by Simon Fraser.
+
+        Previously, it was possible to divert all messages to certain ReceiverName to
+        a message queue. This is used in IPC streams functionality.
+
+        Add a possibility to divert all messages to a message queue. Instead of
+        passing ReceiverName, id pair to Connection, pass new struct ReceiverMatcher.
+        Use ReceiverMatcher instead of pair optional<ReceiverName>, optional<id>, since
+        nullopt, id is not a valid case.
+        This will be used in future patch for the case where IPC::Connection is created for
+        the sole purpose of using it together with IPC stream connection.
+        This also clarifies the overloaded use of destinationID 0 as a wildcard as well as
+        a valid message destination.
+
+        Also implement the possibility to divert all messages to particular ReceiverName,
+        id 0. Previously this was signifying the destination ID wildcard.
+
+        No new tests, refactor.
+
+        * Platform/IPC/Connection.cpp:
+        (IPC::Connection::SyncMessageState::enqueueMatchingMessages):
+        (IPC::Connection::enqueueMatchingMessagesToMessageReceiveQueue):
+        (IPC::Connection::addMessageReceiveQueue):
+        (IPC::Connection::removeMessageReceiveQueue):
+        (IPC::Connection::addWorkQueueMessageReceiver):
+        (IPC::Connection::removeWorkQueueMessageReceiver):
+        (IPC::Connection::addThreadMessageReceiver):
+        (IPC::Connection::removeThreadMessageReceiver):
+        * Platform/IPC/Connection.h:
+        * Platform/IPC/Decoder.h:
+        (IPC::Decoder::matches const):
+        * Platform/IPC/MessageReceiveQueueMap.cpp:
+        (IPC::MessageReceiveQueueMap::addImpl):
+        (IPC::MessageReceiveQueueMap::remove):
+        (IPC::MessageReceiveQueueMap::get const):
+        * Platform/IPC/MessageReceiveQueueMap.h:
+        (IPC::MessageReceiveQueueMap::add):
+        * Platform/IPC/ReceiverMatcher.h: Copied from Source/WebKit/Platform/IPC/MessageReceiveQueueMap.h.
+        (IPC::ReceiverMatcher::ReceiverMatcher):
+        (IPC::ReceiverMatcher::createForLegacyAPI):
+        (IPC::ReceiverMatcher::matches const):
+        * Platform/IPC/StreamServerConnection.cpp:
+        (IPC::StreamServerConnectionBase::startReceivingMessagesImpl):
+        (IPC::StreamServerConnectionBase::stopReceivingMessagesImpl):
+        * WebKit.xcodeproj/project.pbxproj:
+
+2022-03-25  Simon Fraser  <simon.fraser@apple.com>
+
+        Temporarily disable assertion in MessageReceiveQueueMap::addImpl()
+        https://bugs.webkit.org/show_bug.cgi?id=238397
+
+        Unreviewed followup: similarly change the assertion in remove() into a log.
+
+        * Platform/IPC/MessageReceiveQueueMap.cpp:
+        (IPC::MessageReceiveQueueMap::remove):
+
+2022-03-25  Simon Fraser  <simon.fraser@apple.com>
+
+        Temporarily disable assertion in MessageReceiveQueueMap::addImpl()
+        https://bugs.webkit.org/show_bug.cgi?id=238397
+
+        Reviewed by Wenson Hsieh.
+
+        Enabling DOM Rendering in the GPU Process has exposed an issue (webkit.org/b/237674, webkit.org/b/238391).
+        Temporarily convert this assertion to logging to reduce test failures.
+
+        * Platform/IPC/MessageReceiveQueueMap.cpp:
+        (IPC::MessageReceiveQueueMap::addImpl):
+
+2022-04-04  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        IPC::StreamServerConnectionBase has only one subclass, it should be removed
+        https://bugs.webkit.org/show_bug.cgi?id=238676
+
+        Reviewed by Wenson Hsieh.
+
+        Merge IPC::StreamServerConnectionBase and IPC::StreamServerConnection.
+        The base was useful when the concrete classes were templates per message receiver.
+        The concrete class was changed to use multiple message receivers, and the templating
+        was replaced with id lookup.
+
+        No new tests, refactor.
+
+        * GPUProcess/graphics/RemoteDisplayListRecorder.h:
+        * GPUProcess/graphics/RemoteGraphicsContextGL.h:
+        * GPUProcess/graphics/RemoteRenderingBackend.h:
+        * GPUProcess/graphics/WebGPU/RemoteAdapter.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroup.h:
+        * GPUProcess/graphics/WebGPU/RemoteBindGroupLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandBuffer.h:
+        * GPUProcess/graphics/WebGPU/RemoteCommandEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteComputePipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteDevice.h:
+        * GPUProcess/graphics/WebGPU/RemoteExternalTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteGPU.h:
+        * GPUProcess/graphics/WebGPU/RemotePipelineLayout.h:
+        * GPUProcess/graphics/WebGPU/RemoteQuerySet.h:
+        * GPUProcess/graphics/WebGPU/RemoteQueue.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundle.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderBundleEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPassEncoder.h:
+        * GPUProcess/graphics/WebGPU/RemoteRenderPipeline.h:
+        * GPUProcess/graphics/WebGPU/RemoteSampler.h:
+        * GPUProcess/graphics/WebGPU/RemoteShaderModule.h:
+        * GPUProcess/graphics/WebGPU/RemoteTexture.h:
+        * GPUProcess/graphics/WebGPU/RemoteTextureView.h:
+        * Platform/IPC/HandleMessage.h:
+        (IPC::handleMessageSynchronous):
+        * Platform/IPC/StreamConnectionWorkQueue.cpp:
+        (IPC::StreamConnectionWorkQueue::addStreamConnection):
+        (IPC::StreamConnectionWorkQueue::removeStreamConnection):
+        (IPC::StreamConnectionWorkQueue::processStreams):
+        * Platform/IPC/StreamConnectionWorkQueue.h:
+        * Platform/IPC/StreamMessageReceiver.h:
+        * Platform/IPC/StreamServerConnection.cpp:
+        (IPC::StreamServerConnection::StreamServerConnection):
+        (IPC::StreamServerConnection::startReceivingMessages):
+        (IPC::StreamServerConnection::stopReceivingMessages):
+        (IPC::StreamServerConnection::enqueueMessage):
+        (IPC::StreamServerConnection::tryAcquire):
+        (IPC::StreamServerConnection::acquireAll):
+        (IPC::StreamServerConnection::release):
+        (IPC::StreamServerConnection::releaseAll):
+        (IPC::StreamServerConnection::alignedSpan):
+        (IPC::StreamServerConnection::size):
+        (IPC::StreamServerConnection::clampedLimit const):
+        (IPC::StreamServerConnection::dispatchStreamMessages):
+        * Platform/IPC/StreamServerConnection.h:
+        (IPC::StreamServerConnection::sendSyncReply):
+        * Scripts/webkit/messages.py:
+        (generate_message_handler):
+        * Scripts/webkit/tests/TestWithStreamMessageReceiver.cpp:
+        (WebKit::TestWithStream::didReceiveStreamMessage):
+        * Shared/IPCStreamTester.h:
+
+2022-04-04  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        RemoteRenderingBackendProxy fails to maintain correct state when gpu process crashes and upon deletion
+        https://bugs.webkit.org/show_bug.cgi?id=238618
+
+        Reviewed by Simon Fraser.
+
+        RemoteRenderingBackendProxy::m_needsWakeUpSemaphoreForDisplayListStream
+        was not reset when proxy would connect to a new gpu process after a crash.
+        RemoteRenderingBackendProxy::~RemoteRenderingBackendProxy() would not
+        remove the GPUConnection::Client registration.
+
+        * Platform/IPC/MessageReceiveQueueMap.cpp:
+        (IPC::MessageReceiveQueueMap::remove):
+        * Platform/IPC/StreamClientConnection.h:
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp:
+        (WebKit::RemoteRenderingBackendProxy::~RemoteRenderingBackendProxy):
+        (WebKit::RemoteRenderingBackendProxy::gpuProcessConnectionDidClose):
+        (WebKit::RemoteRenderingBackendProxy::disconnectGPUProcess):
+        (WebKit::RemoteRenderingBackendProxy::streamConnection):
+        (WebKit::RemoteRenderingBackendProxy::didCreateWakeUpSemaphoreForDisplayListStream):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.h:
+
+2022-03-30  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Move AuxiliaryProcess::createIPCConnectionPair to IPC::Connection
+        https://bugs.webkit.org/show_bug.cgi?id=238504
+
+        Reviewed by Chris Dumez.
+
+        Move connection port/socket/pipe pair creation function from AuxiliaryProcess
+        to IPC::Connection. This way other components than AuxiliaryProcess subclasses
+        can create and send new connections.
+
+        No new tests, refactor.
+
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::createGPUConnectionToWebProcess):
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::createNetworkConnectionToWebProcess):
+        * Platform/IPC/Connection.cpp:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Platform/IPC/Connection.h:
+        * Platform/IPC/cocoa/ConnectionCocoa.mm:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Platform/IPC/unix/ConnectionUnix.cpp:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Platform/IPC/win/ConnectionWin.cpp:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Shared/AuxiliaryProcess.cpp:
+        * Shared/AuxiliaryProcess.h:
+        * WebAuthnProcess/WebAuthnProcess.cpp:
+        (WebKit::WebAuthnProcess::createWebAuthnConnectionToWebProcess):
+        * WebProcess/Inspector/WebInspectorUI.cpp:
+        (WebKit::WebInspectorUI::updateConnection):
+
+2022-04-04  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        StreamClientConnection should have waitForAndDispatchImmediately
+        https://bugs.webkit.org/show_bug.cgi?id=238622
+
+        Reviewed by Simon Fraser.
+
+        IPC::StreamClientConnection should have the same communication methods
+        as the IPC::Connection. The stream connection will forward
+        the calls to underlying IPC::Connection, if needed.
+        Add missing IPC::StreamClientConnection::waitForAndDispatchImmediately()
+        and use it.
+        Remove conveinence accessor methods for the IPC::Connection, as that should be
+        accessed by accessing the stream connection in the respective classes.
+
+        No new tests, refactor.
+
+        * Platform/IPC/StreamClientConnection.h:
+        (IPC::StreamClientConnection::waitForAndDispatchImmediately):
+        * WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.cpp:
+        (WebKit::RemoteGraphicsContextGLProxy::RemoteGraphicsContextGLProxy):
+        (WebKit::RemoteGraphicsContextGLProxy::waitUntilInitialized):
+        * WebProcess/GPU/graphics/RemoteGraphicsContextGLProxy.h:
+        (WebKit::RemoteGraphicsContextGLProxy::sendSync):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp:
+        (WebKit::RemoteRenderingBackendProxy::waitForDidCreateImageBufferBackend):
+        (WebKit::RemoteRenderingBackendProxy::waitForDidFlush):
+        (WebKit::RemoteRenderingBackendProxy::streamConnection):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.h:
+        * WebProcess/GPU/graphics/WebGPU/RemoteGPUProxy.cpp:
+        (WebKit::RemoteGPUProxy::RemoteGPUProxy):
+        (WebKit::RemoteGPUProxy::waitUntilInitialized):
+
+2022-03-17  Simon Lewis  <simon.lewis@apple.com>
+
+        Add read and write methods to JSIPCStreamConnectionBuffer
+        https://bugs.webkit.org/show_bug.cgi?id=237730
+        rdar://problem/89676460
+
+        Reviewed by Kimmo Kinnunen.
+
+        When using IPCTestingAPI, this change enables the underlying bytes
+        of a StreamClientConnection buffer to be modified.
+
+        Test: ipc/stream-buffer-read-write.html
+
+        * Platform/IPC/StreamClientConnection.cpp:
+        (IPC::StreamClientConnection::bufferForTesting):
+        * Platform/IPC/StreamClientConnection.h:
+        * Platform/IPC/StreamConnectionBuffer.cpp:
+        (IPC::StreamConnectionBuffer::headerForTesting):
+        (IPC::StreamConnectionBuffer::dataForTesting):
+        * Platform/IPC/StreamConnectionBuffer.h:
+        * WebProcess/WebPage/IPCTestingAPI.cpp:
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::staticFunctions):
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::readHeaderBytes):
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::readDataBytes):
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::readBytes):
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::writeHeaderBytes):
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::writeDataBytes):
+        (WebKit::IPCTestingAPI::JSIPCStreamConnectionBuffer::writeBytes):
+
+2022-02-01  Simon Fraser  <simon.fraser@apple.com>
+
+        RemoteRenderingBackendProxy should not be a IPC::MessageSender
+        https://bugs.webkit.org/show_bug.cgi?id=235935
+
+        Reviewed by Wenson Hsieh.
+
+        Calling send() in RemoteRenderingBackendProxy fails to send a message to the GPU process,
+        because it has no connection(), only a StreamClientConnection or the GPUProcessConnection.
+        
+        So make it not inherit from IPC::MessageSender. Code using send() now explicitly uses
+        ensureGPUProcessConnection().connection().
+
+        (WebKit::RemoteLayerBackingStore::setBufferVolatility):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp:
+        (WebKit::RemoteRenderingBackendProxy::~RemoteRenderingBackendProxy):
+        (WebKit::RemoteRenderingBackendProxy::gpuProcessConnection):
+        (WebKit::RemoteRenderingBackendProxy::waitForDidCreateImageBufferBackend):
+        (WebKit::RemoteRenderingBackendProxy::waitForDidFlush):
+        (WebKit::RemoteRenderingBackendProxy::streamConnection):
+        (WebKit::RemoteRenderingBackendProxy::messageSenderConnection const): Deleted.
+        (WebKit::RemoteRenderingBackendProxy::messageSenderDestinationID const): Deleted.
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.h:
+
+2022-03-30  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Move AuxiliaryProcess::createIPCConnectionPair to IPC::Connection
+        https://bugs.webkit.org/show_bug.cgi?id=238504
+
+        Reviewed by Chris Dumez.
+
+        Move connection port/socket/pipe pair creation function from AuxiliaryProcess
+        to IPC::Connection. This way other components than AuxiliaryProcess subclasses
+        can create and send new connections.
+
+        No new tests, refactor.
+
+        * GPUProcess/GPUProcess.cpp:
+        (WebKit::GPUProcess::createGPUConnectionToWebProcess):
+        * NetworkProcess/NetworkProcess.cpp:
+        (WebKit::NetworkProcess::createNetworkConnectionToWebProcess):
+        * Platform/IPC/Connection.cpp:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Platform/IPC/Connection.h:
+        * Platform/IPC/cocoa/ConnectionCocoa.mm:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Platform/IPC/unix/ConnectionUnix.cpp:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Platform/IPC/win/ConnectionWin.cpp:
+        (IPC::Connection::createConnectionIdentifierPair):
+        * Shared/AuxiliaryProcess.cpp:
+        * Shared/AuxiliaryProcess.h:
+        * WebAuthnProcess/WebAuthnProcess.cpp:
+        (WebKit::WebAuthnProcess::createWebAuthnConnectionToWebProcess):
+        * WebProcess/Inspector/WebInspectorUI.cpp:
+        (WebKit::WebInspectorUI::updateConnection):
+
+2022-04-27  Simon Fraser  <simon.fraser@apple.com>
+
+        Avoid sending a flush IPC to the GPU process when destroying a RemoteImageBuffer
+        https://bugs.webkit.org/show_bug.cgi?id=239799
+
+        Reviewed by Said Abou-Hallawa.
+
+        After r280652, destroying a RemoteImageBufferProxy would always send a flush to the GPU
+        process, even if there had be no drawing since the previous flush.
+
+        Fix to only send a flush and wait when necessary.
+
+        Roughly 8% progression on MotionMark Images subtest on iPhone.
+
+        * WebProcess/GPU/graphics/RemoteImageBufferProxy.h:
+        (WebKit::RemoteImageBufferProxy::waitForDidFlushWithTimeout):
+
+2022-05-04  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        RemoteImageBuffer ThreadSafeImageBufferFlusher hangs if GPU process crashes
+        https://bugs.webkit.org/show_bug.cgi?id=240007
+
+        Reviewed by Geoffrey Garen.
+
+        RemoteResourceCacheProxy clears the RemoteImageBuffer backend when the
+        GPUP is lost. Mark the flush as completed in this case, so that any pending
+        off-thread flush waits can proceed.
+
+        Make sure RemoteResourceCacheProxy clears the backends on destruction too,
+        so that any pending flushes proceed in this case too.
+
+        * WebProcess/GPU/graphics/RemoteImageBufferProxy.h:
+        * WebProcess/GPU/graphics/RemoteResourceCacheProxy.cpp:
+        (WebKit::RemoteResourceCacheProxy::~RemoteResourceCacheProxy):
+        (WebKit::RemoteResourceCacheProxy::clearImageBufferBackends):
+        (WebKit::RemoteResourceCacheProxy::remoteResourceCacheWasDestroyed):
+        * WebProcess/GPU/graphics/RemoteResourceCacheProxy.h:
+
+2022-02-25  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        REGRESSION(r289580): [ iOS macOS ] TestWebKitAPI.IPCTestingAPI.CanReceiveSharedMemory is a constant timeout
+        https://bugs.webkit.org/show_bug.cgi?id=236744
+
+        Reviewed by Antti Koivisto.
+
+        Add new tester interface for testing IPC stream features.
+
+        Before, TestWebKitAPI.IPCTestingAPI.CanReceiveSharedMemory would test the feature of
+        "can reply stream sync message with shared memory" by using a RemoteRenderingBackend
+        message that did so. However, when the RemoteRenderingBackend was changed to use a
+        different stategy, this test stopped working without compile failure. The IPC testing
+        is currently done at JS level.
+
+        After, the new dedicated testing interface IPCStreamTester has dedicated message for
+        testing this feature. The test is moved to LayoutTests/ipc and made so that
+        it tests the feature in all currently testable processes WP uses (GPU, Networking, UI).
+
+        IPCTestingAPI is amended to return the all possible testable process names, so
+        the .html test can work even when ENABLE(GPU_PROCESS) is toggled.
+
+        The .html test also passes when !ENABLE(IPC_TESTING_API). Currently
+        ENABLE_IPC_TESTING_API == (ASAN_ENABLED || !defined(NDEBUG)) && PLATFORM(COCOA)
+        E.g. test tests something on Release+ASAN or Debug.
+
+        Having the test in .html also makes it possible to run the test on iOS devices.
+
+        * CMakeLists.txt:
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * Scripts/webkit/messages.py:
+        (types_that_cannot_be_forward_declared):
+        * Shared/IPCStreamTester.cpp: Added.
+        (WebKit::IPCStreamTester::create):
+        (WebKit::IPCStreamTester::IPCStreamTester):
+        (WebKit::IPCStreamTester::initialize):
+        (WebKit::IPCStreamTester::stopListeningForIPC):
+        (WebKit::IPCStreamTester::syncMessageReturningSharedMemory1):
+        * Shared/IPCStreamTester.h: Copied from Source/WebKit/Shared/IPCTester.h.
+        * Shared/IPCStreamTester.messages.in: Copied from Source/WebKit/Shared/IPCTester.messages.in.
+        * Shared/IPCStreamTesterIdentifier.h: Copied from Source/WebKit/Shared/IPCTester.h.
+        * Shared/IPCStreamTesterProxy.messages.in: Copied from Source/WebKit/Shared/IPCTester.messages.in.
+        * Shared/IPCTester.cpp:
+        (WebKit::IPCTester::createStreamTester):
+        (WebKit::IPCTester::releaseStreamTester):
+        * Shared/IPCTester.h:
+        * Shared/IPCTester.messages.in:
+        * Shared/mac/MediaFormatReader/MediaFormatReader.cpp:
+        * Sources.txt:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/WebPage/IPCTestingAPI.cpp:
+        (WebKit::IPCTestingAPI::JSIPC::staticValues):
+        (WebKit::IPCTestingAPI::processTargetFromArgument):
+        (WebKit::IPCTestingAPI::JSIPC::processTargets):
+
+2022-02-15  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Memory for messages wrapped for testing is freed before use
+        https://bugs.webkit.org/show_bug.cgi?id=236590
+
+        Reviewed by Antti Koivisto.
+
+        Wrapped messages are such that the data is wrapped inside a synchronous message.
+        These are sent by certain test objects.
+        In case the wrapped message was sent to another thread, the wrappee would be
+        destroyed before the wrapped message was read.
+
+        This is a regression from "Support in-process testing of IPC messages"
+        where the Decoder constructor with deallocator parameter was changed to
+        unconditionally mean that the Decoder owns the passed in data.
+        This call-site was missed, and it uses the constructor to pass nullptr
+        deallocator. Previously this used to mean that the constructor should
+        copy the data.
+
+        Fix by using the copying Decoder constructor.
+        Add assertion to the ownership-transfer decoder that the deallocation
+        function is non-null to notice the potential misuse. Currently passing
+        globally owned data, e.g. non-deallocated data is not useful.
+        Remove pessimizing WTFMove of a local variabl from a return position.
+
+        No new tests, caught by fast/events/gesture/wheel-from-gesture.html with ASAN.
+
+        * Platform/IPC/Decoder.cpp:
+        (IPC::Decoder::create):
+        (IPC::Decoder::unwrapForTesting):
+
+2022-01-21  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        Support in-process testing of IPC messages
+        https://bugs.webkit.org/show_bug.cgi?id=231674
+        <rdar://84189314>
+
+        Reviewed by Brent Fulgham.
+
+        Add IPCTester service to UI, GPU, Network, Authn process.
+        The service can be used to send random messages to the processes.
+
+        Test: ipc/start-message-testing.html
+
+        * DerivedSources-input.xcfilelist:
+        * DerivedSources-output.xcfilelist:
+        * DerivedSources.make:
+        * GPUProcess/GPUConnectionToWebProcess.cpp:
+        (WebKit::GPUConnectionToWebProcess::dispatchMessage):
+        (WebKit::GPUConnectionToWebProcess::dispatchSyncMessage):
+        * GPUProcess/GPUConnectionToWebProcess.h:
+        * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+        (WebKit::NetworkConnectionToWebProcess::didReceiveMessage):
+        (WebKit::NetworkConnectionToWebProcess::didReceiveSyncMessage):
+        * NetworkProcess/NetworkConnectionToWebProcess.h:
+        * Platform/IPC/Connection.cpp:
+        (IPC::Connection::dispatchIncomingMessageForTesting):
+        (IPC::Connection::dispatchMessage):
+        (IPC::CompletionHandler<void):
+        Remove asserts from takeAsyncReplyHandler, they're already present
+        in the caller. The caller can filter them based on the testing flag,
+        allowing testing without asserts.
+        * Platform/IPC/Connection.h:
+        * Platform/IPC/Decoder.cpp:
+        (IPC::Decoder::create):
+        (IPC::Decoder::Decoder):
+        (IPC::Decoder::~Decoder):
+        * Platform/IPC/Decoder.h:
+        * Platform/IPC/cocoa/ConnectionCocoa.mm:
+        (IPC::createMessageDecoder):
+        * Platform/IPC/unix/ConnectionUnix.cpp:
+        (IPC::Connection::processMessage):
+        * Platform/IPC/win/ConnectionWin.cpp:
+        (IPC::Connection::readEventHandler):
+        * Shared/IPCTester.cpp: Added.
+        (WebKit::messageTestDriver):
+        (WebKit::runMessageTesting):
+        (WebKit::IPCTester::~IPCTester):
+        (WebKit::IPCTester::startMessageTesting):
+        (WebKit::IPCTester::stopMessageTesting):
+        (WebKit::IPCTester::stopIfNeeded):
+        * Shared/IPCTester.h: Added.
+        * Shared/IPCTester.messages.in: Copied from Source/WebKit/WebAuthnProcess/WebAuthnConnectionToWebProcess.messages.in.
+        * Sources.txt:
+        * UIProcess/LegacySessionStateCodingNone.cpp:
+        (WebKit::decodeLegacySessionState):
+        * UIProcess/WebProcessPool.cpp:
+        * UIProcess/WebProcessPool.h:
+        * UIProcess/WebProcessProxy.cpp:
+        (WebKit::WebProcessProxy::shouldSendPendingMessage):
+        * WebAuthnProcess/WebAuthnConnectionToWebProcess.cpp:
+        (WebKit::WebAuthnConnectionToWebProcess::dispatchMessage):
+        (WebKit::WebAuthnConnectionToWebProcess::dispatchSyncMessage):
+        * WebAuthnProcess/WebAuthnConnectionToWebProcess.h:
+        * WebAuthnProcess/WebAuthnConnectionToWebProcess.messages.in:
+        * WebKit.xcodeproj/project.pbxproj:
+        * WebProcess/WebPage/IPCTestingAPI.cpp:
+        (WebKit::IPCTestingAPI::JSMessageListener::didReceiveMessage):
+        (WebKit::IPCTestingAPI::JSMessageListener::willSendMessage):
+
+2022-02-10  Kimmo Kinnunen  <kkinnunen@apple.com>
+
+        ImageBuffer::get/putPixelBuffer should not go through DisplayList
+        https://bugs.webkit.org/show_bug.cgi?id=236305
+
+        Reviewed by Geoffrey Garen.
+
+        Move code that carries out RemoteImageBufferProxy GetPixelBuffer, PutPixelBuffer
+        from the display list playback to RemoteImageBuffer implementation
+        in RemoteRenderingBackend, the same place that hosts other
+        RemoteImageBuffer function invocations.
+
+        This makes it possible in the future to mark GetPixelBuffer as a read operation
+        depending on the previous write operations. Previously GetPixelBuffer was recorded
+        to the display list before the display list was flushed, which is semantically wrong
+        and in practice would cause inverted references.
+
+        Simplify the protocol to implement the GetPixelBuffer. Previously it was:
+         - If GPUP does not have the semaphore and the shm, ask for GPUP to send them,  sync
+         - Else if GPUP does not have the semaphore, ask for GPUP to send it, sync
+         - Else if GPUP does not have the shm send, ask for GPUP to send it, sync
+         - Send the GetPixelBuffer message via stream async
+         - Wait for the semaphore
+
+        After it is:
+         - If GPUP does not have the shm send GetPixelBuffer with the shm, sync
+         - Else send the GetPixelBuffer via stream sync
+
+        There's no point in sending a semaphore, the stream sync message is
+        just a wait on the stream semaphore. Also, since semaphores
+        might have spurious wakeups, it is not enough of a protocol to wait a
+        plain semaphore.
+
+        * GPUProcess/graphics/RemoteDisplayListRecorder.cpp:
+        * GPUProcess/graphics/RemoteDisplayListRecorder.h:
+        * GPUProcess/graphics/RemoteDisplayListRecorder.messages.in:
+        * GPUProcess/graphics/RemoteRenderingBackend.cpp:
+        (WebKit::RemoteRenderingBackend::getPixelBufferForImageBuffer):
+        (WebKit::RemoteRenderingBackend::getPixelBufferForImageBufferWithNewMemory):
+        (WebKit::RemoteRenderingBackend::putPixelBufferForImageBuffer):
+        * GPUProcess/graphics/RemoteRenderingBackend.h:
+        * GPUProcess/graphics/RemoteRenderingBackend.messages.in:
+        * WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.cpp:
+        * WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.h:
+        * WebProcess/GPU/graphics/RemoteImageBufferProxy.h:
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.cpp:
+        (WebKit::RemoteRenderingBackendProxy::gpuProcessConnectionDidClose):
+        (WebKit::RemoteRenderingBackendProxy::getPixelBufferForImageBuffer):
+        (WebKit::RemoteRenderingBackendProxy::putPixelBufferForImageBuffer):
+        (WebKit::RemoteRenderingBackendProxy::updateSharedMemoryForGetPixelBuffer):
+        (WebKit::RemoteRenderingBackendProxy::destroyGetPixelBufferSharedMemory):
+        * WebProcess/GPU/graphics/RemoteRenderingBackendProxy.h:
+
+2022-01-19  Said Abou-Hallawa  <said@apple.com>
+
+        [GPU Process] ImageBuffer::convertToLuminanceMask() and transformToColorSpace() should not access the backend in WebProcess
+        https://bugs.webkit.org/show_bug.cgi?id=235305
+        rdar://83437815
+
+        Reviewed by Sam Weinig.
+
+        * GPUProcess/graphics/RemoteDisplayListRecorder.cpp:
+        (WebKit::RemoteDisplayListRecorder::convertToLuminanceMask):
+        (WebKit::RemoteDisplayListRecorder::transformToColorSpace):
+        * GPUProcess/graphics/RemoteDisplayListRecorder.h:
+        * GPUProcess/graphics/RemoteDisplayListRecorder.messages.in:
+        * WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.cpp:
+        (WebKit::RemoteDisplayListRecorderProxy::convertToLuminanceMask):
+        (WebKit::RemoteDisplayListRecorderProxy::transformToColorSpace):
+        * WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.h:
+        * WebProcess/GPU/graphics/RemoteImageBufferProxy.h:
+
+2022-03-17  Kate Cheney  <katherine_cheney@apple.com>
+
+        Calls to print can result in unresponsive print modal
+        https://bugs.webkit.org/show_bug.cgi?id=237940
+        <rdar://problem/88257828>
+
+        Reviewed by Chris Dumez.
+
+        Calls to print were hanging in the case of the client asynchronously
+        handling the completion handler passed to the delegate. To fix this
+        we can adjust all printing IPC to have the option
+        DispatchMessageEvenWhenWaitingForUnboundedSyncReply which allows IPC
+        messages when waiting for a sync reply in the case where the receiver
+        of the message is not guranteed to call the completion handler at the
+        end of the runloop.
+
+        * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+        * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+        (-[WKWebView _computePagesForPrinting:completionHandler:]):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::printingSendOptions):
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::print):
+
+2022-04-08  Carlos Garcia Campos  <cgarcia@igalia.com>
+
+        Incorrect CORP/COEP check in 304 responses
+        https://bugs.webkit.org/show_bug.cgi?id=238238
+        <rdar://problem/90706510>
+
+        Reviewed by Youenn Fablet.
+
+        Add CORP header to the 304 response if previously set to avoid being blocked by load checker due to COEP.
+
+        Test: imported/w3c/web-platform-tests/html/cross-origin-embedder-policy/require-corp-revalidated-images.https.html
+
+        * NetworkProcess/NetworkResourceLoader.cpp:
+        (WebKit::NetworkResourceLoader::didReceiveResponse):
+
+2022-04-27  Youenn Fablet  <youenn@apple.com>
+
+        Add testRunner API to clear memory cache
+        https://bugs.webkit.org/show_bug.cgi?id=239804
+        rdar://92033309
+
+        Reviewed by Chris Dumez.
+
+        Add necessary WebKit API to implement the testRunner API.
+        Make use of new testRunner API in added test.
+
+        Test: http/wpt/fetch/clear-memory-cache.html
+
+        * NetworkProcess/NetworkProcess.cpp:
+        * UIProcess/API/C/WKWebsiteDataStoreRef.cpp:
+        * UIProcess/API/C/WKWebsiteDataStoreRef.h:
+        * UIProcess/WebsiteData/WebsiteDataStore.cpp:
+
+2022-03-17  Kate Cheney  <katherine_cheney@apple.com>
+
+        Calls to print can result in unresponsive print modal
+        https://bugs.webkit.org/show_bug.cgi?id=237940
+        <rdar://problem/88257828>
+
+        Reviewed by Chris Dumez.
+
+        Calls to print were hanging in the case of the client asynchronously
+        handling the completion handler passed to the delegate. To fix this
+        we can adjust all printing IPC to have the option
+        DispatchMessageEvenWhenWaitingForUnboundedSyncReply which allows IPC
+        messages when waiting for a sync reply in the case where the receiver
+        of the message is not guranteed to call the completion handler at the
+        end of the runloop.
+
+        * UIProcess/API/Cocoa/WKWebViewPrivateForTesting.h:
+        * UIProcess/API/Cocoa/WKWebViewTesting.mm:
+        (-[WKWebView _computePagesForPrinting:completionHandler:]):
+        * UIProcess/WebPageProxy.cpp:
+        (WebKit::printingSendOptions):
+        * WebProcess/WebCoreSupport/WebChromeClient.cpp:
+        (WebKit::WebChromeClient::print):
+
+2022-04-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        Unreviewed, fix the Catalyst build after r292888
+
+        `MCProfileConnection` is not available on Mac Catalyst.
+
+        * UIProcess/ios/WKContentViewInteraction.mm:
+        (-[WKContentView _dataOwnerForPasteboard:]):
+
+2022-05-16  Youenn Fablet  <youenn@apple.com>
+
+        Add logging when taking a process assertion synchronously
+        https://bugs.webkit.org/show_bug.cgi?id=240334
+
+        Reviewed by Chris Dumez.
+
+        No observable change of behavior.
+
+        * UIProcess/ios/ProcessAssertionIOS.mm:
+        (WebKit::ProcessAssertion::acquireSync):
+
+2022-04-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] [WK2] Managed pasteboard should function for all managed domains
+        https://bugs.webkit.org/show_bug.cgi?id=239319
+        rdar://80059355
+
+        Reviewed by Kate Cheney.
+
+        Unless a WebKit client has specified a data owner for the web view that is not _UIDataOwnerUndefined, fall back
+        to _UIDataOwnerEnterprise when the current domain of the WKWebView is managed (that is, `-[MCProfileConnection
+        isURLManaged:]` returns YES for the web view's current URL). This allows managed pasteboard to work for all
+        WebKit clients, if the current URL is managed.
+
+        Test: UIPasteboardTests.PerformAsDataOwnerWithManagedURL
+
+        * Platform/spi/ios/UIKitSPI.h:
+
+        Drive-by fix: move the staged declarations of `-_dataOwnerForCopy` and `-_dataOwnerForPaste` out of the IPI
+        section, and into the non-internal SDK section.
+
+        * UIProcess/ios/WKContentViewInteraction.mm:
+        (-[WKContentView _dataOwnerForPasteboard:]):
+
+2022-05-25  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick a173819be243. rdar://problem/87980543
+
+    Cherry-pick r294280. rdar://problem/87980543
+    
+    This reverts r294684.
+    
+    Canonical link: https://commits.webkit.org/245886.574@safari-7613.3.1.1-branch
+    git-svn-id: https://svn.webkit.org/repository/webkit/branches/safari-7613.3.1.1-branch@294731 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-05-23  Alan Coon  <alancoon@apple.com>
+
+            Cherry-pick r294280. rdar://problem/87980543
+
+        REGRESSION(r249162): CanvasRenderingContext2DBase::drawImage() crashes if the image is animated and the first frame cannot be decoded
+        https://bugs.webkit.org/show_bug.cgi?id=239113
+        rdar://87980543
+
+        Reviewed by Simon Fraser.
+
+        Source/WebCore:
+
+        CanvasRenderingContext2DBase::drawImage() needs to ensure the first frame
+        of the animated image can be decoded correctly before creating the temporary
+        static image. If the first frame can't be decoded, this function should return
+        immediately. This matches the behavior of this function before r249162.
+
+        The animated image decodes its frames asynchronously in a work queue. But
+        the first frame has to be decoded synchronously in the main run loop. So
+        to avoid running the image decoder in two different threads we are going
+        to keep the first and the current frame cached when we receive a memory
+        pressure warning. This should not increase the memory allocation of the
+        animated image because the numbers of cached frames increases quickly and
+        we keep all of them till a memory warning is received. But the memory
+        pressure warning will be received a little bit more often. This depends
+        on the memory size of the first frame.
+
+        To make the code more robust, make ImageSource take a Ref<NativeImage>
+        instead of taking a RefPtr<NativeImage>.
+
+        * html/canvas/CanvasRenderingContext2DBase.cpp:
+        (WebCore::CanvasRenderingContext2DBase::drawImage):
+        * platform/graphics/BitmapImage.cpp:
+        (WebCore::BitmapImage::BitmapImage):
+        (WebCore::BitmapImage::destroyDecodedData):
+        * platform/graphics/BitmapImage.h:
+        * platform/graphics/ImageSource.cpp:
+        (WebCore::ImageSource::ImageSource):
+        (WebCore::ImageSource::destroyDecodedData):
+        (WebCore::ImageSource::setNativeImage):
+        * platform/graphics/ImageSource.h:
+        (WebCore::ImageSource::create):
+        (WebCore::ImageSource::isDecoderAvailable const):
+        (WebCore::ImageSource::destroyAllDecodedData): Deleted.
+        (WebCore::ImageSource::destroyAllDecodedDataExcludeFrame): Deleted.
+        (WebCore::ImageSource::destroyDecodedDataBeforeFrame): Deleted.
+
+        Source/WebKit:
+
+        * GPUProcess/graphics/RemoteDisplayListRecorder.cpp:
+        (WebKit::RemoteDisplayListRecorder::drawSystemImage):
+
+        git-svn-id: https://svn.webkit.org/repository/webkit/trunk@294280 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+        2022-05-16  Said Abou-Hallawa  <said@apple.com>
+
+                REGRESSION(r249162): CanvasRenderingContext2DBase::drawImage() crashes if the image is animated and the first frame cannot be decoded
+                https://bugs.webkit.org/show_bug.cgi?id=239113
+                rdar://87980543
+
+                Reviewed by Simon Fraser.
+
+                * GPUProcess/graphics/RemoteDisplayListRecorder.cpp:
+                (WebKit::RemoteDisplayListRecorder::drawSystemImage):
+
+2022-05-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r293894. rdar://problem/74201964
+
+    [iOS] Infinite recursion at -[WKFullScreenWindowController _exitFullscreenImmediately]
+    https://bugs.webkit.org/show_bug.cgi?id=239744
+    <rdar://74201964>
+    
+    Reviewed by Eric Carlson.
+    
+    Source/WebCore:
+    
+    Even after fullscreen is correctly torn down during an immediate exit, fullscreen can never again
+    be entered for the lifetime of the page. This is due to the ivar m_pendingExitFullscreen being set
+    to true with no opportunity for that state to be cleared. This occurs because the callbacks for
+    exiting fullscreen are performed before the lambda form FullscreenManager::exitFullscreen() is
+    called.
+    
+    Set m_pendingExitFullscreen inside exitFullscreen(), rather than the lambda, and clear it explicitly
+    in the cases where fullscreen exiting is not actually necessary.
+    
+    The mock behavior of Fullscreen inside DumpRenderTree and WebKitTestRunner are not able to exercise
+    this same path. Track improvements to this mock in bug #239747.
+    
+    * dom/FullscreenManager.cpp:
+    (WebCore::FullscreenManager::requestFullscreenForElement):
+    (WebCore::FullscreenManager::exitFullscreen):
+    (WebCore::FullscreenManager::setAnimatingFullscreen):
+    (WebCore::FullscreenManager::setFullscreenControlsHidden):
+    
+    Source/WebKit:
+    
+    When exiting fullscreen immediately, we trigger the correct state transition by calling
+    -[self exitFullScreen]. However, when no fullscreen manager exists (as may happen during
+    navigation), -exitFullscreen may itself call -_exitFullscreenImmediately, which causes an
+    infinite recursion and stack overflow.
+    
+    Unroll the implementation by performing all the same pieces as would have been done by
+    -exitFullScreen, but inline. Refactor out common behavior into -_reinsertWebViewUnderPlaceholder,
+    and call that both from -_exitFullscreenImmediately and _completedExitFullScreen.
+    
+    Unfortunately, no API tests are possible here because TestWebKitAPI is not an actual iOS UI
+    application.
+    
+    * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+    (-[WKFullScreenWindowController exitFullScreen]):
+    (-[WKFullScreenWindowController _reinsertWebViewUnderPlaceholder]):
+    (-[WKFullScreenWindowController _completedExitFullScreen]):
+    (-[WKFullScreenWindowController _exitFullscreenImmediately]):
+    
+    Canonical link: https://commits.webkit.org/250352@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@293894 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-05-06  Jer Noble  <jer.noble@apple.com>
+
+            [iOS] Infinite recursion at -[WKFullScreenWindowController _exitFullscreenImmediately]
+            https://bugs.webkit.org/show_bug.cgi?id=239744
+            <rdar://74201964>
+
+            Reviewed by Eric Carlson.
+
+            When exiting fullscreen immediately, we trigger the correct state transition by calling
+            -[self exitFullScreen]. However, when no fullscreen manager exists (as may happen during
+            navigation), -exitFullscreen may itself call -_exitFullscreenImmediately, which causes an
+            infinite recursion and stack overflow.
+
+            Unroll the implementation by performing all the same pieces as would have been done by
+            -exitFullScreen, but inline. Refactor out common behavior into -_reinsertWebViewUnderPlaceholder,
+            and call that both from -_exitFullscreenImmediately and _completedExitFullScreen.
+
+            Unfortunately, no API tests are possible here because TestWebKitAPI is not an actual iOS UI
+            application.
+
+            * UIProcess/ios/fullscreen/WKFullScreenWindowControllerIOS.mm:
+            (-[WKFullScreenWindowController exitFullScreen]):
+            (-[WKFullScreenWindowController _reinsertWebViewUnderPlaceholder]):
+            (-[WKFullScreenWindowController _completedExitFullScreen]):
+            (-[WKFullScreenWindowController _exitFullscreenImmediately]):
+
+2022-05-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r293433. rdar://problem/91981865
+
+    [WebAuthn] Do not pass ASCCredentialRequestTypePlatform... if LocalService unavailable
+    https://bugs.webkit.org/show_bug.cgi?id=239746
+    rdar://91981865
+    
+    Reviewed by Brent Fulgham.
+    
+    Passing platform in requestTypes breaks the UI in registerations with the syncing platform
+    authenticator off and local service is unavailable. This patch stops passing it in this case.
+    
+    * UIProcess/WebAuthentication/Cocoa/WebAuthenticatorCoordinatorProxy.mm:
+    (WebKit::configureRegistrationRequestContext):
+    (WebKit::WebAuthenticatorCoordinatorProxy::performRequest):
+    
+    Canonical link: https://commits.webkit.org/249993@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@293433 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-26  J Pascoe  <j_pascoe@apple.com>
+
+            [WebAuthn] Do not pass ASCCredentialRequestTypePlatform... if LocalService unavailable
+            https://bugs.webkit.org/show_bug.cgi?id=239746
+            rdar://91981865
+
+            Reviewed by Brent Fulgham.
+
+            Passing platform in requestTypes breaks the UI in registerations with the syncing platform
+            authenticator off and local service is unavailable. This patch stops passing it in this case.
+
+            * UIProcess/WebAuthentication/Cocoa/WebAuthenticatorCoordinatorProxy.mm:
+            (WebKit::configureRegistrationRequestContext):
+            (WebKit::WebAuthenticatorCoordinatorProxy::performRequest):
+
+2022-05-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r293170. rdar://problem/91117803
+
+    AVSampleBufferRenderSynchronizer timeline sometimes goes backwards when playback begins
+    https://bugs.webkit.org/show_bug.cgi?id=239471
+    rdar://91117803
+    
+    Reviewed by Jer Noble.
+    
+    Source/WebCore:
+    
+    Test: media/media-source/media-source-current-time.html
+    
+    * html/HTMLMediaElement.cpp:
+    (WebCore::HTMLMediaElement::mediaPlayerTimeChanged): Log current time and requested
+    playback rate.
+    (WebCore::HTMLMediaElement::setPausedInternal): Log.
+    
+    * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.h:
+    * platform/graphics/avfoundation/objc/MediaPlayerPrivateMediaSourceAVFObjC.mm:
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::MediaPlayerPrivateMediaSourceAVFObjC):
+    If time has gone backward, clamp to the most recent seek time.
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::playInternal): INFO_LOG -> ALWAYS_LOG
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::pauseInternal): Ditto.
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::currentMediaTime const): Use clampTimeToLastSeekTime.
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::clampTimeToLastSeekTime const): New,
+    clamp time value to the most recent seek time.
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::setCurrentTimeDidChangeCallback):
+    Use clampTimeToLastSeekTime.
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::seekWithTolerance): INFO_LOG -> ALWAYS_LOG
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::seekInternal): INFO_LOG -> ALWAYS_LOG
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::updateLastPixelBuffer): INFO_LOG -> ALWAYS_LOG
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::setHasAvailableVideoFrame): INFO_LOG -> ALWAYS_LOG
+    (WebCore::MediaPlayerPrivateMediaSourceAVFObjC::durationChanged): INFO_LOG -> ALWAYS_LOG
+    
+    Source/WebKit:
+    
+    * WebProcess/GPU/media/MediaPlayerPrivateRemote.cpp:
+    (WebKit::MediaPlayerPrivateRemote::currentTimeChanged): Log when time jumps backwards.
+    
+    LayoutTests:
+    
+    * media/media-source/media-source-current-time-expected.txt: Added.
+    * media/media-source/media-source-current-time.html: Added.
+    
+    Canonical link: https://commits.webkit.org/249852@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@293170 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-21  Eric Carlson  <eric.carlson@apple.com>
+
+            AVSampleBufferRenderSynchronizer timeline sometimes goes backwards when playback begins
+            https://bugs.webkit.org/show_bug.cgi?id=239471
+            rdar://91117803
+
+            Reviewed by Jer Noble.
+
+            * WebProcess/GPU/media/MediaPlayerPrivateRemote.cpp:
+            (WebKit::MediaPlayerPrivateRemote::currentTimeChanged): Log when time jumps backwards.
+
+2022-05-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r292738. rdar://problem/91295875
+
+    Use WebKit::blockedError instead of ResourceLoader::blockedError in WebLoaderStrategy::scheduleLoadFromNetworkProcess
+    https://bugs.webkit.org/show_bug.cgi?id=239089
+    <rdar://91295875>
+    
+    Patch by Alex Christensen <achristensen@webkit.org> on 2022-04-11
+    Reviewed by Chris Dumez.
+    
+    The latter dereferences the frame loader which can be null.
+    
+    * WebProcess/Network/WebLoaderStrategy.cpp:
+    (WebKit::WebLoaderStrategy::scheduleLoadFromNetworkProcess):
+    
+    Canonical link: https://commits.webkit.org/249522@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@292738 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-11  Alex Christensen  <achristensen@webkit.org>
+
+            Use WebKit::blockedError instead of ResourceLoader::blockedError in WebLoaderStrategy::scheduleLoadFromNetworkProcess
+            https://bugs.webkit.org/show_bug.cgi?id=239089
+            <rdar://91295875>
+
+            Reviewed by Chris Dumez.
+
+            The latter dereferences the frame loader which can be null.
+
+            * WebProcess/Network/WebLoaderStrategy.cpp:
+            (WebKit::WebLoaderStrategy::scheduleLoadFromNetworkProcess):
+
+2022-05-02  Alan Coon  <alancoon@apple.com>
 
         Apply patch. rdar://problem/92617943
 
@@ -17,7 +1216,7 @@
             * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
             (WebKit::NetworkSessionCocoa::createWebSocketTask):
 
-2022-04-28  Russell Epstein  <repstein@apple.com>
+2022-04-29  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r287877. rdar://problem/92357915
 
@@ -73,36 +1272,330 @@
             * Platform/IPC/SharedBufferCopy.cpp: Add missing WebCoreArgumentCoders.h header, remove now
             unneeded ArgumentCoders.h header.
 
-2022-04-27  Alan Coon  <alancoon@apple.com>
+2022-04-22  Alan Coon  <alancoon@apple.com>
 
-        Cherry-pick r293481. rdar://problem/92336270
+        Cherry-pick r291724. rdar://problem/91975589
 
-    Adjust what we consider to be private relayed
-    https://bugs.webkit.org/show_bug.cgi?id=239784
-    <rdar://92336270>
+    Expose the AX tree of PDFs loaded via iframes on the Mac
+    https://bugs.webkit.org/show_bug.cgi?id=238168
     
-    Patch by Alex Christensen <achristensen@webkit.org> on 2022-04-26
-    Reviewed by Geoffrey Garen.
+    Reviewed by Chris Fleizach.
     
-    If a request is not eligible for private relay, then do not consider it having been private relayed.
+    Source/WebKit:
     
-    * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
-    (-[WKNetworkSessionDelegate URLSession:dataTask:didReceiveResponse:completionHandler:]):
+    Given this markup:
     
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@293481 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+    <iframe src="/path/to/paystub.pdf">
+    
+    An accessibility tree is built for paystub.pdf, but we don't expose it
+    to AX clients, making the PDF entirely inaccessible.
+    
+    This happens because we were setting the AX parent to be the webpage
+    for full-frame PDF plugins (which an iframe with this markup is).
+    This behavior is correct only for main-frame (i.e. not iframe)
+    full-frame plugins, so this patch adds an extra condition to that logic.
+    
+    Test: accessibility/mac/iframe-pdf.html
+    
+    * WebProcess/Plugins/PDF/PDFPlugin.mm:
+    (WebKit::PDFPlugin::PDFPlugin):
+    
+    LayoutTests:
+    
+    * accessibility/mac/iframe-pdf-expected.txt: Added.
+    * accessibility/mac/iframe-pdf.html: Added.
+    * platform/mac-wk1/TestExpectations:
+    Skip new test as it always times out in WK1 (similar to
+    accessibility/mac/basic-embed-pdf-accessibility.html)
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291724 268f45cc-cd09-0410-ab3c-d52691b4dbfc
 
-    2022-04-26  Alex Christensen  <achristensen@webkit.org>
+    2022-03-22  Tyler Wilcock  <tyler_w@apple.com>
 
-            Adjust what we consider to be private relayed
-            https://bugs.webkit.org/show_bug.cgi?id=239784
-            <rdar://92336270>
+            Expose the AX tree of PDFs loaded via iframes on the Mac
+            https://bugs.webkit.org/show_bug.cgi?id=238168
 
-            Reviewed by Geoffrey Garen.
+            Reviewed by Chris Fleizach.
 
-            If a request is not eligible for private relay, then do not consider it having been private relayed.
+            Given this markup:
 
-            * NetworkProcess/cocoa/NetworkSessionCocoa.mm:
-            (-[WKNetworkSessionDelegate URLSession:dataTask:didReceiveResponse:completionHandler:]):
+            <iframe src="/path/to/paystub.pdf">
+
+            An accessibility tree is built for paystub.pdf, but we don't expose it
+            to AX clients, making the PDF entirely inaccessible.
+
+            This happens because we were setting the AX parent to be the webpage
+            for full-frame PDF plugins (which an iframe with this markup is).
+            This behavior is correct only for main-frame (i.e. not iframe)
+            full-frame plugins, so this patch adds an extra condition to that logic.
+
+            Test: accessibility/mac/iframe-pdf.html
+
+            * WebProcess/Plugins/PDF/PDFPlugin.mm:
+            (WebKit::PDFPlugin::PDFPlugin):
+
+2022-04-22  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r291589. rdar://problem/90511155
+
+    LayoutTests/imported/w3c:
+    BroadcastChannel instances in distinct opaque origins can communicate
+    https://bugs.webkit.org/show_bug.cgi?id=238090
+    <rdar://problem/90511155>
+    
+    Reviewed by Alex Christensen.
+    
+    Import web-platform-tests test coverage.
+    
+    * web-platform-tests/webmessaging/broadcastchannel/opaque-origin-expected.txt: Added.
+    * web-platform-tests/webmessaging/broadcastchannel/opaque-origin.html: Added.
+    * web-platform-tests/webmessaging/broadcastchannel/w3c-import.log:
+    
+    Source/WebCore:
+    BroadcastChannel instances in distinct opaque origins can communicate
+    https://bugs.webkit.org/show_bug.cgi?id=238090
+    <rdar://problem/90511155>
+    
+    Reviewed by Alex Christensen.
+    
+    The issue is that we would use a ClientOrigin to distinguish origins for BroadcastChannel,
+    which relies on SecurityOriginData internally. A unique/opaque SecurityOrigin becomes an empty
+    SecurityOriginData upon conversion. As a result, when comparing ClientOrigin objects from
+    unique SecurityOrigins, they would compare as equal.
+    
+    To address the issue, I introduced a new PartitionedSecurityOrigin type which is similar
+    to ClientOrigin but stores SecurityOrigin objects internally, instead of SecurityOriginData
+    objects. PartitionedSecurityOrigin's operator==() is such that different SecurityOrigins
+    would not be equal but the same unique SecurityOrigin would be. I then used this new
+    PartitionedSecurityOrigin type as key in our HashMap on the WebProcess side instead of
+    ClientOrigin. This allows communication between several BroadcastChannels from the same
+    unique origin, while preventing communication between distinct opaque origins.
+    
+    When the PartitionedSecurityOrigin contains an opaque security origin, we don't involve
+    the Network Process at all since the destination can only be in the same WebProcess.
+    
+    Test: imported/w3c/web-platform-tests/webmessaging/broadcastchannel/opaque-origin.html
+    
+    * Headers.cmake:
+    * WebCore.xcodeproj/project.pbxproj:
+    * dom/BroadcastChannel.cpp:
+    (WebCore::shouldPartitionOrigin):
+    (WebCore::BroadcastChannel::MainThreadBridge::registerChannel):
+    (WebCore::BroadcastChannel::MainThreadBridge::unregisterChannel):
+    (WebCore::BroadcastChannel::MainThreadBridge::postMessage):
+    * dom/BroadcastChannelRegistry.h:
+    * loader/EmptyClients.cpp:
+    * page/PartitionedSecurityOrigin.h: Added.
+    (WebCore::PartitionedSecurityOrigin::PartitionedSecurityOrigin):
+    (WebCore::PartitionedSecurityOrigin::isHashTableDeletedValue const):
+    (WebCore::PartitionedSecurityOrigin::isHashTableEmptyValue const):
+    (WebCore::operator==):
+    (WTF::add):
+    (WTF::PartitionedSecurityOriginHash::hash):
+    (WTF::PartitionedSecurityOriginHash::equal):
+    (WTF::HashTraits<WebCore::PartitionedSecurityOrigin>::emptyValue):
+    (WTF::HashTraits<WebCore::PartitionedSecurityOrigin>::constructEmptyValue):
+    (WTF::HashTraits<WebCore::PartitionedSecurityOrigin>::isEmptyValue):
+    (WTF::HashTraits<WebCore::PartitionedSecurityOrigin>::peek):
+    (WTF::HashTraits<WebCore::PartitionedSecurityOrigin>::take):
+    
+    Source/WebKit:
+    BroadcastChannel instances in distinct opaque origins can communicate
+    https://bugs.webkit.org/show_bug.cgi?id=238090
+    <rdar://problem/90511155>
+    
+    Reviewed by Alex Christensen.
+    
+    The issue is that we would use a ClientOrigin to distinguish origins for BroadcastChannel,
+    which relies on SecurityOriginData internally. A unique/opaque SecurityOrigin becomes an empty
+    SecurityOriginData upon conversion. As a result, when comparing ClientOrigin objects from
+    unique SecurityOrigins, they would compare as equal.
+    
+    To address the issue, I introduced a new PartitionedSecurityOrigin type which is similar
+    to ClientOrigin but stores SecurityOrigin objects internally, instead of SecurityOriginData
+    objects. PartitionedSecurityOrigin's operator==() is such that different SecurityOrigins
+    would not be equal but the same unique SecurityOrigin would be. I then used this new
+    PartitionedSecurityOrigin type as key in our HashMap on the WebProcess side instead of
+    ClientOrigin. This allows communication between several BroadcastChannels from the same
+    unique origin, while preventing communication between distinct opaque origins.
+    
+    When the PartitionedSecurityOrigin contains an opaque security origin, we don't involve
+    the Network Process at all since the destination can only be in the same WebProcess.
+    
+    * WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.cpp:
+    (WebKit::toClientOrigin):
+    (WebKit::WebBroadcastChannelRegistry::registerChannel):
+    (WebKit::WebBroadcastChannelRegistry::unregisterChannel):
+    (WebKit::WebBroadcastChannelRegistry::postMessage):
+    (WebKit::WebBroadcastChannelRegistry::postMessageLocally):
+    (WebKit::WebBroadcastChannelRegistry::postMessageToRemote):
+    (WebKit::WebBroadcastChannelRegistry::networkProcessCrashed):
+    * WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.h:
+    
+    Source/WebKitLegacy:
+    Dust off Mac CMake build
+    https://bugs.webkit.org/show_bug.cgi?id=238121
+    
+    Reviewed by Yusuke Suzuki.
+    
+    * PlatformMac.cmake:
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291589 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-21  Chris Dumez  <cdumez@apple.com>
+
+            BroadcastChannel instances in distinct opaque origins can communicate
+            https://bugs.webkit.org/show_bug.cgi?id=238090
+            <rdar://problem/90511155>
+
+            Reviewed by Alex Christensen.
+
+            The issue is that we would use a ClientOrigin to distinguish origins for BroadcastChannel,
+            which relies on SecurityOriginData internally. A unique/opaque SecurityOrigin becomes an empty
+            SecurityOriginData upon conversion. As a result, when comparing ClientOrigin objects from
+            unique SecurityOrigins, they would compare as equal.
+
+            To address the issue, I introduced a new PartitionedSecurityOrigin type which is similar
+            to ClientOrigin but stores SecurityOrigin objects internally, instead of SecurityOriginData
+            objects. PartitionedSecurityOrigin's operator==() is such that different SecurityOrigins
+            would not be equal but the same unique SecurityOrigin would be. I then used this new
+            PartitionedSecurityOrigin type as key in our HashMap on the WebProcess side instead of
+            ClientOrigin. This allows communication between several BroadcastChannels from the same
+            unique origin, while preventing communication between distinct opaque origins.
+
+            When the PartitionedSecurityOrigin contains an opaque security origin, we don't involve
+            the Network Process at all since the destination can only be in the same WebProcess.
+
+            * WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.cpp:
+            (WebKit::toClientOrigin):
+            (WebKit::WebBroadcastChannelRegistry::registerChannel):
+            (WebKit::WebBroadcastChannelRegistry::unregisterChannel):
+            (WebKit::WebBroadcastChannelRegistry::postMessage):
+            (WebKit::WebBroadcastChannelRegistry::postMessageLocally):
+            (WebKit::WebBroadcastChannelRegistry::postMessageToRemote):
+            (WebKit::WebBroadcastChannelRegistry::networkProcessCrashed):
+            * WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.h:
+
+2022-04-22  Alan Coon  <alancoon@apple.com>
+
+        Apply patch. rdar://problem/91446317
+
+    2022-04-21  Youenn Fablet  <youenn@apple.com>
+
+            Website policies are not respected when doing COOP based process swap
+            https://bugs.webkit.org/show_bug.cgi?id=238036
+            <rdar://89616625>
+
+            Reviewed by Chris Dumez.
+
+            In case of normal process swap, we make use of website policies so everything is fine.
+            For COOP based process swap, this happens later on, at a point where we lost website policies.
+            To overcome this, we store the website policies used by a navigation inside the API::Navigation object.
+            It is used by continueNavigationInNewProcess to correctly initialize the new WebPage website policies.
+            We then set the website policies in the navigation object just before continuing the load in the same process,
+            as process swap may happen later when inspecting the response.
+            Minor refactoring in continueNavigationInNewProcess to get the policies directly from the given Navigation object.
+            Minor refactoring in receivedNavigationPolicyDecision to make the code doing process swap clearer.
+
+            Covered by API test.
+
+            * UIProcess/API/APINavigation.h:
+            (API::Navigation::setWebsitePoliciesForProcessSwap):
+            (API::Navigation::takeWebsitePoliciesForProcessSwap):
+            * UIProcess/WebPageProxy.cpp:
+            (WebKit::WebPageProxy::receivedNavigationPolicyDecision):
+            (WebKit::WebPageProxy::receivedPolicyDecision):
+            (WebKit::WebPageProxy::continueNavigationInNewProcess):
+            (WebKit::WebPageProxy::triggerBrowsingContextGroupSwitchForNavigation):
+            * UIProcess/WebPageProxy.h:
+
+2022-04-22  Russell Epstein  <repstein@apple.com>
+
+        Cherry-pick r291724. rdar://problem/91975589
+
+    Expose the AX tree of PDFs loaded via iframes on the Mac
+    https://bugs.webkit.org/show_bug.cgi?id=238168
+    
+    Reviewed by Chris Fleizach.
+    
+    Source/WebKit:
+    
+    Given this markup:
+    
+    <iframe src="/path/to/paystub.pdf">
+    
+    An accessibility tree is built for paystub.pdf, but we don't expose it
+    to AX clients, making the PDF entirely inaccessible.
+    
+    This happens because we were setting the AX parent to be the webpage
+    for full-frame PDF plugins (which an iframe with this markup is).
+    This behavior is correct only for main-frame (i.e. not iframe)
+    full-frame plugins, so this patch adds an extra condition to that logic.
+    
+    Test: accessibility/mac/iframe-pdf.html
+    
+    * WebProcess/Plugins/PDF/PDFPlugin.mm:
+    (WebKit::PDFPlugin::PDFPlugin):
+    
+    LayoutTests:
+    
+    * accessibility/mac/iframe-pdf-expected.txt: Added.
+    * accessibility/mac/iframe-pdf.html: Added.
+    * platform/mac-wk1/TestExpectations:
+    Skip new test as it always times out in WK1 (similar to
+    accessibility/mac/basic-embed-pdf-accessibility.html)
+    
+    
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291724 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-03-22  Tyler Wilcock  <tyler_w@apple.com>
+
+            Expose the AX tree of PDFs loaded via iframes on the Mac
+            https://bugs.webkit.org/show_bug.cgi?id=238168
+
+            Reviewed by Chris Fleizach.
+
+            Given this markup:
+
+            <iframe src="/path/to/paystub.pdf">
+
+            An accessibility tree is built for paystub.pdf, but we don't expose it
+            to AX clients, making the PDF entirely inaccessible.
+
+            This happens because we were setting the AX parent to be the webpage
+            for full-frame PDF plugins (which an iframe with this markup is).
+            This behavior is correct only for main-frame (i.e. not iframe)
+            full-frame plugins, so this patch adds an extra condition to that logic.
+
+            Test: accessibility/mac/iframe-pdf.html
+
+            * WebProcess/Plugins/PDF/PDFPlugin.mm:
+            (WebKit::PDFPlugin::PDFPlugin):
+
+2022-04-22  Russell Epstein  <repstein@apple.com>
+
+        Apply patch. rdar://problem/91288849
+
+    2022-04-21  Youenn Fablet  <youenn@apple.com>
+
+            In case of COOP-based process swap, we need to make sure the document gets controlled by its matching service worker registration
+            https://bugs.webkit.org/show_bug.cgi?id=238800
+            <rdar://problem/91288849>
+
+            Reviewed by Chris Dumez.
+
+            Make sure in case loader is transferred to call controlClient in the new WebProcess.
+            To do so, we also update page and frame IDs.
+            Covered by API test.
+
+            * NetworkProcess/NetworkConnectionToWebProcess.cpp:
+            * NetworkProcess/NetworkLoadParameters.h:
+            * NetworkProcess/NetworkResourceLoadParameters.h:
+            * NetworkProcess/NetworkResourceLoader.cpp:
+            * NetworkProcess/NetworkResourceLoader.h:
+            * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
+            * NetworkProcess/ServiceWorker/WebSWServerConnection.h:
 
 2022-04-22  Russell Epstein  <repstein@apple.com>
 
@@ -245,126 +1738,6 @@
             (WebKit::WebBroadcastChannelRegistry::postMessageToRemote):
             (WebKit::WebBroadcastChannelRegistry::networkProcessCrashed):
             * WebProcess/WebCoreSupport/WebBroadcastChannelRegistry.h:
-
-2022-04-22  Russell Epstein  <repstein@apple.com>
-
-        Apply patch. rdar://problem/91446317
-
-    2022-04-21  Youenn Fablet  <youenn@apple.com>
-
-            Website policies are not respected when doing COOP based process swap
-            https://bugs.webkit.org/show_bug.cgi?id=238036
-            <rdar://89616625>
-
-            Reviewed by Chris Dumez.
-
-            In case of normal process swap, we make use of website policies so everything is fine.
-            For COOP based process swap, this happens later on, at a point where we lost website policies.
-            To overcome this, we store the website policies used by a navigation inside the API::Navigation object.
-            It is used by continueNavigationInNewProcess to correctly initialize the new WebPage website policies.
-            We then set the website policies in the navigation object just before continuing the load in the same process,
-            as process swap may happen later when inspecting the response.
-            Minor refactoring in continueNavigationInNewProcess to get the policies directly from the given Navigation object.
-            Minor refactoring in receivedNavigationPolicyDecision to make the code doing process swap clearer.
-
-            Covered by API test.
-
-            * UIProcess/API/APINavigation.h:
-            (API::Navigation::setWebsitePoliciesForProcessSwap):
-            (API::Navigation::takeWebsitePoliciesForProcessSwap):
-            * UIProcess/WebPageProxy.cpp:
-            (WebKit::WebPageProxy::receivedNavigationPolicyDecision):
-            (WebKit::WebPageProxy::receivedPolicyDecision):
-            (WebKit::WebPageProxy::continueNavigationInNewProcess):
-            (WebKit::WebPageProxy::triggerBrowsingContextGroupSwitchForNavigation):
-            * UIProcess/WebPageProxy.h:
-
-2022-04-22  Russell Epstein  <repstein@apple.com>
-
-        Apply patch. rdar://problem/91288849
-
-    2022-04-21  Youenn Fablet  <youenn@apple.com>
-
-            In case of COOP-based process swap, we need to make sure the document gets controlled by its matching service worker registration
-            https://bugs.webkit.org/show_bug.cgi?id=238800
-            <rdar://problem/91288849>
-
-            Reviewed by Chris Dumez.
-
-            Make sure in case loader is transferred to call controlClient in the new WebProcess.
-            To do so, we also update page and frame IDs.
-            Covered by API test.
-
-            * NetworkProcess/NetworkConnectionToWebProcess.cpp:
-            * NetworkProcess/NetworkLoadParameters.h:
-            * NetworkProcess/NetworkResourceLoadParameters.h:
-            * NetworkProcess/NetworkResourceLoader.cpp:
-            * NetworkProcess/NetworkResourceLoader.h:
-            * NetworkProcess/ServiceWorker/WebSWServerConnection.cpp:
-            * NetworkProcess/ServiceWorker/WebSWServerConnection.h:
-
-2022-04-22  Russell Epstein  <repstein@apple.com>
-
-        Cherry-pick r291724. rdar://problem/91975589
-
-    Expose the AX tree of PDFs loaded via iframes on the Mac
-    https://bugs.webkit.org/show_bug.cgi?id=238168
-    
-    Reviewed by Chris Fleizach.
-    
-    Source/WebKit:
-    
-    Given this markup:
-    
-    <iframe src="/path/to/paystub.pdf">
-    
-    An accessibility tree is built for paystub.pdf, but we don't expose it
-    to AX clients, making the PDF entirely inaccessible.
-    
-    This happens because we were setting the AX parent to be the webpage
-    for full-frame PDF plugins (which an iframe with this markup is).
-    This behavior is correct only for main-frame (i.e. not iframe)
-    full-frame plugins, so this patch adds an extra condition to that logic.
-    
-    Test: accessibility/mac/iframe-pdf.html
-    
-    * WebProcess/Plugins/PDF/PDFPlugin.mm:
-    (WebKit::PDFPlugin::PDFPlugin):
-    
-    LayoutTests:
-    
-    * accessibility/mac/iframe-pdf-expected.txt: Added.
-    * accessibility/mac/iframe-pdf.html: Added.
-    * platform/mac-wk1/TestExpectations:
-    Skip new test as it always times out in WK1 (similar to
-    accessibility/mac/basic-embed-pdf-accessibility.html)
-    
-    
-    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@291724 268f45cc-cd09-0410-ab3c-d52691b4dbfc
-
-    2022-03-22  Tyler Wilcock  <tyler_w@apple.com>
-
-            Expose the AX tree of PDFs loaded via iframes on the Mac
-            https://bugs.webkit.org/show_bug.cgi?id=238168
-
-            Reviewed by Chris Fleizach.
-
-            Given this markup:
-
-            <iframe src="/path/to/paystub.pdf">
-
-            An accessibility tree is built for paystub.pdf, but we don't expose it
-            to AX clients, making the PDF entirely inaccessible.
-
-            This happens because we were setting the AX parent to be the webpage
-            for full-frame PDF plugins (which an iframe with this markup is).
-            This behavior is correct only for main-frame (i.e. not iframe)
-            full-frame plugins, so this patch adds an extra condition to that logic.
-
-            Test: accessibility/mac/iframe-pdf.html
-
-            * WebProcess/Plugins/PDF/PDFPlugin.mm:
-            (WebKit::PDFPlugin::PDFPlugin):
 
 2022-04-20  Alan Coon  <alancoon@apple.com>
 

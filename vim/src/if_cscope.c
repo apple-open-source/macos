@@ -675,14 +675,12 @@ cs_check_for_tags(void)
     static int
 cs_cnt_connections(void)
 {
-    short i;
-    short cnt = 0;
+    int i;
+    int cnt = 0;
 
     for (i = 0; i < csinfo_size; i++)
-    {
 	if (csinfo[i].fname != NULL)
 	    cnt++;
-    }
     return cnt;
 }
 
@@ -838,11 +836,6 @@ cs_create_connection(int i)
     HANDLE	stdin_rd, stdout_rd;
     HANDLE	stdout_wr, stdin_wr;
     BOOL	created;
-# if (defined(_MSC_VER) && (_MSC_VER >= 1300)) || defined(__MINGW32__)
-#  define OPEN_OH_ARGTYPE intptr_t
-# else
-#  define OPEN_OH_ARGTYPE long
-# endif
 #endif
 
 #if defined(UNIX)
@@ -921,7 +914,7 @@ err_closing:
 	    goto err_closing;
 #endif
 	}
-	expand_env((char_u *)p_csprg, (char_u *)prog, MAXPATHL);
+	expand_env(p_csprg, (char_u *)prog, MAXPATHL);
 
 	// alloc space to hold the cscope command
 	len = (int)(strlen(prog) + strlen(csinfo[i].fname) + 34);
@@ -1037,11 +1030,11 @@ err_closing:
     CloseHandle(pi.hThread);
 
     // TODO - tidy up after failure to create files on pipe handles.
-    if (((fd = _open_osfhandle((OPEN_OH_ARGTYPE)stdin_wr,
+    if (((fd = _open_osfhandle((intptr_t)stdin_wr,
 						      _O_TEXT|_O_APPEND)) < 0)
 	    || ((csinfo[i].to_fp = _fdopen(fd, "w")) == NULL))
 	PERROR(_("cs_create_connection: fdopen for to_fp failed"));
-    if (((fd = _open_osfhandle((OPEN_OH_ARGTYPE)stdout_rd,
+    if (((fd = _open_osfhandle((intptr_t)stdout_rd,
 						      _O_TEXT|_O_RDONLY)) < 0)
 	    || ((csinfo[i].fr_fp = _fdopen(fd, "r")) == NULL))
 	PERROR(_("cs_create_connection: fdopen for fr_fp failed"));
@@ -1363,7 +1356,8 @@ cs_insert_filelist(
     char *flags,
     stat_T *sb UNUSED)
 {
-    short	i, j;
+    int	    i;
+    int	    j;
 #ifndef UNIX
     BY_HANDLE_FILE_INFORMATION bhfi;
 
@@ -1377,10 +1371,7 @@ cs_insert_filelist(
 		char *winmsg = GetWin32Error();
 
 		if (winmsg != NULL)
-		{
 		    (void)semsg(cant_msg, winmsg);
-		    LocalFree(winmsg);
-		}
 		else
 		    // subst filename if can't get error text
 		    (void)semsg(cant_msg, fname);
@@ -1527,7 +1518,7 @@ cs_lookup_cmd(exarg_T *eap)
 cs_kill(exarg_T *eap UNUSED)
 {
     char *stok;
-    short i;
+    int i;
 
     if ((stok = strtok((char *)NULL, (const char *)" ")) == NULL)
     {
@@ -2461,7 +2452,8 @@ cs_resolve_file(int i, char *name)
     static int
 cs_show(exarg_T *eap UNUSED)
 {
-    short i;
+    int i;
+
     if (cs_cnt_connections() == 0)
 	msg_puts(_("no cscope connections\n"));
     else

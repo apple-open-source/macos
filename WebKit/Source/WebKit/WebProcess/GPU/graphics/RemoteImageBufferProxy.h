@@ -65,7 +65,7 @@ public:
     ~RemoteImageBufferProxy()
     {
         if (!m_remoteRenderingBackendProxy || m_remoteRenderingBackendProxy->isGPUProcessConnectionClosed()) {
-            m_remoteDisplayList.resetNeedsFlush();
+            setNeedsFlush(false);
             return;
         }
 
@@ -122,6 +122,11 @@ protected:
         m_receivedFlushIdentifierChangedCondition.notifyAll();
     }
 
+    void setNeedsFlush(bool needsFlush) final
+    {
+        m_needsFlush = needsFlush;
+    }
+
     void waitForDidFlushWithTimeout()
     {
         if (!m_remoteRenderingBackendProxy)
@@ -133,12 +138,13 @@ protected:
 #if !LOG_DISABLED
         auto startTime = MonotonicTime::now();
 #endif
-        LOG_WITH_STREAM(SharedDisplayLists, stream << "Waiting for Flush{" << m_sentFlushIdentifier << "} in Image(" << m_renderingResourceIdentifier << ")");
+        LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " waitForDidFlushWithTimeout: waiting for flush {" << m_sentFlushIdentifier);
         while (numberOfTimeouts < maximumNumberOfTimeouts && hasPendingFlush()) {
             if (!m_remoteRenderingBackendProxy->waitForDidFlush())
                 ++numberOfTimeouts;
         }
-        LOG_WITH_STREAM(SharedDisplayLists, stream << "Done waiting: " << MonotonicTime::now() - startTime << "; " << numberOfTimeouts << " timeout(s)");
+
+        LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " waitForDidFlushWithTimeout: done waiting " << (MonotonicTime::now() - startTime).milliseconds() << "ms; " << numberOfTimeouts << " timeout(s)");
 
         if (UNLIKELY(numberOfTimeouts >= maximumNumberOfTimeouts))
             RELEASE_LOG_FAULT(SharedDisplayLists, "Exceeded timeout while waiting for flush in remote rendering backend: %" PRIu64 ".", m_remoteRenderingBackendProxy->renderingBackendIdentifier().toUInt64());
@@ -210,30 +216,21 @@ protected:
     {
         if (UNLIKELY(!m_remoteRenderingBackendProxy))
             return std::nullopt;
-
+        auto& mutableThis = const_cast<RemoteImageBufferProxy&>(*this);
+        mutableThis.flushDrawingContextAsync();
         auto pixelBuffer = WebCore::PixelBuffer::tryCreate(destinationFormat, srcRect.size());
         if (!pixelBuffer)
             return std::nullopt;
-        size_t dataSize = pixelBuffer->data().byteLength();
-
-        SharedMemory* sharedMemory = m_remoteRenderingBackendProxy->sharedMemoryForGetPixelBuffer(dataSize);
-        if (!sharedMemory)
+        auto& data = pixelBuffer->data();
+        if (!m_remoteRenderingBackendProxy->getPixelBufferForImageBuffer(m_renderingResourceIdentifier, destinationFormat, srcRect, { data.data(), data.byteLength() }))
             return std::nullopt;
-
-        auto& mutableThis = const_cast<RemoteImageBufferProxy&>(*this);
-        mutableThis.m_remoteDisplayList.getPixelBuffer(destinationFormat, srcRect);
-        mutableThis.flushDrawingContextAsync();
-
-        if (m_remoteRenderingBackendProxy->waitForGetPixelBufferToComplete())
-            memcpy(pixelBuffer->data().data(), sharedMemory->data(), dataSize);
-        else
-            memset(pixelBuffer->data().data(), 0, dataSize);
         return pixelBuffer;
     }
 
     void clearBackend() final
     {
-        m_remoteDisplayList.resetNeedsFlush();
+        setNeedsFlush(false);
+        didFlush(m_sentFlushIdentifier);
         BaseConcreteImageBuffer::clearBackend();
     }
 
@@ -249,10 +246,25 @@ protected:
 
     void putPixelBuffer(const WebCore::PixelBuffer& pixelBuffer, const WebCore::IntRect& srcRect, const WebCore::IntPoint& destPoint = { }, WebCore::AlphaPremultiplication destFormat = WebCore::AlphaPremultiplication::Premultiplied) final
     {
+        if (UNLIKELY(!m_remoteRenderingBackendProxy))
+            return;
         // The math inside PixelBuffer::create() doesn't agree with the math inside ImageBufferBackend::putPixelBuffer() about how m_resolutionScale interacts with the data in the ImageBuffer.
         // This means that putPixelBuffer() is only called when resolutionScale() == 1.
         ASSERT(resolutionScale() == 1);
-        m_remoteDisplayList.putPixelBuffer(pixelBuffer, srcRect, destPoint, destFormat);
+        auto& mutableThis = const_cast<RemoteImageBufferProxy&>(*this);
+        mutableThis.flushDrawingContextAsync();
+        m_remoteRenderingBackendProxy->putPixelBufferForImageBuffer(m_renderingResourceIdentifier, pixelBuffer, srcRect, destPoint, destFormat);
+        setNeedsFlush(true);
+    }
+
+    void convertToLuminanceMask() final
+    {
+        m_remoteDisplayList.convertToLuminanceMask();
+    }
+
+    void transformToColorSpace(const WebCore::DestinationColorSpace& colorSpace) final
+    {
+        m_remoteDisplayList.transformToColorSpace(colorSpace);
     }
 
     bool prefersPreparationForDisplay() final { return true; }
@@ -269,21 +281,26 @@ protected:
             return;
 
         TraceScope tracingScope(FlushRemoteImageBufferStart, FlushRemoteImageBufferEnd);
-        flushDrawingContextAsync();
-        waitForDidFlushWithTimeout();
+
+        bool shouldWait = flushDrawingContextAsync();
+        LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " flushDrawingContext: shouldWait " << shouldWait);
+        if (shouldWait)
+            waitForDidFlushWithTimeout();
     }
 
-    void flushDrawingContextAsync() final
+    bool flushDrawingContextAsync() final
     {
         if (UNLIKELY(!m_remoteRenderingBackendProxy))
-            return;
+            return false;
 
-        if (m_remoteDisplayList.needsFlush() || !hasPendingFlush()) {
-            m_sentFlushIdentifier = WebCore::GraphicsContextFlushIdentifier::generate();
-            m_remoteDisplayList.flushContext(m_sentFlushIdentifier);
-        }
-
-        m_remoteDisplayList.resetNeedsFlush();
+        if (!m_needsFlush)
+            return hasPendingFlush();
+        
+        m_sentFlushIdentifier = WebCore::GraphicsContextFlushIdentifier::generate();
+        LOG_WITH_STREAM(SharedDisplayLists, stream << "RemoteImageBufferProxy " << m_renderingResourceIdentifier << " flushDrawingContextAsync - flush " << m_sentFlushIdentifier);
+        m_remoteDisplayList.flushContext(m_sentFlushIdentifier);
+        setNeedsFlush(false);
+        return true;
     }
 
     void recordNativeImageUse(WebCore::NativeImage& image)
@@ -315,6 +332,7 @@ protected:
     WebCore::GraphicsContextFlushIdentifier m_receivedFlushIdentifier WTF_GUARDED_BY_LOCK(m_receivedFlushIdentifierLock); // Only modified on the main thread but may get queried on a secondary thread.
     WeakPtr<RemoteRenderingBackendProxy> m_remoteRenderingBackendProxy;
     RemoteDisplayListRecorderProxy m_remoteDisplayList;
+    bool m_needsFlush { false };
 };
 
 template<typename BackendType>

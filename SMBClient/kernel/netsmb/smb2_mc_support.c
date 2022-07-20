@@ -1244,7 +1244,10 @@ smb2_mc_add_new_interface_info_to_list(
     error = smb2_mc_update_info_with_ip(nic_info, &new_info->addr, NULL);
     if (error) {
         SMBERROR("failed to smb2_mc_update_info_with_ip!");
-        smb2_mc_release_interface(NULL, nic_info, NULL);
+        if (new_nic) {
+        // If it's an old NIC it will be released as part of the NIC list
+            smb2_mc_release_interface(NULL, nic_info, NULL);
+        }
         nic_info = NULL;
     }
     

@@ -211,7 +211,6 @@ static int g_color_index_bg = 0;
 static int g_color_index_fg = 7;
 
 # ifdef FEAT_TERMGUICOLORS
-static int default_console_color_bg = 0x000000; // black
 static int default_console_color_fg = 0xc0c0c0; // white
 # endif
 
@@ -240,12 +239,6 @@ static int suppress_winsize = 1;	// don't fiddle with console
 static char_u *exe_path = NULL;
 
 static BOOL win8_or_later = FALSE;
-
-# if defined(__GNUC__) && !defined(__MINGW32__)  && !defined(__CYGWIN__)
-#  define UChar UnicodeChar
-# else
-#  define UChar uChar.UnicodeChar
-# endif
 
 #if !defined(FEAT_GUI_MSWIN) || defined(VIMDLL)
 // Dynamic loading for portability
@@ -306,7 +299,7 @@ is_ambiwidth_event(
 		&& ir->Event.KeyEvent.wRepeatCount == 1
 		&& ir->Event.KeyEvent.wVirtualKeyCode == 0x12
 		&& ir->Event.KeyEvent.wVirtualScanCode == 0x38
-		&& ir->Event.KeyEvent.UChar == 0
+		&& ir->Event.KeyEvent.uChar.UnicodeChar == 0
 		&& ir->Event.KeyEvent.dwControlKeyState == 2;
 }
 
@@ -317,7 +310,8 @@ make_ambiwidth_event(
 {
     down->Event.KeyEvent.wVirtualKeyCode = 0;
     down->Event.KeyEvent.wVirtualScanCode = 0;
-    down->Event.KeyEvent.UChar = up->Event.KeyEvent.UChar;
+    down->Event.KeyEvent.uChar.UnicodeChar
+				    = up->Event.KeyEvent.uChar.UnicodeChar;
     down->Event.KeyEvent.dwControlKeyState = 0;
 }
 
@@ -427,7 +421,7 @@ peek_console_input(
     DWORD	    nLength UNUSED,
     LPDWORD	    lpEvents)
 {
-    return read_console_input(hInput, lpBuffer, -1, lpEvents);
+    return read_console_input(hInput, lpBuffer, (DWORD)-1, lpEvents);
 }
 
 # ifdef FEAT_CLIENTSERVER
@@ -439,7 +433,7 @@ msg_wait_for_multiple_objects(
     DWORD    dwMilliseconds,
     DWORD    dwWakeMask)
 {
-    if (read_console_input(NULL, NULL, -2, NULL))
+    if (read_console_input(NULL, NULL, (DWORD)-2, NULL))
 	return WAIT_OBJECT_0;
     return MsgWaitForMultipleObjects(nCount, pHandles, fWaitAll,
 				     dwMilliseconds, dwWakeMask);
@@ -452,7 +446,7 @@ wait_for_single_object(
     HANDLE hHandle,
     DWORD dwMilliseconds)
 {
-    if (read_console_input(NULL, NULL, -2, NULL))
+    if (read_console_input(NULL, NULL, (DWORD)-2, NULL))
 	return WAIT_OBJECT_0;
     return WaitForSingleObject(hHandle, dwMilliseconds);
 }
@@ -525,7 +519,7 @@ unescape_shellxquote(char_u *p, char_u *escaped)
  * Load library "name".
  */
     HINSTANCE
-vimLoadLib(char *name)
+vimLoadLib(const char *name)
 {
     HINSTANCE	dll = NULL;
 
@@ -577,14 +571,18 @@ mch_is_gui_executable(void)
 }
 #endif
 
-#if defined(DYNAMIC_ICONV) || defined(DYNAMIC_GETTEXT) || defined(PROTO)
+#if defined(DYNAMIC_ICONV) || defined(DYNAMIC_GETTEXT) \
+    || defined(FEAT_PYTHON3) || defined(PROTO)
 /*
  * Get related information about 'funcname' which is imported by 'hInst'.
  * If 'info' is 0, return the function address.
  * If 'info' is 1, return the module name which the function is imported from.
+ * If 'info' is 2, hook the function with 'ptr', and return the original
+ * function address.
  */
     static void *
-get_imported_func_info(HINSTANCE hInst, const char *funcname, int info)
+get_imported_func_info(HINSTANCE hInst, const char *funcname, int info,
+	const void *ptr)
 {
     PBYTE			pImage = (PBYTE)hInst;
     PIMAGE_DOS_HEADER		pDOS = (PIMAGE_DOS_HEADER)hInst;
@@ -616,12 +614,23 @@ get_imported_func_info(HINSTANCE hInst, const char *funcname, int info)
 					+ (UINT_PTR)(pINT->u1.AddressOfData));
 	    if (strcmp((char *)pImpName->Name, funcname) == 0)
 	    {
+		void *original;
+		DWORD old, new = PAGE_READWRITE;
+
 		switch (info)
 		{
 		    case 0:
 			return (void *)pIAT->u1.Function;
 		    case 1:
 			return (void *)(pImage + pImpDesc->Name);
+		    case 2:
+			original = (void *)pIAT->u1.Function;
+			VirtualProtect(&pIAT->u1.Function, sizeof(void *),
+				new, &old);
+			pIAT->u1.Function = (UINT_PTR)ptr;
+			VirtualProtect(&pIAT->u1.Function, sizeof(void *),
+				old, &new);
+			return original;
 		    default:
 			return NULL;
 		}
@@ -639,7 +648,7 @@ find_imported_module_by_funcname(HINSTANCE hInst, const char *funcname)
 {
     char    *modulename;
 
-    modulename = (char *)get_imported_func_info(hInst, funcname, 1);
+    modulename = (char *)get_imported_func_info(hInst, funcname, 1, NULL);
     if (modulename != NULL)
 	return GetModuleHandleA(modulename);
     return NULL;
@@ -651,7 +660,17 @@ find_imported_module_by_funcname(HINSTANCE hInst, const char *funcname)
     void *
 get_dll_import_func(HINSTANCE hInst, const char *funcname)
 {
-    return get_imported_func_info(hInst, funcname, 0);
+    return get_imported_func_info(hInst, funcname, 0, NULL);
+}
+
+/*
+ * Hook the function named 'funcname' which is imported by 'hInst' DLL,
+ * and return the original function address.
+ */
+    void *
+hook_dll_import_func(HINSTANCE hInst, const char *funcname, const void *hook)
+{
+    return get_imported_func_info(hInst, funcname, 2, hook);
 }
 #endif
 
@@ -724,7 +743,7 @@ dyn_libintl_init(void)
     for (i = 0; libintl_entry[i].name != NULL
 					 && libintl_entry[i].ptr != NULL; ++i)
     {
-	if ((*libintl_entry[i].ptr = (FARPROC)GetProcAddress(hLibintlDLL,
+	if ((*libintl_entry[i].ptr = GetProcAddress(hLibintlDLL,
 					      libintl_entry[i].name)) == NULL)
 	{
 	    dyn_libintl_end();
@@ -1005,12 +1024,12 @@ win32_kbd_patch_key(
 
     if (s_iIsDead == 2)
     {
-	pker->UChar = (WCHAR) awAnsiCode[1];
+	pker->uChar.UnicodeChar = (WCHAR) awAnsiCode[1];
 	s_iIsDead = 0;
 	return 1;
     }
 
-    if (pker->UChar != 0)
+    if (pker->uChar.UnicodeChar != 0)
 	return 1;
 
     CLEAR_FIELD(abKeystate);
@@ -1033,7 +1052,7 @@ win32_kbd_patch_key(
 			abKeystate, awAnsiCode, 2, 0);
 
     if (s_iIsDead > 0)
-	pker->UChar = (WCHAR) awAnsiCode[0];
+	pker->uChar.UnicodeChar = (WCHAR) awAnsiCode[0];
 
     return s_iIsDead;
 }
@@ -1075,7 +1094,8 @@ decode_key_event(
     }
 
     // special cases
-    if ((nModifs & CTRL) != 0 && (nModifs & ~CTRL) == 0 && pker->UChar == NUL)
+    if ((nModifs & CTRL) != 0 && (nModifs & ~CTRL) == 0
+					    && pker->uChar.UnicodeChar == NUL)
     {
 	// Ctrl-6 is Ctrl-^
 	if (pker->wVirtualKeyCode == '6')
@@ -1137,7 +1157,7 @@ decode_key_event(
 	*pch = NUL;
     else
     {
-	*pch = (i > 0) ? pker->UChar : NUL;
+	*pch = (i > 0) ? pker->uChar.UnicodeChar : NUL;
 
 	if (pmodifiers != NULL)
 	{
@@ -1180,8 +1200,8 @@ static int g_fMouseActive = FALSE;  // mouse enabled
 static int g_nMouseClick = -1;	    // mouse status
 static int g_xMouse;		    // mouse x coordinate
 static int g_yMouse;		    // mouse y coordinate
-static DWORD g_cmodein = 0;         // Original console input mode
-static DWORD g_cmodeout = 0;        // Original console output mode
+static DWORD g_cmodein = 0;	    // Original console input mode
+static DWORD g_cmodeout = 0;	    // Original console output mode
 
 /*
  * Enable or disable mouse input
@@ -1658,7 +1678,7 @@ WaitForChar(long msec, int ignore_input)
 # ifdef FEAT_MBYTE_IME
 	// May have to redraw if the cursor ends up in the wrong place.
 	// Only when not peeking.
-	if (State & CMDLINE && msg_row == Rows - 1 && msec != 0)
+	if (State == MODE_CMDLINE && msg_row == Rows - 1 && msec != 0)
 	{
 	    CONSOLE_SCREEN_BUFFER_INFO csbi;
 
@@ -1683,7 +1703,7 @@ WaitForChar(long msec, int ignore_input)
 # ifdef FEAT_MBYTE_IME
 		// Windows IME sends two '\n's with only one 'ENTER'.  First:
 		// wVirtualKeyCode == 13. second: wVirtualKeyCode == 0
-		if (ir.Event.KeyEvent.UChar == 0
+		if (ir.Event.KeyEvent.uChar.UnicodeChar == 0
 			&& ir.Event.KeyEvent.wVirtualKeyCode == 13)
 		{
 		    read_console_input(g_hConIn, &ir, 1, &cRecords);
@@ -1905,7 +1925,7 @@ mch_inchar(
     // to get and still room in the buffer (up to two bytes for a char and
     // three bytes for a modifier).
     while ((typeaheadlen == 0 || WaitForChar(0L, FALSE))
-		         && typeaheadlen + 5 + TYPEAHEADSPACE <= TYPEAHEADLEN)
+			  && typeaheadlen + 5 + TYPEAHEADSPACE <= TYPEAHEADLEN)
     {
 	if (typebuf_changed(tb_change_cnt))
 	{
@@ -2077,13 +2097,13 @@ theend:
 	buf[len++] = typeahead[0];
 	mch_memmove(typeahead, typeahead + 1, --typeaheadlen);
     }
-#  ifdef FEAT_JOB_CHANNEL
+# ifdef FEAT_JOB_CHANNEL
     if (len > 0)
     {
 	buf[len] = NUL;
 	ch_log(NULL, "raw key input: \"%s\"", buf);
     }
-#  endif
+# endif
     return len;
 
 #else // FEAT_GUI_MSWIN
@@ -2106,13 +2126,27 @@ theend:
     static int
 executable_file(char *name, char_u **path)
 {
-    if (mch_getperm((char_u *)name) != -1 && !mch_isdir((char_u *)name))
+    int attrs = win32_getattrs((char_u *)name);
+
+    // The file doesn't exist or is a folder.
+    if (attrs == -1 || (attrs & FILE_ATTRIBUTE_DIRECTORY))
+	return FALSE;
+    // Check if the file is an AppExecLink, a special alias used by Windows
+    // Store for its apps.
+    if (attrs & FILE_ATTRIBUTE_REPARSE_POINT)
     {
+	char_u	*res = resolve_appexeclink((char_u *)name);
+	if (res == NULL)
+	    return FALSE;
+	// The path is already absolute.
 	if (path != NULL)
-	    *path = FullName_save((char_u *)name, FALSE);
-	return TRUE;
+	    *path = res;
+	else
+	    vim_free(res);
     }
-    return FALSE;
+    else if (path != NULL)
+	*path = FullName_save((char_u *)name, FALSE);
+    return TRUE;
 }
 
 /*
@@ -2216,7 +2250,11 @@ executable_exists(char *name, char_u **path, int use_path, int use_pathext)
 		retval = FALSE;
 		goto theend;
 	    }
-	    STRCPY(pathbuf, ".;");
+
+	    if (mch_getenv("NoDefaultCurrentDirectoryInExePath") == NULL)
+		STRCPY(pathbuf, ".;");
+	    else
+		*pathbuf = NUL;
 	    STRCAT(pathbuf, p);
 	}
     }
@@ -2390,7 +2428,8 @@ mch_init_g(void)
      * Otherwise the default "findstr /n" is used.
      */
     if (!executable_exists("findstr.exe", NULL, TRUE, FALSE))
-	set_option_value((char_u *)"grepprg", 0, (char_u *)"grep -n", 0);
+	set_option_value_give_err((char_u *)"grepprg",
+						    0, (char_u *)"grep -n", 0);
 
 # ifdef FEAT_CLIPBOARD
     win_clip_init();
@@ -2690,13 +2729,6 @@ static HICON g_hOrigIcon = NULL;
 static HICON g_hVimIcon = NULL;
 static BOOL g_fCanChangeIcon = FALSE;
 
-// ICON* are not defined in VC++ 4.0
-# ifndef ICON_SMALL
-#  define ICON_SMALL 0
-# endif
-# ifndef ICON_BIG
-#  define ICON_BIG 1
-# endif
 /*
  * GetConsoleIcon()
  * Description:
@@ -4123,10 +4155,10 @@ mch_system_classic(char *cmd, int options)
 	{
 	    MSG	msg;
 
-	    if (pPeekMessage(&msg, (HWND)NULL, 0, 0, PM_REMOVE))
+	    if (PeekMessageW(&msg, (HWND)NULL, 0, 0, PM_REMOVE))
 	    {
 		TranslateMessage(&msg);
-		pDispatchMessage(&msg);
+		DispatchMessageW(&msg);
 		delay = 1;
 		continue;
 	    }
@@ -4445,10 +4477,10 @@ mch_system_piped(char *cmd, int options)
     {
 	MSG	msg;
 
-	if (pPeekMessage(&msg, (HWND)NULL, 0, 0, PM_REMOVE))
+	if (PeekMessageW(&msg, (HWND)NULL, 0, 0, PM_REMOVE))
 	{
 	    TranslateMessage(&msg);
-	    pDispatchMessage(&msg);
+	    DispatchMessageW(&msg);
 	}
 
 	// write pipe information in the window
@@ -4753,6 +4785,9 @@ mch_call_shell(
     int		tmode = cur_tmode;
     WCHAR	szShellTitle[512];
 
+#ifdef FEAT_JOB_CHANNEL
+    ch_log(NULL, "executing shell command: %s", cmd);
+#endif
     // Change the title to reflect that we are in a subshell.
     if (GetConsoleTitleW(szShellTitle, ARRAY_LENGTH(szShellTitle) - 4) > 0)
     {
@@ -5544,7 +5579,7 @@ mch_signal_job(job_T *job, char_u *how)
 	{
 	    if (job->jv_channel != NULL && job->jv_channel->ch_anonymous_pipe)
 		job->jv_channel->ch_killing = TRUE;
-	    return TerminateJobObject(job->jv_job_object, -1) ? OK : FAIL;
+	    return TerminateJobObject(job->jv_job_object, (UINT)-1) ? OK : FAIL;
 	}
 	return terminate_all(job->jv_proc_info.hProcess, -1) ? OK : FAIL;
     }
@@ -6277,7 +6312,7 @@ write_chars(
 	    cchwritten = 1;
     }
 
-    if (cchwritten == length)
+    if (cchwritten == (DWORD)length)
     {
 	written = cbToWrite;
 	g_coord.X += (SHORT)cells;
@@ -6580,7 +6615,7 @@ mch_write(
 		    p = sp;
 
 		// If restoreFG and FG are connected, the restoreFG can be
-	        // omitted.
+		// omitted.
 		if (sgrn2((sp = sgrnc(p, 39)), 38))
 		    p = sp;
 
@@ -7302,10 +7337,10 @@ typedef NTSTATUS (NTAPI *PfnNtOpenFile)(
 typedef NTSTATUS (NTAPI *PfnNtClose)(
 	HANDLE Handle);
 typedef NTSTATUS (NTAPI *PfnNtSetEaFile)(
-	HANDLE           FileHandle,
-	PIO_STATUS_BLOCK IoStatusBlock,
-	PVOID            Buffer,
-	ULONG            Length);
+	HANDLE		    FileHandle,
+	PIO_STATUS_BLOCK    IoStatusBlock,
+	PVOID		    Buffer,
+	ULONG		    Length);
 typedef NTSTATUS (NTAPI *PfnNtQueryEaFile)(
 	HANDLE FileHandle,
 	PIO_STATUS_BLOCK IoStatusBlock,
@@ -7317,10 +7352,10 @@ typedef NTSTATUS (NTAPI *PfnNtQueryEaFile)(
 	PULONG EaIndex,
 	BOOLEAN RestartScan);
 typedef NTSTATUS (NTAPI *PfnNtQueryInformationFile)(
-	HANDLE                 FileHandle,
-	PIO_STATUS_BLOCK       IoStatusBlock,
-	PVOID                  FileInformation,
-	ULONG                  Length,
+	HANDLE			FileHandle,
+	PIO_STATUS_BLOCK	IoStatusBlock,
+	PVOID			FileInformation,
+	ULONG			Length,
 	FILE_INFORMATION_CLASS FileInformationClass);
 typedef VOID (NTAPI *PfnRtlInitUnicodeString)(
 	PUNICODE_STRING DestinationString,
@@ -7463,88 +7498,6 @@ mch_copy_file_attribute(char_u *from, char_u *to)
     copy_extattr(from, to);
     return 0;
 }
-
-#if defined(MYRESETSTKOFLW) || defined(PROTO)
-/*
- * Recreate a destroyed stack guard page in win32.
- * Written by Benjamin Peterson.
- */
-
-// These magic numbers are from the MS header files
-# define MIN_STACK_WINNT 2
-
-/*
- * This function does the same thing as _resetstkoflw(), which is only
- * available in DevStudio .net and later.
- * Returns 0 for failure, 1 for success.
- */
-    int
-myresetstkoflw(void)
-{
-    BYTE	*pStackPtr;
-    BYTE	*pGuardPage;
-    BYTE	*pStackBase;
-    BYTE	*pLowestPossiblePage;
-    MEMORY_BASIC_INFORMATION mbi;
-    SYSTEM_INFO si;
-    DWORD	nPageSize;
-    DWORD	dummy;
-
-    // We need to know the system page size.
-    GetSystemInfo(&si);
-    nPageSize = si.dwPageSize;
-
-    // ...and the current stack pointer
-    pStackPtr = (BYTE*)_alloca(1);
-
-    // ...and the base of the stack.
-    if (VirtualQuery(pStackPtr, &mbi, sizeof mbi) == 0)
-	return 0;
-    pStackBase = (BYTE*)mbi.AllocationBase;
-
-    // ...and the page that's min_stack_req pages away from stack base; this is
-    // the lowest page we could use.
-    pLowestPossiblePage = pStackBase + MIN_STACK_WINNT * nPageSize;
-
-    {
-	// We want the first committed page in the stack Start at the stack
-	// base and move forward through memory until we find a committed block.
-	BYTE *pBlock = pStackBase;
-
-	for (;;)
-	{
-	    if (VirtualQuery(pBlock, &mbi, sizeof mbi) == 0)
-		return 0;
-
-	    pBlock += mbi.RegionSize;
-
-	    if (mbi.State & MEM_COMMIT)
-		break;
-	}
-
-	// mbi now describes the first committed block in the stack.
-	if (mbi.Protect & PAGE_GUARD)
-	    return 1;
-
-	// decide where the guard page should start
-	if ((long_u)(mbi.BaseAddress) < (long_u)pLowestPossiblePage)
-	    pGuardPage = pLowestPossiblePage;
-	else
-	    pGuardPage = (BYTE*)mbi.BaseAddress;
-
-	// allocate the guard page
-	if (!VirtualAlloc(pGuardPage, nPageSize, MEM_COMMIT, PAGE_READWRITE))
-	    return 0;
-
-	// apply the guard attribute to the page
-	if (!VirtualProtect(pGuardPage, nPageSize, PAGE_READWRITE | PAGE_GUARD,
-								      &dummy))
-	    return 0;
-    }
-
-    return 1;
-}
-#endif
 
 
 /*
@@ -7892,7 +7845,7 @@ vtp_init(void)
     HMODULE hKerneldll;
     DYN_CONSOLE_SCREEN_BUFFER_INFOEX csbi;
 # ifdef FEAT_TERMGUICOLORS
-    COLORREF fg, bg;
+    COLORREF fg;
 # endif
 
     // Use functions supported from Vista
@@ -7919,11 +7872,8 @@ vtp_init(void)
     store_console_fg_rgb = save_console_fg_rgb;
 
 # ifdef FEAT_TERMGUICOLORS
-    bg = (COLORREF)csbi.ColorTable[g_color_index_bg];
     fg = (COLORREF)csbi.ColorTable[g_color_index_fg];
-    bg = (GetRValue(bg) << 16) | (GetGValue(bg) << 8) | GetBValue(bg);
     fg = (GetRValue(fg) << 16) | (GetGValue(fg) << 8) | GetBValue(fg);
-    default_console_color_bg = bg;
     default_console_color_fg = fg;
 # endif
 
@@ -7963,12 +7913,12 @@ vtp_sgr_bulk(
     vtp_sgr_bulks(1, args);
 }
 
-#define FAST256(x) \
+# define FAST256(x) \
     if ((*p-- = "0123456789"[(n = x % 10)]) \
 	    && x >= 10 && (*p-- = "0123456789"[((m = x % 100) - n) / 10]) \
 	    && x >= 100 && (*p-- = "012"[((x & 0xff) - m) / 100]));
 
-#define FAST256CASE(x) \
+# define FAST256CASE(x) \
     case x: \
 	FAST256(newargs[x - 1]);
 
@@ -7977,8 +7927,8 @@ vtp_sgr_bulks(
     int argc,
     int *args)
 {
-#define MAXSGR 16
-#define SGRBUFSIZE 2 + 4 * MAXSGR + 1 // '\033[' + SGR + 'm'
+# define MAXSGR 16
+# define SGRBUFSIZE 2 + 4 * MAXSGR + 1 // '\033[' + SGR + 'm'
     char_u  buf[SGRBUFSIZE];
     char_u  *p;
     int	    in, out;
@@ -8204,10 +8154,11 @@ get_default_console_color(
 	ctermbg = -1;
 	if (id > 0)
 	    syn_id2cterm_bg(id, &ctermfg, &ctermbg);
-	guibg = ctermbg != -1 ? ctermtoxterm(ctermbg)
-						    : default_console_color_bg;
-	cterm_normal_bg_gui_color = guibg;
-	ctermbg = ctermbg < 0 ? 0 : ctermbg;
+	cterm_normal_bg_gui_color = guibg =
+			    ctermbg != -1 ? ctermtoxterm(ctermbg) : INVALCOLOR;
+
+	if (ctermbg < 0)
+	    ctermbg = 0;
     }
 
     *cterm_fg = ctermfg;
@@ -8347,15 +8298,20 @@ resize_console_buf(void)
     char *
 GetWin32Error(void)
 {
+    static char *oldmsg = NULL;
     char *msg = NULL;
+
     FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER|FORMAT_MESSAGE_FROM_SYSTEM,
 	    NULL, GetLastError(), 0, (LPSTR)&msg, 0, NULL);
+    if (oldmsg != NULL)
+	LocalFree(oldmsg);
     if (msg != NULL)
     {
 	// remove trailing \r\n
 	char *pcrlf = strstr(msg, "\r\n");
 	if (pcrlf != NULL)
 	    *pcrlf = '\0';
+	oldmsg = msg;
     }
     return msg;
 }

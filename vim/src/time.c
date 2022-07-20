@@ -93,6 +93,7 @@ get_ctime(time_t thetime, int add_newline)
 	vim_strncpy((char_u *)buf, (char_u *)_("(Invalid)"), sizeof(buf) - 1);
     else
     {
+	// xgettext:no-c-format
 	(void)strftime(buf, sizeof(buf) - 1, _("%a %b %d %H:%M:%S %Y"),
 								    curtime);
 # ifdef MSWIN
@@ -476,12 +477,27 @@ timer_callback(timer_T *timer)
     typval_T	rettv;
     typval_T	argv[2];
 
+#ifdef FEAT_JOB_CHANNEL
+    if (ch_log_active())
+    {
+	callback_T *cb = &timer->tr_callback;
+
+	ch_log(NULL, "invoking timer callback %s",
+	       cb->cb_partial != NULL ? cb->cb_partial->pt_name : cb->cb_name);
+    }
+#endif
+
     argv[0].v_type = VAR_NUMBER;
     argv[0].vval.v_number = (varnumber_T)timer->tr_id;
     argv[1].v_type = VAR_UNKNOWN;
 
+    rettv.v_type = VAR_UNKNOWN;
     call_callback(&timer->tr_callback, -1, &rettv, 1, argv);
     clear_tv(&rettv);
+
+#ifdef FEAT_JOB_CHANNEL
+    ch_log(NULL, "timer callback finished");
+#endif
 }
 
 /*
@@ -846,13 +862,20 @@ f_timer_start(typval_T *argvars, typval_T *rettv)
 	    semsg(_(e_invalid_argument_str), tv_get_string(&argvars[2]));
 	    return;
 	}
-	if (dict_find(dict, (char_u *)"repeat", -1) != NULL)
+	if (dict_has_key(dict, "repeat"))
 	    repeat = dict_get_number(dict, (char_u *)"repeat");
     }
 
     callback = get_callback(&argvars[1]);
     if (callback.cb_name == NULL)
 	return;
+    if (in_vim9script() && *callback.cb_name == NUL)
+    {
+	// empty callback is not useful for a timer
+	emsg(_(e_invalid_callback_argument));
+	free_callback(&callback);
+	return;
+    }
 
     timer = create_timer(msec, repeat);
     if (timer == NULL)
@@ -1021,14 +1044,6 @@ get8ctime(FILE *fd)
     return n;
 }
 
-#ifdef _MSC_VER
-# if (_MSC_VER <= 1200)
-// This line is required for VC6 without the service pack.  Also see the
-// matching #pragma below.
- #  pragma optimize("", off)
-# endif
-#endif
-
 /*
  * Write time_T to file "fd" in 8 bytes.
  * Returns FAIL when the write failed.
@@ -1067,21 +1082,15 @@ time_to_bytes(time_T the_time, char_u *buf)
 	    buf[bi++] = 0;
 	else
 	{
-#if defined(VIM_SIZEOF_TIME_T) && VIM_SIZEOF_TIME_T > 4
+# if defined(VIM_SIZEOF_TIME_T) && VIM_SIZEOF_TIME_T > 4
 	    c = (int)(wtime >> (i * 8));
-#else
+# else
 	    c = (int)((long_u)wtime >> (i * 8));
-#endif
+# endif
 	    buf[bi++] = c;
 	}
     }
 }
-
-#ifdef _MSC_VER
-# if (_MSC_VER <= 1200)
- #  pragma optimize("", on)
-# endif
-#endif
 
 #endif
 

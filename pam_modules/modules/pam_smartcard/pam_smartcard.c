@@ -381,6 +381,7 @@ PAM_EXTERN int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc, cons
 				} else if (status == kTKErrorCodeAuthenticationFailed && keychain == NULL) {
 					// existing ahp_error is automatically released by pam_set_data when setting a new one
 					pam_set_data(pamh, "ahp_error", (void *)error, cleanup_func); // automatically releases previous object
+                    error = nil; // already transferred to ahp_error
 				} else {
 					CFReleaseSafe(error);
 					break; // do not retry on other errors than PIN failed

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2021 Apple Inc. All rights reserved.
+ * Copyright (C) 2009-2022 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -2603,9 +2603,10 @@ private:
         LengthType byteLength;
         if (!read(byteLength))
             return false;
-        JSObject* arrayBufferObj = asObject(readTerminal());
-        if (!arrayBufferObj || !arrayBufferObj->inherits<JSArrayBuffer>(vm))
+        JSValue arrayBufferValue = readTerminal();
+        if (!arrayBufferValue || !arrayBufferValue.inherits<JSArrayBuffer>(vm))
             return false;
+        JSObject* arrayBufferObj = asObject(arrayBufferValue);
 
         unsigned elementSize = typedArrayElementSize(arrayBufferViewSubtag);
         if (!elementSize)
@@ -3544,7 +3545,7 @@ private:
             double d;
             if (!read(d))
                 return JSValue();
-            return jsNumber(d);
+            return jsNumber(purifyNaN(d));
         }
         case BigIntTag:
             return readBigInt();
@@ -3552,7 +3553,7 @@ private:
             double d;
             if (!read(d))
                 return JSValue();
-            NumberObject* obj = constructNumber(m_globalObject, jsNumber(d));
+            NumberObject* obj = constructNumber(m_globalObject, jsNumber(purifyNaN(d)));
             m_gcBuffer.appendWithCrashOnOverflow(obj);
             return obj;
         }
@@ -4103,12 +4104,6 @@ error:
 
 SerializedScriptValue::~SerializedScriptValue() = default;
 
-SerializedScriptValue::SerializedScriptValue(Vector<uint8_t>&& buffer)
-    : m_data(WTFMove(buffer))
-{
-    m_memoryCost = computeMemoryCost();
-}
-
 SerializedScriptValue::SerializedScriptValue(Vector<uint8_t>&& buffer, std::unique_ptr<ArrayBufferContentsArray>&& arrayBufferContentsArray
 #if ENABLE(WEB_RTC)
         , Vector<std::unique_ptr<DetachedRTCDataChannel>>&& detachedRTCDataChannels
@@ -4270,51 +4265,6 @@ static Exception exceptionForSerializationFailure(SerializationReturnCode code)
     return Exception { TypeError };
 }
 
-RefPtr<SerializedScriptValue> SerializedScriptValue::create(JSGlobalObject& lexicalGlobalObject, JSValue value, SerializationErrorMode throwExceptions)
-{
-    Vector<uint8_t> buffer;
-    Vector<BlobURLHandle> blobHandles;
-    Vector<RefPtr<MessagePort>> dummyMessagePorts;
-    Vector<RefPtr<ImageBitmap>> dummyImageBitmaps;
-#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
-    Vector<RefPtr<OffscreenCanvas>> dummyOffscreenCanvases;
-#endif
-#if ENABLE(WEB_RTC)
-    Vector<Ref<RTCDataChannel>> dummyRTCDataChannels;
-#endif
-    Vector<RefPtr<JSC::ArrayBuffer>> dummyArrayBuffers;
-#if ENABLE(WEBASSEMBLY)
-    WasmModuleArray dummyModules;
-    WasmMemoryHandleArray dummyMemoryHandles;
-#endif
-    ArrayBufferContentsArray dummySharedBuffers;
-    auto code = CloneSerializer::serialize(&lexicalGlobalObject, value, dummyMessagePorts, dummyArrayBuffers, dummyImageBitmaps,
-#if ENABLE(OFFSCREEN_CANVAS_IN_WORKERS)
-        dummyOffscreenCanvases,
-#endif
-#if ENABLE(WEB_RTC)
-        dummyRTCDataChannels,
-#endif
-#if ENABLE(WEBASSEMBLY)
-        dummyModules,
-        dummyMemoryHandles,
-#endif
-        blobHandles, buffer, SerializationContext::Default, dummySharedBuffers);
-
-#if ENABLE(WEBASSEMBLY)
-    ASSERT_WITH_MESSAGE(dummyModules.isEmpty(), "Wasm::Module serialization is only allowed in the postMessage context");
-    ASSERT_WITH_MESSAGE(dummyMemoryHandles.isEmpty(), "Wasm::Memory serialization is only allowed in the postMessage context");
-#endif
-
-    if (throwExceptions == SerializationErrorMode::Throwing)
-        maybeThrowExceptionIfSerializationFailed(lexicalGlobalObject, code);
-
-    if (code != SerializationReturnCode::SuccessfullyCompleted)
-        return nullptr;
-
-    return adoptRef(*new SerializedScriptValue(WTFMove(buffer), blobHandles, nullptr, nullptr, { }));
-}
-
 static bool containsDuplicates(const Vector<RefPtr<ImageBitmap>>& imageBitmaps)
 {
     HashSet<ImageBitmap*> visited;
@@ -4355,7 +4305,21 @@ static bool canDetachRTCDataChannels(const Vector<Ref<RTCDataChannel>>& channels
 }
 #endif
 
-ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalObject& lexicalGlobalObject, JSValue value, Vector<JSC::Strong<JSC::JSObject>>&& transferList, Vector<RefPtr<MessagePort>>& messagePorts, SerializationContext context)
+RefPtr<SerializedScriptValue> SerializedScriptValue::create(JSC::JSGlobalObject& globalObject, JSC::JSValue value, SerializationErrorMode throwExceptions, SerializationContext serializationContext)
+{
+    Vector<RefPtr<MessagePort>> dummyPorts;
+    auto result = create(globalObject, value, { }, dummyPorts, throwExceptions, serializationContext);
+    if (result.hasException())
+        return nullptr;
+    return result.releaseReturnValue();
+}
+
+ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalObject& globalObject, JSValue value, Vector<JSC::Strong<JSC::JSObject>>&& transferList, Vector<RefPtr<MessagePort>>& messagePorts, SerializationContext serializationContext)
+{
+    return create(globalObject, value, WTFMove(transferList), messagePorts, SerializationErrorMode::NonThrowing, serializationContext);
+}
+
+ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalObject& lexicalGlobalObject, JSValue value, Vector<JSC::Strong<JSC::JSObject>>&& transferList, Vector<RefPtr<MessagePort>>& messagePorts, SerializationErrorMode throwExceptions, SerializationContext context)
 {
     VM& vm = lexicalGlobalObject.vm();
     Vector<RefPtr<JSC::ArrayBuffer>> arrayBuffers;
@@ -4444,6 +4408,9 @@ ExceptionOr<Ref<SerializedScriptValue>> SerializedScriptValue::create(JSGlobalOb
 #endif
         blobHandles, buffer, context, *sharedBuffers);
 
+    if (throwExceptions == SerializationErrorMode::Throwing)
+        maybeThrowExceptionIfSerializationFailed(lexicalGlobalObject, code);
+
     if (code != SerializationReturnCode::SuccessfullyCompleted)
         return exceptionForSerializationFailure(code);
 
@@ -4505,7 +4472,7 @@ RefPtr<SerializedScriptValue> SerializedScriptValue::create(JSContextRef originC
     return serializedValue;
 }
 
-String SerializedScriptValue::toString()
+String SerializedScriptValue::toString() const
 {
     return CloneDeserializer::deserializeString(m_data);
 }

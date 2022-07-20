@@ -245,7 +245,7 @@ bool Connection::processMessage()
     if (messageInfo.isBodyOutOfLine())
         messageBody = reinterpret_cast<uint8_t*>(oolMessageBody->data());
 
-    auto decoder = Decoder::create(messageBody, messageInfo.bodySize(), nullptr, WTFMove(attachments));
+    auto decoder = Decoder::create(messageBody, messageInfo.bodySize(), WTFMove(attachments));
     ASSERT(decoder);
     if (!decoder)
         return false;
@@ -635,4 +635,9 @@ void Connection::didReceiveSyncReply(OptionSet<SendSyncOption>)
 {
 }
 
+std::optional<Connection::ConnectionIdentifierPair> Connection::createConnectionIdentifierPair()
+{
+    Connection::SocketPair socketPair = Connection::createPlatformConnection();
+    return ConnectionIdentifierPair { socketPair.server, Attachment { socketPair.client } };
+}
 } // namespace IPC

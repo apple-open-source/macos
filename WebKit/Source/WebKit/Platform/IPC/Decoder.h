@@ -27,6 +27,8 @@
 
 #include "Attachment.h"
 #include "MessageNames.h"
+#include "ReceiverMatcher.h"
+#include <wtf/Function.h>
 #include <wtf/OptionSet.h>
 #include <wtf/Vector.h>
 
@@ -46,7 +48,9 @@ template<typename, typename> struct HasModernDecoder;
 class Decoder {
     WTF_MAKE_FAST_ALLOCATED;
 public:
-    static std::unique_ptr<Decoder> create(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&&);
+    static std::unique_ptr<Decoder> create(const uint8_t* buffer, size_t bufferSize, Vector<Attachment>&&);
+    using BufferDeallocator = Function<void(const uint8_t*, size_t)>;
+    static std::unique_ptr<Decoder> create(const uint8_t* buffer, size_t bufferSize, BufferDeallocator&&, Vector<Attachment>&&);
     Decoder(const uint8_t* stream, size_t streamSize, uint64_t destinationID);
 
     ~Decoder();
@@ -59,6 +63,7 @@ public:
     ReceiverName messageReceiverName() const { return receiverName(m_messageName); }
     MessageName messageName() const { return m_messageName; }
     uint64_t destinationID() const { return m_destinationID; }
+    bool matches(const ReceiverMatcher& matcher) const { return matcher.matches(messageReceiverName(), destinationID()); }
 
     bool isSyncMessage() const { return messageIsSync(messageName()); }
     ShouldDispatchWhenWaitingForSyncReply shouldDispatchMessageWhenWaitingForSyncReply() const;
@@ -139,7 +144,7 @@ public:
     static constexpr bool isIPCDecoder = true;
 
 private:
-    Decoder(const uint8_t* buffer, size_t bufferSize, void (*bufferDeallocator)(const uint8_t*, size_t), Vector<Attachment>&&);
+    Decoder(const uint8_t* buffer, size_t bufferSize, BufferDeallocator&&, Vector<Attachment>&&);
 
     bool alignBufferPosition(size_t alignment, size_t);
     bool bufferIsLargeEnoughToContain(size_t alignment, size_t) const;
@@ -147,7 +152,7 @@ private:
     const uint8_t* m_buffer;
     const uint8_t* m_bufferPos;
     const uint8_t* m_bufferEnd;
-    void (*m_bufferDeallocator)(const uint8_t*, size_t);
+    BufferDeallocator m_bufferDeallocator;
 
     Vector<Attachment> m_attachments;
 

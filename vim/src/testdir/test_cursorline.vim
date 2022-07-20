@@ -136,61 +136,45 @@ func Test_cursorline_screenline()
   call writefile(lines, filename)
   " basic test
   let buf = RunVimInTerminal('-S '. filename, #{rows: 20})
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_1', {})
   call term_sendkeys(buf, "fagj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_2', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_3', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_4', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_5', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_6', {})
   " test with set list and cursorlineopt containing number
   call term_sendkeys(buf, "gg0")
   call term_sendkeys(buf, ":set list cursorlineopt+=number listchars=space:-\<cr>")
   call VerifyScreenDump(buf, 'Test_'. filename. '_7', {})
   call term_sendkeys(buf, "fagj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_8', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_9', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_10', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_11', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_12', {})
   if exists("+foldcolumn") && exists("+signcolumn") && exists("+breakindent")
-    " test with set foldcolumn signcoloumn and breakindent
+    " test with set foldcolumn signcolumn and breakindent
     call term_sendkeys(buf, "gg0")
     call term_sendkeys(buf, ":set breakindent foldcolumn=2 signcolumn=yes\<cr>")
     call VerifyScreenDump(buf, 'Test_'. filename. '_13', {})
     call term_sendkeys(buf, "fagj")
-    call TermWait(buf)
     call VerifyScreenDump(buf, 'Test_'. filename. '_14', {})
     call term_sendkeys(buf, "gj")
-    call TermWait(buf)
     call VerifyScreenDump(buf, 'Test_'. filename. '_15', {})
     call term_sendkeys(buf, "gj")
-    call TermWait(buf)
     call VerifyScreenDump(buf, 'Test_'. filename. '_16', {})
     call term_sendkeys(buf, "gj")
-    call TermWait(buf)
     call VerifyScreenDump(buf, 'Test_'. filename. '_17', {})
     call term_sendkeys(buf, "gj")
-    call TermWait(buf)
     call VerifyScreenDump(buf, 'Test_'. filename. '_18', {})
     call term_sendkeys(buf, ":set breakindent& foldcolumn& signcolumn&\<cr>")
   endif
@@ -200,19 +184,14 @@ func Test_cursorline_screenline()
   call term_sendkeys(buf, ":set nonumber\<cr>")
   call VerifyScreenDump(buf, 'Test_'. filename. '_19', {})
   call term_sendkeys(buf, "fagj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_20', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_21', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_22', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_23', {})
   call term_sendkeys(buf, "gj")
-  call TermWait(buf)
   call VerifyScreenDump(buf, 'Test_'. filename. '_24', {})
   call term_sendkeys(buf, ":set list& cursorlineopt& listchars&\<cr>")
 
@@ -267,5 +246,88 @@ END
   call delete('Xscript')
   call delete('Xtextfile')
 endfunc
+
+func Test_cursorline_callback()
+  CheckScreendump
+  CheckFeature timers
+
+  let lines =<< trim END
+      call setline(1, ['aaaaa', 'bbbbb', 'ccccc', 'ddddd'])
+      set cursorline
+      call cursor(4, 1)
+
+      func Func(timer)
+        call cursor(2, 1)
+      endfunc
+
+      call timer_start(300, 'Func')
+  END
+  call writefile(lines, 'Xcul_timer')
+
+  let buf = RunVimInTerminal('-S Xcul_timer', #{rows: 8})
+  call TermWait(buf, 310)
+  call VerifyScreenDump(buf, 'Test_cursorline_callback_1', {})
+
+  call StopVimInTerminal(buf)
+  call delete('Xcul_timer')
+endfunc
+
+func Test_cursorline_screenline_update()
+  CheckScreendump
+
+  let lines =<< trim END
+      call setline(1, repeat('xyz ', 30))
+      set cursorline cursorlineopt=screenline
+      inoremap <F2> <Cmd>call cursor(1, 1)<CR>
+  END
+  call writefile(lines, 'Xcul_screenline')
+
+  let buf = RunVimInTerminal('-S Xcul_screenline', #{rows: 8})
+  call term_sendkeys(buf, "A")
+  call VerifyScreenDump(buf, 'Test_cursorline_screenline_1', {})
+  call term_sendkeys(buf, "\<F2>")
+  call VerifyScreenDump(buf, 'Test_cursorline_screenline_2', {})
+  call term_sendkeys(buf, "\<Esc>")
+
+  call StopVimInTerminal(buf)
+  call delete('Xcul_screenline')
+endfunc
+
+func Test_cursorline_cursorbind_horizontal_scroll()
+  CheckScreendump
+
+  let lines =<< trim END
+      call setline(1, 'aa bb cc dd ee ff gg hh ii jj kk ll mm' ..
+                    \ ' nn oo pp qq rr ss tt uu vv ww xx yy zz')
+      set nowrap
+      " The following makes the cursor apparent on the screen dump
+      set sidescroll=1 cursorcolumn
+      " add empty lines, required for cursorcolumn
+      call append(1, ['','','',''])
+      20vsp
+      windo :set cursorbind
+  END
+  call writefile(lines, 'Xhor_scroll')
+
+  let buf = RunVimInTerminal('-S Xhor_scroll', #{rows: 8})
+  call term_sendkeys(buf, "20l")
+  call VerifyScreenDump(buf, 'Test_hor_scroll_1', {})
+  call term_sendkeys(buf, "10l")
+  call VerifyScreenDump(buf, 'Test_hor_scroll_2', {})
+  call term_sendkeys(buf, ":windo :set cursorline\<cr>")
+  call term_sendkeys(buf, "0")
+  call term_sendkeys(buf, "20l")
+  call VerifyScreenDump(buf, 'Test_hor_scroll_3', {})
+  call term_sendkeys(buf, "10l")
+  call VerifyScreenDump(buf, 'Test_hor_scroll_4', {})
+  call term_sendkeys(buf, ":windo :set nocursorline nocursorcolumn\<cr>")
+  call term_sendkeys(buf, "0")
+  call term_sendkeys(buf, "40l")
+  call VerifyScreenDump(buf, 'Test_hor_scroll_5', {})
+
+  call StopVimInTerminal(buf)
+  call delete('Xhor_scroll')
+endfunc
+
 
 " vim: shiftwidth=2 sts=2 expandtab

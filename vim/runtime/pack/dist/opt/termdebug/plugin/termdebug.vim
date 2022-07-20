@@ -2,12 +2,13 @@
 "
 " Author: Bram Moolenaar
 " Copyright: Vim license applies, see ":help license"
-" Last Change: 2022 Jan 13
+" Last Change: 2022 May 23
 "
-" WORK IN PROGRESS - Only the basics work
-" Note: On MS-Windows you need a recent version of gdb.  The one included with
-" MingW is too old (7.6.1).
-" I used version 7.12 from http://www.equation.com/servlet/equation.cmd?fa=gdb
+" WORK IN PROGRESS - The basics works stable, more to come
+" Note: In general you need at least GDB 7.12 because this provides the
+" frame= response in MI thread-selected events we need to sync stack to file.
+" The one included with "old" MingW is too old (7.6.1), you may upgrade it or
+" use a newer version from http://www.equation.com/servlet/equation.cmd?fa=gdb
 "
 " There are two ways to run gdb:
 " - In a terminal window; used if possible, does not work on MS-Windows
@@ -64,11 +65,6 @@ set cpo&vim
 command -nargs=* -complete=file -bang Termdebug call s:StartDebug(<bang>0, <f-args>)
 command -nargs=+ -complete=file -bang TermdebugCommand call s:StartDebugCommand(<bang>0, <f-args>)
 
-" Name of the gdb command, defaults to "gdb".
-if !exists('g:termdebugger')
-  let g:termdebugger = 'gdb'
-endif
-
 let s:pc_id = 12
 let s:asm_id = 13
 let s:break_id = 14  " breakpoint number is added to this
@@ -98,8 +94,17 @@ call s:Highlight(1, '', &background)
 hi default debugBreakpoint term=reverse ctermbg=red guibg=red
 hi default debugBreakpointDisabled term=reverse ctermbg=gray guibg=gray
 
+" Get the command to execute the debugger as a list, defaults to ["gdb"].
 func s:GetCommand()
-  return type(g:termdebugger) == v:t_list ? copy(g:termdebugger) : [g:termdebugger]
+  if exists('g:termdebug_config')
+    let cmd = get(g:termdebug_config, 'command', 'gdb')
+  elseif exists('g:termdebugger')
+    let cmd = g:termdebugger
+  else
+    let cmd = 'gdb'
+  endif
+
+  return type(cmd) == v:t_list ? copy(cmd) : [cmd]
 endfunc
 
 func s:StartDebug(bang, ...)
@@ -143,10 +148,16 @@ func s:StartDebug_internal(dict)
 
   let s:save_columns = 0
   let s:allleft = 0
-  if exists('g:termdebug_wide')
-    if &columns < g:termdebug_wide
+  let wide = 0
+  if exists('g:termdebug_config')
+    let wide = get(g:termdebug_config, 'wide', 0)
+  elseif exists('g:termdebug_wide')
+    let wide = g:termdebug_wide
+  endif
+  if wide > 0
+    if &columns < wide
       let s:save_columns = &columns
-      let &columns = g:termdebug_wide
+      let &columns = wide
       " If we make the Vim window wider, use the whole left half for the debug
       " windows.
       let s:allleft = 1
@@ -157,7 +168,12 @@ func s:StartDebug_internal(dict)
   endif
 
   " Override using a terminal window by setting g:termdebug_use_prompt to 1.
-  let use_prompt = exists('g:termdebug_use_prompt') && g:termdebug_use_prompt
+  let use_prompt = 0
+  if exists('g:termdebug_config')
+    let use_prompt = get(g:termdebug_config, 'use_prompt', 0)
+  elseif exists('g:termdebug_use_prompt')
+    let use_prompt = g:termdebug_use_prompt
+  endif
   if has('terminal') && !has('win32') && !use_prompt
     let s:way = 'terminal'
   else
@@ -170,12 +186,10 @@ func s:StartDebug_internal(dict)
     call s:StartDebug_term(a:dict)
   endif
 
-  if exists('g:termdebug_disasm_window')
-    if g:termdebug_disasm_window
-      let curwinid = win_getid(winnr())
-      call s:GotoAsmwinOrCreateIt()
-      call win_gotoid(curwinid)
-    endif
+  if s:GetDisasmWindow()
+    let curwinid = win_getid(winnr())
+    call s:GotoAsmwinOrCreateIt()
+    call win_gotoid(curwinid)
   endif
 
   if exists('#User#TermdebugStartPost')
@@ -200,8 +214,8 @@ func s:CheckGdbRunning()
   return 'ok'
 endfunc
 
+" Open a terminal window without a job, to run the debugged program in.
 func s:StartDebug_term(dict)
-  " Open a terminal window without a job, to run the debugged program in.
   let s:ptybuf = term_start('NONE', {
 	\ 'term_name': 'debugged program',
 	\ 'vertical': s:vertical,
@@ -239,18 +253,28 @@ func s:StartDebug_term(dict)
   let proc_args = get(a:dict, 'proc_args', [])
 
   let gdb_cmd = s:GetCommand()
-  " Add -quiet to avoid the intro message causing a hit-enter prompt.
-  let gdb_cmd += ['-quiet']
-  " Disable pagination, it causes everything to stop at the gdb
-  let gdb_cmd += ['-iex', 'set pagination off']
-  " Interpret commands while the target is running.  This should usually only
-  " be exec-interrupt, since many commands don't work properly while the
-  " target is running (so execute during startup).
-  let gdb_cmd += ['-iex', 'set mi-async on']
-  " Open a terminal window to run the debugger.
-  let gdb_cmd += ['-tty', pty]
-  " Command executed _after_ startup is done, provides us with the necessary feedback
-  let gdb_cmd += ['-ex', 'echo startupdone\n']
+
+  if exists('g:termdebug_config') && has_key(g:termdebug_config, 'command_add_args')
+    let gdb_cmd = g:termdebug_config.command_add_args(gdb_cmd, pty)
+  else
+    " Add -quiet to avoid the intro message causing a hit-enter prompt.
+    let gdb_cmd += ['-quiet']
+    " Disable pagination, it causes everything to stop at the gdb
+    let gdb_cmd += ['-iex', 'set pagination off']
+    " Interpret commands while the target is running.  This should usually only
+    " be exec-interrupt, since many commands don't work properly while the
+    " target is running (so execute during startup).
+    let gdb_cmd += ['-iex', 'set mi-async on']
+    " Open a terminal window to run the debugger.
+    let gdb_cmd += ['-tty', pty]
+    " Command executed _after_ startup is done, provides us with the necessary
+    " feedback
+    let gdb_cmd += ['-ex', 'echo startupdone\n']
+  endif
+
+  if exists('g:termdebug_config') && has_key(g:termdebug_config, 'command_filter')
+    let gdb_cmd = g:termdebug_config.command_filter(gdb_cmd)
+  endif
 
   " Adding arguments requested by the user
   let gdb_cmd += gdb_args
@@ -313,7 +337,7 @@ func s:StartDebug_term(dict)
         let response = line1 . line2
         if response =~ 'Undefined command'
           echoerr 'Sorry, your gdb is too old, gdb 7.12 is required'
-	  " CHECKME: possibly send a "server show version" here
+          " CHECKME: possibly send a "server show version" here
           call s:CloseBuffers()
           return
         endif
@@ -345,8 +369,8 @@ func s:StartDebug_term(dict)
   call s:StartDebugCommon(a:dict)
 endfunc
 
+" Open a window with a prompt buffer to run gdb in.
 func s:StartDebug_prompt(dict)
-  " Open a window with a prompt buffer to run gdb in.
   if s:vertical
     vertical new
   else
@@ -396,7 +420,7 @@ func s:StartDebug_prompt(dict)
   endif
   " Mark the buffer modified so that it's not easy to close.
   set modified
-  let s:gdb_channel = job_getchannel(s:gdbjob)  
+  let s:gdb_channel = job_getchannel(s:gdbjob)
 
   let s:ptybuf = 0
   if has('win32')
@@ -444,7 +468,7 @@ endfunc
 func s:StartDebugCommon(dict)
   " Sign used to highlight the line where the program has stopped.
   " There can be only one.
-  sign define debugPC linehl=debugPC
+  call sign_define('debugPC', #{linehl: 'debugPC'})
 
   " Install debugger commands in the text window.
   call win_gotoid(s:sourcewin)
@@ -662,12 +686,14 @@ func s:EndDebugCommon()
     if bufexists(bufnr)
       exe bufnr .. "buf"
       if exists('b:save_signcolumn')
-	let &signcolumn = b:save_signcolumn
-	unlet b:save_signcolumn
+        let &signcolumn = b:save_signcolumn
+        unlet b:save_signcolumn
       endif
     endif
   endfor
-  exe was_buf .. "buf"
+  if bufexists(was_buf)
+    exe was_buf .. "buf"
+  endif
 
   call s:DeleteCommands()
 
@@ -739,8 +765,8 @@ func s:HandleDisasmMsg(msg)
 
       let lnum = search('^' . s:asm_addr)
       if lnum != 0
-	exe 'sign unplace ' . s:asm_id
-	exe 'sign place ' . s:asm_id . ' line=' . lnum . ' name=debugPC'
+	call sign_unplace('TermDebug', #{id: s:asm_id})
+	call sign_place(s:asm_id, 'TermDebug', 'debugPC', '%', #{lnum: lnum})
       endif
 
       call win_gotoid(curwinid)
@@ -789,22 +815,22 @@ func s:CommOutput(chan, msg)
       call s:HandleDisasmMsg(msg)
     elseif msg != ''
       if msg =~ '^\(\*stopped\|\*running\|=thread-selected\)'
-	call s:HandleCursor(msg)
+        call s:HandleCursor(msg)
       elseif msg =~ '^\^done,bkpt=' || msg =~ '^=breakpoint-created,'
         call s:HandleNewBreakpoint(msg, 0)
       elseif msg =~ '^=breakpoint-modified,'
         call s:HandleNewBreakpoint(msg, 1)
       elseif msg =~ '^=breakpoint-deleted,'
-	call s:HandleBreakpointDelete(msg)
+        call s:HandleBreakpointDelete(msg)
       elseif msg =~ '^=thread-group-started'
-	call s:HandleProgramRun(msg)
+        call s:HandleProgramRun(msg)
       elseif msg =~ '^\^done,value='
-	call s:HandleEvaluate(msg)
+        call s:HandleEvaluate(msg)
       elseif msg =~ '^\^error,msg='
-	call s:HandleError(msg)
+        call s:HandleError(msg)
       elseif msg =~ '^disassemble'
-	let s:parsing_disasm_msg = 1
-	let s:asm_lines = []
+        let s:parsing_disasm_msg = 1
+        let s:asm_lines = []
       endif
     endif
   endfor
@@ -829,6 +855,7 @@ func s:InstallCommands()
   command Clear call s:ClearBreakpoint()
   command Step call s:SendResumingCommand('-exec-step')
   command Over call s:SendResumingCommand('-exec-next')
+  command -nargs=? Until call s:Until(<q-args>)
   command Finish call s:SendResumingCommand('-exec-finish')
   command -nargs=* Run call s:Run(<q-args>)
   command -nargs=* Arguments call s:SendResumingCommand('-exec-arguments ' . <q-args>)
@@ -851,7 +878,13 @@ func s:InstallCommands()
   command Asm call s:GotoAsmwinOrCreateIt()
   command Winbar call s:InstallWinbar()
 
-  if !exists('g:termdebug_map_K') || g:termdebug_map_K
+  let map = 1
+  if exists('g:termdebug_config')
+    let map = get(g:termdebug_config, 'map_K', 1)
+  elseif exists('g:termdebug_map_K')
+    let map = g:termdebug_map_K
+  endif
+  if map
     let s:k_map_saved = maparg('K', 'n', 0, 1)
     nnoremap K :Evaluate<CR>
   endif
@@ -859,13 +892,20 @@ func s:InstallCommands()
   if has('menu') && &mouse != ''
     call s:InstallWinbar()
 
-    if !exists('g:termdebug_popup') || g:termdebug_popup != 0
+    let popup = 1
+    if exists('g:termdebug_config')
+      let popup = get(g:termdebug_config, 'popup', 1)
+    elseif exists('g:termdebug_popup')
+      let popup = g:termdebug_popup
+    endif
+    if popup
       let s:saved_mousemodel = &mousemodel
       let &mousemodel = 'popup_setpos'
       an 1.200 PopUp.-SEP3-	<Nop>
       an 1.210 PopUp.Set\ breakpoint	:Break<CR>
       an 1.220 PopUp.Clear\ breakpoint	:Clear<CR>
-      an 1.230 PopUp.Evaluate		:Evaluate<CR>
+      an 1.230 PopUp.Run\ until		:Until<CR>
+      an 1.240 PopUp.Evaluate		:Evaluate<CR>
     endif
   endif
 
@@ -893,6 +933,7 @@ func s:DeleteCommands()
   delcommand Clear
   delcommand Step
   delcommand Over
+  delcommand Until
   delcommand Finish
   delcommand Run
   delcommand Arguments
@@ -909,7 +950,7 @@ func s:DeleteCommands()
     if empty(s:k_map_saved)
       nunmap K
     else
-      call mapset('n', 0, s:k_map_saved)
+      call mapset(s:k_map_saved)
     endif
     unlet s:k_map_saved
   endif
@@ -936,24 +977,33 @@ func s:DeleteCommands()
       aunmenu PopUp.-SEP3-
       aunmenu PopUp.Set\ breakpoint
       aunmenu PopUp.Clear\ breakpoint
+      aunmenu PopUp.Run\ until
       aunmenu PopUp.Evaluate
     endif
   endif
 
-  exe 'sign unplace ' . s:pc_id
-  for [id, entries] in items(s:breakpoints)
-    for subid in keys(entries)
-      exe 'sign unplace ' . s:Breakpoint2SignNumber(id, subid)
-    endfor
-  endfor
+  call sign_unplace('TermDebug')
   unlet s:breakpoints
   unlet s:breakpoint_locations
 
-  sign undefine debugPC
-  for val in s:BreakpointSigns
-    exe "sign undefine debugBreakpoint" . val
-  endfor
+  call sign_undefine('debugPC')
+  call sign_undefine(s:BreakpointSigns->map("'debugBreakpoint' .. v:val"))
   let s:BreakpointSigns = []
+endfunc
+
+" :Until - Execute until past a specified position or current line
+func s:Until(at)
+  if s:stopped
+    " reset s:stopped here, it may take a bit of time before we get a response
+    let s:stopped = 0
+    call ch_log('assume that program is running after this command')
+    " Use the fname:lnum format
+    let at = empty(a:at) ?
+	  \ fnameescape(expand('%:p')) . ':' . line('.') : a:at
+    call s:SendCommand('-exec-until ' . at)
+  else
+    call ch_log('dropping command, program is running: exec-until')
+  endif
 endfunc
 
 " :Break - Set a breakpoint at the cursor position.
@@ -986,22 +1036,23 @@ func s:ClearBreakpoint()
     let nr = 0
     for id in s:breakpoint_locations[bploc]
       if has_key(s:breakpoints, id)
-	" Assume this always works, the reply is simply "^done".
-	call s:SendCommand('-break-delete ' . id)
-	for subid in keys(s:breakpoints[id])
-	  exe 'sign unplace ' . s:Breakpoint2SignNumber(id, subid)
-	endfor
-	unlet s:breakpoints[id]
-	unlet s:breakpoint_locations[bploc][idx]
-	let nr = id
-	break
+        " Assume this always works, the reply is simply "^done".
+        call s:SendCommand('-break-delete ' . id)
+        for subid in keys(s:breakpoints[id])
+	  call sign_unplace('TermDebug',
+				  \ #{id: s:Breakpoint2SignNumber(id, subid)})
+        endfor
+        unlet s:breakpoints[id]
+        unlet s:breakpoint_locations[bploc][idx]
+        let nr = id
+        break
       else
-	let idx += 1
+        let idx += 1
       endif
     endfor
     if nr != 0
       if empty(s:breakpoint_locations[bploc])
-	unlet s:breakpoint_locations[bploc]
+        unlet s:breakpoint_locations[bploc]
       endif
       echomsg 'Breakpoint ' . id . ' cleared from line ' . lnum . '.'
     else
@@ -1027,7 +1078,7 @@ func s:SendEval(expr)
     " remove text that is likely an assignment
     let exprLHS = substitute(a:expr, ' *=.*', '', '')
   endif
-  
+
   " encoding expression to prevent bad errors
   let expr = a:expr
   let expr = substitute(expr, '\\', '\\\\', 'g')
@@ -1036,14 +1087,14 @@ func s:SendEval(expr)
   let s:evalexpr = exprLHS
 endfunc
 
-" :Evaluate - evaluate what is specified / under the cursor 
+" :Evaluate - evaluate what is specified / under the cursor
 func s:Evaluate(range, arg)
   let expr = s:GetEvaluationExpression(a:range, a:arg)
   let s:ignoreEvalError = 0
   call s:SendEval(expr)
 endfunc
 
-" get what is specified / under the cursor 
+" get what is specified / under the cursor
 func s:GetEvaluationExpression(range, arg)
   if a:arg != ''
     " user supplied evaluation
@@ -1167,6 +1218,26 @@ func s:GotoSourcewinOrCreateIt()
   endif
 endfunc
 
+func s:GetDisasmWindow()
+  if exists('g:termdebug_config')
+    return get(g:termdebug_config, 'disasm_window', 0)
+  endif
+  if exists('g:termdebug_disasm_window')
+    return g:termdebug_disasm_window
+  endif
+  return 0
+endfunc
+
+func s:GetDisasmWindowHeight()
+  if exists('g:termdebug_config')
+    return get(g:termdebug_config, 'disasm_window_height', 0)
+  endif
+  if exists('g:termdebug_disasm_window') && g:termdebug_disasm_window > 1
+    return g:termdebug_disasm_window
+  endif
+  return 0
+endfunc
+
 func s:GotoAsmwinOrCreateIt()
   if !win_gotoid(s:asmwin)
     if win_gotoid(s:sourcewin)
@@ -1190,10 +1261,8 @@ func s:GotoAsmwinOrCreateIt()
       exe 'file Termdebug-asm-listing'
     endif
 
-    if exists('g:termdebug_disasm_window')
-      if g:termdebug_disasm_window > 1
-	exe 'resize ' . g:termdebug_disasm_window
-      endif
+    if s:GetDisasmWindowHeight() > 0
+      exe 'resize ' .. s:GetDisasmWindowHeight()
     endif
   endif
 
@@ -1201,11 +1270,11 @@ func s:GotoAsmwinOrCreateIt()
     let lnum = search('^' . s:asm_addr)
     if lnum == 0
       if s:stopped
-	call s:SendCommand('disassemble $pc')
+        call s:SendCommand('disassemble $pc')
       endif
     else
-      exe 'sign unplace ' . s:asm_id
-      exe 'sign place ' . s:asm_id . ' line=' . lnum . ' name=debugPC'
+      call sign_unplace('TermDebug', #{id: s:asm_id})
+      call sign_place(s:asm_id, 'TermDebug', 'debugPC', '%', #{lnum: lnum})
     endif
   endif
 endfunc
@@ -1236,15 +1305,15 @@ func s:HandleCursor(msg)
 
       let curwinid = win_getid(winnr())
       if win_gotoid(s:asmwin)
-	let lnum = search('^' . s:asm_addr)
-	if lnum == 0
-	  call s:SendCommand('disassemble $pc')
-	else
-	  exe 'sign unplace ' . s:asm_id
-	  exe 'sign place ' . s:asm_id . ' line=' . lnum . ' name=debugPC'
-	endif
+        let lnum = search('^' . s:asm_addr)
+        if lnum == 0
+          call s:SendCommand('disassemble $pc')
+        else
+	  call sign_unplace('TermDebug', #{id: s:asm_id})
+	  call sign_place(s:asm_id, 'TermDebug', 'debugPC', '%', #{lnum: lnum})
+        endif
 
-	call win_gotoid(curwinid)
+        call win_gotoid(curwinid)
       endif
     endif
   endif
@@ -1254,6 +1323,7 @@ func s:HandleCursor(msg)
     if lnum =~ '^[0-9]*$'
       call s:GotoSourcewinOrCreateIt()
       if expand('%:p') != fnamemodify(fname, ':p')
+echomsg 'different fname: "' .. expand('%:p') .. '" vs "' .. fnamemodify(fname, ':p') .. '"'
 	augroup Termdebug
 	  " Always open a file read-only instead of showing the ATTENTION
 	  " prompt, since we are unlikely to want to edit the file.
@@ -1262,31 +1332,32 @@ func s:HandleCursor(msg)
 		\ | echo 'Warning: file is being edited elsewhere'
 		\ | echohl None
 		\ | let v:swapchoice = '0'
-	augroup END
-	if &modified
-	  " TODO: find existing window
-	  exe 'split ' . fnameescape(fname)
-	  let s:sourcewin = win_getid(winnr())
-	  call s:InstallWinbar()
-	else
-	  exe 'edit ' . fnameescape(fname)
-	endif
-	augroup Termdebug
-	  au! SwapExists
-	augroup END
+        augroup END
+        if &modified
+          " TODO: find existing window
+          exe 'split ' . fnameescape(fname)
+          let s:sourcewin = win_getid(winnr())
+          call s:InstallWinbar()
+        else
+          exe 'edit ' . fnameescape(fname)
+        endif
+        augroup Termdebug
+          au! SwapExists
+        augroup END
       endif
       exe lnum
       normal! zv
-      exe 'sign unplace ' . s:pc_id
-      exe 'sign place ' . s:pc_id . ' line=' . lnum . ' name=debugPC priority=110 file=' . fname
+      call sign_unplace('TermDebug', #{id: s:pc_id})
+      call sign_place(s:pc_id, 'TermDebug', 'debugPC', fname,
+			      \ #{lnum: lnum, priority: 110})
       if !exists('b:save_signcolumn')
-	let b:save_signcolumn = &signcolumn
-	call add(s:signcolumn_buflist, bufnr())
+        let b:save_signcolumn = &signcolumn
+        call add(s:signcolumn_buflist, bufnr())
       endif
       setlocal signcolumn=yes
     endif
   elseif !s:stopped || fname != ''
-    exe 'sign unplace ' . s:pc_id
+    call sign_unplace('TermDebug', #{id: s:pc_id})
   endif
 
   call win_gotoid(wid)
@@ -1303,7 +1374,9 @@ func s:CreateBreakpoint(id, subid, enabled)
     else
       let hiName = "debugBreakpoint"
     endif
-    exe "sign define debugBreakpoint" . nr . " text=" . substitute(nr, '\..*', '', '') . " texthl=" . hiName
+    call sign_define('debugBreakpoint' .. nr,
+			    \ #{text: substitute(nr, '\..*', '', ''),
+			    \ texthl: hiName})
   endif
 endfunc
 
@@ -1381,7 +1454,9 @@ endfunc
 
 func s:PlaceSign(id, subid, entry)
   let nr = printf('%d.%d', a:id, a:subid)
-  exe 'sign place ' . s:Breakpoint2SignNumber(a:id, a:subid) . ' line=' . a:entry['lnum'] . ' name=debugBreakpoint' . nr . ' priority=110 file=' . a:entry['fname']
+  call sign_place(s:Breakpoint2SignNumber(a:id, a:subid), 'TermDebug',
+			  \ 'debugBreakpoint' .. nr, a:entry['fname'],
+			  \ #{lnum: a:entry['lnum'], priority: 110})
   let a:entry['placed'] = 1
 endfunc
 
@@ -1395,8 +1470,9 @@ func s:HandleBreakpointDelete(msg)
   if has_key(s:breakpoints, id)
     for [subid, entry] in items(s:breakpoints[id])
       if has_key(entry, 'placed')
-	exe 'sign unplace ' . s:Breakpoint2SignNumber(id, subid)
-	unlet entry['placed']
+	call sign_unplace('TermDebug',
+				\ #{id: s:Breakpoint2SignNumber(id, subid)})
+        unlet entry['placed']
       endif
     endfor
     unlet s:breakpoints[id]
@@ -1421,7 +1497,7 @@ func s:BufRead()
   for [id, entries] in items(s:breakpoints)
     for [subid, entry] in items(entries)
       if entry['fname'] == fname
-	call s:PlaceSign(id, subid, entry)
+        call s:PlaceSign(id, subid, entry)
       endif
     endfor
   endfor
@@ -1433,7 +1509,7 @@ func s:BufUnloaded()
   for [id, entries] in items(s:breakpoints)
     for [subid, entry] in items(entries)
       if entry['fname'] == fname
-	let entry['placed'] = 0
+        let entry['placed'] = 0
       endif
     endfor
   endfor

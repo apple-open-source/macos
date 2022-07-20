@@ -90,7 +90,7 @@ void SharedWorkerProxy::postMessageToWorkerGlobalScope(MessageWithMessagePorts&&
     postTaskToWorkerGlobalScope([message = WTFMove(message)](auto& scriptContext) mutable {
         auto& context = downcast<SharedWorkerGlobalScope>(scriptContext);
         auto ports = MessagePort::entanglePorts(scriptContext, WTFMove(message.transferredPorts));
-        context.dispatchEvent(MessageEvent::create(WTFMove(ports), message.message.releaseNonNull()));
+        context.dispatchEvent(MessageEvent::create(message.message.releaseNonNull(), { }, { }, std::nullopt, WTFMove(ports)));
     });
 }
 
@@ -197,15 +197,6 @@ RefPtr<RTCDataChannelRemoteHandlerConnection> SharedWorkerProxy::createRTCDataCh
 void SharedWorkerProxy::postTaskToLoader(ScriptExecutionContext::Task&& task)
 {
     m_scriptExecutionContext->postTask(WTFMove(task));
-}
-
-bool SharedWorkerProxy::postTaskForModeToWorkerOrWorkletGlobalScope(ScriptExecutionContext::Task&& task, const String& mode)
-{
-    if (m_askedToTerminate)
-        return false;
-
-    m_workerThread->runLoop().postTaskForMode(WTFMove(task), mode);
-    return true;
 }
 
 void SharedWorkerProxy::postMessageToDebugger(const String&)

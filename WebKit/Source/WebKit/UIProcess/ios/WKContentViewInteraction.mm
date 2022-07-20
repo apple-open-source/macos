@@ -2348,6 +2348,15 @@ static NSValue *nsSizeForTapHighlightBorderRadius(WebCore::IntSize borderRadius,
 
 - (void)_keyboardDidShow
 {
+    [self _zoomToFocusRectAfterShowingKeyboardIfNeeded];
+
+#if USE(UICONTEXTMENU)
+    [_fileUploadPanel repositionContextMenuIfNeeded];
+#endif
+}
+
+- (void)_zoomToFocusRectAfterShowingKeyboardIfNeeded
+{
     if (!_shouldZoomToFocusRectAfterShowingKeyboard)
         return;
 
@@ -3397,7 +3406,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
 #endif
 }
 
-- (bool)_elementTypeRequiresAccessoryView:(WebKit::InputType)type
+- (BOOL)_elementTypeRequiresAccessoryView:(WebKit::InputType)type
 {
     switch (type) {
     case WebKit::InputType::None:
@@ -3409,7 +3418,7 @@ static void cancelPotentialTapIfNecessary(WKContentView* contentView)
     case WebKit::InputType::DateTimeLocal:
     case WebKit::InputType::Month:
     case WebKit::InputType::Time:
-        return false;
+        return NO;
     case WebKit::InputType::Select: {
 #if ENABLE(IOS_FORM_CONTROL_REFRESH)
         if (self._shouldUseContextMenusForFormControls)
@@ -6366,15 +6375,17 @@ static bool mayContainSelectableText(WebKit::InputType type)
     }
 }
 
-- (bool)_shouldShowKeyboardForElement:(const WebKit::FocusedElementInformation&)information
+- (BOOL)_shouldShowKeyboardForElement:(const WebKit::FocusedElementInformation&)information
 {
     if (information.inputMode == WebCore::InputMode::None)
-        return false;
+        return NO;
 
-    if (mayContainSelectableText(information.elementType))
-        return true;
+    return [self _shouldShowKeyboardForElementIgnoringInputMode:information];
+}
 
-    return [self _elementTypeRequiresAccessoryView:information.elementType];
+- (BOOL)_shouldShowKeyboardForElementIgnoringInputMode:(const WebKit::FocusedElementInformation&)information
+{
+    return mayContainSelectableText(information.elementType) || [self _elementTypeRequiresAccessoryView:information.elementType];
 }
 
 static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebKit::InputType type, WKContentView *view)
@@ -6453,7 +6464,7 @@ static RetainPtr<NSObject <WKFormPeripheral>> createInputPeripheralWithView(WebK
                 if (_isChangingFocus)
                     return YES;
 
-                if (_isFocusingElementWithKeyboard && [UIKeyboard isInHardwareKeyboardMode])
+                if ([self _shouldShowKeyboardForElementIgnoringInputMode:information] && UIKeyboard.isInHardwareKeyboardMode)
                     return YES;
 #endif
             }
@@ -7888,6 +7899,11 @@ static WebCore::DataOwnerType coreDataOwnerType(_UIDataOwner platformType)
 
     if (intent == WebKit::PasteboardAccessIntent::Write)
         return coreDataOwnerType(self._dataOwnerForCopy);
+
+#if !PLATFORM(MACCATALYST)
+    if ([[PAL::getMCProfileConnectionClass() sharedConnection] isURLManaged:[_webView URL]])
+        return WebCore::DataOwnerType::Enterprise;
+#endif
 
     ASSERT_NOT_REACHED();
     return WebCore::DataOwnerType::Undefined;

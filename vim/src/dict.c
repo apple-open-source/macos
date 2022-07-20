@@ -284,11 +284,11 @@ dictitem_free(dictitem_T *item)
 /*
  * Make a copy of dict "d".  Shallow if "deep" is FALSE.
  * The refcount of the new dict is set to 1.
- * See item_copy() for "copyID".
+ * See item_copy() for "top" and "copyID".
  * Returns NULL when out of memory.
  */
     dict_T *
-dict_copy(dict_T *orig, int deep, int copyID)
+dict_copy(dict_T *orig, int deep, int top, int copyID)
 {
     dict_T	*copy;
     dictitem_T	*di;
@@ -306,6 +306,11 @@ dict_copy(dict_T *orig, int deep, int copyID)
 	    orig->dv_copyID = copyID;
 	    orig->dv_copydict = copy;
 	}
+	if (orig->dv_type == NULL || top || deep)
+	    copy->dv_type = NULL;
+	else
+	    copy->dv_type = alloc_type(orig->dv_type);
+
 	todo = (int)orig->dv_hashtab.ht_used;
 	for (hi = orig->dv_hashtab.ht_array; todo > 0 && !got_int; ++hi)
 	{
@@ -318,8 +323,8 @@ dict_copy(dict_T *orig, int deep, int copyID)
 		    break;
 		if (deep)
 		{
-		    if (item_copy(&HI2DI(hi)->di_tv, &di->di_tv, deep,
-							      copyID) == FAIL)
+		    if (item_copy(&HI2DI(hi)->di_tv, &di->di_tv,
+						  deep, FALSE, copyID) == FAIL)
 		    {
 			vim_free(di);
 			break;
@@ -644,6 +649,15 @@ dict_find(dict_T *d, char_u *key, int len)
 }
 
 /*
+ * Returns TRUE if "key" is present in Dictionary "d".
+ */
+    int
+dict_has_key(dict_T *d, char *key)
+{
+    return dict_find(d, (char_u *)key, -1) != NULL;
+}
+
+/*
  * Get a typval_T item from a dictionary and copy it into "rettv".
  * Returns FAIL if the entry doesn't exist or out of memory.
  */
@@ -852,13 +866,13 @@ get_literal_key(char_u **arg)
 
     if (**arg == '\'')
     {
-	if (eval_lit_string(arg, &rettv, TRUE) == FAIL)
+	if (eval_lit_string(arg, &rettv, TRUE, FALSE) == FAIL)
 	    return NULL;
 	key = rettv.vval.v_string;
     }
     else if (**arg == '"')
     {
-	if (eval_string(arg, &rettv, TRUE) == FAIL)
+	if (eval_string(arg, &rettv, TRUE, FALSE) == FAIL)
 	    return NULL;
 	key = rettv.vval.v_string;
     }
@@ -1239,7 +1253,7 @@ dict_extend_func(
     {
 	if (is_new)
 	{
-	    d1 = dict_copy(d1, FALSE, get_copyID());
+	    d1 = dict_copy(d1, FALSE, TRUE, get_copyID());
 	    if (d1 == NULL)
 		return;
 	}
@@ -1577,8 +1591,8 @@ f_has_key(typval_T *argvars, typval_T *rettv)
     if (argvars[0].vval.v_dict == NULL)
 	return;
 
-    rettv->vval.v_number = dict_find(argvars[0].vval.v_dict,
-				      tv_get_string(&argvars[1]), -1) != NULL;
+    rettv->vval.v_number = dict_has_key(argvars[0].vval.v_dict,
+				(char *)tv_get_string(&argvars[1]));
 }
 
 #endif // defined(FEAT_EVAL)

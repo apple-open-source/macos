@@ -1136,7 +1136,10 @@ void	buf_seterror(buf_t bp, errno_t err)
 void	buf_setflags(buf_t bp, int32_t flags)
 {
 	xpl_trace_enter("bp=%p flags=0x%" PRIX32, bp, flags);
-	bp->flags |= (flags & BUF_X_WRFLAGS);
+	if (bp)
+	{
+		bp->flags |= (flags & BUF_X_WRFLAGS);
+	}
 }
 
 int32_t	buf_flags(buf_t bp)
@@ -1419,6 +1422,13 @@ errno_t	buf_meta_bread(vnode_t vp, daddr64_t blkno, int size, kauth_cred_t cred,
 
 	xpl_trace_enter("vp=%p blkno=%llu size=%d cred=%p bpp=%p",
 			vp, blkno, size, cred, bpp);
+	if (bpp == NULL) {
+		xpl_error("bpp is NULL");
+		err = EINVAL;
+		goto out;
+	}
+	*bpp = NULL;
+
 	if (size < 0) {
 		xpl_error("Invalid negative size: %d", size);
 		err = EINVAL;

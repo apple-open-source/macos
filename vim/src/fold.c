@@ -829,10 +829,18 @@ foldUpdate(win_T *wp, linenr_T top, linenr_T bot)
 
     if (wp->w_folds.ga_len > 0)
     {
-	// Mark all folds from top to bot as maybe-small.
-	(void)foldFind(&wp->w_folds, top, &fp);
+	linenr_T	maybe_small_start = top;
+	linenr_T	maybe_small_end = bot;
+
+	// Mark all folds from top to bot (or bot to top) as maybe-small.
+	if (top > bot)
+	{
+	    maybe_small_start = bot;
+	    maybe_small_end = top;
+	}
+	(void)foldFind(&wp->w_folds, maybe_small_start, &fp);
 	while (fp < (fold_T *)wp->w_folds.ga_data + wp->w_folds.ga_len
-		&& fp->fd_top < bot)
+		&& fp->fd_top <= maybe_small_end)
 	{
 	    fp->fd_small = MAYBE;
 	    ++fp;
@@ -1128,7 +1136,7 @@ cloneFoldGrowArray(garray_T *from, garray_T *to)
 // foldFind() {{{2
 /*
  * Search for line "lnum" in folds of growarray "gap".
- * Set *fpp to the fold struct for the fold that contains "lnum" or
+ * Set "*fpp" to the fold struct for the fold that contains "lnum" or
  * the first fold below it (careful: it can be beyond the end of the array!).
  * Returns FALSE when there is no fold that contains "lnum".
  */
@@ -1499,7 +1507,7 @@ foldMarkAdjust(
 	line2 = line1 - amount_after - 1;
     // If appending a line in Insert mode, it should be included in the fold
     // just above the line.
-    if ((State & INSERT) && amount == (linenr_T)1 && line2 == MAXLNUM)
+    if ((State & MODE_INSERT) && amount == (linenr_T)1 && line2 == MAXLNUM)
 	--line1;
     foldMarkAdjustRecurse(&wp->w_folds, line1, line2, amount, amount_after);
 }
@@ -1523,7 +1531,7 @@ foldMarkAdjustRecurse(
 
     // In Insert mode an inserted line at the top of a fold is considered part
     // of the fold, otherwise it isn't.
-    if ((State & INSERT) && amount == (linenr_T)1 && line2 == MAXLNUM)
+    if ((State & MODE_INSERT) && amount == (linenr_T)1 && line2 == MAXLNUM)
 	top = line1 + 1;
     else
 	top = line1;
@@ -1604,7 +1612,7 @@ foldMarkAdjustRecurse(
 		    if (amount == MAXLNUM)
 		    {
 			foldMarkAdjustRecurse(&fp->fd_nested,
-				  line1 - fp->fd_top,
+				  0,
 				  line2 - fp->fd_top,
 				  amount,
 				  amount_after + (fp->fd_top - top));
@@ -1614,7 +1622,7 @@ foldMarkAdjustRecurse(
 		    else
 		    {
 			foldMarkAdjustRecurse(&fp->fd_nested,
-				  line1 - fp->fd_top,
+				  0,
 				  line2 - fp->fd_top,
 				  amount,
 				  amount_after - amount);
@@ -1923,7 +1931,6 @@ get_foldtext(
     if (*wp->w_p_fdt != NUL)
     {
 	char_u	dashes[MAX_LEVEL + 2];
-	win_T	*save_curwin;
 	int	level;
 	char_u	*p;
 
@@ -1941,23 +1948,27 @@ get_foldtext(
 	set_vim_var_string(VV_FOLDDASHES, dashes, -1);
 	set_vim_var_nr(VV_FOLDLEVEL, (long)level);
 
-	// skip evaluating foldtext on errors
+	// skip evaluating 'foldtext' on errors
 	if (!got_fdt_error)
 	{
-	    save_curwin = curwin;
+	    win_T   *save_curwin = curwin;
+	    sctx_T  saved_sctx = current_sctx;
+
 	    curwin = wp;
 	    curbuf = wp->w_buffer;
+	    current_sctx = wp->w_p_script_ctx[WV_FDT];
 
-	    ++emsg_silent; // handle exceptions, but don't display errors
+	    ++emsg_off; // handle exceptions, but don't display errors
 	    text = eval_to_string_safe(wp->w_p_fdt,
-			 was_set_insecurely((char_u *)"foldtext", OPT_LOCAL));
-	    --emsg_silent;
+		    was_set_insecurely((char_u *)"foldtext", OPT_LOCAL), TRUE);
+	    --emsg_off;
 
 	    if (text == NULL || did_emsg)
 		got_fdt_error = TRUE;
 
 	    curwin = save_curwin;
 	    curbuf = curwin->w_buffer;
+	    current_sctx = saved_sctx;
 	}
 	last_lnum = lnum;
 	last_wp   = wp;
@@ -2162,7 +2173,7 @@ foldUpdateIEMS(win_T *wp, linenr_T top, linenr_T bot)
 	bot = wp->w_buffer->b_ml.ml_line_count;
 	wp->w_foldinvalid = FALSE;
 
-	// Mark all folds a maybe-small.
+	// Mark all folds as maybe-small.
 	setSmallMaybe(&wp->w_folds);
     }
 
@@ -2243,7 +2254,14 @@ foldUpdateIEMS(win_T *wp, linenr_T top, linenr_T bot)
 	    getlevel = foldlevelDiff;
 #endif
 	else
+	{
 	    getlevel = foldlevelIndent;
+	    // Start one line back, because if the line above "top" has an
+	    // undefined fold level, folding it relies on the line under it,
+	    // which is "top".
+	    if (top > 1)
+		--fline.lnum;
+	}
 
 	// Backup to a line for which the fold level is defined.  Since it's
 	// always defined for line one, we will stop there.
@@ -2556,6 +2574,7 @@ foldUpdateIEMSRecurse(
 					(long)(fp->fd_top - firstlnum));
 			    fp->fd_len += fp->fd_top - firstlnum;
 			    fp->fd_top = firstlnum;
+			    fp->fd_small = MAYBE;
 			    fold_changed = TRUE;
 			}
 			else if ((flp->start != 0 && lvl == level)
@@ -2634,7 +2653,7 @@ foldUpdateIEMSRecurse(
 			// to stop just above startlnum.
 			fp->fd_len = startlnum - fp->fd_top;
 			foldMarkAdjustRecurse(&fp->fd_nested,
-				(linenr_T)fp->fd_len, (linenr_T)MAXLNUM,
+				fp->fd_len, (linenr_T)MAXLNUM,
 						       (linenr_T)MAXLNUM, 0L);
 			fold_changed = TRUE;
 		    }
@@ -2908,7 +2927,8 @@ foldSplit(
     // any between top and bot, they have been removed by the caller.
     gap1 = &fp->fd_nested;
     gap2 = &fp[1].fd_nested;
-    if (foldFind(gap1, bot + 1 - fp->fd_top, &fp2))
+    (void)foldFind(gap1, bot + 1 - fp->fd_top, &fp2);
+    if (fp2 != NULL)
     {
 	len = (int)((fold_T *)gap1->ga_data + gap1->ga_len - fp2);
 	if (len > 0 && ga_grow(gap2, len) == OK)
@@ -3063,7 +3083,7 @@ truncate_fold(fold_T *fp, linenr_T end)
 
 #define fold_end(fp) ((fp)->fd_top + (fp)->fd_len - 1)
 #define valid_fold(fp, gap) ((gap)->ga_len > 0 && (fp) < ((fold_T *)(gap)->ga_data + (gap)->ga_len))
-#define fold_index(fp, gap) ((size_t)(fp - ((fold_T *)(gap)->ga_data)))
+#define fold_index(fp, gap) ((size_t)((fp) - ((fold_T *)(gap)->ga_data)))
 
     void
 foldMoveRange(garray_T *gap, linenr_T line1, linenr_T line2, linenr_T dest)
@@ -3307,7 +3327,7 @@ foldlevelExpr(fline_T *flp)
     // KeyTyped may be reset to 0 when calling a function which invokes
     // do_cmdline().  To make 'foldopen' work correctly restore KeyTyped.
     save_keytyped = KeyTyped;
-    n = eval_foldexpr(flp->wp->w_p_fde, &c);
+    n = eval_foldexpr(flp->wp, &c);
     KeyTyped = save_keytyped;
 
     switch (c)

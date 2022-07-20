@@ -3176,14 +3176,20 @@ RenderBox::LogicalExtentComputedValues RenderBox::computeLogicalHeight(LayoutUni
         }
     }
 
-    // WinIE quirk: The <html> block always fills the entire canvas in quirks mode.  The <body> always fills the
-    // <html> block in quirks mode.  Only apply this quirk if the block is normal flow and no height
+    // WinIE quirk: The <html> block always fills the entire canvas in quirks mode. The <body> always fills the
+    // <html> block in quirks mode. Only apply this quirk if the block is normal flow and no height
     // is specified. When we're printing, we also need this quirk if the body or root has a percentage 
     // height since we don't set a height in RenderView when we're printing. So without this quirk, the 
     // height has nothing to be a percentage of, and it ends up being 0. That is bad.
-    bool paginatedContentNeedsBaseHeight = document().printing() && h.isPercentOrCalculated()
-        && (isDocumentElementRenderer() || (isBody() && document().documentElement()->renderer()->style().logicalHeight().isPercentOrCalculated())) && !isInline();
-    if (stretchesToViewport() || paginatedContentNeedsBaseHeight) {
+    auto paginatedContentNeedsBaseHeight = [&] {
+        if (!document().printing() || !h.isPercentOrCalculated() || isInline())
+            return false;
+        if (isDocumentElementRenderer())
+            return true;
+        auto* documentElementRenderer = document().documentElement()->renderer();
+        return isBody() && parent() == documentElementRenderer && documentElementRenderer->style().logicalHeight().isPercentOrCalculated();
+    };
+    if (stretchesToViewport() || paginatedContentNeedsBaseHeight()) {
         LayoutUnit margins = collapsedMarginBefore() + collapsedMarginAfter();
         LayoutUnit visibleHeight = view().pageOrViewLogicalHeight();
         if (isDocumentElementRenderer())
@@ -3224,9 +3230,12 @@ std::optional<LayoutUnit> RenderBox::computeIntrinsicLogicalContentHeightUsing(L
     // FIXME: The CSS sizing spec is considering changing what min-content/max-content should resolve to.
     // If that happens, this code will have to change.
     if (logicalHeightLength.isMinContent() || logicalHeightLength.isMaxContent() || logicalHeightLength.isFitContent() || logicalHeightLength.isLegacyIntrinsic()) {
-        if (intrinsicContentHeight && style().boxSizing() == BoxSizing::BorderBox)
-            return intrinsicContentHeight.value() + borderAndPaddingLogicalHeight();
-        return intrinsicContentHeight;
+        if (intrinsicContentHeight) {
+            if (style().boxSizing() == BoxSizing::BorderBox)
+                return intrinsicContentHeight.value() + borderAndPaddingLogicalHeight();
+            return intrinsicContentHeight.value();
+        }
+        return { };
     }
     if (logicalHeightLength.isFillAvailable())
         return containingBlock()->availableLogicalHeight(ExcludeMarginBorderPadding) - borderAndPadding;
@@ -3236,8 +3245,16 @@ std::optional<LayoutUnit> RenderBox::computeIntrinsicLogicalContentHeightUsing(L
 
 std::optional<LayoutUnit> RenderBox::computeContentAndScrollbarLogicalHeightUsing(SizeType heightType, const Length& height, std::optional<LayoutUnit> intrinsicContentHeight) const
 {
-    if (height.isAuto())
-        return heightType == MinSize ? std::optional<LayoutUnit>(0) : std::nullopt;
+    if (height.isAuto()) {
+        if (heightType != MinSize)
+            return std::nullopt;
+        if (intrinsicContentHeight && isFlexItem() && downcast<RenderFlexibleBox>(parent())->shouldApplyMinBlockSizeAutoForChild(*this)) {
+            if (style().boxSizing() == BoxSizing::BorderBox)
+                return intrinsicContentHeight.value() + borderAndPaddingLogicalHeight();
+            return intrinsicContentHeight.value();
+        }
+        return std::optional<LayoutUnit>(0);
+    }
     // FIXME: The CSS sizing spec is considering changing what min-content/max-content should resolve to.
     // If that happens, this code will have to change.
     if (height.isIntrinsic() || height.isLegacyIntrinsic())

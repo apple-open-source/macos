@@ -243,7 +243,7 @@ _dns_parse_domain_name(const char *p, char **x, int32_t *remaining)
 			v16 = (uint16_t *)*x;
 
 			y = (char *)p + (ntohs(*v16) & 0x3fff);
-			if ((*x >= y) || (y > z))
+			if ((*x <= y) || (y > z))
 			{
 				free(name);
 				return NULL;

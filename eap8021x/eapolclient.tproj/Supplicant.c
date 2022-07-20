@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2021 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2022 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -3332,7 +3332,7 @@ S_set_credentials(SupplicantRef supp)
 	name_cf = isA_CFString(name_cf);
 	if (name_cf != NULL) {
 	    name = my_CFStringToCString(name_cf, kCFStringEncodingUTF8);
-	    if (remember_information) {
+	    if (remember_information && supp->remember_information) {
 		supp->remember_information = TRUE;
 	    }
 	}
@@ -3351,7 +3351,7 @@ S_set_credentials(SupplicantRef supp)
 	if (isA_CFString(password_cf) != NULL) {
 	    password = my_CFStringToCString(password_cf, 
 					    kCFStringEncodingUTF8);
-	    if (remember_information) {
+	    if (remember_information && supp->remember_information) {
 		supp->remember_information = TRUE;
 	    }
 	}
@@ -3409,7 +3409,7 @@ S_set_credentials(SupplicantRef supp)
 			  "EAPSecIdentityHandleCreateSecIdentity failed, %ld",
 			  (long)status);
 	    }
-	    else if (remember_information) {
+	    else if (remember_information && supp->remember_information) {
 		supp->remember_information = TRUE;
 	    }
 	}

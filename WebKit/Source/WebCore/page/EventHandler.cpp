@@ -436,7 +436,7 @@ void EventHandler::nodeWillBeRemoved(Node& nodeToBeRemoved)
 static void setSelectionIfNeeded(FrameSelection& selection, const VisibleSelection& newSelection)
 {
     if (selection.selection() != newSelection && selection.shouldChangeSelection(newSelection))
-        selection.setSelection(newSelection);
+        selection.setSelection(newSelection, FrameSelection::defaultSetSelectionOptions(UserTriggered));
 }
 
 static inline bool dispatchSelectStart(Node* node)
@@ -1125,12 +1125,10 @@ void EventHandler::didPanScrollStop()
 
 void EventHandler::startPanScrolling(RenderElement& renderer)
 {
-#if !PLATFORM(IOS_FAMILY)
     if (!is<RenderBox>(renderer))
         return;
-    m_autoscrollController->startPanScrolling(&downcast<RenderBox>(renderer), lastKnownMousePosition());
+    m_autoscrollController->startPanScrolling(downcast<RenderBox>(renderer), lastKnownMousePosition());
     invalidateClick();
-#endif
 }
 
 #endif // ENABLE(PAN_SCROLLING)

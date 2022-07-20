@@ -5444,4 +5444,199 @@ done:
     }
     rmdir(mp);
 }
+
+- (void)testNegotiateIoctlSaLen
+{
+    int error = 0;
+    error = smb_load_library();
+    if (error != 0) {
+        XCTFail("smb_load_library failed %d\n",error);
+        goto done;
+    }
+
+    struct smb_ctx ctx;
+    ctx.ct_fd = -1;
+    error = smb_ctx_gethandle(&ctx);
+    if (error != 0 || ctx.ct_fd < 0) {
+        XCTFail("fd (%d) < 0\n",ctx.ct_fd);
+        goto done;
+    }
+
+    struct sockaddr_in smb_addr;
+    bzero(&smb_addr, sizeof(smb_addr));
+    smb_addr.sin_family = AF_INET;
+    smb_addr.sin_len = sizeof(smb_addr);
+    smb_addr.sin_port = htons(445);
+    inet_aton("172.16.19.128", &smb_addr.sin_addr);
+
+    const int src_zone_size = 32;
+    /// Amount of OOB data to be read from successor element in src_zone
+    const int oob_read_size = 32;
+
+    struct sockaddr_nb saddr;
+    bzero(&saddr, sizeof(saddr));
+    /// We cannot use AF_INET or AF_INET6 type socket addresses because their
+    /// `sa_len` must be equal to sizeof(struct sockaddr_in) and sizeof(struct sockaddr_in6)
+    /// respectively or the socket connect will fail
+    saddr.snb_family = AF_NETBIOS;
+    saddr.snb_len = src_zone_size + oob_read_size;
+    saddr.snb_addrin = smb_addr;
+    /// Any netbios name with length greater than zero will work
+    saddr.snb_name[0] = 1;
+
+    struct sockaddr_nb laddr;
+    bzero(&laddr, sizeof(laddr));
+    laddr.snb_family = AF_NETBIOS;
+    laddr.snb_len = sizeof(laddr);
+    /// Any netbios name with length greater than zero will work
+    laddr.snb_name[0] = 1;
+
+    struct smbioc_negotiate negotiate_req;
+    bzero(&negotiate_req, sizeof(negotiate_req));
+    negotiate_req.ioc_version = SMB_IOC_STRUCT_VERSION;
+    negotiate_req.ioc_saddr = (struct sockaddr*)&saddr;
+    negotiate_req.ioc_saddr_len = src_zone_size;
+    negotiate_req.ioc_laddr = (struct sockaddr*)&laddr;
+    negotiate_req.ioc_laddr_len = sizeof(struct sockaddr_nb);
+    negotiate_req.ioc_extra_flags |= SMB_FORCE_NEW_SESSION;
+    negotiate_req.ioc_ssn.ioc_owner = getuid();
+    negotiate_req.ioc_extra_flags |= SMB_SMB1_ENABLED;
+
+    error = ioctl(ctx.ct_fd, SMBIOC_NEGOTIATE, &negotiate_req);
+    if (error == 0) {
+        XCTFail("failed: should fail when snb_len is larger than struct size %d\n", error);
+        goto done;
+    }
+    negotiate_req.ioc_saddr->sa_len = 16;
+    negotiate_req.ioc_laddr->sa_len = 16;
+
+    error = ioctl(ctx.ct_fd, SMBIOC_NEGOTIATE, &negotiate_req);
+    if (error != 0) {
+        XCTFail("failed: should succeed when snb_len is smaller than struct size %d\n", error);
+        goto done;
+    }
+done:
+    /* Now cleanup everything */
+    if (ctx.ct_fd >= 0) {
+        close(ctx.ct_fd);
+    }
+}
+
+- (void)testNicDoubleFree
+{
+    int error = 0;
+    int fd    = 0;
+    char mp[PATH_MAX];
+
+    // Step 1: Connect to server
+    do_create_mount_path(mp, sizeof(mp), "testNicDoubleFree");
+
+    struct smb_server_handle *mpConnection = NULL;
+    SMBHANDLE shareConnection = NULL;
+    uint32_t status = 0;
+
+    /* First mount a volume */
+    if ((mkdir(mp, S_IRWXU | S_IRWXG) == -1) && (errno != EEXIST)) {
+        error = errno;
+        XCTFail("mkdir failed %d for <%s>\n",
+                error, g_test_url1);
+        goto done;
+    }
+
+    status = SMBOpenServerEx(g_test_url1, &mpConnection,
+                             kSMBOptionNoPrompt | kSMBOptionSessionOnly);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBOpenServerEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    status = SMBMountShareEx(mpConnection, NULL, mp, 0, 0, 0, 0, NULL, NULL);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    status = SMBOpenServerWithMountPoint(mp, "IPC$",
+                                         &shareConnection, 0);
+    if (!NT_SUCCESS(status)) {
+        XCTFail("SMBMountShareEx failed 0x%x for <%s>\n",
+                status, g_test_url1);
+        goto done;
+    }
+
+    struct smb_server_handle_local { // must match struct smb_server_handle
+        volatile int32_t refcount;
+        struct smb_ctx * context;
+    } *pServerHandle;
+    pServerHandle = (struct smb_server_handle_local*)mpConnection;
+    fd = pServerHandle->context->ct_fd;
+
+    // Step 2: Add a NIC to `sessionp->session_table.client_nic_info_list`
+    struct network_nic_info nic_info;
+    bzero(&nic_info, sizeof(nic_info));
+    nic_info.nic_index = 1;
+    nic_info.addr_4.sin_len = sizeof(struct sockaddr_in);
+    nic_info.addr_4.sin_family = AF_INET;
+    nic_info.addr_4.sin_port = htons(1234);
+    nic_info.next_offset = sizeof(struct network_nic_info);
+    inet_aton("127.0.0.1", &nic_info.addr_4.sin_addr);
+
+    struct smbioc_client_interface update_req;
+    bzero(&update_req,  sizeof(update_req));
+    update_req.ioc_info_array = &nic_info;
+    // Number of NICs in `ioc_info_array`
+    update_req.interface_instance_count = 1;
+    // Total size of NIC array in `ioc_info_array`
+    update_req.total_buffer_size = sizeof(nic_info);
+
+    if (ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &update_req)) {
+        XCTFail("SMBIOC_UPDATE_CLIENT_INTERFACES ioctl failed, err: %s\n", strerror(errno));
+        goto done;
+    }
+
+    if (update_req.ioc_errno) {
+        XCTFail("SMBIOC_UPDATE_CLIENT_INTERFACES ioctl returned non zero ioc_errno: %d\n", update_req.ioc_errno);
+        goto done;
+    }
+    // Step 3: Try to associate a socket address with length zero to NIC created in step 2.
+    //       This will trigger the double free vulnerability
+    struct network_nic_info bad_nic_info;
+    bzero(&bad_nic_info, sizeof(bad_nic_info));
+    // To trigger double free,  error must occur on an existing nic
+    bad_nic_info.nic_index = nic_info.nic_index;
+    // This will cause SMB_MALLOC in `smb2_mc_update_info_with_ip` to return NULL
+    // `smb2_mc_update_info_with_ip` method will return ENOMEM
+    bad_nic_info.addr_4.sin_len = 0;
+    bad_nic_info.addr_4.sin_family = AF_INET;
+    bad_nic_info.addr_4.sin_port = htons(1234);
+    bad_nic_info.next_offset = sizeof(struct network_nic_info);
+    // Use a different IP address so that `smb2_mc_does_ip_belong_to_interface`
+    // will return FALSE
+    inet_aton("127.0.0.2", &bad_nic_info.addr_4.sin_addr);
+
+    bzero(&update_req,  sizeof(update_req));
+    update_req.interface_instance_count = 1;
+    update_req.ioc_info_array = &bad_nic_info;
+    update_req.total_buffer_size = sizeof(bad_nic_info);
+
+    ioctl(fd, SMBIOC_UPDATE_CLIENT_INTERFACES, &update_req);
+    //if we don't panic, the test passed
+done:
+    /* Now cleanup everything */
+    if (shareConnection) {
+        SMBReleaseServer(shareConnection);
+    }
+
+    if (mpConnection) {
+        SMBReleaseServer(mpConnection);
+    }
+
+    if (unmount(mp, MNT_FORCE) == -1) {
+        XCTFail("unmount failed for first url %d\n", errno);
+    }
+    rmdir(mp);
+}
+
 @end

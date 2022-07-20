@@ -89,17 +89,21 @@ set_imstatusfunc_option(void)
 call_imactivatefunc(int active)
 {
     typval_T argv[2];
+    int save_KeyTyped = KeyTyped;
 
     argv[0].v_type = VAR_NUMBER;
     argv[0].vval.v_number = active ? 1 : 0;
     argv[1].v_type = VAR_UNKNOWN;
     (void)call_callback_retnr(&imaf_cb, 1, argv);
+
+    KeyTyped = save_KeyTyped;
 }
 
     static int
 call_imstatusfunc(void)
 {
     int is_active;
+    int save_KeyTyped = KeyTyped;
 
     // FIXME: Don't execute user function in unsafe situation.
     if (exiting || is_autocmd_blocked())
@@ -109,6 +113,8 @@ call_imstatusfunc(void)
     ++msg_silent;
     is_active = call_callback_retnr(&imsf_cb, 0, NULL);
     --msg_silent;
+
+    KeyTyped = save_KeyTyped;
     return (is_active > 0);
 }
 #endif
@@ -156,7 +162,7 @@ static int xim_has_preediting INIT(= FALSE);  // IM current status
     static void
 init_preedit_start_col(void)
 {
-    if (State & CMDLINE)
+    if (State & MODE_CMDLINE)
 	preedit_start_col = cmdline_getvcol_cursor();
     else if (curwin != NULL && curwin->w_buffer != NULL)
 	getvcol(curwin, &curwin->w_cursor, &preedit_start_col, NULL, NULL);
@@ -420,7 +426,7 @@ im_delete_preedit(void)
 	return;
     }
 
-    if (State & NORMAL
+    if (State & MODE_NORMAL
 #ifdef FEAT_TERMINAL
 	    && !term_use_loop()
 #endif
@@ -446,10 +452,10 @@ im_correct_cursor(int num_move_back)
 {
     char_u backkey[] = {CSI, 'k', 'l'};
 
-    if (State & NORMAL)
+    if (State & MODE_NORMAL)
 	return;
 #  ifdef FEAT_RIGHTLEFT
-    if ((State & CMDLINE) == 0 && curwin != NULL && curwin->w_p_rl)
+    if ((State & MODE_CMDLINE) == 0 && curwin != NULL && curwin->w_p_rl)
 	backkey[2] = 'r';
 #  endif
     for (; num_move_back > 0; --num_move_back)
@@ -471,7 +477,7 @@ im_show_info(void)
     vgetc_busy = TRUE;
     showmode();
     vgetc_busy = old_vgetc_busy;
-    if ((State & NORMAL) || (State & INSERT))
+    if ((State & MODE_NORMAL) || (State & MODE_INSERT))
 	setcursor();
     out_flush();
 }
@@ -1078,7 +1084,8 @@ xim_queue_key_press_event(GdkEventKey *event, int down)
     // gtk_im_context_filter_keypress() in Normal mode.
     // And while doing :sh too.
     if (xic != NULL && !p_imdisable
-		    && (State & (INSERT | CMDLINE | NORMAL | EXTERNCMD)) != 0)
+		    && (State & (MODE_INSERT | MODE_CMDLINE
+					      | MODE_NORMAL | MODE_EXTERNCMD)))
     {
 	// Filter 'imactivatekey' and map it to CTRL-^.  This way, Vim is
 	// always aware of the current status of IM, and can even emulate
@@ -1102,21 +1109,21 @@ xim_queue_key_press_event(GdkEventKey *event, int down)
 	    if (event->type != GDK_KEY_PRESS)
 		return TRUE;
 
-	    if (map_to_exists_mode((char_u *)"", LANGMAP, FALSE))
+	    if (map_to_exists_mode((char_u *)"", MODE_LANGMAP, FALSE))
 	    {
 		im_set_active(FALSE);
 
 		// ":lmap" mappings exists, toggle use of mappings.
-		State ^= LANGMAP;
-		if (State & LANGMAP)
+		State ^= MODE_LANGMAP;
+		if (State & MODE_LANGMAP)
 		{
 		    curbuf->b_p_iminsert = B_IMODE_NONE;
-		    State &= ~LANGMAP;
+		    State &= ~MODE_LANGMAP;
 		}
 		else
 		{
 		    curbuf->b_p_iminsert = B_IMODE_LMAP;
-		    State |= LANGMAP;
+		    State |= MODE_LANGMAP;
 		}
 		return TRUE;
 	    }

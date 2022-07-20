@@ -1,4 +1,117 @@
-2022-04-28  Russell Epstein  <repstein@apple.com>
+2022-05-08  Saam Barati  <sbarati@apple.com>
+
+        Better handle clobbered registers in O0 register allocation
+        https://bugs.webkit.org/show_bug.cgi?id=240205
+        <rdar://87220688>
+
+        Reviewed by Yusuke Suzuki.
+
+        This patch makes Air's O0 register allocator better handle clobbered
+        registers. We now model both early and late clobber directly, and use
+        this to perform a basic interference analysis when allocating a register
+        to a Tmp. An early clobber interferes with any Use in an instruction, and
+        any early Defs. A late clobber interferes with any Defs in an instruction,
+        and any late Uses. What this enables is an early Use can be allocated
+        to a register that is only late clobbered. And a result can be allocated 
+        to a register that is only early clobbered.
+        
+        Prior to this, the algorithm had a bug where a Use may be allocated to
+        a register that is early clobbered.
+
+        * b3/air/AirAllocateRegistersAndStackAndGenerateCode.cpp:
+        (JSC::B3::Air::GenerateAndAllocateRegisters::buildLiveRanges):
+        (JSC::B3::Air::GenerateAndAllocateRegisters::alloc):
+        (JSC::B3::Air::GenerateAndAllocateRegisters::freeDeadTmpsIfNeeded):
+        (JSC::B3::Air::GenerateAndAllocateRegisters::assignTmp):
+        (JSC::B3::Air::GenerateAndAllocateRegisters::prepareForGeneration):
+        (JSC::B3::Air::GenerateAndAllocateRegisters::generate):
+        * b3/air/AirAllocateRegistersAndStackAndGenerateCode.h:
+        * b3/air/testair.cpp:
+        * jit/RegisterSet.h:
+
+2022-05-19  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r294234. rdar://problem/93602100
+
+    Web Inspector: Regression(r266885) Crash sometimes when rehydrating imported audit results
+    https://bugs.webkit.org/show_bug.cgi?id=240366
+    
+    Reviewed by Devin Rousso.
+    
+    Source/JavaScriptCore:
+    
+    * inspector/protocol/DOM.json:
+    
+    Source/WebCore:
+    
+    Added test cases to inspector/model/dom-node.html
+    
+    After r266885, there is no path to handle the possibility that there may not be a resulting node for calls to
+    `DOM.querySelector`. To correct this, mark the return value as optional (Web Inspector frontend already treats
+    it as optional) and return early if there was no Element matching the selector.
+    
+    * inspector/agents/InspectorDOMAgent.cpp:
+    (WebCore::InspectorDOMAgent::querySelector):
+    * inspector/agents/InspectorDOMAgent.h:
+    
+    LayoutTests:
+    
+    * inspector/model/dom-node.html:
+    * inspector/model/dom-node-expected.txt:
+    
+    Canonical link: https://commits.webkit.org/250592@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@294234 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-05-16  Patrick Angle  <pangle@apple.com>
+
+            Web Inspector: Regression(r266885) Crash sometimes when rehydrating imported audit results
+            https://bugs.webkit.org/show_bug.cgi?id=240366
+
+            Reviewed by Devin Rousso.
+
+            * inspector/protocol/DOM.json:
+
+2022-05-16  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r293220. rdar://problem/91924480
+
+    Apply purifyNaN in more places.
+    https://bugs.webkit.org/show_bug.cgi?id=239619
+    <rdar://problem/91924480>
+    
+    Reviewed by Yusuke Suzuki.
+    
+    Source/JavaScriptCore:
+    
+    * wasm/js/JSWebAssemblyHelpers.h:
+    (JSC::toJSValue):
+    
+    Source/WebCore:
+    
+    * bindings/js/IDBBindingUtilities.cpp:
+    (WebCore::toJS):
+    * bindings/js/JSDOMConvertWebGL.cpp:
+    (WebCore::convertToJSValue):
+    * bindings/js/SerializedScriptValue.cpp:
+    (WebCore::CloneDeserializer::readTerminal):
+    * bridge/objc/objc_utility.mm:
+    (JSC::Bindings::convertObjcValueToValue):
+    
+    Canonical link: https://commits.webkit.org/249889@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@293220 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-22  Mark Lam  <mark.lam@apple.com>
+
+            Apply purifyNaN in more places.
+            https://bugs.webkit.org/show_bug.cgi?id=239619
+            <rdar://problem/91924480>
+
+            Reviewed by Yusuke Suzuki.
+
+            * wasm/js/JSWebAssemblyHelpers.h:
+            (JSC::toJSValue):
+
+2022-04-29  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r287877. rdar://problem/92357915
 

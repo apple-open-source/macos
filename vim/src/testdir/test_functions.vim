@@ -4,7 +4,7 @@ source shared.vim
 source check.vim
 source term_util.vim
 source screendump.vim
-source vim9.vim
+import './vim9.vim' as v9
 
 " Must be done first, since the alternate buffer must be unset.
 func Test_00_bufexists()
@@ -174,7 +174,7 @@ func Test_strwidth()
 
   if has('float')
     call assert_equal(3, strwidth(1.2))
-    call CheckDefAndScriptFailure(['echo strwidth(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
+    call v9.CheckDefAndScriptFailure(['echo strwidth(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
   endif
 
   set ambiwidth&
@@ -241,7 +241,7 @@ func Test_str2nr()
   call assert_fails('call str2nr({->2})', 'E729:')
   if has('float')
     call assert_equal(1, str2nr(1.2))
-    call CheckDefAndScriptFailure(['echo str2nr(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
+    call v9.CheckDefAndScriptFailure(['echo str2nr(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
   endif
   call assert_fails('call str2nr(10, [])', 'E745:')
 endfunc
@@ -503,7 +503,7 @@ func Test_simplify()
   call assert_fails('call simplify({})', 'E731:')
   if has('float')
     call assert_equal('1.2', simplify(1.2))
-    call CheckDefAndScriptFailure(['echo simplify(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
+    call v9.CheckDefAndScriptFailure(['echo simplify(1.2)'], ['E1013: Argument 1: type mismatch, expected string but got float', 'E1174: String required for argument 1'])
   endif
 endfunc
 
@@ -1398,6 +1398,28 @@ func Test_Executable()
   endif
 endfunc
 
+func Test_executable_windows_store_apps()
+  CheckMSWindows
+
+  " Windows Store apps install some 'decoy' .exe that require some careful
+  " handling as they behave similarly to symlinks.
+  let app_dir = expand("$LOCALAPPDATA\\Microsoft\\WindowsApps")
+  if !isdirectory(app_dir)
+    return
+  endif
+
+  let save_path = $PATH
+  let $PATH = app_dir
+  " Ensure executable() finds all the app .exes
+  for entry in readdir(app_dir)
+    if entry =~ '\.exe$'
+      call assert_true(executable(entry))
+    endif
+  endfor
+
+  let $PATH = save_path
+endfunc
+
 func Test_executable_longname()
   CheckMSWindows
 
@@ -1630,6 +1652,32 @@ func Test_setbufvar_options()
   bwipe!
 endfunc
 
+func Test_setbufvar_keep_window_title()
+  CheckRunVimInTerminal
+  if !has('title') || empty(&t_ts)
+    throw "Skipped: can't get/set title"
+  endif
+
+  let lines =<< trim END
+      set title
+      edit Xa.txt
+      let g:buf = bufadd('Xb.txt')
+      inoremap <F2> <C-R>=setbufvar(g:buf, '&autoindent', 1) ?? ''<CR>
+  END
+  call writefile(lines, 'Xsetbufvar')
+  let buf = RunVimInTerminal('-S Xsetbufvar', {})
+  call WaitForAssert({-> assert_match('Xa.txt', term_gettitle(buf))}, 1000)
+
+  call term_sendkeys(buf, "i\<F2>")
+  call TermWait(buf)
+  call term_sendkeys(buf, "\<Esc>")
+  call TermWait(buf)
+  call assert_match('Xa.txt', term_gettitle(buf))
+
+  call StopVimInTerminal(buf)
+  call delete('Xsetbufvar')
+endfunc
+
 func Test_redo_in_nested_functions()
   nnoremap g. :set opfunc=Operator<CR>g@
   function Operator( type, ... )
@@ -1791,6 +1839,10 @@ func Test_getchar()
   call assert_equal('a', getcharstr())
   call assert_equal('', getcharstr(0))
   call assert_equal('', getcharstr(1))
+
+  call feedkeys("\<M-F2>", '')
+  call assert_equal("\<M-F2>", getchar(0))
+  call assert_equal(0, getchar(0))
 
   call setline(1, 'xxxx')
   call test_setmouse(1, 3)
@@ -2212,6 +2264,15 @@ func Test_delete_rf()
   call assert_equal(0, delete('Xdir', 'rf'))
   call assert_false(filereadable('Xdir/foo.txt'))
   call assert_false(filereadable('Xdir/[a-1]/foo.txt'))
+
+  if has('unix')
+    call mkdir('Xdir/Xdir2', 'p')
+    silent !chmod 555 Xdir
+    call assert_equal(-1, delete('Xdir/Xdir2', 'rf'))
+    call assert_equal(-1, delete('Xdir', 'rf'))
+    silent !chmod 755 Xdir
+    call assert_equal(0, delete('Xdir', 'rf'))
+  endif
 endfunc
 
 func Test_call()
@@ -2239,7 +2300,7 @@ func Test_call()
       let Time = 'localtime'
       call Time()
   END
-  call CheckScriptFailure(lines, 'E1085:')
+  call v9.CheckScriptFailure(lines, 'E1085:')
 endfunc
 
 func Test_char2nr()
@@ -2308,7 +2369,6 @@ endfunc
 
 func Test_state()
   CheckRunVimInTerminal
-  let g:test_is_flaky = 1
 
   let getstate = ":echo 'state: ' .. g:state .. '; mode: ' .. g:mode\<CR>"
 
@@ -2619,7 +2679,8 @@ func Test_range()
     else
       let cmd = "ls"
     endif
-    call assert_fails('call term_start("' .. cmd .. '", #{term_finish: "close"})', 'E475:')
+    call assert_fails('call term_start("' .. cmd .. '", #{term_finish: "close"'
+        \ .. ', ansi_colors: range(16)})', 'E475:')
     unlet g:terminal_ansi_colors
   endif
 
@@ -2636,6 +2697,12 @@ func Test_range()
   call assert_fails('let x=range([])', 'E745:')
   call assert_fails('let x=range(1, [])', 'E745:')
   call assert_fails('let x=range(1, 4, [])', 'E745:')
+endfunc
+
+func Test_garbagecollect_now_fails()
+  let v:testing = 0
+  call assert_fails('call test_garbagecollect_now()', 'E1142:')
+  let v:testing = 1
 endfunc
 
 func Test_echoraw()
@@ -2677,8 +2744,8 @@ func Test_nr2char()
   call assert_equal('a', nr2char(97, 1))
   call assert_equal('a', nr2char(97, 0))
 
-  call assert_equal("\x80\xfc\b\xf4\x80\xfeX\x80\xfeX\x80\xfeX", eval('"\<M-' .. nr2char(0x100000) .. '>"'))
-  call assert_equal("\x80\xfc\b\xfd\x80\xfeX\x80\xfeX\x80\xfeX\x80\xfeX\x80\xfeX", eval('"\<M-' .. nr2char(0x40000000) .. '>"'))
+  call assert_equal("\x80\xfc\b" .. nr2char(0x100000), eval('"\<M-' .. nr2char(0x100000) .. '>"'))
+  call assert_equal("\x80\xfc\b" .. nr2char(0x40000000), eval('"\<M-' .. nr2char(0x40000000) .. '>"'))
 endfunc
 
 " Test for screenattr(), screenchar() and screenchars() functions
@@ -2715,6 +2782,65 @@ func Test_getcurpos_setpos()
   call assert_equal([0, 0, 0, 0, 0], getcurpos(1999))
 endfunc
 
+func Test_getmousepos()
+  enew!
+  call setline(1, "\t\t\t1234")
+  call test_setmouse(1, 1)
+  call assert_equal(#{
+        \ screenrow: 1,
+        \ screencol: 1,
+        \ winid: win_getid(),
+        \ winrow: 1,
+        \ wincol: 1,
+        \ line: 1,
+        \ column: 1,
+        \ }, getmousepos())
+  call test_setmouse(1, 25)
+  call assert_equal(#{
+        \ screenrow: 1,
+        \ screencol: 25,
+        \ winid: win_getid(),
+        \ winrow: 1,
+        \ wincol: 25,
+        \ line: 1,
+        \ column: 4,
+        \ }, getmousepos())
+  call test_setmouse(1, 50)
+  call assert_equal(#{
+        \ screenrow: 1,
+        \ screencol: 50,
+        \ winid: win_getid(),
+        \ winrow: 1,
+        \ wincol: 50,
+        \ line: 1,
+        \ column: 8,
+        \ }, getmousepos())
+
+  " If the mouse is positioned past the last buffer line, "line" and "column"
+  " should act like it's positioned on the last buffer line.
+  call test_setmouse(2, 25)
+  call assert_equal(#{
+        \ screenrow: 2,
+        \ screencol: 25,
+        \ winid: win_getid(),
+        \ winrow: 2,
+        \ wincol: 25,
+        \ line: 1,
+        \ column: 4,
+        \ }, getmousepos())
+  call test_setmouse(2, 50)
+  call assert_equal(#{
+        \ screenrow: 2,
+        \ screencol: 50,
+        \ winid: win_getid(),
+        \ winrow: 2,
+        \ wincol: 50,
+        \ line: 1,
+        \ column: 8,
+        \ }, getmousepos())
+  bwipe!
+endfunc
+
 " Test for glob()
 func Test_glob()
   call assert_equal('', glob(test_null_string()))
@@ -2727,6 +2853,8 @@ func Test_glob()
   " Sort output of glob() otherwise we end up with different
   " ordering depending on whether file system is case-sensitive.
   call assert_equal(['XGLOB2', 'Xglob1'], sort(glob('Xglob[12]', 0, 1)))
+  " wildignorecase shall be applied even when the pattern contains no wildcards.
+  call assert_equal('XGLOB2', glob('xglob2'))
   set wildignorecase&
 
   call delete('Xglob1')
@@ -2767,9 +2895,9 @@ func Test_builtin_check()
   call assert_fails('let l:.trim = {x -> " " .. x}', 'E704:')
   let lines =<< trim END
     vim9script
-    var s:trim = (x) => " " .. x
+    var trim = (x) => " " .. x
   END
-  call CheckScriptFailure(lines, 'E704:')
+  call v9.CheckScriptFailure(lines, 'E704:')
 
   call assert_fails('call extend(g:, #{foo: { -> "foo" }})', 'E704:')
   let g:bar = 123
@@ -2782,5 +2910,52 @@ func Test_funcref_to_string()
   call assert_equal("function('g:Test_funcref_to_string')", string(Fn))
 endfunc
 
+" Test for isabsolutepath()
+func Test_isabsolutepath()
+  call assert_false(isabsolutepath(''))
+  call assert_false(isabsolutepath('.'))
+  call assert_false(isabsolutepath('../Foo'))
+  call assert_false(isabsolutepath('Foo/'))
+  if has('win32')
+    call assert_true(isabsolutepath('A:\'))
+    call assert_true(isabsolutepath('A:\Foo'))
+    call assert_true(isabsolutepath('A:/Foo'))
+    call assert_false(isabsolutepath('A:Foo'))
+    call assert_false(isabsolutepath('\Windows'))
+    call assert_true(isabsolutepath('\\Server2\Share\Test\Foo.txt'))
+  else
+    call assert_true(isabsolutepath('/'))
+    call assert_true(isabsolutepath('/usr/share/'))
+  endif
+endfunc
+
+" Test for exepath()
+func Test_exepath()
+  if has('win32')
+    call assert_notequal(exepath('cmd'), '')
+
+    let oldNoDefaultCurrentDirectoryInExePath = $NoDefaultCurrentDirectoryInExePath
+    call writefile(['@echo off', 'echo Evil'], 'vim-test-evil.bat')
+    let $NoDefaultCurrentDirectoryInExePath = ''
+    call assert_notequal(exepath("vim-test-evil.bat"), '')
+    let $NoDefaultCurrentDirectoryInExePath = '1'
+    call assert_equal(exepath("vim-test-evil.bat"), '')
+    let $NoDefaultCurrentDirectoryInExePath = oldNoDefaultCurrentDirectoryInExePath
+    call delete('vim-test-evil.bat')
+  else
+    call assert_notequal(exepath('sh'), '')
+  endif
+endfunc
+
+" Test for virtcol()
+func Test_virtcol()
+  enew!
+  call setline(1, "the\tquick\tbrown\tfox")
+  norm! 4|
+  call assert_equal(8, virtcol('.'))
+  call assert_equal(8, virtcol('.', v:false))
+  call assert_equal([4, 8], virtcol('.', v:true))
+  bwipe!
+endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

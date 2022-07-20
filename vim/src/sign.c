@@ -847,7 +847,7 @@ sign_mark_adjust(
 	if (sign->se_lnum < line1)
 	    continue;
 	new_lnum = sign->se_lnum;
-	if (sign->se_lnum >= line1 && sign->se_lnum <= line2)
+	if (sign->se_lnum <= line2)
 	{
 	    if (amount != MAXLNUM)
 		new_lnum += amount;
@@ -1745,38 +1745,38 @@ sign_getinfo(sign_T *sp, dict_T *retdict)
 {
     char_u	*p;
 
-    dict_add_string(retdict, "name", (char_u *)sp->sn_name);
+    dict_add_string(retdict, "name", sp->sn_name);
     if (sp->sn_icon != NULL)
-	dict_add_string(retdict, "icon", (char_u *)sp->sn_icon);
+	dict_add_string(retdict, "icon", sp->sn_icon);
     if (sp->sn_text != NULL)
-	dict_add_string(retdict, "text", (char_u *)sp->sn_text);
+	dict_add_string(retdict, "text", sp->sn_text);
     if (sp->sn_line_hl > 0)
     {
 	p = get_highlight_name_ext(NULL, sp->sn_line_hl - 1, FALSE);
 	if (p == NULL)
 	    p = (char_u *)"NONE";
-	dict_add_string(retdict, "linehl", (char_u *)p);
+	dict_add_string(retdict, "linehl", p);
     }
     if (sp->sn_text_hl > 0)
     {
 	p = get_highlight_name_ext(NULL, sp->sn_text_hl - 1, FALSE);
 	if (p == NULL)
 	    p = (char_u *)"NONE";
-	dict_add_string(retdict, "texthl", (char_u *)p);
+	dict_add_string(retdict, "texthl", p);
     }
     if (sp->sn_cul_hl > 0)
     {
 	p = get_highlight_name_ext(NULL, sp->sn_cul_hl - 1, FALSE);
 	if (p == NULL)
 	    p = (char_u *)"NONE";
-	dict_add_string(retdict, "culhl", (char_u *)p);
+	dict_add_string(retdict, "culhl", p);
     }
     if (sp->sn_num_hl > 0)
     {
 	p = get_highlight_name_ext(NULL, sp->sn_num_hl - 1, FALSE);
 	if (p == NULL)
 	    p = (char_u *)"NONE";
-	dict_add_string(retdict, "numhl", (char_u *)p);
+	dict_add_string(retdict, "numhl", p);
     }
 }
 
@@ -2786,7 +2786,7 @@ sign_unplace_from_dict(typval_T *group_tv, dict_T *dict)
 	    if (buf == NULL)
 		goto cleanup;
 	}
-	if (dict_find(dict, (char_u *)"id", -1) != NULL)
+	if (dict_has_key(dict, "id"))
 	{
 	    sign_id = dict_get_number(dict, (char_u *)"id");
 	    if (sign_id <= 0)

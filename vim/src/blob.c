@@ -22,7 +22,7 @@
     blob_T *
 blob_alloc(void)
 {
-    blob_T *blob = ALLOC_CLEAR_ONE(blob_T);
+    blob_T *blob = ALLOC_CLEAR_ONE_ID(blob_T, aid_blob_alloc);
 
     if (blob != NULL)
 	ga_init2(&blob->bv_ga, 1, 100);
@@ -237,7 +237,7 @@ blob2string(blob_T *blob, char_u **tofree, char_u *numbuf)
     {
 	if (i > 0 && (i & 3) == 0)
 	    ga_concat(&ga, (char_u *)".");
-	vim_snprintf((char *)numbuf, NUMBUFLEN, "%02X", (int)blob_get(blob, i));
+	vim_snprintf((char *)numbuf, NUMBUFLEN, "%02X", blob_get(blob, i));
 	ga_concat(&ga, numbuf);
     }
     ga_append(&ga, NUL);		// append a NUL at the end

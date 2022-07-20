@@ -32,7 +32,6 @@
 #define LOOKFOR_JS_KEY		11
 #define LOOKFOR_COMMA		12
 
-#if defined(FEAT_CINDENT) || defined(FEAT_SMARTINDENT)
 /*
  * Return TRUE if the string "line" starts with a word from 'cinwords'.
  */
@@ -64,7 +63,6 @@ cin_is_cinword(char_u *line)
     }
     return retval;
 }
-#endif
 
 /*
  * Skip to the end of a "string" and a 'c' character.
@@ -89,7 +87,7 @@ skip_string(char_u *p)
 		while (vim_isdigit(p[i - 1]))   // '\000'
 		    ++i;
 	    }
-	    if (p[i] == '\'')		    // check for trailing '
+	    if (p[i - 1] != NUL && p[i] == '\'')    // check for trailing '
 	    {
 		p += i;
 		continue;
@@ -147,8 +145,6 @@ is_pos_in_string(char_u *line, colnr_T col)
 	p = skip_string(p);
     return !((colnr_T)(p - line) <= col);
 }
-
-#if defined(FEAT_CINDENT) || defined(FEAT_SYN_HL)
 
 /*
  * Find the start of a comment, not knowing if we are in a comment right now.
@@ -254,9 +250,7 @@ ind_find_start_CORS(linenr_T *is_raw)	    // XXX
     }
     return comment_pos;
 }
-#endif // FEAT_CINDENT || FEAT_SYN_HL
 
-#if defined(FEAT_CINDENT) || defined(PROTO)
 
 /*
  * Return TRUE if C-indenting is on.
@@ -265,9 +259,9 @@ ind_find_start_CORS(linenr_T *is_raw)	    // XXX
 cindent_on(void)
 {
     return (!p_paste && (curbuf->b_p_cin
-# ifdef FEAT_EVAL
+#ifdef FEAT_EVAL
 		    || *curbuf->b_p_inde != NUL
-# endif
+#endif
 		    ));
 }
 
@@ -420,23 +414,40 @@ cin_islabel_skip(char_u **s)
 }
 
 /*
- * Recognize a "public/private/protected" scope declaration label.
+ * Recognize a scope declaration label from the 'cinscopedecls' option.
  */
     static int
-cin_isscopedecl(char_u *s)
+cin_isscopedecl(char_u *p)
 {
-    int		i;
+    size_t  cinsd_len;
+    char_u  *cinsd_buf;
+    char_u  *cinsd;
+    size_t  len;
+    char_u  *skip;
+    char_u  *s = cin_skipcomment(p);
+    int	    found = FALSE;
 
-    s = cin_skipcomment(s);
-    if (STRNCMP(s, "public", 6) == 0)
-	i = 6;
-    else if (STRNCMP(s, "protected", 9) == 0)
-	i = 9;
-    else if (STRNCMP(s, "private", 7) == 0)
-	i = 7;
-    else
+    cinsd_len = STRLEN(curbuf->b_p_cinsd) + 1;
+    cinsd_buf = alloc(cinsd_len);
+    if (cinsd_buf == NULL)
 	return FALSE;
-    return (*(s = cin_skipcomment(s + i)) == ':' && s[1] != ':');
+
+    for (cinsd = curbuf->b_p_cinsd; *cinsd; )
+    {
+	len = copy_option_part(&cinsd, cinsd_buf, (int)cinsd_len, ",");
+	if (STRNCMP(s, cinsd_buf, len) == 0)
+	{
+	    skip = cin_skipcomment(s + len);
+	    if (*skip == ':' && skip[1] != ':')
+	    {
+		found = TRUE;
+		break;
+	    }
+	}
+    }
+
+    vim_free(cinsd_buf);
+    return found;
 }
 
 /*
@@ -2097,7 +2108,7 @@ get_c_indent(void)
     // inserting new stuff.
     // For unknown reasons the cursor might be past the end of the line, thus
     // check for that.
-    if ((State & INSERT)
+    if ((State & MODE_INSERT)
 	    && curwin->w_cursor.col < (colnr_T)STRLEN(linecopy)
 	    && linecopy[curwin->w_cursor.col] == ')')
 	linecopy[curwin->w_cursor.col] = NUL;
@@ -2164,8 +2175,8 @@ get_c_indent(void)
 			  check_linecomment(ml_get(curwin->w_cursor.lnum - 1));
 	    if (linecomment_pos.col != MAXCOL)
 	    {
-	        trypos = &linecomment_pos;
-	        trypos->lnum = curwin->w_cursor.lnum - 1;
+		trypos = &linecomment_pos;
+		trypos->lnum = curwin->w_cursor.lnum - 1;
 	    }
 	}
 	if (trypos  != NULL)
@@ -3946,13 +3957,7 @@ in_cinkeys(
 	    try_match_word = FALSE;
 
 	// does it look like a control character?
-	if (*look == '^'
-#ifdef EBCDIC
-		&& (Ctrl_chr(look[1]) != 0)
-#else
-		&& look[1] >= '?' && look[1] <= '_'
-#endif
-		)
+	if (*look == '^' && look[1] >= '?' && look[1] <= '_')
 	{
 	    if (try_match && keytyped == Ctrl_chr(look[1]))
 		return TRUE;
@@ -4140,7 +4145,6 @@ do_c_expr_indent(void)
 # endif
 	fixthisline(get_c_indent);
 }
-#endif
 
 #if defined(FEAT_EVAL) || defined(PROTO)
 /*
@@ -4149,7 +4153,6 @@ do_c_expr_indent(void)
     void
 f_cindent(typval_T *argvars UNUSED, typval_T *rettv)
 {
-# ifdef FEAT_CINDENT
     pos_T	pos;
     linenr_T	lnum;
 
@@ -4165,7 +4168,6 @@ f_cindent(typval_T *argvars UNUSED, typval_T *rettv)
 	curwin->w_cursor = pos;
     }
     else
-# endif
 	rettv->vval.v_number = -1;
 }
 #endif

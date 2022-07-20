@@ -257,15 +257,13 @@ ins_ctrl_x(void)
 	// CTRL-V look like CTRL-N
 	ctrl_x_mode = CTRL_X_CMDLINE_CTRL_X;
 
-    trigger_modechanged();
+    may_trigger_modechanged();
 }
 
 /*
  * Functions to check the current CTRL-X mode.
  */
-#ifdef FEAT_CINDENT
 int ctrl_x_mode_none(void) { return ctrl_x_mode == 0; }
-#endif
 int ctrl_x_mode_normal(void) { return ctrl_x_mode == CTRL_X_NORMAL; }
 int ctrl_x_mode_scroll(void) { return ctrl_x_mode == CTRL_X_SCROLL; }
 int ctrl_x_mode_whole_line(void) { return ctrl_x_mode == CTRL_X_WHOLE_LINE; }
@@ -1146,9 +1144,9 @@ trigger_complete_changed_event(int cur)
     dict_set_items_ro(v_event);
 
     recursive = TRUE;
-    textwinlock++;
+    textlock++;
     apply_autocmds(EVENT_COMPLETECHANGED, NULL, NULL, FALSE, curbuf);
-    textwinlock--;
+    textlock--;
     recursive = FALSE;
 
     restore_v_event(v_event, &save_v_event);
@@ -1966,8 +1964,8 @@ ins_compl_set_original_text(char_u *str)
        p = vim_strsave(str);
        if (p != NULL)
        {
-           vim_free(compl_first_match->cp_prev->cp_str);
-           compl_first_match->cp_prev->cp_str = p;
+	   vim_free(compl_first_match->cp_prev->cp_str);
+	   compl_first_match->cp_prev->cp_str = p;
        }
     }
 }
@@ -2151,9 +2149,7 @@ set_ctrl_x_mode(int c)
 ins_compl_stop(int c, int prev_mode, int retval)
 {
     char_u	*ptr;
-#ifdef FEAT_CINDENT
     int		want_cindent;
-#endif
 
     // Get here when we have finished typing a sequence of ^N and
     // ^P or other completion characters in CTRL-X mode.  Free up
@@ -2173,21 +2169,18 @@ ins_compl_stop(int c, int prev_mode, int retval)
 	ins_compl_fixRedoBufForLeader(ptr);
     }
 
-#ifdef FEAT_CINDENT
     want_cindent = (get_can_cindent() && cindent_on());
-#endif
+
     // When completing whole lines: fix indent for 'cindent'.
     // Otherwise, break line if it's too long.
     if (compl_cont_mode == CTRL_X_WHOLE_LINE)
     {
-#ifdef FEAT_CINDENT
 	// re-indent the current line
 	if (want_cindent)
 	{
 	    do_c_expr_indent();
 	    want_cindent = FALSE;	// don't do it again
 	}
-#endif
     }
     else
     {
@@ -2251,11 +2244,9 @@ ins_compl_stop(int c, int prev_mode, int retval)
 	// command line window.
 	update_screen(0);
 #endif
-#ifdef FEAT_CINDENT
     // Indent now if a key was typed that is in 'cinkeys'.
     if (want_cindent && in_cinkeys(KEY_COMPLETE, ' ', inindent(0)))
 	do_c_expr_indent();
-#endif
     // Trigger the CompleteDone event to give scripts a chance to act
     // upon the end of completion.
     ins_apply_autocmds(EVENT_COMPLETEDONE);
@@ -2381,7 +2372,7 @@ ins_compl_prep(int c)
 	// upon the (possibly failed) completion.
 	ins_apply_autocmds(EVENT_COMPLETEDONE);
 
-    trigger_modechanged();
+    may_trigger_modechanged();
 
     // reset continue_* if we left expansion-mode, if we stay they'll be
     // (re)set properly in ins_complete()
@@ -2652,7 +2643,7 @@ expand_by_function(int type, char_u *base)
     // Lock the text to avoid weird things from happening.  Also disallow
     // switching to another window, it should not be needed and may end up in
     // Insert mode in another buffer.
-    ++textwinlock;
+    ++textlock;
 
     cb = get_insert_callback(type);
     retval = call_callback(cb, 0, &rettv, 2, args);
@@ -2678,7 +2669,7 @@ expand_by_function(int type, char_u *base)
 		break;
 	}
     }
-    --textwinlock;
+    --textlock;
 
     curwin->w_cursor = pos;	// restore the cursor position
     validate_cursor();
@@ -2865,7 +2856,7 @@ set_completion(colnr_T startcol, list_T *list)
     // Lazily show the popup menu, unless we got interrupted.
     if (!compl_interrupted)
 	show_pum(save_w_wrow, save_w_leftcol);
-    trigger_modechanged();
+    may_trigger_modechanged();
     out_flush();
 }
 
@@ -2876,22 +2867,17 @@ set_completion(colnr_T startcol, list_T *list)
 f_complete(typval_T *argvars, typval_T *rettv UNUSED)
 {
     int	    startcol;
-    int	    save_textlock = textlock;
 
     if (in_vim9script()
 	    && (check_for_number_arg(argvars, 0) == FAIL
 		|| check_for_list_arg(argvars, 1) == FAIL))
 	return;
 
-    if ((State & INSERT) == 0)
+    if ((State & MODE_INSERT) == 0)
     {
 	emsg(_(e_complete_can_only_be_used_in_insert_mode));
 	return;
     }
-
-    // "textlock" is set when evaluating 'completefunc' but we can change
-    // text here.
-    textlock = 0;
 
     // Check for undo allowed here, because if something was already inserted
     // the line was already saved for undo and this check isn't done.
@@ -2906,7 +2892,6 @@ f_complete(typval_T *argvars, typval_T *rettv UNUSED)
 	if (startcol > 0)
 	    set_completion(startcol - 1, argvars[1].vval.v_list);
     }
-    textlock = save_textlock;
 }
 
 /*
@@ -3176,7 +3161,7 @@ typedef struct
  *   st->first_match_pos - position of the first completion match
  *   st->last_match_pos - position of the last completion match
  *   st->set_match_pos - TRUE if the first match position should be saved to
- *		         avoid loops after the search wraps around.
+ *			    avoid loops after the search wraps around.
  *   st->dict - name of the dictionary or thesaurus file to search
  *   st->dict_f - flag specifying whether "dict" is an exact file name or not
  *
@@ -3818,7 +3803,7 @@ ins_compl_get_exp(pos_T *ini)
 	if (compl_curr_match == NULL)
 	    compl_curr_match = compl_old_match;
     }
-    trigger_modechanged();
+    may_trigger_modechanged();
 
     return i;
 }
@@ -4517,10 +4502,10 @@ get_userdefined_compl_info(colnr_T curs_col UNUSED)
     args[1].vval.v_string = (char_u *)"";
     args[2].v_type = VAR_UNKNOWN;
     pos = curwin->w_cursor;
-    ++textwinlock;
+    ++textlock;
     cb = get_insert_callback(ctrl_x_mode);
     col = call_callback_retnr(cb, 2, args);
-    --textwinlock;
+    --textlock;
 
     State = save_State;
     curwin->w_cursor = pos;	// restore the cursor position
@@ -4531,11 +4516,12 @@ get_userdefined_compl_info(colnr_T curs_col UNUSED)
 	return FAIL;
     }
 
-    // Return value -2 means the user complete function wants to
-    // cancel the complete without an error.
-    // Return value -3 does the same as -2 and leaves CTRL-X mode.
-    if (col == -2)
+    // Return value -2 means the user complete function wants to cancel the
+    // complete without an error, do the same if the function did not execute
+    // successfully.
+    if (col == -2 || aborting())
 	return FAIL;
+    // Return value -3 does the same as -2 and leaves CTRL-X mode.
     if (col == -3)
     {
 	ctrl_x_mode = CTRL_X_NORMAL;
@@ -4738,11 +4724,9 @@ ins_compl_start(void)
     // First time we hit ^N or ^P (in a row, I mean)
 
     did_ai = FALSE;
-#ifdef FEAT_SMARTINDENT
     did_si = FALSE;
     can_si = FALSE;
     can_si_back = FALSE;
-#endif
     if (stop_arrow() == FAIL)
 	return FAIL;
 

@@ -4,7 +4,7 @@ source shared.vim
 source check.vim
 source screendump.vim
 source term_util.vim
-source vim9.vim
+import './vim9.vim' as v9
 
 func Test_abbreviation()
   " abbreviation with 0x80 should work
@@ -482,6 +482,33 @@ func Test_list_mappings()
   call assert_match("\tLast set from .*/test_mapping.vim line \\d\\+$",
         \ execute('verbose map ,n')->trim()->split("\n")[1])
 
+  " character with K_SPECIAL byte in rhs
+  nmap foo …
+  call assert_equal(['n  foo           …'],
+        \ execute('nmap foo')->trim()->split("\n"))
+
+  " modified character with K_SPECIAL byte in rhs
+  nmap foo <M-…>
+  call assert_equal(['n  foo           <M-…>'],
+        \ execute('nmap foo')->trim()->split("\n"))
+
+  " character with K_SPECIAL byte in lhs
+  nmap … foo
+  call assert_equal(['n  …             foo'],
+        \ execute('nmap …')->trim()->split("\n"))
+
+  " modified character with K_SPECIAL byte in lhs
+  nmap <M-…> foo
+  call assert_equal(['n  <M-…>         foo'],
+        \ execute('nmap <M-…>')->trim()->split("\n"))
+
+  " illegal bytes
+  let str = ":\x7f:\x80:\x90:\xd0:"
+  exe 'nmap foo ' .. str
+  call assert_equal(['n  foo           ' .. strtrans(str)],
+        \ execute('nmap foo')->trim()->split("\n"))
+  unlet str
+
   " map to CTRL-V
   exe "nmap ,k \<C-V>"
   call assert_equal(['n  ,k            <Nop>'],
@@ -540,9 +567,55 @@ func Test_expr_map_restore_cursor()
   END
   call writefile(lines, 'XtestExprMap')
   let buf = RunVimInTerminal('-S XtestExprMap', #{rows: 10})
-  call TermWait(buf)
   call term_sendkeys(buf, "\<C-B>")
   call VerifyScreenDump(buf, 'Test_map_expr_1', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('XtestExprMap')
+endfunc
+
+func Test_map_listing()
+  CheckScreendump
+
+  let lines =<< trim END
+      nmap a b
+  END
+  call writefile(lines, 'XtestMapList')
+  let buf = RunVimInTerminal('-S XtestMapList', #{rows: 6})
+  call term_sendkeys(buf, ":                      nmap a\<CR>")
+  call VerifyScreenDump(buf, 'Test_map_list_1', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('XtestMapList')
+endfunc
+
+func Test_expr_map_error()
+  CheckScreendump
+
+  let lines =<< trim END
+      func Func()
+        throw 'test'
+        return ''
+      endfunc
+
+      nnoremap <expr> <F2> Func()
+      cnoremap <expr> <F2> Func()
+
+      call test_override('ui_delay', 10)
+  END
+  call writefile(lines, 'XtestExprMap')
+  let buf = RunVimInTerminal('-S XtestExprMap', #{rows: 10})
+  call term_sendkeys(buf, "\<F2>")
+  call TermWait(buf)
+  call term_sendkeys(buf, "\<CR>")
+  call VerifyScreenDump(buf, 'Test_map_expr_2', {})
+
+  call term_sendkeys(buf, ":abc\<F2>")
+  call VerifyScreenDump(buf, 'Test_map_expr_3', {})
+  call term_sendkeys(buf, "\<Esc>0")
+  call VerifyScreenDump(buf, 'Test_map_expr_4', {})
 
   " clean up
   call StopVimInTerminal(buf)
@@ -704,6 +777,11 @@ func Test_mapcomplete()
   mapclear
 endfunc
 
+func GetAbbrText()
+  unabbr hola
+  return 'hello'
+endfunc
+
 " Test for <expr> in abbreviation
 func Test_expr_abbr()
   new
@@ -719,7 +797,14 @@ func Test_expr_abbr()
   call assert_equal('', getline(1))
   unabbr <expr> hte
 
-  close!
+  " evaluating the expression deletes the abbreviation
+  abbr <expr> hola GetAbbrText()
+  call assert_equal('GetAbbrText()', maparg('hola', 'i', '1'))
+  call feedkeys("ahola \<Esc>", 'xt')
+  call assert_equal('hello ', getline('.'))
+  call assert_equal('', maparg('hola', 'i', '1'))
+
+  bwipe!
 endfunc
 
 " Test for storing mappings in different modes in a vimrc file
@@ -1403,7 +1488,7 @@ func Test_map_script_cmd_restore()
       vim9script
       nnoremap <F3> <ScriptCmd>eval 1 + 2<CR>
   END
-  call CheckScriptSuccess(lines)
+  call v9.CheckScriptSuccess(lines)
   call feedkeys("\<F3>:let g:result = 3+4\<CR>", 'xtc')
   call assert_equal(7, g:result)
 
@@ -1419,12 +1504,29 @@ func Test_map_script_cmd_finds_func()
         g:func_called = 'yes'
       enddef
   END
-  call CheckScriptSuccess(lines)
+  call v9.CheckScriptSuccess(lines)
   call feedkeys("y\<F3>\<Esc>", 'xtc')
   call assert_equal('yes', g:func_called)
 
   ounmap <F3>
   unlet g:func_called
+endfunc
+
+func Test_map_script_cmd_survives_unmap()
+  let lines =<< trim END
+      vim9script
+      var n = 123
+      nnoremap <F4> <ScriptCmd><CR>
+      autocmd CmdlineEnter * silent! nunmap <F4>
+      nnoremap <F3> :<ScriptCmd>eval setbufvar(bufnr(), "result", n)<CR>
+      feedkeys("\<F3>\<CR>", 'xct')
+      assert_equal(123, b:result)
+  END
+  call v9.CheckScriptSuccess(lines)
+
+  nunmap <F3>
+  unlet b:result
+  autocmd! CmdlineEnter
 endfunc
 
 " Test for using <script> with a map to remap characters in rhs
@@ -1459,6 +1561,128 @@ func Test_abbreviate_latin1_encoding()
   call assert_equal('#enddef', getline(1))
   %bw!
   set encoding=utf-8
+endfunc
+
+" Test for <Plug> always being mapped, even when used with "noremap".
+func Test_plug_remap()
+  let g:foo = 0
+  nnoremap <Plug>(Increase_x) <Cmd>let g:foo += 1<CR>
+  nmap <F2> <Plug>(Increase_x)
+  nnoremap <F3> <Plug>(Increase_x)
+  call feedkeys("\<F2>", 'xt')
+  call assert_equal(1, g:foo)
+  call feedkeys("\<F3>", 'xt')
+  call assert_equal(2, g:foo)
+  nnoremap x <Nop>
+  nmap <F4> x<Plug>(Increase_x)x
+  nnoremap <F5> x<Plug>(Increase_x)x
+  call setline(1, 'Some text')
+  normal! gg$
+  call feedkeys("\<F4>", 'xt')
+  call assert_equal(3, g:foo)
+  call assert_equal('Some text', getline(1))
+  call feedkeys("\<F5>", 'xt')
+  call assert_equal(4, g:foo)
+  call assert_equal('Some te', getline(1))
+  nunmap <Plug>(Increase_x)
+  nunmap <F2>
+  nunmap <F3>
+  nunmap <F4>
+  nunmap <F5>
+  unlet g:foo
+  %bw!
+endfunc
+
+func Test_mouse_drag_mapped_start_select()
+  set mouse=a
+  set selectmode=key,mouse
+  func ClickExpr()
+    call test_setmouse(1, 1)
+    return "\<LeftMouse>"
+  endfunc
+  func DragExpr()
+    call test_setmouse(1, 2)
+    return "\<LeftDrag>"
+  endfunc
+  nnoremap <expr> <F2> ClickExpr()
+  nmap <expr> <F3> DragExpr()
+
+  nnoremap <LeftDrag> <LeftDrag><Cmd><CR>
+  exe "normal \<F2>\<F3>"
+  call assert_equal('s', mode())
+  exe "normal! \<C-\>\<C-N>"
+
+  nunmap <LeftDrag>
+  nunmap <F2>
+  nunmap <F3>
+  delfunc ClickExpr
+  delfunc DragExpr
+  set selectmode&
+  set mouse&
+endfunc
+
+" Test for mapping <LeftDrag> in Insert mode
+func Test_mouse_drag_insert_map()
+  set mouse=a
+  func ClickExpr()
+    call test_setmouse(1, 1)
+    return "\<LeftMouse>"
+  endfunc
+  func DragExpr()
+    call test_setmouse(1, 2)
+    return "\<LeftDrag>"
+  endfunc
+  inoremap <expr> <F2> ClickExpr()
+  imap <expr> <F3> DragExpr()
+
+  inoremap <LeftDrag> <LeftDrag><Cmd>let g:dragged = 1<CR>
+  exe "normal i\<F2>\<F3>"
+  call assert_equal(1, g:dragged)
+  call assert_equal('v', mode())
+  exe "normal! \<C-\>\<C-N>"
+  unlet g:dragged
+
+  inoremap <LeftDrag> <LeftDrag><C-\><C-N>
+  exe "normal i\<F2>\<F3>"
+  call assert_equal('n', mode())
+
+  iunmap <LeftDrag>
+  iunmap <F2>
+  iunmap <F3>
+  delfunc ClickExpr
+  delfunc DragExpr
+  set mouse&
+endfunc
+
+func Test_unmap_simplifiable()
+  map <C-I> foo
+  map <Tab> bar
+  call assert_equal('foo', maparg('<C-I>'))
+  call assert_equal('bar', maparg('<Tab>'))
+  unmap <C-I>
+  call assert_equal('', maparg('<C-I>'))
+  call assert_equal('bar', maparg('<Tab>'))
+  unmap <Tab>
+
+  map <C-I> foo
+  unmap <Tab>
+  " This should not error
+  unmap <C-I>
+endfunc
+
+func Test_expr_map_escape_special()
+  nnoremap … <Cmd>let g:got_ellipsis += 1<CR>
+  func Func()
+    return '…'
+  endfunc
+  nmap <expr> <F2> Func()
+  let g:got_ellipsis = 0
+  call feedkeys("\<F2>", 'xt')
+  call assert_equal(1, g:got_ellipsis)
+  delfunc Func
+  nunmap <F2>
+  unlet g:got_ellipsis
+  nunmap …
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

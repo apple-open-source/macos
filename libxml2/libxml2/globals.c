@@ -119,6 +119,12 @@ void xmlCleanupGlobals(void)
  *									*
  ************************************************************************/
 
+void *xmlMallocZero(size_t size);
+void *xmlMallocZero(size_t size)
+{
+    return calloc(1, size);
+}
+
 /*
  * Memory allocation routines
  */
@@ -150,7 +156,7 @@ xmlFreeFunc xmlFree = (xmlFreeFunc) free;
  *
  * Returns a pointer to the newly allocated block or NULL in case of error
  */
-xmlMallocFunc xmlMalloc = (xmlMallocFunc) malloc;
+xmlMallocFunc xmlMalloc = (xmlMallocFunc) xmlMallocZero;
 /**
  * xmlMallocAtomic:
  * @size:  the size requested in bytes
@@ -161,7 +167,7 @@ xmlMallocFunc xmlMalloc = (xmlMallocFunc) malloc;
  *
  * Returns a pointer to the newly allocated block or NULL in case of error
  */
-xmlMallocFunc xmlMallocAtomic = (xmlMallocFunc) malloc;
+xmlMallocFunc xmlMallocAtomic = (xmlMallocFunc) xmlMallocZero;
 /**
  * xmlRealloc:
  * @mem: an already allocated block of memory
@@ -582,8 +588,8 @@ xmlInitializeGlobalState(xmlGlobalStatePtr gs)
     gs->xmlMemStrdup = (xmlStrdupFunc) xmlMemoryStrdup;
 #else
     gs->xmlFree = (xmlFreeFunc) free;
-    gs->xmlMalloc = (xmlMallocFunc) malloc;
-    gs->xmlMallocAtomic = (xmlMallocFunc) malloc;
+    gs->xmlMalloc = (xmlMallocFunc) xmlMallocZero;
+    gs->xmlMallocAtomic = (xmlMallocFunc) xmlMallocZero;
     gs->xmlRealloc = (xmlReallocFunc) realloc;
     gs->xmlMemStrdup = (xmlStrdupFunc) xmlStrdup;
 #endif

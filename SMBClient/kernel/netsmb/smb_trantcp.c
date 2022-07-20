@@ -100,15 +100,54 @@ nb_sethdr(struct nbpcb *nbp, mbuf_t m, uint8_t type, uint32_t len)
 	return (0);
 }
 
+/*
+ * encoded format is one or more of the following block:
+ * | 1 byte: <seg_len> | <seg_len> - 1 characters |
+ */
+static int
+nb_validate_name(struct sockaddr_nb *snb) {
+    uint8_t total_bytes = 0;
+    u_char seglen, *cp;
+
+    if (!snb) {
+        return EINVAL;
+    }
+    
+    cp = snb->snb_name;
+
+    if (*cp == 0)
+        return (EINVAL);
+    
+    while(1) {
+        if (*cp == 0) {
+            return (0);
+        }
+        seglen = (*cp) + 1;
+        total_bytes += seglen;
+        if ((seglen == 0) || (total_bytes > sizeof(snb->snb_name))) {
+            /* (seglen == 0) means there was a uint8_t overflow and
+             * (seglen = 256 > sizeof(snb->snb_name))
+             */
+            SMBERROR("snb_name encoding exceeds expected length");
+            return (EINVAL);
+        }
+        cp += seglen;
+    }
+    return (0);
+}
+
 static int
 nb_put_name(struct mbchain *mbp, struct sockaddr_nb *snb)
 {
 	int error;
 	u_char seglen, *cp;
 
+    error = nb_validate_name(snb);
+    if (error) {
+        return (error);
+    }
 	cp = snb->snb_name;
-	if (*cp == 0)
-		return (EINVAL);
+
 	NBDEBUG("[%s]\n", cp);
 	for (;;) {
 		seglen = (*cp) + 1;
@@ -328,8 +367,14 @@ nbssn_rq_request(struct nbpcb *nbp, struct timeval connection_to)
 	if (error)
 		return (error);
 	mb_put_uint32le(mbp, 0);
-	nb_put_name(mbp, nbp->nbp_paddr);
-	nb_put_name(mbp, nbp->nbp_laddr);
+	error = nb_put_name(mbp, nbp->nbp_paddr);
+    if (error) {
+        return error;
+    }
+	error = nb_put_name(mbp, nbp->nbp_laddr);
+    if (error) {
+        return error;
+    }
 	nb_sethdr(nbp, mbp->mb_top, NB_SSN_REQUEST, (uint32_t)(mb_fixhdr(mbp) - 4));
 	error = sock_sendmbuf(nbp->nbp_tso, NULL, (mbuf_t)mbp->mb_top, 0, NULL);
 	if (!error)

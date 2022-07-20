@@ -1,4 +1,4 @@
-*help.txt*	For Vim version 8.2.  Last change: 2021 Dec 27
+*help.txt*	For Vim version 8.2.  Last change: 2022 May 13
 
 			VIM - main help file
 									 k
@@ -88,11 +88,14 @@ Tuning Vim ~
 |usr_43.txt|  Using filetypes
 |usr_44.txt|  Your own syntax highlighted
 |usr_45.txt|  Select your language
-|usr_46.txt|  Write plugins using Vim9 script
+
+Writing Vim scripts ~
+|usr_50.txt|  Advanced Vim script writing
+|usr_51.txt|  Create a plugin
+|usr_52.txt|  Write plugins using Vim9 script
 
 Making Vim Run ~
 |usr_90.txt|  Installing Vim
-
 
 REFERENCE MANUAL: These files explain every detail of Vim.	*reference_toc*
 
@@ -197,6 +200,7 @@ Versions ~
 |version6.txt|	Differences between Vim version 5.7 and 6.x
 |version7.txt|	Differences between Vim version 6.4 and 7.x
 |version8.txt|	Differences between Vim version 7.4 and 8.x
+|version9.txt|	Differences between Vim version 8.2 and 9.0
 						*sys-file-list*
 Remarks about specific systems ~
 |os_390.txt|	OS/390 Unix

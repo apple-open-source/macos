@@ -491,7 +491,7 @@ static int smb_ctx_getnbname(struct smb_ctx *ctx, struct sockaddr *sap)
 	return error;
 }
 
-static int smb_ctx_gethandle(struct smb_ctx *ctx)
+int smb_ctx_gethandle(struct smb_ctx *ctx)
 {
 	int fd, i;
 	char buf[20];
@@ -638,7 +638,7 @@ needToSpawnMCNotifier(int pid)
  */
 static int findMatchingSession(struct smb_ctx *ctx,
                                CFMutableArrayRef addressArray,
-                               void *sessionp,
+                               uint8_t *uuid,
                                Boolean forceHiFi)
 {
 	struct smbioc_negotiate	rq;
@@ -704,8 +704,11 @@ static int findMatchingSession(struct smb_ctx *ctx,
             rq.ioc_extra_flags |= SMB_HIFI_REQUESTED;
         }
 
-        if (sessionp != NULL) {
-            rq.ioc_sessionp = sessionp;
+        if (uuid != NULL) {
+            memcpy(rq.ioc_session_uuid, uuid, sizeof(rq.ioc_session_uuid));
+        }
+        else {
+            bzero(rq.ioc_session_uuid, sizeof(rq.ioc_session_uuid));
         }
 
         /* Call the kernel to see if we already have a session */
@@ -3666,13 +3669,14 @@ int findMountPointSession(void *inRef, const char *mntPoint)
 		CFDataAppendBytes(addressData, (const UInt8 *)&conn, (CFIndex)sizeof(conn));
 		CFArrayAppendValue(addressArray, addressData);
 		CFRelease(addressData);
-		error = findMatchingSession(inRef, addressArray, pb.sessionp, FALSE);
+
+		error = findMatchingSession(inRef, addressArray, pb.session_uuid, FALSE);
         if (error == ENOENT) {
             /*
              * <67014611> Maybe it was mounted with HiFi option? Try searching
              * again with HiFi option set.
              */
-            error = findMatchingSession(inRef, addressArray, pb.sessionp, TRUE);
+            error = findMatchingSession(inRef, addressArray, pb.session_uuid, TRUE);
         }
 	} else {
 		error = ENOMEM;

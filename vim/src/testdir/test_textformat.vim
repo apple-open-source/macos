@@ -238,7 +238,33 @@ func Test_format_c_comment()
   END
   call assert_equal(expected, getline(1, '$'))
 
-  " Using "o" repeats the line comment, "O" does not.
+  " Using either "o" or "O" repeats a line comment occupying a whole line.
+  %del
+  let text =<< trim END
+      nop;
+      // This is a comment
+      val = val;
+  END
+  call setline(1, text)
+  normal 2Go
+  let expected =<< trim END
+      nop;
+      // This is a comment
+      //
+      val = val;
+  END
+  call assert_equal(expected, getline(1, '$'))
+  normal 2GO
+  let expected =<< trim END
+      nop;
+      //
+      // This is a comment
+      //
+      val = val;
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " Using "o" repeats a line comment after a statement, "O" does not.
   %del
   let text =<< trim END
       nop;
@@ -252,12 +278,54 @@ func Test_format_c_comment()
                       //
   END
   call assert_equal(expected, getline(1, '$'))
+  3delete
+
+  " No comment repeated with a slash in 'formatoptions'
+  set fo+=/
+  normal 2Gox
+  let expected =<< trim END
+      nop;
+      val = val;      // This is a comment
+      x
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " Comment is formatted when it wraps
+  normal 2GA with some more text added
+  let expected =<< trim END
+      nop;
+      val = val;      // This is a comment
+                      // with some more text
+                      // added
+      x
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  set fo-=/
+
+  " using 'indentexpr' instead of 'cindent' does not repeat a comment
+  setl nocindent indentexpr=2
+  %del
+  let text =<< trim END
+      nop;
+      val = val;      // This is a comment
+  END
+  call setline(1, text)
+  normal 2Gox
+  let expected =<< trim END
+      nop;
+      val = val;      // This is a comment
+        x
+  END
+  call assert_equal(expected, getline(1, '$'))
+  setl cindent indentexpr=
+  3delete
+
   normal 2GO
   let expected =<< trim END
       nop;
 
       val = val;      // This is a comment
-                      //
   END
   call assert_equal(expected, getline(1, '$'))
 
@@ -288,6 +356,18 @@ func Test_format_c_comment()
       {
          val = val;      // This is a comment
          x
+  END
+  call assert_equal(expected, getline(1, '$'))
+
+  " typing comment text auto-wraps
+  %del
+  call setline(1, text)
+  exe "normal! 2GA blah more text blah.\<Esc>"
+  let expected =<< trim END
+      {
+         val = val;      // This is a comment
+                         // blah more text
+                         // blah.
   END
   call assert_equal(expected, getline(1, '$'))
 
@@ -1209,6 +1289,18 @@ func Test_fo_2()
         \ "paragraph.  second line of the",
         \ "same paragraph.  third line."], getline(1, '$'))
   close!
+endfunc
+
+" This was leaving the cursor after the end of a line.  Complicated way to
+" have the problem show up with valgrind.
+func Test_correct_cursor_position()
+  set encoding=iso8859
+  new
+  norm a0000
+  sil! norm gggg0i0gw0gg
+
+  bwipe!
+  set encoding=utf8
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

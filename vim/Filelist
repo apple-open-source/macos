@@ -113,6 +113,8 @@ SRC_ALL =	\
 		src/nbdebug.h \
 		src/netbeans.c \
 		src/normal.c \
+		src/nv_cmdidxs.h \
+		src/nv_cmds.h \
 		src/ops.c \
 		src/option.c \
 		src/option.h \
@@ -196,7 +198,6 @@ SRC_ALL =	\
 		src/testdir/view_util.vim \
 		src/testdir/test[0-9]*.ok \
 		src/testdir/test77a.ok \
-		src/testdir/test83-tags? \
 		src/testdir/test77a.com \
 		src/testdir/test_*.vim \
 		src/testdir/python2/*.py \
@@ -427,10 +428,8 @@ SRC_UNIX =	\
 		src/configure \
 		src/configure.ac \
 		src/create_cmdidxs.vim \
-		src/gui_at_fs.c \
-		src/gui_at_sb.c \
-		src/gui_at_sb.h \
-		src/gui_athena.c \
+		src/create_nvcmdidxs.c \
+		src/create_nvcmdidxs.vim \
 		src/gui_gtk.c \
 		src/gui_gtk_f.c \
 		src/gui_gtk_f.h \
@@ -455,7 +454,6 @@ SRC_UNIX =	\
 		src/osdef1.h.in \
 		src/osdef2.h.in \
 		src/pathdef.sh \
-		src/proto/gui_athena.pro \
 		src/proto/gui_gtk.pro \
 		src/proto/gui_gtk_x11.pro \
 		src/proto/gui_gtk_gresources.pro \
@@ -527,18 +525,14 @@ SRC_DOS =	\
 		tools/rename.bat \
 		src/bigvim.bat \
 		src/bigvim64.bat \
-		src/msvcsetup.bat \
 		src/msvc2008.bat \
 		src/msvc2010.bat \
 		src/msvc2015.bat \
 		src/msys32.bat \
 		src/msys64.bat \
-		src/dimm.idl \
 		src/dlldata.c \
 		src/dosinst.c \
 		src/dosinst.h \
-		src/glbl_ime.cpp \
-		src/glbl_ime.h \
 		src/gui_dwrite.cpp \
 		src/gui_dwrite.h \
 		src/gui_w32.c \
@@ -616,6 +610,7 @@ SRC_DOS_BIN =	\
 		src/xpm/x86/lib-vc14/libXpm.lib \
 		src/xpm/x86/lib/libXpm.a \
 		src/xpm/x86/lib/libXpm.lib \
+		runtime/bitmaps/vim.ico \
 		nsis/icons.zip \
 
 # source files for Amiga, DOS, etc. (also in the extra archive)
@@ -647,10 +642,7 @@ SRC_HAIKU =	\
 # source files for the Mac (also in the extra archive)
 SRC_MAC =	\
 		src/INSTALLmac.txt \
-		src/dehqx.py \
-		src/os_mac_rsrc/*.icns \
 		src/os_mac.h \
-		src/os_mac.rsr.hqx \
 		src/os_mac_conv.c \
 		src/os_macosx.m \
 		src/proto/os_mac_conv.pro \
@@ -688,7 +680,6 @@ SRC_EXTRA =	\
 		$(SRC_QNX) \
 		$(SRC_VMS) \
 		README_os390.txt \
-		src/infplist.xml \
 		src/link.390 \
 		src/os_vms_fix.com \
 		src/toolbar.phi \
@@ -715,6 +706,7 @@ RT_ALL =	\
 		runtime/doc/xxd.1 \
 		runtime/ftoff.vim \
 		runtime/gvimrc_example.vim \
+		runtime/import/dist/vimhelp.vim \
 		runtime/macros/README.txt \
 		runtime/macros/editexisting.vim \
 		runtime/macros/hanoi/click.me \
@@ -988,6 +980,7 @@ LANG_GEN = \
 		runtime/doc/*-tr.1 \
 		runtime/doc/*-tr.UTF-8.1 \
 		runtime/lang/README.txt \
+		runtime/lang/Makefile \
 		runtime/lang/menu_*.vim \
 		runtime/keymap/README.txt \
 		runtime/keymap/*.vim \

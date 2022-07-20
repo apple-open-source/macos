@@ -429,23 +429,36 @@ slash_adjust(char_u *p)
     }
 }
 
-// Use 64-bit stat functions if available.
-#ifdef HAVE_STAT64
-# undef stat
-# undef _stat
-# undef _wstat
-# undef _fstat
-# define stat _stat64
-# define _stat _stat64
-# define _wstat _wstat64
-# define _fstat _fstat64
-#endif
+// Use 64-bit stat functions.
+#undef stat
+#undef _stat
+#undef _wstat
+#undef _fstat
+#define stat _stat64
+#define _stat _stat64
+#define _wstat _wstat64
+#define _fstat _fstat64
 
-#if (defined(_MSC_VER) && (_MSC_VER >= 1300)) || defined(__MINGW32__)
-# define OPEN_OH_ARGTYPE intptr_t
-#else
-# define OPEN_OH_ARGTYPE long
-#endif
+    static int
+read_reparse_point(const WCHAR *name, char_u *buf, DWORD *buf_len)
+{
+    HANDLE h;
+    BOOL ok;
+
+    h = CreateFileW(name, FILE_READ_ATTRIBUTES,
+	    FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+	    OPEN_EXISTING,
+	    FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
+	    NULL);
+    if (h == INVALID_HANDLE_VALUE)
+	return FAIL;
+
+    ok = DeviceIoControl(h, FSCTL_GET_REPARSE_POINT, NULL, 0, buf, *buf_len,
+	    buf_len, NULL);
+    CloseHandle(h);
+
+    return ok ? OK : FAIL;
+}
 
     static int
 wstat_symlink_aware(const WCHAR *name, stat_T *stp)
@@ -487,7 +500,7 @@ wstat_symlink_aware(const WCHAR *name, stat_T *stp)
 	{
 	    int	    fd;
 
-	    fd = _open_osfhandle((OPEN_OH_ARGTYPE)h, _O_RDONLY);
+	    fd = _open_osfhandle((intptr_t)h, _O_RDONLY);
 	    n = _fstat(fd, (struct _stat *)stp);
 	    if ((n == 0) && (attr & FILE_ATTRIBUTE_DIRECTORY))
 		stp->st_mode = (stp->st_mode & ~S_IFREG) | S_IFDIR;
@@ -497,6 +510,61 @@ wstat_symlink_aware(const WCHAR *name, stat_T *stp)
     }
 #endif
     return _wstat(name, (struct _stat *)stp);
+}
+
+    char_u *
+resolve_appexeclink(char_u *fname)
+{
+    DWORD		attr = 0;
+    int			idx;
+    WCHAR		*p, *end, *wname;
+    // The buffer size is arbitrarily chosen to be "big enough" (TM), the
+    // ceiling should be around 16k.
+    char_u		buf[4096];
+    DWORD		buf_len = sizeof(buf);
+    REPARSE_DATA_BUFFER *rb = (REPARSE_DATA_BUFFER *)buf;
+
+    wname = enc_to_utf16(fname, NULL);
+    if (wname == NULL)
+	return NULL;
+
+    attr = GetFileAttributesW(wname);
+    if (attr == INVALID_FILE_ATTRIBUTES ||
+	    (attr & FILE_ATTRIBUTE_REPARSE_POINT) == 0)
+    {
+	vim_free(wname);
+	return NULL;
+    }
+
+    // The applinks are similar to symlinks but with a huge difference: they can
+    // only be executed, any other I/O operation on them is bound to fail with
+    // ERROR_FILE_NOT_FOUND even though the file exists.
+    if (read_reparse_point(wname, buf, &buf_len) == FAIL)
+    {
+	vim_free(wname);
+	return NULL;
+    }
+    vim_free(wname);
+
+    if (rb->ReparseTag != IO_REPARSE_TAG_APPEXECLINK)
+	return NULL;
+
+    // The (undocumented) reparse buffer contains a set of N null-terminated
+    // Unicode strings, the application path is stored in the third one.
+    if (rb->AppExecLinkReparseBuffer.StringCount < 3)
+	return NULL;
+
+    p = rb->AppExecLinkReparseBuffer.StringList;
+    end = p + rb->ReparseDataLength / sizeof(WCHAR);
+    for (idx = 0; p < end
+	    && idx < (int)rb->AppExecLinkReparseBuffer.StringCount
+	    && idx != 2; )
+    {
+	if ((*p++ == L'\0'))
+	    ++idx;
+    }
+
+    return utf16_to_enc(p, NULL);
 }
 
 /*
@@ -881,7 +949,7 @@ mch_libcall(
 	__except(EXCEPTION_EXECUTE_HANDLER)
 	{
 	    if (GetExceptionCode() == EXCEPTION_STACK_OVERFLOW)
-		RESETSTKOFLW();
+		_resetstkoflw();
 	    fRunTimeLinkSuccess = 0;
 	}
 # endif
@@ -1043,14 +1111,7 @@ swap_me(COLORREF colorref)
     return colorref;
 }
 
-// Attempt to make this work for old and new compilers
-# if !defined(_WIN64) && (!defined(_MSC_VER) || _MSC_VER < 1300)
-#  define PDP_RETVAL BOOL
-# else
-#  define PDP_RETVAL INT_PTR
-# endif
-
-    static PDP_RETVAL CALLBACK
+    static INT_PTR CALLBACK
 PrintDlgProc(
 	HWND hDlg,
 	UINT message,
@@ -1123,12 +1184,12 @@ AbortProc(HDC hdcPrn UNUSED, int iCode UNUSED)
 {
     MSG msg;
 
-    while (!*bUserAbort && pPeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+    while (!*bUserAbort && PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
     {
-	if (!hDlgPrint || !pIsDialogMessage(hDlgPrint, &msg))
+	if (!hDlgPrint || !IsDialogMessageW(hDlgPrint, &msg))
 	{
 	    TranslateMessage(&msg);
-	    pDispatchMessage(&msg);
+	    DispatchMessageW(&msg);
 	}
     }
     return !*bUserAbort;
@@ -2576,10 +2637,10 @@ serverProcessPendingMessages(void)
 {
     MSG msg;
 
-    while (pPeekMessage(&msg, NULL, 0, 0, PM_REMOVE))
+    while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE))
     {
 	TranslateMessage(&msg);
-	pDispatchMessage(&msg);
+	DispatchMessageW(&msg);
     }
 }
 

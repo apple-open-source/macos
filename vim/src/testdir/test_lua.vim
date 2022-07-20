@@ -15,13 +15,11 @@ CheckFeature float
 " Depending on the lua version, the error messages are different.
 let [s:major, s:minor, s:patch] = luaeval('vim.lua_version')->split('\.')->map({-> str2nr(v:val)})
 let s:lua_53_or_later = 0
-let s:lua_543_or_later = 0
+let s:lua_543 = 0
 if (s:major == 5 && s:minor >= 3) || s:major > 5
   let s:lua_53_or_later = 1
-  if (s:major == 5
-        \ && ((s:minor == 4 && s:patch >= 3) || s:minor > 4))
-        \ || s:major > 5
-    let s:lua_543_or_later = 1
+  if s:major == 5 && s:minor == 4 && s:patch == 3
+    let s:lua_543 = 1
   endif
 endif
 
@@ -59,7 +57,7 @@ func Test_lua_luado()
   " Error cases
   call assert_fails('luado string.format()',
         \ "[string \"vim chunk\"]:1: bad argument #1 to 'format' (string expected, got no value)")
-  if s:lua_543_or_later
+  if s:lua_543
     let msg = "[string \"vim chunk\"]:1: global 'func' is not callable (a nil value)"
   elseif s:lua_53_or_later
     let msg = "[string \"vim chunk\"]:1: attempt to call a nil value (global 'func')"
@@ -151,7 +149,7 @@ func Test_lua_window()
   " Window 3 does not exist so vim.window(3) should return nil
   call assert_equal('nil', luaeval('tostring(vim.window(3))'))
 
-  if s:lua_543_or_later
+  if s:lua_543
     let msg = "[string \"luaeval\"]:1: field 'xyz' is not callable (a nil value)"
   elseif s:lua_53_or_later
     let msg = "[string \"luaeval\"]:1: attempt to call a nil value (field 'xyz')"
@@ -343,7 +341,7 @@ func Test_lua_buffer_insert()
   call assert_equal('4', luaeval('vim.buffer()[4]'))
   call assert_equal(v:null, luaeval('vim.buffer()[5]'))
   call assert_equal(v:null, luaeval('vim.buffer()[{}]'))
-  if s:lua_543_or_later
+  if s:lua_543
     let msg = "[string \"vim chunk\"]:1: method 'xyz' is not callable (a nil value)"
   elseif s:lua_53_or_later
     let msg = "[string \"vim chunk\"]:1: attempt to call a nil value (method 'xyz')"
@@ -454,7 +452,7 @@ func Test_lua_list()
   lua ll = vim.eval('l')
   let x = luaeval("ll[3]")
   call assert_equal(v:null, x)
-  if s:lua_543_or_later
+  if s:lua_543
     let msg = "[string \"luaeval\"]:1: method 'xyz' is not callable (a nil value)"
   elseif s:lua_53_or_later
     let msg = "[string \"luaeval\"]:1: attempt to call a nil value (method 'xyz')"
@@ -645,7 +643,7 @@ func Test_lua_blob()
   call assert_equal(2, n)
   let n = luaeval('lb[6]')
   call assert_equal(v:null, n)
-  if s:lua_543_or_later
+  if s:lua_543
     let msg = "[string \"luaeval\"]:1: method 'xyz' is not callable (a nil value)"
   elseif s:lua_53_or_later
     let msg = "[string \"luaeval\"]:1: attempt to call a nil value (method 'xyz')"
@@ -1192,6 +1190,39 @@ func Test_lua_multiple_commands()
     autocmd!
   augroup END
   augroup! Luagroup
+endfunc
+
+func Test_lua_debug()
+  CheckRunVimInTerminal
+
+  let buf = RunVimInTerminal('', {'rows': 10})
+  call term_sendkeys(buf, ":lua debug.debug()\n")
+  call WaitForAssert({-> assert_equal('lua_debug> ', term_getline(buf, 10))})
+
+  call term_sendkeys(buf, "foo = 42\n")
+  call WaitForAssert({-> assert_equal('lua_debug> foo = 42', term_getline(buf, 9))})
+  call WaitForAssert({-> assert_equal('lua_debug> ',         term_getline(buf, 10))})
+
+  call term_sendkeys(buf, "print(foo)\n")
+  call WaitForAssert({-> assert_equal('lua_debug> print(foo)', term_getline(buf, 8))})
+  call WaitForAssert({-> assert_equal('42',                    term_getline(buf, 9))})
+  call WaitForAssert({-> assert_equal('lua_debug> ',           term_getline(buf, 10))})
+
+  call term_sendkeys(buf, "-\n")
+  call WaitForAssert({-> assert_equal("(debug command):1: unexpected symbol near '-'",
+  \                                                  term_getline(buf, 9))})
+  call WaitForAssert({-> assert_equal('lua_debug> ', term_getline(buf, 10))})
+
+  call term_sendkeys(buf, "cont\n")
+  call WaitForAssert({-> assert_match(' All$', term_getline(buf, 10))})
+
+  " Entering an empty line also exits the debugger.
+  call term_sendkeys(buf, ":lua debug.debug()\n")
+  call WaitForAssert({-> assert_equal('lua_debug> ', term_getline(buf, 10))})
+  call term_sendkeys(buf, "\n")
+  call WaitForAssert({-> assert_match(' All$', term_getline(buf, 10))})
+
+  call StopVimInTerminal(buf)
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

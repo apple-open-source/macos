@@ -542,6 +542,8 @@ struct smb_session {
     /* Snapshot info */
     char                snapshot_time[32] __attribute((aligned(8)));
     time_t              snapshot_local_time;
+    
+    uint8_t             uuid[16];                   // session random ID to return to userspace
 };
 
 #define session_maxmux	session_sopt.sv_maxmux

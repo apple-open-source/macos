@@ -123,9 +123,10 @@ static dispatch_queue_t globalOutputDelegateQueue()
     return globalQueue;
 }
 
-Ref<QueuedVideoOutput> QueuedVideoOutput::create(AVPlayerItem* item, AVPlayer* player)
+RefPtr<QueuedVideoOutput> QueuedVideoOutput::create(AVPlayerItem* item, AVPlayer* player)
 {
-    return adoptRef(*new QueuedVideoOutput(item, player));
+    auto queuedVideoOutput = adoptRef(new QueuedVideoOutput(item, player));
+    return queuedVideoOutput->valid() ? queuedVideoOutput : nullptr;
 }
 
 QueuedVideoOutput::QueuedVideoOutput(AVPlayerItem* item, AVPlayer* player)
@@ -134,6 +135,16 @@ QueuedVideoOutput::QueuedVideoOutput(AVPlayerItem* item, AVPlayer* player)
     , m_delegate(adoptNS([[WebQueuedVideoOutputDelegate alloc] initWithParent:this]))
 {
     m_videoOutput = adoptNS([PAL::allocAVPlayerItemVideoOutputInstance() initWithPixelBufferAttributes:nil]);
+    if (!m_videoOutput) {
+        // When bailing out early, also release these following objects
+        // to avoid doing unnecessary work in ::invalidate(). Failure to
+        // do so will result in exceptions being thrown from -removeObserver:.
+        m_player = nullptr;
+        m_playerItem = nullptr;
+        m_delegate = nullptr;
+        return;
+    }
+
     [m_videoOutput setDelegate:m_delegate.get() queue:globalOutputDelegateQueue()];
     [m_videoOutput requestNotificationOfMediaDataChangeAsSoonAsPossible];
 
@@ -157,6 +168,14 @@ QueuedVideoOutput::QueuedVideoOutput(AVPlayerItem* item, AVPlayer* player)
 QueuedVideoOutput::~QueuedVideoOutput()
 {
     invalidate();
+}
+
+bool QueuedVideoOutput::valid()
+{
+    return m_videoTimebaseObserver
+        && m_videoOutput
+        && m_player
+        && m_playerItem;
 }
 
 void QueuedVideoOutput::invalidate()

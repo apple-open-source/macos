@@ -489,7 +489,6 @@ vim_findfile_init(
 	 * The octet after a '**' is used as a (binary) counter.
 	 * So '**3' is transposed to '**^C' ('^C' is ASCII value 3)
 	 * or '**76' is transposed to '**N'( 'N' is ASCII value 76).
-	 * For EBCDIC you get different character values.
 	 * If no restrict is given after '**' the default is used.
 	 * Due to this technique the path looks awful if you print it as a
 	 * string.
@@ -2094,11 +2093,16 @@ file_name_in_line(
 eval_includeexpr(char_u *ptr, int len)
 {
     char_u	*res;
+    sctx_T	save_sctx = current_sctx;
 
     set_vim_var_string(VV_FNAME, ptr, len);
+    current_sctx = curbuf->b_p_script_ctx[BV_INEX];
+
     res = eval_to_string_safe(curbuf->b_p_inex,
-		      was_set_insecurely((char_u *)"includeexpr", OPT_LOCAL));
+		 was_set_insecurely((char_u *)"includeexpr", OPT_LOCAL), TRUE);
+
     set_vim_var_string(VV_FNAME, NULL, 0);
+    current_sctx = save_sctx;
     return res;
 }
 # endif

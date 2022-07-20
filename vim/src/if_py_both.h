@@ -30,9 +30,9 @@ static const char *vim_special_path = "_vim_path_";
 #define PyErr_FORMAT2(exc, str, arg1, arg2) PyErr_Format(exc, _(str), arg1,arg2)
 #define PyErr_VIM_FORMAT(str, arg) PyErr_FORMAT(VimError, str, arg)
 
-#define Py_TYPE_NAME(obj) (obj->ob_type->tp_name == NULL \
+#define Py_TYPE_NAME(obj) ((obj)->ob_type->tp_name == NULL \
 	? "(NULL)" \
-	: obj->ob_type->tp_name)
+	: (obj)->ob_type->tp_name)
 
 #define RAISE_NO_EMPTY_KEYS PyErr_SET_STRING(PyExc_ValueError, \
 					    N_("empty keys are not allowed"))
@@ -4676,9 +4676,11 @@ SetBufferLineList(
 	// Only adjust marks if we managed to switch to a window that holds
 	// the buffer, otherwise line numbers will be invalid.
 	if (save_curbuf.br_buf == NULL)
+	{
 	    mark_adjust((linenr_T)lo, (linenr_T)(hi - 1),
 						  (long)MAXLNUM, (long)extra);
-	changed_lines((linenr_T)lo, 0, (linenr_T)hi, (long)extra);
+	    changed_lines((linenr_T)lo, 0, (linenr_T)hi, (long)extra);
+	}
 
 	if (buf == curbuf && (switchwin.sw_curwin != NULL
 					   || save_curbuf.br_buf == NULL))
@@ -6686,7 +6688,7 @@ init_structs(void)
 }
 
 #define PYTYPE_READY(type) \
-    if (PyType_Ready(&type)) \
+    if (PyType_Ready(&(type))) \
 	return -1;
 
     static int
@@ -6954,7 +6956,7 @@ populate_module(PyObject *m)
     {
 	// find_module() is deprecated, this may stop working in some later
 	// version.
-        ADD_OBJECT(m, "_find_module", py_find_module);
+	ADD_OBJECT(m, "_find_module", py_find_module);
     }
 
     Py_DECREF(imp);

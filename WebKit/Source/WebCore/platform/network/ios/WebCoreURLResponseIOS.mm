@@ -49,8 +49,6 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef response, bool isMainResourceLoa
                 return;
             }
         }
-        CFURLResponseSetMIMEType(response, CFSTR("application/octet-stream"));
-        return;
     }
 
 #if !USE(QUICK_LOOK)
@@ -65,10 +63,14 @@ void adjustMIMETypeIfNecessary(CFURLResponseRef response, bool isMainResourceLoa
             updatedType = (__bridge CFStringRef)quickLookType.get();
         else if (auto extension = filePathExtension(response))
             updatedType = preferredMIMETypeForFileExtensionFromUTType(extension.get());
-        if (updatedType && (!type || CFStringCompare(type, updatedType.get(), kCFCompareCaseInsensitive) != kCFCompareEqualTo))
+        if (updatedType && (!type || CFStringCompare(type, updatedType.get(), kCFCompareCaseInsensitive) != kCFCompareEqualTo)) {
             CFURLResponseSetMIMEType(response, updatedType.get());
+            return;
+        }
     }
 #endif // USE(QUICK_LOOK)
+    if (!type)
+        CFURLResponseSetMIMEType(response, CFSTR("application/octet-stream"));
 }
 
 } // namespace WebCore

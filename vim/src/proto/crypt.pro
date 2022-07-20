@@ -1,4 +1,5 @@
 /* crypt.c */
+int sodium_enabled(int verbose);
 int crypt_method_nr_from_name(char_u *name);
 int crypt_method_nr_from_magic(char *ptr, int len);
 int crypt_works_inplace(cryptstate_T *state);
@@ -26,4 +27,6 @@ void crypt_append_msg(buf_T *buf);
 int crypt_sodium_init(cryptstate_T *state, char_u *key, char_u *salt, int salt_len, char_u *seed, int seed_len);
 long crypt_sodium_buffer_encode(cryptstate_T *state, char_u *from, size_t len, char_u **buf_out, int last);
 long crypt_sodium_buffer_decode(cryptstate_T *state, char_u *from, size_t len, char_u **buf_out, int last);
+int crypt_sodium_munlock(void *const addr, const size_t len);
+void crypt_sodium_randombytes_buf(void *const buf, const size_t size);
 /* vim: set ft=c : */

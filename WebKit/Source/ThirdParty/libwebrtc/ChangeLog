@@ -1,3 +1,78 @@
+2022-04-15  Youenn Fablet  <youenn@apple.com>
+
+        Rename libwebrtc ObjC NSString utility routines
+        https://bugs.webkit.org/show_bug.cgi?id=239287
+        <rdar://91431764>
+
+        Reviewed by Eric Carlson.
+
+        Add rtc prefix to NSString utility routines to prevent symbol collision.
+
+        * Source/webrtc/sdk/objc/api/peerconnection/RTCRtpEncodingParameters.mm:
+        (-[RTCRtpEncodingParameters initWithNativeParameters:]):
+        (-[RTCRtpEncodingParameters nativeParameters]):
+        * Source/webrtc/sdk/objc/api/peerconnection/RTCVideoCodecInfo+Private.mm:
+        (-[RTCVideoCodecInfo initWithNativeSdpVideoFormat:]):
+        (-[RTCVideoCodecInfo nativeSdpVideoFormat]):
+        * Source/webrtc/sdk/objc/components/video_codec/RTCH264ProfileLevelId.mm:
+        * Source/webrtc/sdk/objc/helpers/NSString+StdString.h:
+        * Source/webrtc/sdk/objc/helpers/NSString+StdString.mm:
+        (-[NSString rtcStdString]):
+        (+[NSString rtcStdStringForString:]):
+        (+[NSString rtcStringForStdString:]):
+        (-[NSString stdString]): Deleted.
+        (+[NSString stdStringForString:]): Deleted.
+        (+[NSString stringForStdString:]): Deleted.
+        * Source/webrtc/sdk/objc/native/src/objc_video_decoder_factory.mm:
+        * Source/webrtc/sdk/objc/native/src/objc_video_encoder_factory.mm:
+
+2022-01-12  Youenn Fablet  <youenn@apple.com>
+
+        VP9-SVS no video stream from remote peer on some devices
+        https://bugs.webkit.org/show_bug.cgi?id=231074
+        <rdar://problem/84024646>
+
+        Reviewed by Eric Carlson.
+
+        * Source/webrtc/sdk/objc/components/video_codec/RTCDefaultVideoDecoderFactory.m:
+        (-[RTCDefaultVideoDecoderFactory initWithH265:vp9Profile0:vp9Profile2:vp9VTB:]):
+        Do not use VTIsHardwareDecodeSupported('vp09') to know whether WebProcess can use VTB since sandboxing can control this.
+
+2022-05-19  Alan Coon  <alancoon@apple.com>
+
+        Cherry-pick r293643. rdar://problem/92445366
+
+    [Mac] VTVideoDecoderClass object pointers can become unaligned on x86
+    https://bugs.webkit.org/show_bug.cgi?id=239916
+    <rdar://92445366>
+    
+    Reviewed by Eric Carlson.
+    
+    Both the base class and the derived class must be 4-byte aligned on x86, or there
+    is a chance that a pointer member of that struct will cross a page boundary, and
+    dereferencing that pointer will fail.
+    
+    * Source/webrtc/sdk/WebKit/WebKitVP8Decoder.cpp:
+    * Source/webrtc/sdk/WebKit/WebKitVP9Decoder.cpp:
+    
+    Canonical link: https://commits.webkit.org/250147@main
+    git-svn-id: https://svn.webkit.org/repository/webkit/trunk@293643 268f45cc-cd09-0410-ab3c-d52691b4dbfc
+
+    2022-04-30  Jer Noble  <jer.noble@apple.com>
+
+            [Mac] VTVideoDecoderClass object pointers can become unaligned on x86
+            https://bugs.webkit.org/show_bug.cgi?id=239916
+            <rdar://92445366>
+
+            Reviewed by Eric Carlson.
+
+            Both the base class and the derived class must be 4-byte aligned on x86, or there
+            is a chance that a pointer member of that struct will cross a page boundary, and
+            dereferencing that pointer will fail.
+
+            * Source/webrtc/sdk/WebKit/WebKitVP8Decoder.cpp:
+            * Source/webrtc/sdk/WebKit/WebKitVP9Decoder.cpp:
+
 2022-02-07  Russell Epstein  <repstein@apple.com>
 
         Cherry-pick r288464. rdar://problem/87884184

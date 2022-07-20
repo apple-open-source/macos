@@ -1,3 +1,38 @@
+2022-04-13  Alex Christensen  <achristensen@webkit.org>
+
+        Punycode encode U+15AF when not in context of other Canadian aboriginal code points
+        https://bugs.webkit.org/show_bug.cgi?id=239316
+        <rdar://91248059>
+
+        Reviewed by Darin Adler.
+
+        * wtf/URLHelpers.cpp:
+        (WTF::URLHelpers::isLookalikeCharacterOfScriptType<USCRIPT_CANADIAN_ABORIGINAL>):
+        (WTF::URLHelpers::isLookalikeCharacter):
+
+2022-05-13  Ben Nham  <nham@apple.com>
+
+        Enforce foreground WebContent memory limit on macOS
+        https://bugs.webkit.org/show_bug.cgi?id=240397
+
+        Reviewed by Chris Dumez.
+
+        We removed the foreground memory limit for WebContent on macOS in r272046. But based on some
+        bug reports that we've seen, it seems like we need to restore some limit to prevent bad user
+        outcomes when a misbehaving process has runaway memory usage.
+
+        This patch adds a foreground memory limit of 8GB or 16GB depending on RAM size. This matches
+        the limits set by other browsers for their content process.
+
+        * wtf/MemoryPressureHandler.cpp:
+        (WTF::thresholdForMemoryKillOfActiveProcess):
+        (WTF::MemoryPressureHandler::thresholdForMemoryKill):
+
+        * wtf/generic/WorkQueueGeneric.cpp:
+        (WTF::WorkQueueBase::platformInitialize):
+        (WTF::WorkQueue::assertIsCurrent):
+        (WTF::currentSequenceID):
+
 2022-04-19  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r289531. rdar://problem/88023949

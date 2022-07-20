@@ -9,6 +9,7 @@
 # So if a pull request only touches javascript files, only these owners
 # will be requested to review.
 
+runtime/autoload/freebasic.vim		@dkearns
 runtime/autoload/getscript.vim		@cecamp
 runtime/autoload/netrw.vim		@cecamp
 runtime/autoload/netrwFileHandlers.vim	@cecamp
@@ -18,6 +19,25 @@ runtime/autoload/tar.vim		@cecamp
 runtime/autoload/vimball.vim		@cecamp
 runtime/autoload/xmlformat.vim		@chrisbra
 runtime/autoload/zip.vim		@cecamp
+runtime/colors/blue.vim			@habamax @romainl @neutaaaaan
+runtime/colors/darkblue.vim		@habamax @romainl @neutaaaaan
+runtime/colors/default.vim		@habamax @romainl @neutaaaaan
+runtime/colors/delek.vim		@habamax @romainl @neutaaaaan
+runtime/colors/desert.vim		@habamax @romainl @neutaaaaan
+runtime/colors/elflord.vim		@habamax @romainl @neutaaaaan
+runtime/colors/evening.vim		@habamax @romainl @neutaaaaan
+runtime/colors/industry.vim		@habamax @romainl @neutaaaaan
+runtime/colors/koehler.vim		@habamax @romainl @neutaaaaan
+runtime/colors/morning.vim		@habamax @romainl @neutaaaaan
+runtime/colors/murphy.vim		@habamax @romainl @neutaaaaan
+runtime/colors/pablo.vim		@habamax @romainl @neutaaaaan
+runtime/colors/peachpuff.vim		@habamax @romainl @neutaaaaan
+runtime/colors/ron.vim			@habamax @romainl @neutaaaaan
+runtime/colors/shine.vim		@habamax @romainl @neutaaaaan
+runtime/colors/slate.vim		@habamax @romainl @neutaaaaan
+runtime/colors/tools			@habamax @romainl @neutaaaaan
+runtime/colors/torte.vim		@habamax @romainl @neutaaaaan
+runtime/colors/zellner.vim		@habamax @romainl @neutaaaaan
 runtime/compiler/checkstyle.vim		@dkearns
 runtime/compiler/cm3.vim		@dkearns
 runtime/compiler/cucumber.vim		@tpope
@@ -77,6 +97,7 @@ runtime/ftplugin/clojure.vim		@axvr
 runtime/ftplugin/csh.vim		@dkearns
 runtime/ftplugin/css.vim		@dkearns
 runtime/ftplugin/cucumber.vim		@tpope
+runtime/ftplugin/dosbatch.vim		@mrdubya
 runtime/ftplugin/eiffel.vim		@dkearns
 runtime/ftplugin/eruby.vim		@tpope @dkearns
 runtime/ftplugin/fpcmake.vim		@dkearns
@@ -109,8 +130,10 @@ runtime/ftplugin/octave.vim		@dkearns
 runtime/ftplugin/pascal.vim		@dkearns
 runtime/ftplugin/pbtxt.vim		@lakshayg
 runtime/ftplugin/pdf.vim		@tpope
+runtime/ftplugin/postscr.vim		@mrdubya
 runtime/ftplugin/ps1.vim		@heaths
 runtime/ftplugin/ps1xml.vim		@heaths
+runtime/ftplugin/qb64.vim		@dkearns
 runtime/ftplugin/routeros.vim		@zainin
 runtime/ftplugin/ruby.vim		@tpope @dkearns
 runtime/ftplugin/sass.vim		@tpope
@@ -124,8 +147,11 @@ runtime/ftplugin/tmux.vim		@ericpruitt
 runtime/ftplugin/toml.vim		@averms
 runtime/ftplugin/typescript.vim		@dkearns
 runtime/ftplugin/typescriptreact.vim	@dkearns
+runtime/ftplugin/wget.vim		@dkearns
+runtime/ftplugin/wget2.vim		@dkearns
 runtime/ftplugin/xml.vim		@chrisbra
 runtime/ftplugin/zsh.vim		@chrisbra
+runtime/indent/basic.vim		@dkearns
 runtime/indent/bst.vim			@tpope
 runtime/indent/cdl.vim			@dkearns
 runtime/indent/clojure.vim		@axvr
@@ -140,6 +166,7 @@ runtime/indent/elm.vim			@andys8
 runtime/indent/eruby.vim		@tpope @dkearns
 runtime/indent/eterm.vim		@dkearns
 runtime/indent/framescript.vim		@dkearns
+runtime/indent/freebasic.vim		@dkearns
 runtime/indent/gitconfig.vim		@tpope
 runtime/indent/haml.vim			@tpope
 runtime/indent/idlang.vim		@dkearns
@@ -151,9 +178,10 @@ runtime/indent/mma.vim			@dkearns
 runtime/indent/nginx.vim		@chr4
 runtime/indent/nsis.vim			@k-takata
 runtime/indent/occam.vim		@dkearns
-runtime/indent/postscr.vim		@dkearns
+runtime/indent/postscr.vim		@mrdubya
 runtime/indent/prolog.vim		@dkearns
 runtime/indent/ps1.vim			@heaths
+runtime/indent/qb64.vim			@dkearns
 runtime/indent/readline.vim		@dkearns
 runtime/indent/ruby.vim			@AndrewRadev @dkearns
 runtime/indent/sass.vim			@tpope
@@ -166,6 +194,7 @@ runtime/indent/teraterm.vim		@k-takata
 runtime/indent/xml.vim			@chrisbra
 runtime/indent/zsh.vim			@chrisbra
 runtime/keymap/tamil_tscii.vim		@yegappan
+runtime/lang/menu_en_gb.latin1.vim	@mrdubya
 runtime/pack/dist/opt/cfilter/plugin/cfilter.vim	@yegappan
 runtime/pack/dist/opt/matchit/		@chrisbra
 runtime/plugin/getscriptPlugin.vim	@cecamp
@@ -193,6 +222,7 @@ runtime/syntax/cucumber.vim		@tpope
 runtime/syntax/datascript.vim		@dpelle
 runtime/syntax/dcl.vim			@cecamp
 runtime/syntax/desktop.vim		@e-kwsm
+runtime/syntax/dosbatch.vim		@mrdubya
 runtime/syntax/dot.vim			@mmottl
 runtime/syntax/doxygen.vim		@frogonwheels
 runtime/syntax/dtd.vim			@chrisbra
@@ -234,12 +264,15 @@ runtime/syntax/pascal.vim		@dkearns
 runtime/syntax/pbtxt.vim		@lakshayg
 runtime/syntax/pdf.vim			@tpope
 runtime/syntax/php.vim			@TysonAndre
+runtime/syntax/postscr.vim		@mrdubya
 runtime/syntax/privoxy.vim		@dkearns
 runtime/syntax/prolog.vim		@XVilka
 runtime/syntax/ps1.vim			@heaths
 runtime/syntax/ps1xml.vim		@heaths
 runtime/syntax/psl.vim			@danielkho
+runtime/syntax/qb64.vim			@dkearns
 runtime/syntax/rc.vim			@chrisbra
+runtime/syntax/rebol.vim		@mrdubya
 runtime/syntax/routeros.vim		@zainin
 runtime/syntax/rpcgen.vim		@cecamp
 runtime/syntax/ruby.vim			@dkearns
@@ -262,6 +295,7 @@ runtime/syntax/tmux.vim			@ericpruitt
 runtime/syntax/toml.vim			@averms
 runtime/syntax/vim.vim			@cecamp
 runtime/syntax/wget.vim			@dkearns
+runtime/syntax/wget2.vim		@dkearns
 runtime/syntax/xbl.vim			@dkearns
 runtime/syntax/xmath.vim		@cecamp
 runtime/syntax/xml.vim			@chrisbra
@@ -278,4 +312,5 @@ src/libvterm/				@leonerd
 src/po/de.po				@chrisbra
 src/po/eo.po				@dpelle
 src/po/fr.po				@dpelle
+src/po/ga.po				@kscanne
 src/xxd/				@jnweiger

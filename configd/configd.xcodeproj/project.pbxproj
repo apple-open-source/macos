@@ -8098,6 +8098,7 @@
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
 				);
+				OTHER_CODE_SIGN_FLAGS = "--options runtime";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",
@@ -8128,6 +8129,7 @@
 					"$(SYMROOT)",
 					"$(SDKROOT)/usr/local/lib/SystemConfiguration",
 				);
+				OTHER_CODE_SIGN_FLAGS = "--options runtime";
 				OTHER_LDFLAGS = (
 					"$(inherited)",
 					"-lKernelEventMonitor$(EXECUTABLE_VARIANT_SUFFIX)",

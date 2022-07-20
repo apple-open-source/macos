@@ -391,15 +391,13 @@ endfunc
 
 func Test_edit_13()
   " Test smartindenting
-  if exists("+smartindent")
-    new
-    set smartindent autoindent
-    call setline(1, ["\tabc"])
-    call feedkeys("A {\<cr>more\<cr>}\<esc>", 'tnix')
-    call assert_equal(["\tabc {", "\t\tmore", "\t}"], getline(1, '$'))
-    set smartindent& autoindent&
-    bwipe!
-  endif
+  new
+  set smartindent autoindent
+  call setline(1, ["\tabc"])
+  call feedkeys("A {\<cr>more\<cr>}\<esc>", 'tnix')
+  call assert_equal(["\tabc {", "\t\tmore", "\t}"], getline(1, '$'))
+  set smartindent& autoindent&
+  bwipe!
 
   " Test autoindent removing indent of blank line.
   new
@@ -1043,7 +1041,7 @@ func Test_edit_completefunc_delete()
   set completefunc=CompleteFunc
   call setline(1, ['', 'abcd', ''])
   2d
-  call assert_fails("normal 2G$a\<C-X>\<C-U>", 'E578:')
+  call assert_fails("normal 2G$a\<C-X>\<C-U>", 'E565:')
   bwipe!
 endfunc
 
@@ -1073,14 +1071,14 @@ func Test_edit_DROP()
 endfunc
 
 func Test_edit_CTRL_V()
-  CheckFeature ebcdic
   new
   call setline(1, ['abc'])
   call cursor(2, 1)
+
   " force some redraws
   set showmode showcmd
-  "call test_override_char_avail(1)
-  call test_override('ALL', 1)
+  call test_override('char_avail', 1)
+
   call feedkeys("A\<c-v>\<c-n>\<c-v>\<c-l>\<c-v>\<c-b>\<esc>", 'tnix')
   call assert_equal(["abc\x0e\x0c\x02"], getline(1, '$'))
 
@@ -1093,8 +1091,19 @@ func Test_edit_CTRL_V()
     set norl
   endif
 
-  call test_override('ALL', 0)
   set noshowmode showcmd
+  call test_override('char_avail', 0)
+
+  " No modifiers should be applied to the char typed using i_CTRL-V_digit.
+  call feedkeys(":append\<CR>\<C-V>76c\<C-V>76\<C-F2>\<C-V>u3c0j\<C-V>u3c0\<M-F3>\<CR>.\<CR>", 'tnix')
+  call assert_equal('LcL<C-F2>πjπ<M-F3>', getline(2))
+
+  if has('osx')
+    " A char with a modifier should not be a valid char for i_CTRL-V_digit.
+    call feedkeys("o\<C-V>\<D-j>\<C-V>\<D-1>\<C-V>\<D-o>\<C-V>\<D-x>\<C-V>\<D-u>", 'tnix')
+    call assert_equal('<D-j><D-1><D-o><D-x><D-u>', getline(3))
+  endif
+
   bw!
 endfunc
 
@@ -1202,20 +1211,30 @@ func Test_edit_MOUSE()
   10new
   call setline(1, range(1, 100))
   call cursor(1, 1)
+  call assert_equal(1, line('w0'))
+  call assert_equal(10, line('w$'))
   set mouse=a
+  " One scroll event moves three lines.
   call feedkeys("A\<ScrollWheelDown>\<esc>", 'tnix')
-  call assert_equal([0, 4, 1, 0], getpos('.'))
-  " This should move by one pageDown, but only moves
-  " by one line when the test is run...
+  call assert_equal(4, line('w0'))
+  call assert_equal(13, line('w$'))
+  " This should move by one page down.
   call feedkeys("A\<S-ScrollWheelDown>\<esc>", 'tnix')
-  call assert_equal([0, 5, 1, 0], getpos('.'))
+  call assert_equal(14, line('w0'))
   set nostartofline
+  " Another page down.
   call feedkeys("A\<C-ScrollWheelDown>\<esc>", 'tnix')
-  call assert_equal([0, 6, 1, 0], getpos('.'))
+  call assert_equal(24, line('w0'))
+
+  call assert_equal([0, 24, 2, 0], getpos('.'))
+  call test_setmouse(4, 3)
   call feedkeys("A\<LeftMouse>\<esc>", 'tnix')
-  call assert_equal([0, 6, 1, 0], getpos('.'))
-  call feedkeys("A\<RightMouse>\<esc>", 'tnix')
-  call assert_equal([0, 6, 1, 0], getpos('.'))
+  call assert_equal([0, 27, 2, 0], getpos('.'))
+  set mousemodel=extend
+  call test_setmouse(5, 3)
+  call feedkeys("A\<RightMouse>\<esc>\<esc>", 'tnix')
+  call assert_equal([0, 28, 2, 0], getpos('.'))
+  set mousemodel&
   call cursor(1, 100)
   norm! zt
   " this should move by a screen up, but when the test
@@ -1618,11 +1637,7 @@ endfunc
 func Test_edit_special_chars()
   new
 
-  if has("ebcdic")
-    let t = "o\<C-V>193\<C-V>xc2\<C-V>o303 \<C-V>90a\<C-V>xfg\<C-V>o578\<Esc>"
-  else
-    let t = "o\<C-V>65\<C-V>x42\<C-V>o103 \<C-V>33a\<C-V>xfg\<C-V>o78\<Esc>"
-  endif
+  let t = "o\<C-V>65\<C-V>x42\<C-V>o103 \<C-V>33a\<C-V>xfg\<C-V>o78\<Esc>"
 
   exe "normal " . t
   call assert_equal("ABC !a\<C-O>g\<C-G>8", getline(2))
@@ -1831,6 +1846,29 @@ func Test_edit_file_no_read_perm()
   call assert_match('\[Permission Denied\]', msg)
   close!
   call delete('Xfile')
+endfunc
+
+" Using :edit without leaving 'insertmode' should not cause Insert mode to be
+" re-entered immediately after <C-L>
+func Test_edit_insertmode_ex_edit()
+  CheckRunVimInTerminal
+
+  let lines =<< trim END
+    set insertmode noruler
+    inoremap <C-B> <Cmd>edit Xfoo<CR>
+  END
+  call writefile(lines, 'Xtest_edit_insertmode_ex_edit')
+
+  let buf = RunVimInTerminal('-S Xtest_edit_insertmode_ex_edit', #{rows: 6})
+  call TermWait(buf, 50)
+  call assert_match('^-- INSERT --\s*$', term_getline(buf, 6))
+  call term_sendkeys(buf, "\<C-B>\<C-L>")
+  call TermWait(buf, 50)
+  call assert_notmatch('^-- INSERT --\s*$', term_getline(buf, 6))
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('Xtest_edit_insertmode_ex_edit')
 endfunc
 
 " Pressing escape in 'insertmode' should beep
@@ -2087,7 +2125,7 @@ endfunc
 func Test_edit_CTRL_hat()
   CheckFeature xim
 
-  " FIXME: test fails with Athena and Motif GUI.
+  " FIXME: test fails with Motif GUI.
   "        test also fails when running in the GUI.
   CheckFeature gui_gtk
   CheckNotGui
@@ -2118,5 +2156,31 @@ func Test_edit_overlong_file_name()
   bwipe!
 endfunc
 
+func Test_edit_shift_bs()
+  CheckMSWindows
+
+  " FIXME: this works interactively, but the test fails
+  throw 'Skipped: Shift-Backspace Test not working correctly :('
+
+  " Need to run this in Win32 Terminal, do not use CheckRunVimInTerminal
+  if !has("terminal")
+    return
+  endif
+
+  " Shift Backspace should work like Backspace in insert mode
+  let lines =<< trim END
+    call setline(1, ['abc'])
+  END
+  call writefile(lines, 'Xtest_edit_shift_bs')
+
+  let buf = RunVimInTerminal('-S Xtest_edit_shift_bs', #{rows: 3})
+  call term_sendkeys(buf, "A\<S-BS>-\<esc>")
+  call TermWait(buf, 50)
+  call assert_equal('ab-', term_getline(buf, 1))
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('Xtest_edit_shift_bs')
+endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

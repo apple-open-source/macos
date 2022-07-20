@@ -1,6 +1,7 @@
 " Tests for :help
 
 source check.vim
+import './vim9.vim' as v9
 
 func Test_help_restore_snapshot()
   help
@@ -9,6 +10,30 @@ func Test_help_restore_snapshot()
   edit x
   help
   helpclose
+endfunc
+
+func Test_help_restore_snapshot_split()
+  " Squeeze the unnamed buffer, Xfoo and the help one side-by-side and focus
+  " the first one before calling :help.
+  let bnr = bufnr()
+  botright vsp Xfoo
+  wincmd h
+  help
+  wincmd L
+  let g:did_bufenter = v:false
+  augroup T
+    au!
+    au BufEnter Xfoo let g:did_bufenter = v:true
+  augroup END
+  helpclose
+  augroup! T
+  " We're back to the unnamed buffer.
+  call assert_equal(bnr, bufnr())
+  " No BufEnter was triggered for Xfoo.
+  call assert_equal(v:false, g:did_bufenter)
+
+  close!
+  bwipe!
 endfunc
 
 func Test_help_errors()
@@ -151,7 +176,7 @@ endfunc
 
 " Test for setting the 'helpheight' option in the help window
 func Test_help_window_height()
-  let &cmdheight = &lines - 24
+  let &cmdheight = &lines - 23
   set helpheight=10
   help
   set helpheight=14
@@ -166,6 +191,16 @@ func Test_help_long_argument()
   catch
     call assert_match("E149:", v:exception)
   endtry
+endfunc
+
+func Test_help_using_visual_match()
+  let lines =<< trim END
+      call setline(1, ' ')
+      /^
+      exe "normal \<C-V>\<C-V>"
+      h5\%V]
+  END
+  call v9.CheckScriptFailure(lines, 'E149:')
 endfunc
 
 

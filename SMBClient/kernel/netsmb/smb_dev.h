@@ -149,7 +149,7 @@ struct smbioc_negotiate {
     uint32_t    ioc_mc_client_if_blacklist[kClientIfBlacklistMaxLen] __attribute((aligned(8)));
     uint32_t    ioc_mc_client_if_blacklist_len;
 
-    void        *ioc_sessionp;
+    uint8_t     ioc_session_uuid[16];
 };
 
 /*

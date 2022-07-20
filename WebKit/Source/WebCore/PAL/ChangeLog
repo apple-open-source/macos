@@ -1,3 +1,28 @@
+2022-05-06  Jer Noble  <jer.noble@apple.com>
+
+        [Cocoa] Seeking into a xHE-AAC track backed by a SourceBuffer can stall playback
+        https://bugs.webkit.org/show_bug.cgi?id=239750
+        <rdar://91922569>
+
+        Reviewed by Eric Carlson.
+
+        Fix a spelling error in the CoreMediaSoftLink macros.
+
+        * pal/cf/CoreMediaSoftLink.cpp:
+        * pal/cf/CoreMediaSoftLink.h:
+
+2022-04-14  Wenson Hsieh  <wenson_hsieh@apple.com>
+
+        [iOS] [WK2] Managed pasteboard should function for all managed domains
+        https://bugs.webkit.org/show_bug.cgi?id=239319
+        rdar://80059355
+
+        Reviewed by Kate Cheney.
+
+        Add an SPI method on `MCProfileConnection`.
+
+        * pal/spi/ios/ManagedConfigurationSPI.h:
+
 2022-04-19  Alan Coon  <alancoon@apple.com>
 
         Cherry-pick r290997. rdar://problem/79950080

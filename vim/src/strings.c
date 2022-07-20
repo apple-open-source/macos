@@ -342,11 +342,7 @@ vim_strup(
     {
 	p2 = p;
 	while ((c = *p2) != NUL)
-#ifdef EBCDIC
-	    *p2++ = isalpha(c) ? toupper(c) : c;
-#else
 	    *p2++ = (c < 'a' || c > 'z') ? c : (c - 0x20);
-#endif
     }
 }
 
@@ -902,6 +898,7 @@ string_filter_map(
 	    break;
 	len = (int)STRLEN(tv.vval.v_string);
 
+	newtv.v_type = VAR_UNKNOWN;
 	set_vim_var_nr(VV_KEY, idx);
 	if (filter_map_one(&tv, expr, filtermap, &newtv, &rem) == FAIL
 		|| did_emsg)

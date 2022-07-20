@@ -87,18 +87,11 @@ buf_init_chartab(
 	 * Set the default size for printable characters:
 	 * From <Space> to '~' is 1 (printable), others are 2 (not printable).
 	 * This also inits all 'isident' and 'isfname' flags to FALSE.
-	 *
-	 * EBCDIC: all chars below ' ' are not printable, all others are
-	 * printable.
 	 */
 	c = 0;
 	while (c < ' ')
 	    g_chartab[c++] = (dy_flags & DY_UHEX) ? 4 : 2;
-#ifdef EBCDIC
-	while (c < 255)
-#else
 	while (c <= '~')
-#endif
 	    g_chartab[c++] = 1 + CT_PRINT_CHAR;
 	while (c < 256)
 	{
@@ -136,13 +129,11 @@ buf_init_chartab(
 		SET_CHARTAB(buf, c);
 	}
 
-#ifdef FEAT_LISP
     /*
      * In lisp mode the '-' character is included in keywords.
      */
     if (buf->b_p_lisp)
 	SET_CHARTAB(buf, '-');
-#endif
 
     // Walk through the 'isident', 'iskeyword', 'isfname' and 'isprint'
     // options Each option is a list of characters, character numbers or
@@ -221,10 +212,7 @@ buf_init_chartab(
 		    }
 		    else if (i == 1)		// (re)set printable
 		    {
-			if ((c < ' '
-#ifndef EBCDIC
-				    || c > '~'
-#endif
+			if ((c < ' ' || c > '~'
 				// For double-byte we keep the cell width, so
 				// that we can detect it from the first byte.
 			    ) && !(enc_dbcs && MB_BYTE2LEN(c) == 2))
@@ -396,9 +384,9 @@ str_foldcase(
     int		len = orglen;
 
 #define GA_CHAR(i)  ((char_u *)ga.ga_data)[i]
-#define GA_PTR(i)   ((char_u *)ga.ga_data + i)
+#define GA_PTR(i)   ((char_u *)ga.ga_data + (i))
 #define STR_CHAR(i)  (buf == NULL ? GA_CHAR(i) : buf[i])
-#define STR_PTR(i)   (buf == NULL ? GA_PTR(i) : buf + i)
+#define STR_PTR(i)   (buf == NULL ? GA_PTR(i) : buf + (i))
 
     // Copy "str" into "buf" or allocated memory, unmodified.
     if (buf == NULL)
@@ -519,13 +507,8 @@ transchar_buf(buf_T *buf, int c)
 	c = K_SECOND(c);
     }
 
-    if ((!chartab_initialized && (
-#ifdef EBCDIC
-		    (c >= 64 && c < 255)
-#else
-		    (c >= ' ' && c <= '~')
-#endif
-		)) || (c < 256 && vim_isprintc_strict(c)))
+    if ((!chartab_initialized && ((c >= ' ' && c <= '~')))
+					|| (c < 256 && vim_isprintc_strict(c)))
     {
 	// printable character
 	transchar_charbuf[i] = c;
@@ -567,56 +550,26 @@ transchar_nonprint(buf_T *buf, char_u *charbuf, int c)
     if (dy_flags & DY_UHEX)		// 'display' has "uhex"
 	transchar_hex(charbuf, c);
 
-#ifdef EBCDIC
-    // For EBCDIC only the characters 0-63 and 255 are not printable
-    else if (CtrlChar(c) != 0 || c == DEL)
-#else
     else if (c <= 0x7f)			// 0x00 - 0x1f and 0x7f
-#endif
     {
 	charbuf[0] = '^';
-#ifdef EBCDIC
-	if (c == DEL)
-	    charbuf[1] = '?';		// DEL displayed as ^?
-	else
-	    charbuf[1] = CtrlChar(c);
-#else
 	charbuf[1] = c ^ 0x40;		// DEL displayed as ^?
-#endif
-
 	charbuf[2] = NUL;
     }
-    else if (enc_utf8 && c >= 0x80)
+    else if (enc_utf8)
     {
 	transchar_hex(charbuf, c);
     }
-#ifndef EBCDIC
     else if (c >= ' ' + 0x80 && c <= '~' + 0x80)    // 0xa0 - 0xfe
     {
 	charbuf[0] = '|';
 	charbuf[1] = c - 0x80;
 	charbuf[2] = NUL;
     }
-#else
-    else if (c < 64)
-    {
-	charbuf[0] = '~';
-	charbuf[1] = MetaChar(c);
-	charbuf[2] = NUL;
-    }
-#endif
     else					    // 0x80 - 0x9f and 0xff
     {
-	/*
-	 * TODO: EBCDIC I don't know what to do with this chars, so I display
-	 * them as '~?' for now
-	 */
 	charbuf[0] = '~';
-#ifdef EBCDIC
-	charbuf[1] = '?';			// 0xff displayed as ~?
-#else
 	charbuf[1] = (c - 0x80) ^ 0x40;	// 0xff displayed as ~?
-#endif
 	charbuf[2] = NUL;
     }
 }
@@ -751,7 +704,7 @@ vim_strnsize(char_u *s, int len)
 
 #ifdef FEAT_VARTABS
 # define RET_WIN_BUF_CHARTABSIZE(wp, buf, p, col) \
-    if (*(p) == TAB && (!(wp)->w_p_list || wp->w_lcs_chars.tab1)) \
+    if (*(p) == TAB && (!(wp)->w_p_list || (wp)->w_lcs_chars.tab1)) \
     { \
 	return tabstop_padding(col, (buf)->b_p_ts, (buf)->b_p_vts_array); \
     } \
@@ -1082,9 +1035,10 @@ win_lbr_chartabsize(
      * May have to add something for 'breakindent' and/or 'showbreak'
      * string at start of line.
      * Set *headp to the size of what we add.
+     * Do not use 'showbreak' at the NUL after the text.
      */
     added = 0;
-    sbr = get_showbreak_value(wp);
+    sbr = c == NUL ? empty_option : get_showbreak_value(wp);
     if ((*sbr != NUL || wp->w_p_bri) && wp->w_p_wrap && col != 0)
     {
 	colnr_T sbrlen = 0;
@@ -1344,7 +1298,7 @@ getvcol(
     if (cursor != NULL)
     {
 	if (*ptr == TAB
-		&& (State & NORMAL)
+		&& (State & MODE_NORMAL)
 		&& !wp->w_p_list
 		&& !virtual_active()
 		&& !(VIsual_active
@@ -1687,6 +1641,12 @@ vim_isupper(int c)
 	    return (latin1flags[c] & LATIN1UPPER) == LATIN1UPPER;
     }
     return isupper(c);
+}
+
+    int
+vim_isalpha(int c)
+{
+    return vim_islower(c) || vim_isupper(c);
 }
 
     int
@@ -2042,6 +2002,7 @@ vim_str2nr(
 	}
 	else
 	{
+	    // prevent a larg unsigned number to become negative
 	    if (un > VARNUM_MAX)
 		un = VARNUM_MAX;
 	    *nptr = (varnumber_T)un;
@@ -2134,59 +2095,3 @@ backslash_halve_save(char_u *p)
     backslash_halve(res);
     return res;
 }
-
-#if (defined(EBCDIC) && defined(FEAT_POSTSCRIPT)) || defined(PROTO)
-/*
- * Table for EBCDIC to ASCII conversion unashamedly taken from xxd.c!
- * The first 64 entries have been added to map control characters defined in
- * ascii.h
- */
-static char_u ebcdic2ascii_tab[256] =
-{
-    0000, 0001, 0002, 0003, 0004, 0011, 0006, 0177,
-    0010, 0011, 0012, 0013, 0014, 0015, 0016, 0017,
-    0020, 0021, 0022, 0023, 0024, 0012, 0010, 0027,
-    0030, 0031, 0032, 0033, 0033, 0035, 0036, 0037,
-    0040, 0041, 0042, 0043, 0044, 0045, 0046, 0047,
-    0050, 0051, 0052, 0053, 0054, 0055, 0056, 0057,
-    0060, 0061, 0062, 0063, 0064, 0065, 0066, 0067,
-    0070, 0071, 0072, 0073, 0074, 0075, 0076, 0077,
-    0040, 0240, 0241, 0242, 0243, 0244, 0245, 0246,
-    0247, 0250, 0325, 0056, 0074, 0050, 0053, 0174,
-    0046, 0251, 0252, 0253, 0254, 0255, 0256, 0257,
-    0260, 0261, 0041, 0044, 0052, 0051, 0073, 0176,
-    0055, 0057, 0262, 0263, 0264, 0265, 0266, 0267,
-    0270, 0271, 0313, 0054, 0045, 0137, 0076, 0077,
-    0272, 0273, 0274, 0275, 0276, 0277, 0300, 0301,
-    0302, 0140, 0072, 0043, 0100, 0047, 0075, 0042,
-    0303, 0141, 0142, 0143, 0144, 0145, 0146, 0147,
-    0150, 0151, 0304, 0305, 0306, 0307, 0310, 0311,
-    0312, 0152, 0153, 0154, 0155, 0156, 0157, 0160,
-    0161, 0162, 0136, 0314, 0315, 0316, 0317, 0320,
-    0321, 0345, 0163, 0164, 0165, 0166, 0167, 0170,
-    0171, 0172, 0322, 0323, 0324, 0133, 0326, 0327,
-    0330, 0331, 0332, 0333, 0334, 0335, 0336, 0337,
-    0340, 0341, 0342, 0343, 0344, 0135, 0346, 0347,
-    0173, 0101, 0102, 0103, 0104, 0105, 0106, 0107,
-    0110, 0111, 0350, 0351, 0352, 0353, 0354, 0355,
-    0175, 0112, 0113, 0114, 0115, 0116, 0117, 0120,
-    0121, 0122, 0356, 0357, 0360, 0361, 0362, 0363,
-    0134, 0237, 0123, 0124, 0125, 0126, 0127, 0130,
-    0131, 0132, 0364, 0365, 0366, 0367, 0370, 0371,
-    0060, 0061, 0062, 0063, 0064, 0065, 0066, 0067,
-    0070, 0071, 0372, 0373, 0374, 0375, 0376, 0377
-};
-
-/*
- * Convert a buffer worth of characters from EBCDIC to ASCII.  Only useful if
- * wanting 7-bit ASCII characters out the other end.
- */
-    void
-ebcdic2ascii(char_u *buffer, int len)
-{
-    int		i;
-
-    for (i = 0; i < len; i++)
-	buffer[i] = ebcdic2ascii_tab[buffer[i]];
-}
-#endif

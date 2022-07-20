@@ -851,7 +851,6 @@ func VerifyInternal(buf, dumpfile, extra)
   call term_sendkeys(a:buf, ":diffupdate!\<CR>")
   " trailing : for leaving the cursor on the command line
   call term_sendkeys(a:buf, ":set diffopt=internal,filler" . a:extra . "\<CR>:")
-  call TermWait(a:buf)
   call VerifyScreenDump(a:buf, a:dumpfile, {})
 endfunc
 
@@ -1055,6 +1054,32 @@ func Test_diff_with_cursorline()
   " clean up
   call StopVimInTerminal(buf)
   call delete('Xtest_diff_cursorline')
+endfunc
+
+func Test_diff_with_cursorline_number()
+  CheckScreendump
+
+  let lines =<< trim END
+      hi CursorLine ctermbg=red ctermfg=white
+      hi CursorLineNr ctermbg=white ctermfg=black cterm=underline
+      set cursorline number
+      call setline(1, ["baz", "foo", "foo", "bar"])
+      2
+      vnew
+      call setline(1, ["foo", "foo", "bar"])
+      windo diffthis
+      1wincmd w
+  END
+  call writefile(lines, 'Xtest_diff_cursorline_number')
+  let buf = RunVimInTerminal('-S Xtest_diff_cursorline_number', {})
+
+  call VerifyScreenDump(buf, 'Test_diff_with_cursorline_number_01', {})
+  call term_sendkeys(buf, ":set cursorlineopt=number\r")
+  call VerifyScreenDump(buf, 'Test_diff_with_cursorline_number_02', {})
+
+  " clean up
+  call StopVimInTerminal(buf)
+  call delete('Xtest_diff_cursorline_number')
 endfunc
 
 func Test_diff_with_cursorline_breakindent()
@@ -1462,6 +1487,52 @@ func Test_diff_binary()
   call StopVimInTerminal(buf)
   call delete('Xtest_diff_bin')
   set diffopt&vim
+endfunc
+
+" Test for using the 'zi' command to invert 'foldenable' in diff windows (test
+" for the issue fixed by patch 6.2.317)
+func Test_diff_foldinvert()
+  %bw!
+  edit Xfile1
+  new Xfile2
+  new Xfile3
+  windo diffthis
+  " open a non-diff window
+  botright new
+  1wincmd w
+  call assert_true(getwinvar(1, '&foldenable'))
+  call assert_true(getwinvar(2, '&foldenable'))
+  call assert_true(getwinvar(3, '&foldenable'))
+  normal zi
+  call assert_false(getwinvar(1, '&foldenable'))
+  call assert_false(getwinvar(2, '&foldenable'))
+  call assert_false(getwinvar(3, '&foldenable'))
+  normal zi
+  call assert_true(getwinvar(1, '&foldenable'))
+  call assert_true(getwinvar(2, '&foldenable'))
+  call assert_true(getwinvar(3, '&foldenable'))
+
+  " If the current window has 'noscrollbind', then 'zi' should not change
+  " 'foldenable' in other windows.
+  1wincmd w
+  set noscrollbind
+  normal zi
+  call assert_false(getwinvar(1, '&foldenable'))
+  call assert_true(getwinvar(2, '&foldenable'))
+  call assert_true(getwinvar(3, '&foldenable'))
+
+  " 'zi' should not change the 'foldenable' for windows with 'noscrollbind'
+  1wincmd w
+  set scrollbind
+  normal zi
+  call setwinvar(2, '&scrollbind', v:false)
+  normal zi
+  call assert_false(getwinvar(1, '&foldenable'))
+  call assert_true(getwinvar(2, '&foldenable'))
+  call assert_false(getwinvar(3, '&foldenable'))
+
+  %bw!
+  set scrollbind&
 endfunc
 
 " vim: shiftwidth=2 sts=2 expandtab

@@ -60,14 +60,14 @@ RemoteDisplayListRecorderProxy::RemoteDisplayListRecorderProxy(RemoteDisplayList
 {
 }
 
-void RemoteDisplayListRecorderProxy::getPixelBuffer(const PixelBufferFormat& outputFormat, const IntRect& sourceRect)
+void RemoteDisplayListRecorderProxy::convertToLuminanceMask()
 {
-    send(Messages::RemoteDisplayListRecorder::GetPixelBuffer(sourceRect, outputFormat));
+    send(Messages::RemoteDisplayListRecorder::ConvertToLuminanceMask());
 }
 
-void RemoteDisplayListRecorderProxy::putPixelBuffer(const PixelBuffer& pixelBuffer, const IntRect& srcRect, const IntPoint& destPoint, AlphaPremultiplication destFormat)
+void RemoteDisplayListRecorderProxy::transformToColorSpace(const WebCore::DestinationColorSpace& colorSpace)
 {
-    send(Messages::RemoteDisplayListRecorder::PutPixelBuffer(srcRect, destPoint, pixelBuffer, destFormat));
+    send(Messages::RemoteDisplayListRecorder::TransformToColorSpace(colorSpace));
 }
 
 bool RemoteDisplayListRecorderProxy::canDrawImageBuffer(const ImageBuffer& imageBuffer) const

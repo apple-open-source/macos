@@ -406,12 +406,14 @@ EXTERN type_T t_any INIT6(VAR_ANY, 0, 0, TTFLAG_STATIC, NULL, NULL);
 EXTERN type_T t_void INIT6(VAR_VOID, 0, 0, TTFLAG_STATIC, NULL, NULL);
 
 EXTERN type_T t_bool INIT6(VAR_BOOL, 0, 0, TTFLAG_STATIC, NULL, NULL);
-EXTERN type_T t_special INIT6(VAR_SPECIAL, 0, 0, TTFLAG_STATIC, NULL, NULL);
+EXTERN type_T t_null INIT6(VAR_SPECIAL, 0, 0, TTFLAG_STATIC, NULL, NULL);
+EXTERN type_T t_none INIT6(VAR_SPECIAL, 0, 0, TTFLAG_STATIC, NULL, NULL);
 EXTERN type_T t_number INIT6(VAR_NUMBER, 0, 0, TTFLAG_STATIC, NULL, NULL);
 EXTERN type_T t_number_bool INIT6(VAR_NUMBER, 0, 0, TTFLAG_STATIC|TTFLAG_BOOL_OK, NULL, NULL);
 EXTERN type_T t_float INIT6(VAR_FLOAT, 0, 0, TTFLAG_STATIC, NULL, NULL);
 EXTERN type_T t_string INIT6(VAR_STRING, 0, 0, TTFLAG_STATIC, NULL, NULL);
 EXTERN type_T t_blob INIT6(VAR_BLOB, 0, 0, TTFLAG_STATIC, NULL, NULL);
+EXTERN type_T t_blob_null INIT6(VAR_BLOB, 0, 0, TTFLAG_STATIC, &t_void, NULL);
 EXTERN type_T t_job INIT6(VAR_JOB, 0, 0, TTFLAG_STATIC, NULL, NULL);
 EXTERN type_T t_channel INIT6(VAR_CHANNEL, 0, 0, TTFLAG_STATIC, NULL, NULL);
 
@@ -709,10 +711,10 @@ EXTERN win_T	*lastwin;		// last window
 EXTERN win_T	*prevwin INIT(= NULL);	// previous window
 #define ONE_WINDOW (firstwin == lastwin)
 #define W_NEXT(wp) ((wp)->w_next)
-#define FOR_ALL_WINDOWS(wp) for (wp = firstwin; wp != NULL; wp = wp->w_next)
+#define FOR_ALL_WINDOWS(wp) for ((wp) = firstwin; (wp) != NULL; (wp) = (wp)->w_next)
 #define FOR_ALL_FRAMES(frp, first_frame) \
-    for (frp = first_frame; frp != NULL; frp = frp->fr_next)
-#define FOR_ALL_TABPAGES(tp) for (tp = first_tabpage; tp != NULL; tp = tp->tp_next)
+    for ((frp) = first_frame; (frp) != NULL; (frp) = (frp)->fr_next)
+#define FOR_ALL_TABPAGES(tp) for ((tp) = first_tabpage; (tp) != NULL; (tp) = (tp)->tp_next)
 #define FOR_ALL_WINDOWS_IN_TAB(tp, wp) \
     for ((wp) = ((tp) == NULL || (tp) == curtab) \
 	    ? firstwin : (tp)->tp_firstwin; (wp); (wp) = (wp)->w_next)
@@ -742,6 +744,9 @@ EXTERN win_T	*popup_dragwin INIT(= NULL);	// popup window being dragged
 
 // Set to TRUE if there is any visible popup window.
 EXTERN int	popup_visible INIT(= FALSE);
+
+// Set to TRUE if a visible popup window may use a MOUSE_MOVE event
+EXTERN int	popup_uses_mouse_move INIT(= FALSE);
 
 EXTERN int	text_prop_frozen INIT(= 0);
 #endif
@@ -782,7 +787,7 @@ EXTERN buf_T	*curbuf INIT(= NULL);	// currently active buffer
 
 // Iterate through all the signs placed in a buffer
 #define FOR_ALL_SIGNS_IN_BUF(buf, sign) \
-	for (sign = buf->b_signlist; sign != NULL; sign = sign->se_next)
+	for ((sign) = (buf)->b_signlist; (sign) != NULL; (sign) = (sign)->se_next)
 
 // Flag that is set when switching off 'swapfile'.  It means that all blocks
 // are to be loaded into memory.  Shouldn't be global...
@@ -849,15 +854,10 @@ EXTERN int	secure INIT(= FALSE);
 				// allowed, e.g. when sourcing .exrc or .vimrc
 				// in current directory
 
-EXTERN int	textwinlock INIT(= 0);
+EXTERN int	textlock INIT(= 0);
 				// non-zero when changing text and jumping to
 				// another window or editing another buffer is
 				// not allowed
-
-EXTERN int	textlock INIT(= 0);
-				// non-zero when changing text is not allowed,
-				// jumping to another window is allowed,
-				// editing another buffer is not allowed.
 
 EXTERN int	curbuf_lock INIT(= 0);
 				// non-zero when the current buffer can't be
@@ -883,6 +883,8 @@ EXTERN int	VIsual_active INIT(= FALSE);
 				// whether Visual mode is active
 EXTERN int	VIsual_select INIT(= FALSE);
 				// whether Select mode is active
+EXTERN int	VIsual_select_reg INIT(= 0);
+				// register name for Select mode
 EXTERN int	restart_VIsual_select INIT(= 0);
 				// restart Select mode when next cmd finished
 EXTERN int	VIsual_reselect;
@@ -938,7 +940,6 @@ EXTERN int     end_comment_pending INIT(= NUL);
  */
 EXTERN int     did_syncbind INIT(= FALSE);
 
-#ifdef FEAT_SMARTINDENT
 /*
  * This flag is set when a smart indent has been performed. When the next typed
  * character is a '{' the inserted tab will be deleted again.
@@ -956,7 +957,6 @@ EXTERN int	can_si INIT(= FALSE);
  * one indent will be removed.
  */
 EXTERN int	can_si_back INIT(= FALSE);
-#endif
 
 EXTERN int	old_indent INIT(= 0);	// for ^^D command in insert mode
 
@@ -978,7 +978,7 @@ EXTERN pos_T	Insstart;		// This is where the latest
 EXTERN pos_T	Insstart_orig;
 
 /*
- * Stuff for VREPLACE mode.
+ * Stuff for MODE_VREPLACE state.
  */
 EXTERN int	orig_line_count INIT(= 0);  // Line count when "gR" started
 EXTERN int	vr_lines_changed INIT(= 0); // #Lines changed by "gR" so far
@@ -1002,7 +1002,7 @@ EXTERN JMP_BUF x_jump_env;
 #define DBCS_CHT	950	// taiwan
 #define DBCS_CHTU	9950	// euc-tw
 #define DBCS_2BYTE	1	// 2byte-
-#define DBCS_DEBUG	-1
+#define DBCS_DEBUG	(-1)
 
 EXTERN int	enc_dbcs INIT(= 0);		// One of DBCS_xxx values if
 						// DBCS encoding
@@ -1096,14 +1096,14 @@ EXTERN guicolor_T	xim_bg_color INIT(= INVALCOLOR);
 /*
  * "State" is the main state of Vim.
  * There are other variables that modify the state:
- * "Visual_mode"    When State is NORMAL or INSERT.
- * "finish_op"	    When State is NORMAL, after typing the operator and before
- *		    typing the motion command.
+ * "Visual_mode"    When State is MODE_NORMAL or MODE_INSERT.
+ * "finish_op"	    When State is MODE_NORMAL, after typing the operator and
+ *		    before typing the motion command.
  * "motion_force"   Last motion_force  from do_pending_operator()
  * "debug_mode"	    Debug mode.
  */
-EXTERN int	State INIT(= NORMAL);	// This is the current state of the
-					// command interpreter.
+EXTERN int	State INIT(= MODE_NORMAL);
+
 #ifdef FEAT_EVAL
 EXTERN int	debug_mode INIT(= FALSE);
 #endif
@@ -1124,6 +1124,8 @@ EXTERN int ex_no_reprint INIT(= FALSE); // no need to print after z or p
 
 EXTERN int reg_recording INIT(= 0);	// register for recording  or zero
 EXTERN int reg_executing INIT(= 0);	// register being executed or zero
+// Flag set when peeking a character and found the end of executed register
+EXTERN int pending_end_reg_executing INIT(= 0);
 
 // Set when a modifyOtherKeys sequence was seen, then simplified mappings will
 // no longer be used.
@@ -1162,6 +1164,7 @@ EXTERN int	mapped_ctrl_c INIT(= FALSE); // modes where CTRL-C is mapped
 EXTERN int	ctrl_c_interrupts INIT(= TRUE);	// CTRL-C sets got_int
 
 EXTERN cmdmod_T	cmdmod;			// Ex command modifiers
+EXTERN int	sticky_cmdmod_flags INIT(= 0); // used by :execute
 
 #ifdef FEAT_EVAL
 EXTERN int	is_export INIT(= FALSE);    // :export {cmd}
@@ -1651,6 +1654,7 @@ EXTERN int  nfa_fail_for_testing INIT(= FALSE);
 EXTERN int  no_query_mouse_for_testing INIT(= FALSE);
 EXTERN int  ui_delay_for_testing INIT(= 0);
 EXTERN int  reset_term_props_on_termresponse INIT(= FALSE);
+EXTERN int  disable_vterm_title_for_testing INIT(= FALSE);
 EXTERN long override_sysinfo_uptime INIT(= -1);
 EXTERN int  override_autoload INIT(= FALSE);
 

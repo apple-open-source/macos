@@ -1458,17 +1458,17 @@ void Element::setScrollLeft(int newLeft)
     options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
 
     if (document().scrollingElement() == this) {
-        if (auto* frame = documentFrameWithNonNullView()) {
+        if (RefPtr frame = documentFrameWithNonNullView()) {
             IntPoint position(static_cast<int>(newLeft * frame->pageZoomFactor() * frame->frameScaleFactor()), frame->view()->scrollY());
             frame->view()->setScrollPosition(position, options);
         }
         return;
     }
 
-    if (auto* renderer = renderBox()) {
+    if (WeakPtr renderer = renderBox()) {
         int clampedLeft = clampToInteger(newLeft * renderer->style().effectiveZoom());
         renderer->setScrollLeft(clampedLeft, options);
-        if (auto* scrollableArea = renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
+        if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
             scrollableArea->setScrollShouldClearLatchedState(true);
     }
 }
@@ -1481,17 +1481,17 @@ void Element::setScrollTop(int newTop)
     options.animated = useSmoothScrolling(ScrollBehavior::Auto, this) ? ScrollIsAnimated::Yes : ScrollIsAnimated::No;
 
     if (document().scrollingElement() == this) {
-        if (auto* frame = documentFrameWithNonNullView()) {
+        if (RefPtr frame = documentFrameWithNonNullView()) {
             IntPoint position(frame->view()->scrollX(), static_cast<int>(newTop * frame->pageZoomFactor() * frame->frameScaleFactor()));
             frame->view()->setScrollPosition(position, options);
         }
         return;
     }
 
-    if (auto* renderer = renderBox()) {
+    if (WeakPtr renderer = renderBox()) {
         int clampedTop = clampToInteger(newTop * renderer->style().effectiveZoom());
         renderer->setScrollTop(clampedTop, options);
-        if (auto* scrollableArea = renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
+        if (auto* scrollableArea = renderer && renderer->layer() ? renderer->layer()->scrollableArea() : nullptr)
             scrollableArea->setScrollShouldClearLatchedState(true);
     }
 }
@@ -2159,7 +2159,7 @@ bool Element::isEventHandlerAttribute(const Attribute& attribute) const
     return attribute.name().namespaceURI().isNull() && attribute.name().localName().startsWith("on");
 }
 
-bool Element::isJavaScriptURLAttribute(const Attribute& attribute) const
+bool Element::attributeContainsJavaScriptURL(const Attribute& attribute) const
 {
     return isURLAttribute(attribute) && WTF::protocolIsJavaScript(stripLeadingAndTrailingHTMLSpaces(attribute.value()));
 }
@@ -2168,7 +2168,7 @@ void Element::stripScriptingAttributes(Vector<Attribute>& attributeVector) const
 {
     attributeVector.removeAllMatching([this](auto& attribute) -> bool {
         return this->isEventHandlerAttribute(attribute)
-            || this->isJavaScriptURLAttribute(attribute)
+            || this->attributeContainsJavaScriptURL(attribute)
             || this->isHTMLContentAttribute(attribute);
     });
 }

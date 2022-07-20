@@ -44,17 +44,20 @@ public:
         return QueueMap::isValidKey(std::make_pair(static_cast<uint8_t>(message.messageReceiverName()), message.destinationID()));
     }
 
-    // Adds a wildcard filter if destinationID == 0.
-    void add(MessageReceiveQueue& queue, ReceiverName receiverName, uint64_t destinationID) {  addImpl(StoreType(&queue), receiverName, destinationID); }
-    void add(std::unique_ptr<MessageReceiveQueue>&& queue, ReceiverName receiverName, uint64_t destinationID) { addImpl(StoreType(WTFMove(queue)), receiverName, destinationID); }
-    void remove(ReceiverName, uint64_t destinationID);
+    void add(MessageReceiveQueue& queue, const ReceiverMatcher& matcher) { addImpl(StoreType(&queue), matcher); }
+    void add(std::unique_ptr<MessageReceiveQueue>&& queue, const ReceiverMatcher& matcher) { addImpl(StoreType(WTFMove(queue)), matcher); }
+    void remove(const ReceiverMatcher&);
 
     MessageReceiveQueue* get(const Decoder&) const;
 private:
     using StoreType = std::variant<MessageReceiveQueue*, std::unique_ptr<MessageReceiveQueue>>;
-    void addImpl(StoreType&&, ReceiverName, uint64_t destinationID);
+    void addImpl(StoreType&&, const ReceiverMatcher&);
     using QueueMap = HashMap<std::pair<uint8_t, uint64_t>, StoreType>;
+    // Key is ReceiverName. FIXME: make it possible to use ReceiverName.
+    using AnyIDQueueMap = HashMap<uint8_t, StoreType>;
     QueueMap m_queues;
+    AnyIDQueueMap m_anyIDQueues;
+    std::optional<StoreType> m_anyReceiverQueue;
 };
 
 } // namespace IPC

@@ -253,6 +253,11 @@ smb_dup_sockaddr(struct sockaddr *sa, int canwait)
 {
 	struct sockaddr *sa2;
 
+    if (sa->sa_len > sizeof(struct sockaddr_nb)) {
+        SMBERROR("invalid sa_len %d\n", sa->sa_len);
+        return NULL;
+    }
+
 	SMB_MALLOC(sa2, struct sockaddr *, sizeof(struct sockaddr_nb), M_SONAME,
 	       canwait ? M_WAITOK : M_NOWAIT);
 	if (sa2)
@@ -573,6 +578,7 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     sessionp->session_smb3_signing_key_len = 0;
     sessionp->session_smb3_encrypt_key_len = 0;
     sessionp->session_smb3_decrypt_key_len = 0;
+    uuid_generate(sessionp->uuid);
     
     /*
      * <72239144> Save the original IP address that we connected to so we can
@@ -779,6 +785,29 @@ static int smb_session_create(struct smbioc_negotiate *session_spec,
     smb_sm_unlock_session_list();
 
     return 0;
+}
+
+static struct smb_session*
+smb_session_find(uint8_t *uuid)
+{
+    struct smb_session *sessionp, *tsessionp;
+    // static variables are automatically initialized to zero
+    static const uint8_t zero_array[sizeof(sessionp->uuid)];
+
+    if (uuid == NULL) {
+        return NULL;
+    }
+    
+    if (memcmp(zero_array, uuid, sizeof(zero_array)) == 0) {
+        return NULL;
+    }
+    
+    SMBCO_FOREACH_SAFE(sessionp, &smb_session_list, tsessionp) {
+        if (memcmp(sessionp->uuid, uuid, sizeof(sessionp->uuid)) == 0) {
+            return sessionp;
+        }
+    }
+    return NULL;
 }
 
 /*
@@ -1148,10 +1177,17 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 		return EINVAL;
 	}
 	
+    if (saddr->sa_len != session_spec->ioc_saddr_len) {
+        SMBERROR("invalid parameter ioc_saddr->sa_len (%u) != ioc_saddr_len (%lu)",
+        saddr->sa_len, sizeof(*saddr));
+        SMB_FREE(saddr, M_SMBDATA);
+        return EINVAL;
+    }
+    
 	*sessionpp = sessionp = NULL;
 
-    if ((searchOnly) && (session_spec->ioc_sessionp != NULL)) {
-        sessionp = session_spec->ioc_sessionp;
+    if (searchOnly) {
+        sessionp = smb_session_find(session_spec->ioc_session_uuid);
     }
 
 	if (session_spec->ioc_extra_flags & SMB_FORCE_NEW_SESSION) {
@@ -1192,7 +1228,14 @@ int smb_sm_negotiate(struct smbioc_negotiate *session_spec,
 				saddr = NULL;
 				return ENOMEM;
 			}
-		}
+            if (laddr->sa_len != session_spec->ioc_laddr_len) {
+                SMBERROR("invalid parameter ioc_laddr->sa_len (%u) != ioc_laddr_len (%lu)",
+                laddr->sa_len, sizeof(*laddr));
+                SMB_FREE(saddr, M_SMBDATA);
+                SMB_FREE(laddr, M_SMBDATA);
+                return EINVAL;
+            }
+        }
 		/* If smb_session_create fails it will clean up saddr and laddr */
 #ifdef SMB_DEBUG
         char str[128];

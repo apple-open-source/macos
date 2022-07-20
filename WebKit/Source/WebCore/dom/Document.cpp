@@ -4671,7 +4671,8 @@ bool Document::setFocusedElement(Element* element, const FocusOptions& options)
         m_focusedElement = newFocusedElement;
         setFocusNavigationStartingNode(m_focusedElement.get());
         m_focusedElement->setFocus(true, options.visibility);
-        m_latestFocusTrigger = options.trigger;
+        if (options.trigger != FocusTrigger::Bindings)
+            m_latestFocusTrigger = options.trigger;
 
         // The setFocus call triggers a blur and a focus event. Event handlers could cause the focused element to be cleared.
         if (m_focusedElement != newFocusedElement) {
@@ -6487,6 +6488,9 @@ std::optional<RenderingContext> Document::getCSSCanvasContext(const String& type
     if (is<WebGL2RenderingContext>(*context))
         return RenderingContext { RefPtr<WebGL2RenderingContext> { &downcast<WebGL2RenderingContext>(*context) } };
 #endif
+
+    if (is<ImageBitmapRenderingContext>(*context))
+        return RenderingContext { RefPtr<ImageBitmapRenderingContext> { &downcast<ImageBitmapRenderingContext>(*context) } };
 
     return RenderingContext { RefPtr<CanvasRenderingContext2D> { &downcast<CanvasRenderingContext2D>(*context) } };
 }

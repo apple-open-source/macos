@@ -331,9 +331,9 @@ undo_allowed(void)
 
     // Don't allow changes in the buffer while editing the cmdline.  The
     // caller of getcmdline() may get confused.
-    if (textwinlock != 0 || textlock != 0)
+    if (textlock != 0)
     {
-	emsg(_(e_not_allowed_to_change_text_here));
+	emsg(_(e_not_allowed_to_change_text_or_change_window));
 	return FALSE;
     }
 
@@ -1142,7 +1142,7 @@ undo_read(bufinfo_T *bi, char_u *buffer, size_t size)
     }
     else
 #endif
-    if (fread(buffer, (size_t)size, 1, bi->bi_fp) != 1)
+    if (fread(buffer, size, 1, bi->bi_fp) != 1)
 	retval = FAIL;
 
     if (retval == FAIL)
@@ -2327,6 +2327,12 @@ undo_time(
     int		    above = FALSE;
     int		    did_undo = TRUE;
 
+    if (text_locked())
+    {
+	text_locked_msg();
+	return;
+    }
+
     // First make sure the current undoable change is synced.
     if (curbuf->b_u_synced == FALSE)
 	u_sync(TRUE);
@@ -2828,12 +2834,13 @@ u_undoredo(int undo)
 	    if (curbuf->b_op_end.lnum > top + oldsize)
 		curbuf->b_op_end.lnum += newsize - oldsize;
 	}
+	if (oldsize > 0 || newsize > 0)
+	    changed_lines(top + 1, 0, bot, newsize - oldsize);
 
-	changed_lines(top + 1, 0, bot, newsize - oldsize);
-
-	// set '[ and '] mark
+	// Set the '[ mark.
 	if (top + 1 < curbuf->b_op_start.lnum)
 	    curbuf->b_op_start.lnum = top + 1;
+	// Set the '] mark.
 	if (newsize == 0 && top + 1 > curbuf->b_op_end.lnum)
 	    curbuf->b_op_end.lnum = top + 1;
 	else if (top + newsize > curbuf->b_op_end.lnum)
@@ -2852,6 +2859,12 @@ u_undoredo(int undo)
 	uep->ue_next = newlist;
 	newlist = uep;
     }
+
+    // Ensure the '[ and '] marks are within bounds.
+    if (curbuf->b_op_start.lnum > curbuf->b_ml.ml_line_count)
+	 curbuf->b_op_start.lnum = curbuf->b_ml.ml_line_count;
+    if (curbuf->b_op_end.lnum > curbuf->b_ml.ml_line_count)
+	 curbuf->b_op_end.lnum = curbuf->b_ml.ml_line_count;
 
     // Set the cursor to the desired position.  Check that the line is valid.
     curwin->w_cursor = new_curpos;
@@ -3029,6 +3042,8 @@ u_undo_end(
 	}
     }
 #endif
+    if (VIsual_active)
+	check_pos(curbuf, &VIsual);
 
     smsg_attr_keep(0, _("%ld %s; %s #%ld  %s"),
 	    u_oldcount < 0 ? -u_oldcount : u_oldcount,
@@ -3695,7 +3710,7 @@ u_undofile_reset_and_delete(buf_T *buf)
 	vim_free(file_name);
     }
 
-    set_option_value((char_u *)"undofile", 0L, NULL, OPT_LOCAL);
+    set_option_value_give_err((char_u *)"undofile", 0L, NULL, OPT_LOCAL);
 }
  #endif
 
@@ -3712,10 +3727,10 @@ f_undotree(typval_T *argvars UNUSED, typval_T *rettv)
 
 	dict_add_number(dict, "synced", (long)curbuf->b_u_synced);
 	dict_add_number(dict, "seq_last", curbuf->b_u_seq_last);
-	dict_add_number(dict, "save_last", (long)curbuf->b_u_save_nr_last);
+	dict_add_number(dict, "save_last", curbuf->b_u_save_nr_last);
 	dict_add_number(dict, "seq_cur", curbuf->b_u_seq_cur);
 	dict_add_number(dict, "time_cur", (long)curbuf->b_u_time_cur);
-	dict_add_number(dict, "save_cur", (long)curbuf->b_u_save_nr_cur);
+	dict_add_number(dict, "save_cur", curbuf->b_u_save_nr_cur);
 
 	list = list_alloc();
 	if (list != NULL)

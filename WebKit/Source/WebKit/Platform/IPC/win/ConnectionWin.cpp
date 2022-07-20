@@ -140,7 +140,7 @@ void Connection::readEventHandler()
 
         if (!m_readBuffer.isEmpty()) {
             // We have a message, let's dispatch it.
-            auto decoder = Decoder::create(m_readBuffer.data(), m_readBuffer.size(), nullptr, { });
+            auto decoder = Decoder::create(m_readBuffer.data(), m_readBuffer.size(), { });
             ASSERT(decoder);
             if (!decoder)
                 return;
@@ -358,6 +358,16 @@ void Connection::EventListener::close()
     m_state.hEvent = 0;
 
     m_handler = Function<void()>();
+}
+
+std::optional<Connection::ConnectionIdentifierPair> Connection::createConnectionIdentifierPair()
+{
+    Connection::Identifier serverIdentifier, clientIdentifier;
+    if (!Connection::createServerAndClientIdentifiers(serverIdentifier, clientIdentifier)) {
+        LOG_ERROR("Failed to create server and client identifiers");
+        return std::nullopt;
+    }
+    return ConnectionIdentifierPair { serverIdentifier, Attachment { clientIdentifier } };
 }
 
 } // namespace IPC

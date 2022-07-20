@@ -159,10 +159,8 @@ op_shift(oparg_T *oap, int curs_top, int amount)
 	else
 	    // Move the line right if it doesn't start with '#', 'smartindent'
 	    // isn't set or 'cindent' isn't set or '#' isn't in 'cino'.
-#if defined(FEAT_SMARTINDENT) || defined(FEAT_CINDENT)
 	    if (first_char != '#' || !preprocs_left())
-#endif
-	    shift_line(oap->op_type == OP_LSHIFT, p_sr, amount, FALSE);
+		shift_line(oap->op_type == OP_LSHIFT, p_sr, amount, FALSE);
 	++curwin->w_cursor.lnum;
     }
 
@@ -286,15 +284,16 @@ shift_block(oparg_T *oap, int amount)
     struct block_def	bd;
     int			incr;
     colnr_T		ws_vcol;
-    int			i = 0, j = 0;
-    int			len;
+    int			added;
+    unsigned		new_line_len;	// the length of the line after the
+					// block shift
 #ifdef FEAT_RIGHTLEFT
     int			old_p_ri = p_ri;
 
     p_ri = 0;			// don't want revins in indent
 #endif
 
-    State = INSERT;		// don't want REPLACE for State
+    State = MODE_INSERT;	// don't want MODE_REPLACE for State
     block_prep(oap, &bd, curwin->w_cursor.lnum, TRUE);
     if (bd.is_short)
 	return;
@@ -308,6 +307,8 @@ shift_block(oparg_T *oap, int amount)
 
     if (!left)
     {
+	int	tabs = 0, spaces = 0;
+
 	/*
 	 *  1. Get start vcol
 	 *  2. Total ws vcols
@@ -334,8 +335,7 @@ shift_block(oparg_T *oap, int amount)
 	for ( ; VIM_ISWHITE(*bd.textstart); )
 	{
 	    // TODO: is passing bd.textstart for start of the line OK?
-	    incr = lbr_chartabsize_adv(bd.textstart, &bd.textstart,
-						    (colnr_T)(bd.start_vcol));
+	    incr = lbr_chartabsize_adv(bd.textstart, &bd.textstart, bd.start_vcol);
 	    total += incr;
 	    bd.start_vcol += incr;
 	}
@@ -344,29 +344,29 @@ shift_block(oparg_T *oap, int amount)
 #ifdef FEAT_VARTABS
 	if (!curbuf->b_p_et)
 	    tabstop_fromto(ws_vcol, ws_vcol + total,
-					ts_val, curbuf->b_p_vts_array, &i, &j);
+				ts_val, curbuf->b_p_vts_array, &tabs, &spaces);
 	else
-	    j = total;
+	    spaces = total;
 #else
 	if (!curbuf->b_p_et)
-	    i = ((ws_vcol % ts_val) + total) / ts_val; // number of tabs
-	if (i)
-	    j = ((ws_vcol % ts_val) + total) % ts_val; // number of spp
+	    tabs = ((ws_vcol % ts_val) + total) / ts_val; // number of tabs
+	if (tabs > 0)
+	    spaces = ((ws_vcol % ts_val) + total) % ts_val; // number of spp
 	else
-	    j = total;
+	    spaces = total;
 #endif
 	// if we're splitting a TAB, allow for it
 	bd.textcol -= bd.pre_whitesp_c - (bd.startspaces != 0);
-	len = (int)STRLEN(bd.textstart) + 1;
-	newp = alloc(bd.textcol + i + j + len);
+
+	new_line_len = bd.textcol + tabs + spaces + (int)STRLEN(bd.textstart);
+	newp = alloc(new_line_len + 1);
 	if (newp == NULL)
 	    return;
-	vim_memset(newp, NUL, (size_t)(bd.textcol + i + j + len));
 	mch_memmove(newp, oldp, (size_t)bd.textcol);
-	vim_memset(newp + bd.textcol, TAB, (size_t)i);
-	vim_memset(newp + bd.textcol + i, ' ', (size_t)j);
-	// the end
-	mch_memmove(newp + bd.textcol + i + j, bd.textstart, (size_t)len);
+	vim_memset(newp + bd.textcol, TAB, (size_t)tabs);
+	vim_memset(newp + bd.textcol + tabs, ' ', (size_t)spaces);
+	// Note that STRMOVE() copies the trailing NUL.
+	STRMOVE(newp + bd.textcol + tabs + spaces, bd.textstart);
     }
     else // left
     {
@@ -377,8 +377,6 @@ shift_block(oparg_T *oap, int amount)
 	colnr_T	    verbatim_copy_width;// the (displayed) width of this part
 					// of line
 	unsigned    fill;		// nr of spaces that replace a TAB
-	unsigned    new_line_len;	// the length of the line after the
-					// block shift
 	size_t	    block_space_width;
 	size_t	    shift_amount;
 	char_u	    *non_white = bd.textstart;
@@ -449,18 +447,20 @@ shift_block(oparg_T *oap, int amount)
 	// - the rest of the line, pointed to by non_white.
 	new_line_len = (unsigned)(verbatim_copy_end - oldp)
 		       + fill
-		       + (unsigned)STRLEN(non_white) + 1;
+		       + (unsigned)STRLEN(non_white);
 
-	newp = alloc(new_line_len);
+	newp = alloc(new_line_len + 1);
 	if (newp == NULL)
 	    return;
 	mch_memmove(newp, oldp, (size_t)(verbatim_copy_end - oldp));
 	vim_memset(newp + (verbatim_copy_end - oldp), ' ', (size_t)fill);
+	// Note that STRMOVE() copies the trailing NUL.
 	STRMOVE(newp + (verbatim_copy_end - oldp) + fill, non_white);
     }
     // replace the line
+    added = new_line_len - (int)STRLEN(oldp);
     ml_replace(curwin->w_cursor.lnum, newp, FALSE);
-    changed_bytes(curwin->w_cursor.lnum, (colnr_T)bd.textcol);
+    inserted_bytes(curwin->w_cursor.lnum, bd.textcol, added);
     State = oldstate;
     curwin->w_cursor.col = oldcol;
 #ifdef FEAT_RIGHTLEFT
@@ -489,7 +489,7 @@ block_insert(
     linenr_T	lnum;		// loop var
     int		oldstate = State;
 
-    State = INSERT;		// don't want REPLACE for State
+    State = MODE_INSERT;	// don't want MODE_REPLACE for State
     s_len = (unsigned)STRLEN(s);
 
     for (lnum = oap->start.lnum + 1; lnum <= oap->end.lnum; lnum++)
@@ -529,31 +529,21 @@ block_insert(
 	}
 
 	if (has_mbyte && spaces > 0)
-	{
-	    int off;
+	    // avoid copying part of a multi-byte character
+	    offset -= (*mb_head_off)(oldp, oldp + offset);
 
-	    // Avoid starting halfway a multi-byte character.
-	    if (b_insert)
-	    {
-		off = (*mb_head_off)(oldp, oldp + offset + spaces);
-	    }
-	    else
-	    {
-		off = (*mb_off_next)(oldp, oldp + offset);
-		offset += off;
-	    }
-	    spaces -= off;
-	    count -= off;
-	}
 	if (spaces < 0)  // can happen when the cursor was moved
 	    spaces = 0;
 
-	newp = alloc(STRLEN(oldp) + s_len + count + 1);
+	// Make sure the allocated size matches what is actually copied below.
+	newp = alloc(STRLEN(oldp) + spaces + s_len
+		    + (spaces > 0 && !bdp->is_short ? ts_val - spaces : 0)
+								  + count + 1);
 	if (newp == NULL)
 	    continue;
 
 	// copy up to shifted part
-	mch_memmove(newp, oldp, (size_t)(offset));
+	mch_memmove(newp, oldp, (size_t)offset);
 	oldp += offset;
 
 	// insert pre-padding
@@ -564,14 +554,21 @@ block_insert(
 	mch_memmove(newp + startcol, s, (size_t)s_len);
 	offset += s_len;
 
-	if (spaces && !bdp->is_short)
+	if (spaces > 0 && !bdp->is_short)
 	{
-	    // insert post-padding
-	    vim_memset(newp + offset + spaces, ' ', (size_t)(ts_val - spaces));
-	    // We're splitting a TAB, don't copy it.
-	    oldp++;
-	    // We allowed for that TAB, remember this now
-	    count++;
+	    if (*oldp == TAB)
+	    {
+		// insert post-padding
+		vim_memset(newp + offset + spaces, ' ',
+						    (size_t)(ts_val - spaces));
+		// we're splitting a TAB, don't copy it
+		oldp++;
+		// We allowed for that TAB, remember this now
+		count++;
+	    }
+	    else
+		// Not a TAB, no extra spaces
+		count = spaces;
 	}
 
 	if (spaces > 0)
@@ -627,6 +624,10 @@ op_delete(oparg_T *oap)
 	emsg(_(e_cannot_make_changes_modifiable_is_off));
 	return FAIL;
     }
+
+    if (VIsual_select && oap->is_VIsual)
+	// use register given with CTRL_R, defaults to zero
+	oap->regname = VIsual_select_reg;
 
 #ifdef FEAT_CLIPBOARD
     adjust_clip_reg(&oap->regname);
@@ -992,7 +993,7 @@ replace_character(int c)
 {
     int n = State;
 
-    State = REPLACE;
+    State = MODE_REPLACE;
     ins_char(c);
     State = n;
     // Backup to the replaced character.
@@ -1209,9 +1210,9 @@ op_replace(oparg_T *oap, int c)
 		curwin->w_cursor.col -= (virtcols + 1);
 		for (; virtcols >= 0; virtcols--)
 		{
-                   if ((*mb_char2len)(c) > 1)
+		    if ((*mb_char2len)(c) > 1)
 		       replace_character(c);
-                   else
+		    else
 			PBYTE(curwin->w_cursor, c);
 		   if (inc(&curwin->w_cursor) == -1)
 		       break;
@@ -1311,7 +1312,7 @@ op_tilde(oparg_T *oap)
 	    changed_lines(oap->start.lnum, oap->start.col, oap->end.lnum + 1,
 									  0L);
 #ifdef FEAT_NETBEANS_INTG
-	    if (netbeans_active() && did_change)
+	    if (netbeans_active())
 	    {
 		char_u *ptr;
 		int count;
@@ -1587,35 +1588,26 @@ op_insert(oparg_T *oap, long count1)
 	    int t = getviscol2(curbuf->b_op_start_orig.col,
 					       curbuf->b_op_start_orig.coladd);
 
-	    if (!bd.is_MAX)
+	    if (oap->op_type == OP_INSERT
+		    && oap->start.col + oap->start.coladd
+			    != curbuf->b_op_start_orig.col
+					      + curbuf->b_op_start_orig.coladd)
 	    {
-		if (oap->op_type == OP_INSERT
-			&& oap->start.col + oap->start.coladd
-				!= curbuf->b_op_start_orig.col
-					      + curbuf->b_op_start_orig.coladd)
-		{
-		    oap->start.col = curbuf->b_op_start_orig.col;
-		    pre_textlen -= t - oap->start_vcol;
-		    oap->start_vcol = t;
-		}
-		else if (oap->op_type == OP_APPEND
-			&& oap->end.col + oap->end.coladd
-				>= curbuf->b_op_start_orig.col
-					      + curbuf->b_op_start_orig.coladd)
-		{
-		    oap->start.col = curbuf->b_op_start_orig.col;
-		    // reset pre_textlen to the value of OP_INSERT
-		    pre_textlen += bd.textlen;
-		    pre_textlen -= t - oap->start_vcol;
-		    oap->start_vcol = t;
-		    oap->op_type = OP_INSERT;
-		}
+		oap->start.col = curbuf->b_op_start_orig.col;
+		pre_textlen -= t - oap->start_vcol;
+		oap->start_vcol = t;
 	    }
-	    else if (bd.is_MAX && oap->op_type == OP_APPEND)
+	    else if (oap->op_type == OP_APPEND
+		    && oap->start.col + oap->start.coladd
+			    >= curbuf->b_op_start_orig.col
+					      + curbuf->b_op_start_orig.coladd)
 	    {
+		oap->start.col = curbuf->b_op_start_orig.col;
 		// reset pre_textlen to the value of OP_INSERT
 		pre_textlen += bd.textlen;
 		pre_textlen -= t - oap->start_vcol;
+		oap->start_vcol = t;
+		oap->op_type = OP_INSERT;
 	    }
 	}
 
@@ -1724,14 +1716,7 @@ op_change(oparg_T *oap)
     if (oap->motion_type == MLINE)
     {
 	l = 0;
-#ifdef FEAT_SMARTINDENT
-	if (!p_paste && curbuf->b_p_si
-# ifdef FEAT_CINDENT
-		&& !curbuf->b_p_cin
-# endif
-		)
-	    can_si = TRUE;	// It's like opening a new line, do si
-#endif
+	can_si = may_do_si();	// Like opening a new line, do smart indent
     }
 
     // First delete the text in the region.  In an empty buffer only need to
@@ -1762,10 +1747,8 @@ op_change(oparg_T *oap)
 	bd.textcol = curwin->w_cursor.col;
     }
 
-#if defined(FEAT_LISP) || defined(FEAT_CINDENT)
     if (oap->motion_type == MLINE)
 	fix_indent();
-#endif
 
     retval = edit(NUL, FALSE, (linenr_T)1);
 
@@ -1826,6 +1809,12 @@ op_change(oparg_T *oap)
 			oldp += bd.textcol;
 			STRMOVE(newp + offset, oldp);
 			ml_replace(linenr, newp, FALSE);
+#ifdef FEAT_PROP_POPUP
+			// Shift the properties for linenr as edit() would do.
+			if (curbuf->b_has_textprop)
+			    adjust_prop_columns(linenr, bd.textcol,
+						     vpos.coladd + ins_len, 0);
+#endif
 		    }
 		}
 		check_cursor();
@@ -1852,7 +1841,7 @@ adjust_cursor_eol(void)
     if (curwin->w_cursor.col > 0
 	    && gchar_cursor() == NUL
 	    && (cur_ve_flags & VE_ONEMORE) == 0
-	    && !(restart_edit || (State & INSERT)))
+	    && !(restart_edit || (State & MODE_INSERT)))
     {
 	// Put the cursor on the last character in the line.
 	dec_cursor();
@@ -2133,7 +2122,7 @@ do_join(
 	// what is added if it is inside these spaces.
 	spaces_removed = (curr - curr_start) - spaces[t];
 
-	mark_col_adjust(curwin->w_cursor.lnum + t, (colnr_T)0, (linenr_T)-t,
+	mark_col_adjust(curwin->w_cursor.lnum + t, (colnr_T)0, -t,
 			 (long)(cend - newp - spaces_removed), spaces_removed);
 #ifdef FEAT_PROP_POPUP
 	prepend_joined_props(newp + sumsize + 1, propcount, &props_remaining,
@@ -2243,7 +2232,7 @@ block_prep(
     while (bdp->start_vcol < oap->start_vcol && *pstart)
     {
 	// Count a tab for what it's worth (if list mode not on)
-	incr = lbr_chartabsize(line, pstart, (colnr_T)bdp->start_vcol);
+	incr = lbr_chartabsize(line, pstart, bdp->start_vcol);
 	bdp->start_vcol += incr;
 	if (VIM_ISWHITE(*pstart))
 	{
@@ -2306,7 +2295,7 @@ block_prep(
 	    {
 		// Count a tab for what it's worth (if list mode not on)
 		prev_pend = pend;
-		incr = lbr_chartabsize_adv(line, &pend, (colnr_T)bdp->end_vcol);
+		incr = lbr_chartabsize_adv(line, &pend, bdp->end_vcol);
 		bdp->end_vcol += incr;
 	    }
 	    if (bdp->end_vcol <= oap->end_vcol
@@ -2675,11 +2664,7 @@ do_addsub(
 		    firstdigit = 'a';
 	    }
 	    else
-#ifdef EBCDIC
-		firstdigit = EBCDIC_CHAR_ADD(firstdigit, -Prenum1);
-#else
 		firstdigit -= Prenum1;
-#endif
 	}
 	else
 	{
@@ -2691,11 +2676,7 @@ do_addsub(
 		    firstdigit = 'z';
 	    }
 	    else
-#ifdef EBCDIC
-		firstdigit = EBCDIC_CHAR_ADD(firstdigit, Prenum1);
-#else
 		firstdigit += Prenum1;
-#endif
 	}
 	curwin->w_cursor.col = col;
 	if (!did_change)
@@ -2866,13 +2847,13 @@ do_addsub(
 	    buf2[i] = '\0';
 	}
 	else if (pre == 0)
-	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llu", (uvarnumber_T)n);
+	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llu", n);
 	else if (pre == '0')
-	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llo", (uvarnumber_T)n);
+	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llo", n);
 	else if (pre && hexupper)
-	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llX", (uvarnumber_T)n);
+	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llX", n);
 	else
-	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llx", (uvarnumber_T)n);
+	    vim_snprintf((char *)buf2, NUMBUFLEN, "%llx", n);
 	length -= (int)STRLEN(buf2);
 
 	/*
@@ -3191,21 +3172,21 @@ cursor_pos_info(dict_T *dict)
 			    _("Selected %s%ld of %ld Lines; %lld of %lld Words; %lld of %lld Bytes"),
 			    buf1, line_count_selected,
 			    (long)curbuf->b_ml.ml_line_count,
-			    (varnumber_T)word_count_cursor,
-			    (varnumber_T)word_count,
-			    (varnumber_T)byte_count_cursor,
-			    (varnumber_T)byte_count);
+			    word_count_cursor,
+			    word_count,
+			    byte_count_cursor,
+			    byte_count);
 		else
 		    vim_snprintf((char *)IObuff, IOSIZE,
 			    _("Selected %s%ld of %ld Lines; %lld of %lld Words; %lld of %lld Chars; %lld of %lld Bytes"),
 			    buf1, line_count_selected,
 			    (long)curbuf->b_ml.ml_line_count,
-			    (varnumber_T)word_count_cursor,
-			    (varnumber_T)word_count,
-			    (varnumber_T)char_count_cursor,
-			    (varnumber_T)char_count,
-			    (varnumber_T)byte_count_cursor,
-			    (varnumber_T)byte_count);
+			    word_count_cursor,
+			    word_count,
+			    char_count_cursor,
+			    char_count,
+			    byte_count_cursor,
+			    byte_count);
 	    }
 	    else
 	    {
@@ -3223,17 +3204,17 @@ cursor_pos_info(dict_T *dict)
 			(char *)buf1, (char *)buf2,
 			(long)curwin->w_cursor.lnum,
 			(long)curbuf->b_ml.ml_line_count,
-			(varnumber_T)word_count_cursor, (varnumber_T)word_count,
-			(varnumber_T)byte_count_cursor, (varnumber_T)byte_count);
+			word_count_cursor, word_count,
+			byte_count_cursor, byte_count);
 		else
 		    vim_snprintf((char *)IObuff, IOSIZE,
 			_("Col %s of %s; Line %ld of %ld; Word %lld of %lld; Char %lld of %lld; Byte %lld of %lld"),
 			(char *)buf1, (char *)buf2,
 			(long)curwin->w_cursor.lnum,
 			(long)curbuf->b_ml.ml_line_count,
-			(varnumber_T)word_count_cursor, (varnumber_T)word_count,
-			(varnumber_T)char_count_cursor, (varnumber_T)char_count,
-			(varnumber_T)byte_count_cursor, (varnumber_T)byte_count);
+			word_count_cursor, word_count,
+			char_count_cursor, char_count,
+			byte_count_cursor, byte_count);
 	    }
 	}
 
@@ -3243,7 +3224,7 @@ cursor_pos_info(dict_T *dict)
 	    size_t len = STRLEN(IObuff);
 
 	    vim_snprintf((char *)IObuff + len, IOSIZE - len,
-				 _("(+%lld for BOM)"), (varnumber_T)bom_count);
+				 _("(+%lld for BOM)"), bom_count);
 	}
 	if (dict == NULL)
 	{
@@ -3306,11 +3287,9 @@ op_colon(oparg_T *oap)
 	stuffReadbuff((char_u *)"!");
     if (oap->op_type == OP_INDENT)
     {
-#ifndef FEAT_CINDENT
 	if (*get_equalprg() == NUL)
 	    stuffReadbuff((char_u *)"indent");
 	else
-#endif
 	    stuffReadbuff(get_equalprg());
 	stuffReadbuff((char_u *)"\n");
     }
@@ -3676,9 +3655,9 @@ do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
 		curbuf->b_visual.vi_mode = VIsual_mode;
 		restore_visual_mode();
 		curbuf->b_visual.vi_curswant = curwin->w_curswant;
-# ifdef FEAT_EVAL
+#ifdef FEAT_EVAL
 		curbuf->b_visual_mode_eval = VIsual_mode;
-# endif
+#endif
 	    }
 
 	    // In Select mode, a linewise selection is operated upon like a
@@ -4071,27 +4050,21 @@ do_pending_operator(cmdarg_T *cap, int old_col, int gui_yank)
 	case OP_INDENT:
 	case OP_COLON:
 
-#if defined(FEAT_LISP) || defined(FEAT_CINDENT)
 	    // If 'equalprg' is empty, do the indenting internally.
 	    if (oap->op_type == OP_INDENT && *get_equalprg() == NUL)
 	    {
-# ifdef FEAT_LISP
 		if (curbuf->b_p_lisp)
 		{
 		    op_reindent(oap, get_lisp_indent);
 		    break;
 		}
-# endif
-# ifdef FEAT_CINDENT
 		op_reindent(oap,
-#  ifdef FEAT_EVAL
+#ifdef FEAT_EVAL
 			*curbuf->b_p_inde != NUL ? get_expr_indent :
-#  endif
+#endif
 			    get_c_indent);
 		break;
-# endif
 	    }
-#endif
 
 	    op_colon(oap);
 	    break;

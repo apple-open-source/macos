@@ -28,6 +28,8 @@ typedef enum {
     ISN_ECHOERR,    // :echoerr with isn_arg.number items on top of stack
     ISN_RANGE,	    // compute range from isn_arg.string, push to stack
     ISN_SUBSTITUTE, // :s command with expression
+
+    ISN_SOURCE,	    // source autoload script, isn_arg.number is the script ID
     ISN_INSTR,	    // instructions compiled from expression
 
     // get and set variables
@@ -43,6 +45,7 @@ typedef enum {
     ISN_LOADWDICT,  // push w: dict
     ISN_LOADTDICT,  // push t: dict
     ISN_LOADS,	    // push s: variable isn_arg.loadstore
+    ISN_LOADEXPORT, // push exported variable isn_arg.loadstore
     ISN_LOADOUTER,  // push variable from outer scope isn_arg.outer
     ISN_LOADSCRIPT, // push script-local variable isn_arg.script.
     ISN_LOADOPT,    // push option isn_arg.string
@@ -57,6 +60,7 @@ typedef enum {
     ISN_STOREW,	    // pop into window-local variable isn_arg.string
     ISN_STORET,	    // pop into tab-local variable isn_arg.string
     ISN_STORES,	    // pop into script variable isn_arg.loadstore
+    ISN_STOREEXPORT, // pop into exported script variable isn_arg.loadstore
     ISN_STOREOUTER,  // pop variable into outer scope isn_arg.outer
     ISN_STORESCRIPT, // pop into script variable isn_arg.script
     ISN_STOREOPT,    // pop into option isn_arg.storeopt
@@ -87,10 +91,15 @@ typedef enum {
     ISN_PUSHS,		// push string isn_arg.string
     ISN_PUSHBLOB,	// push blob isn_arg.blob
     ISN_PUSHFUNC,	// push func isn_arg.string
-    ISN_PUSHCHANNEL,	// push channel isn_arg.channel
-    ISN_PUSHJOB,	// push channel isn_arg.job
+    ISN_PUSHCHANNEL,	// push NULL channel
+    ISN_PUSHJOB,	// push NULL job
     ISN_NEWLIST,	// push list from stack items, size is isn_arg.number
+			// -1 for null_list
     ISN_NEWDICT,	// push dict from stack items, size is isn_arg.number
+			// -1 for null_dict
+    ISN_NEWPARTIAL,	// push NULL partial
+
+    ISN_AUTOLOAD,	// get item from autoload import, function or variable
 
     // function call
     ISN_BCALL,	    // call builtin function isn_arg.bfunc
@@ -118,7 +127,7 @@ typedef enum {
     ISN_CATCH,	    // drop v:exception
     ISN_FINALLY,    // start of :finally block
     ISN_ENDTRY,	    // take entry off from ec_trystack
-    ISN_TRYCONT,    // handle :continue inside a :try statement
+    ISN_TRYCONT,    // handle :continue or :break inside a :try statement
 
     // more expression operations
     ISN_ADDLIST,    // add two lists
@@ -132,6 +141,7 @@ typedef enum {
     // comparative operations; isn_arg.op.op_type is exprtype_T, op_ic used
     ISN_COMPAREBOOL,
     ISN_COMPARESPECIAL,
+    ISN_COMPARENULL,
     ISN_COMPARENR,
     ISN_COMPAREFLOAT,
     ISN_COMPARESTRING,
@@ -142,7 +152,7 @@ typedef enum {
     ISN_COMPAREANY,
 
     // expression operations
-    ISN_CONCAT,
+    ISN_CONCAT,     // concatenate isn_arg.number strings
     ISN_STRINDEX,   // [expr] string index
     ISN_STRSLICE,   // [expr:expr] string slice
     ISN_LISTAPPEND, // append to a list, like add()
@@ -163,7 +173,6 @@ typedef enum {
     ISN_2STRING_ANY, // like ISN_2STRING but check type
     ISN_NEGATENR,   // apply "-" to number
 
-    ISN_CHECKNR,    // check value can be used as a number
     ISN_CHECKTYPE,  // check value type is isn_arg.type.ct_type
     ISN_CHECKLEN,   // check list length is isn_arg.checklen.cl_min_len
     ISN_SETTYPE,    // set dict type to isn_arg.type.ct_type
@@ -230,7 +239,6 @@ typedef enum {
     JUMP_NEVER,
     JUMP_IF_FALSE,		// pop and jump if false
     JUMP_AND_KEEP_IF_TRUE,	// jump if top of stack is truthy, drop if not
-    JUMP_AND_KEEP_IF_FALSE,	// jump if top of stack is falsy, drop if not
     JUMP_IF_COND_TRUE,		// jump if top of stack is true, drop if not
     JUMP_IF_COND_FALSE,		// jump if top of stack is false, drop if not
 } jumpwhen_T;
@@ -288,6 +296,7 @@ typedef struct {
     type_T	*ct_type;
     int8_T	ct_off;		// offset in stack, -1 is bottom
     int8_T	ct_arg_idx;	// argument index or zero
+    int8_T	ct_is_var;	// when TRUE checking variable instead of arg
 } checktype_T;
 
 // arguments to ISN_STORENR
@@ -492,7 +501,7 @@ struct dfunc_S {
 
 // Number of entries used by stack frame for a function call.
 // - ec_dfunc_idx:   function index
-// - ec_iidx:        instruction index
+// - ec_iidx:	     instruction index
 // - ec_instr:       instruction list pointer
 // - ec_outer:	     stack used for closures
 // - funclocal:	     function-local data
@@ -509,12 +518,12 @@ struct dfunc_S {
 extern garray_T def_functions;
 
 // Used for "lnum" when a range is to be taken from the stack.
-#define LNUM_VARIABLE_RANGE -999
+#define LNUM_VARIABLE_RANGE (-999)
 
 // Used for "lnum" when a range is to be taken from the stack and "!" is used.
-#define LNUM_VARIABLE_RANGE_ABOVE -888
+#define LNUM_VARIABLE_RANGE_ABOVE (-888)
 
-// Keep in sync with COMPILE_TYPE()
+// Keep in sync with get_compile_type()
 #ifdef FEAT_PROFILE
 # define INSTRUCTIONS(dfunc) \
 	(debug_break_level > 0 || may_break_in_function(dfunc->df_ufunc) \
@@ -524,7 +533,7 @@ extern garray_T def_functions;
 		: (dfunc)->df_instr))
 #else
 # define INSTRUCTIONS(dfunc) \
-	(debug_break_level > 0 || may_break_in_function(dfunc->df_ufunc) \
+	(debug_break_level > 0 || may_break_in_function((dfunc)->df_ufunc) \
 		? (dfunc)->df_instr_debug \
 		: (dfunc)->df_instr)
 #endif
@@ -689,7 +698,7 @@ typedef struct {
 } lhs_T;
 
 /*
- * Context for compiling lines of Vim script.
+ * Context for compiling lines of a :def function.
  * Stores info about the local variables and condition stack.
  */
 struct cctx_S {
@@ -707,8 +716,6 @@ struct cctx_S {
 
     int		ctx_has_closure;    // set to one if a closure was created in
 				    // the function
-
-    garray_T	ctx_imports;	    // imported items
 
     skip_T	ctx_skip;
     scope_T	*ctx_scope;	    // current scope, NULL at toplevel

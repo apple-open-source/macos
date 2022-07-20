@@ -748,7 +748,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     isnt(trustStore, NULL, "got empty trust store");
     NSArray *nsTrustStore = CFBridgingRelease(trustStore);
     isnt(nsTrustStore, NULL, "no trust store");
-    is([nsTrustStore count], 2, "didn't get 2 trust store entries");
+    is([nsTrustStore count], 3, "didn't get 3 trust store entries");
 
     /* Add two trust settings */
     NSArray *allowAllBut = @[
@@ -765,7 +765,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     isnt(trustStore, NULL, "got empty trust store");
     nsTrustStore = CFBridgingRelease(trustStore);
     isnt(nsTrustStore, NULL, "no trust store");
-    is([nsTrustStore count], 4, "didn't get 4 trust store entries");
+    is([nsTrustStore count], 5, "didn't get 5 trust store entries");
 
     /* Remove all */
     ok_status(SecTrustStoreRemoveAll(SecTrustStoreForDomain(kSecTrustStoreDomainUser)), "failed to remove all trusted certs");
@@ -776,7 +776,7 @@ static SecPolicyRef sslFrameworkPolicy = NULL;
     isnt(trustStore, NULL, "got empty trust store");
     nsTrustStore = CFBridgingRelease(trustStore);
     isnt(nsTrustStore, NULL, "no trust store");
-    is([nsTrustStore count], 2, "didn't get 2 trust store entries");
+    is([nsTrustStore count], 3, "didn't get 3 trust store entries");
 }
 
 @end

@@ -117,6 +117,8 @@ public:
     WEBCORE_EXPORT void setCanHaveScrollbars(bool) final;
     WEBCORE_EXPORT void updateCanHaveScrollbars();
 
+    bool isVisibleToHitTesting() const final;
+
     Ref<Scrollbar> createScrollbar(ScrollbarOrientation) final;
 
     bool avoidScrollbarCreation() const final;
@@ -932,7 +934,6 @@ private:
     Vector<Function<void()>> m_postLayoutCallbackQueue;
 
     LayoutPoint m_layoutViewportOrigin;
-    LayoutSize m_lastLayoutViewportSize;
     std::optional<LayoutRect> m_layoutViewportOverrideRect;
     std::optional<LayoutRect> m_visualViewportOverrideRect; // Used when the iOS keyboard is showing.
 

@@ -27,6 +27,7 @@
 #import "Connection.h"
 
 #import "DataReference.h"
+#import "IPCTester.h"
 #import "ImportanceAssertion.h"
 #import "Logging.h"
 #import "MachMessage.h"
@@ -285,7 +286,8 @@ bool Connection::platformCanSendOutgoingMessages() const
 
 bool Connection::sendOutgoingMessage(UniqueRef<Encoder>&& encoder)
 {
-    ASSERT(!m_pendingOutgoingMachMessage && !m_isInitializingSendSource);
+    ASSERT(!m_pendingOutgoingMachMessage);
+    ASSERT(!m_isInitializingSendSource);
 
     auto attachments = encoder->releaseAttachments();
     
@@ -426,7 +428,7 @@ static std::unique_ptr<Decoder> createMessageDecoder(mach_msg_header_t* header, 
             return nullptr;
         }
 
-        return Decoder::create(body, bodySize, nullptr, Vector<Attachment> { });
+        return Decoder::create(body, bodySize, { });
     }
 
     mach_msg_body_t* body = reinterpret_cast<mach_msg_body_t*>(header + 1);
@@ -487,7 +489,7 @@ static std::unique_ptr<Decoder> createMessageDecoder(mach_msg_header_t* header, 
         return nullptr;
     }
 
-    return Decoder::create(messageBody, messageBodySize, nullptr, WTFMove(attachments));
+    return Decoder::create(messageBody, messageBodySize, WTFMove(attachments));
 }
 
 // The receive buffer size should always include the maximum trailer size.
@@ -558,11 +560,12 @@ void Connection::receiveSourceEventHandler()
 #if PLATFORM(MAC)
     decoder->setImportanceAssertion(ImportanceAssertion { header });
 #endif
-
+    
     if (decoder->messageName() == MessageName::InitializeConnection) {
         ASSERT(m_isServer);
-        ASSERT(!m_isConnected);
         ASSERT(!m_sendPort);
+        if (m_isConnected)
+            return;
 
         MachPort port;
         if (!decoder->decode(port)) {
@@ -657,5 +660,20 @@ pid_t Connection::remoteProcessID() const
 
     return xpc_connection_get_pid(m_xpcConnection.get());
 }
-    
+
+std::optional<Connection::ConnectionIdentifierPair> Connection::createConnectionIdentifierPair()
+{
+    // Create the listening port.
+    mach_port_t listeningPort = MACH_PORT_NULL;
+    auto kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &listeningPort);
+    if (kr != KERN_SUCCESS) {
+        RELEASE_LOG_ERROR(Process, "Connection::createConnectionIdentifierPair: Could not allocate mach port, error %x", kr);
+        return std::nullopt;
+    }
+    if (!MACH_PORT_VALID(listeningPort)) {
+        RELEASE_LOG_ERROR(Process, "Connection::createConnectionIdentifierPair: Could not allocate mach port, returned port was invalid");
+        return std::nullopt;
+    }
+    return ConnectionIdentifierPair { Connection::Identifier { listeningPort }, Attachment { listeningPort, MACH_MSG_TYPE_MAKE_SEND } };
+}
 } // namespace IPC

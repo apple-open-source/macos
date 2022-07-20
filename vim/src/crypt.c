@@ -159,6 +159,143 @@ typedef struct {
     crypto_secretstream_xchacha20poly1305_state
 		    state;
 } sodium_state_T;
+
+
+# ifdef DYNAMIC_SODIUM
+#  ifdef MSWIN
+#   define SODIUM_PROC FARPROC
+#   define load_dll vimLoadLib
+#   define symbol_from_dll GetProcAddress
+#   define close_dll FreeLibrary
+#   define load_dll_error GetWin32Error
+#  else
+#   error Dynamic loading of libsodium is not supported for now.
+//#   define HINSTANCE void*
+//#   define SODIUM_PROC void*
+//#   define load_dll(n) dlopen((n), RTLD_LAZY|RTLD_GLOBAL)
+//#   define symbol_from_dll dlsym
+//#   define close_dll dlclose
+//#   define load_dll_error dlerror
+#  endif
+
+#  define sodium_init	    load_sodium
+#  define sodium_free	    dll_sodium_free
+#  define sodium_malloc	    dll_sodium_malloc
+#  define sodium_memzero    dll_sodium_memzero
+#  define sodium_mlock	    dll_sodium_mlock
+#  define sodium_munlock    dll_sodium_munlock
+#  define crypto_secretstream_xchacha20poly1305_init_push \
+    dll_crypto_secretstream_xchacha20poly1305_init_push
+#  define crypto_secretstream_xchacha20poly1305_push \
+    dll_crypto_secretstream_xchacha20poly1305_push
+#  define crypto_secretstream_xchacha20poly1305_init_pull \
+    dll_crypto_secretstream_xchacha20poly1305_init_pull
+#  define crypto_secretstream_xchacha20poly1305_pull \
+    dll_crypto_secretstream_xchacha20poly1305_pull
+#  define crypto_pwhash	    dll_crypto_pwhash
+#  define randombytes_buf   dll_randombytes_buf
+
+static int (*dll_sodium_init)(void) = NULL;
+static void (*dll_sodium_free)(void *) = NULL;
+static void *(*dll_sodium_malloc)(const size_t) = NULL;
+static void (*dll_sodium_memzero)(void * const, const size_t) = NULL;
+static int (*dll_sodium_mlock)(void * const, const size_t) = NULL;
+static int (*dll_sodium_munlock)(void * const, const size_t) = NULL;
+static int (*dll_crypto_secretstream_xchacha20poly1305_init_push)
+   (crypto_secretstream_xchacha20poly1305_state *state,
+    unsigned char [],
+    const unsigned char []) = NULL;
+static int (*dll_crypto_secretstream_xchacha20poly1305_push)
+   (crypto_secretstream_xchacha20poly1305_state *state,
+    unsigned char *c, unsigned long long *clen_p,
+    const unsigned char *m, unsigned long long mlen,
+    const unsigned char *ad, unsigned long long adlen, unsigned char tag)
+    = NULL;
+static int (*dll_crypto_secretstream_xchacha20poly1305_init_pull)
+   (crypto_secretstream_xchacha20poly1305_state *state,
+    const unsigned char [],
+    const unsigned char []) = NULL;
+static int (*dll_crypto_secretstream_xchacha20poly1305_pull)
+   (crypto_secretstream_xchacha20poly1305_state *state,
+    unsigned char *m, unsigned long long *mlen_p, unsigned char *tag_p,
+    const unsigned char *c, unsigned long long clen,
+    const unsigned char *ad, unsigned long long adlen) = NULL;
+static int (*dll_crypto_pwhash)(unsigned char * const out,
+    unsigned long long outlen,
+    const char * const passwd, unsigned long long passwdlen,
+    const unsigned char * const salt,
+    unsigned long long opslimit, size_t memlimit, int alg)
+    = NULL;
+static void (*dll_randombytes_buf)(void * const buf, const size_t size);
+
+static struct {
+    const char *name;
+    SODIUM_PROC *ptr;
+} sodium_funcname_table[] = {
+    {"sodium_init", (SODIUM_PROC*)&dll_sodium_init},
+    {"sodium_free", (SODIUM_PROC*)&dll_sodium_free},
+    {"sodium_malloc", (SODIUM_PROC*)&dll_sodium_malloc},
+    {"sodium_memzero", (SODIUM_PROC*)&dll_sodium_memzero},
+    {"sodium_mlock", (SODIUM_PROC*)&dll_sodium_mlock},
+    {"sodium_munlock", (SODIUM_PROC*)&dll_sodium_munlock},
+    {"crypto_secretstream_xchacha20poly1305_init_push", (SODIUM_PROC*)&dll_crypto_secretstream_xchacha20poly1305_init_push},
+    {"crypto_secretstream_xchacha20poly1305_push", (SODIUM_PROC*)&dll_crypto_secretstream_xchacha20poly1305_push},
+    {"crypto_secretstream_xchacha20poly1305_init_pull", (SODIUM_PROC*)&dll_crypto_secretstream_xchacha20poly1305_init_pull},
+    {"crypto_secretstream_xchacha20poly1305_pull", (SODIUM_PROC*)&dll_crypto_secretstream_xchacha20poly1305_pull},
+    {"crypto_pwhash", (SODIUM_PROC*)&dll_crypto_pwhash},
+    {"randombytes_buf", (SODIUM_PROC*)&dll_randombytes_buf},
+    {NULL, NULL}
+};
+
+    static int
+sodium_runtime_link_init(int verbose)
+{
+    static HINSTANCE hsodium = NULL;
+    const char *libname = DYNAMIC_SODIUM_DLL;
+    int i;
+
+    if (hsodium != NULL)
+	return OK;
+
+    hsodium = load_dll(libname);
+    if (hsodium == NULL)
+    {
+	if (verbose)
+	    semsg(_(e_could_not_load_library_str_str), libname, load_dll_error());
+	return FAIL;
+    }
+
+    for (i = 0; sodium_funcname_table[i].ptr; ++i)
+    {
+	if ((*sodium_funcname_table[i].ptr = symbol_from_dll(hsodium,
+			sodium_funcname_table[i].name)) == NULL)
+	{
+	    close_dll(hsodium);
+	    hsodium = NULL;
+	    if (verbose)
+		semsg(_(e_could_not_load_library_function_str), sodium_funcname_table[i].name);
+	    return FAIL;
+	}
+    }
+    return OK;
+}
+
+    static int
+load_sodium(void)
+{
+    if (sodium_runtime_link_init(TRUE) == FAIL)
+	return -1;
+    return dll_sodium_init();
+}
+# endif
+
+# if defined(DYNAMIC_SODIUM) || defined(PROTO)
+    int
+sodium_enabled(int verbose)
+{
+    return sodium_runtime_link_init(verbose) == OK;
+}
+# endif
 #endif
 
 #define CRYPT_MAGIC_LEN	12	// cannot change
@@ -315,8 +452,8 @@ crypt_create(
     if (cryptmethods[method_nr].init_fn(
 	state, key, salt, salt_len, seed, seed_len) == FAIL)
     {
-        vim_free(state);
-        return NULL;
+	vim_free(state);
+	return NULL;
     }
     return state;
 }
@@ -555,7 +692,7 @@ crypt_encode_inplace(
     cryptstate_T *state,
     char_u	*buf,
     size_t	len,
-    int         last)
+    int		last)
 {
     cryptmethods[state->method_nr].encode_inplace_fn(state, buf, len,
 								    buf, last);
@@ -615,7 +752,7 @@ crypt_check_swapfile_curbuf(void)
 	// encryption uses padding and MAC, that does not work very well with
 	// swap and undo files, so disable them
 	mf_close_file(curbuf, TRUE);	// remove the swap file
-	set_option_value((char_u *)"swf", 0, NULL, OPT_LOCAL);
+	set_option_value_give_err((char_u *)"swf", 0, NULL, OPT_LOCAL);
 	msg_scroll = TRUE;
 	msg(_("Note: Encryption of swapfile not supported, disabling swap file"));
     }
@@ -670,7 +807,7 @@ crypt_get_key(
 
 	    if (store)
 	    {
-		set_option_value((char_u *)"key", 0L, p1, OPT_LOCAL);
+		set_option_value_give_err((char_u *)"key", 0L, p1, OPT_LOCAL);
 		crypt_free_key(p1);
 		p1 = curbuf->b_p_key;
 #ifdef FEAT_SODIUM
@@ -989,5 +1126,19 @@ crypt_sodium_buffer_decode(
     return -1;
 # endif
 }
+
+# if defined(FEAT_SODIUM) || defined(PROTO)
+    int
+crypt_sodium_munlock(void *const addr, const size_t len)
+{
+    return sodium_munlock(addr, len);
+}
+
+    void
+crypt_sodium_randombytes_buf(void *const buf, const size_t size)
+{
+    randombytes_buf(buf, size);
+}
+# endif
 
 #endif // FEAT_CRYPT

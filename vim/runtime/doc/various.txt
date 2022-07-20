@@ -1,4 +1,4 @@
-*various.txt*   For Vim version 8.2.  Last change: 2022 Jan 15
+*various.txt*   For Vim version 8.2.  Last change: 2022 May 21
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -114,6 +114,7 @@ g8			Print the hex values of the bytes used in the
 :[range]P[rint] [count] [flags]
 			Just as ":print".  Was apparently added to Vi for
 			people that keep the shift key pressed too long...
+			This command is not supported in |Vim9| script.
 			Note: A user command can overrule this command.
 			See |ex-flags| for [flags].
 
@@ -267,7 +268,7 @@ g8			Print the hex values of the bytes used in the
 			name does not contain a single quote: >
 				:!ls '%'
 <			This should always work, but it's more typing: >
-				:exe "!ls " . shellescape(expand("%"))
+				:exe "!ls " .. shellescape(expand("%"))
 <			To get a literal "%" or "#" prepend it with a
 			backslash.  For example, to list all files starting
 			with "%": >
@@ -345,7 +346,7 @@ B  *++builtin_terms*	maximal terminals builtin |builtin-terms|
 N  *+byte_offset*	support for 'o' flag in 'statusline' option, "go"
 			and ":goto" commands.
 m  *+channel*		inter process communication |channel|
-N  *+cindent*		|'cindent'|, C indenting
+6  *+cindent*		|'cindent'|, C indenting
 N  *+clientserver*	Unix and Win32: Remote invocation |clientserver|
    *+clipboard*		|clipboard| support compiled-in
    *+clipboard_working*	|clipboard| support compiled-in and working
@@ -380,7 +381,7 @@ N  *+folding*		|folding|
    *+fork*		Unix only: |fork| shell commands
    *+float*		Floating point support
 N  *+gettext*		message translations |multi-lang|
-   *+GUI_Athena*	Unix only: Athena |GUI|
+-  *+GUI_Athena*	Unix only: Athena |GUI|
    *+GUI_neXtaw*	Unix only: neXtaw |GUI|
    *+GUI_GTK*		Unix only: GTK+ |GUI|
    *+GUI_Motif*		Unix only: Motif |GUI|
@@ -397,7 +398,7 @@ N  *+lambda*		|lambda| and |closure|
 B  *+langmap*		|'langmap'|
 N  *+libcall*		|libcall()|
 N  *+linebreak*		|'linebreak'|, |'breakat'| and |'showbreak'|
-N  *+lispindent*	|'lisp'|
+t  *+lispindent*	|'lisp'|
 T  *+listcmds*		Vim commands for the list of buffers |buffer-hidden|
 			and argument list |:argdelete|
 T  *+localmap*		Support for mappings local to a buffer |:map-local|
@@ -410,6 +411,7 @@ T  *+mouse*		Mouse handling |mouse-using|
 N  *+mouseshape*	|'mouseshape'|
 B  *+mouse_dec*		Unix only: Dec terminal mouse handling |dec-mouse|
 N  *+mouse_gpm*		Unix only: Linux console mouse handling |gpm-mouse|
+m  *+mouse_gpm/dyn*	Same as |+mouse_gpm| with optional library dependency |/dyn|
 N  *+mouse_jsbterm*	JSB mouse handling |jsbterm-mouse|
 B  *+mouse_netterm*	Unix only: netterm mouse handling |netterm-mouse|
 N  *+mouse_pterm*	QNX only: pterm mouse handling |qnx-terminal|
@@ -424,7 +426,7 @@ m  *+mzscheme*		Mzscheme interface |mzscheme|
 m  *+mzscheme/dyn*	Mzscheme interface |mzscheme-dynamic| |/dyn|
 m  *+netbeans_intg*	|netbeans|
 T  *+num64*		64-bit Number support |Number|
-   			Always enabled since 8.2.0271, use v:numbersize to
+			Always enabled since 8.2.0271, use v:numbersize to
 			check the actual size of a Number.
 m  *+ole*		Win32 GUI only: |ole-interface|
 N  *+packages*		Loading |packages|
@@ -448,7 +450,7 @@ m  *+ruby*		Ruby interface |ruby|
 m  *+ruby/dyn*		Ruby interface |ruby-dynamic| |/dyn|
 T  *+scrollbind*	|'scrollbind'|
 B  *+signs*		|:sign|
-N  *+smartindent*	|'smartindent'|
+t  *+smartindent*	|'smartindent'|
 B  *+sodium*		compiled with libsodium for better encryption support
 B  *+sound*		|sound_playevent()|, |sound_playfile()| functions, etc.
 N  *+spell*		spell checking support, see |spell|
@@ -549,7 +551,7 @@ N  *+X11*		Unix only: can restore window title |X11|
 			backward compatibility, the ">" after the register
 			name can be omitted.
 :redi[r] @">>		Append messages to the unnamed register.
-
+							*E1092*
 :redi[r] => {var}	Redirect messages to a variable.
 			In legacy script: If the variable doesn't exist, then
 			it is created.  If the variable exists, then it is
@@ -566,7 +568,7 @@ N  *+X11*		Unix only: can restore window title |X11|
 
 :redi[r] =>> {var}	Append messages to an existing variable.  Only string
 			variables can be used.
-
+								 *E1185*
 :redi[r] END		End redirecting messages.
 
 							*:filt* *:filter*
@@ -649,7 +651,7 @@ N  *+X11*		Unix only: can restore window title |X11|
 			used.  In this example |:silent| is used to avoid the
 			message about reading the file and |:unsilent| to be
 			able to list the first line of each file. >
-    		:silent argdo unsilent echo expand('%') . ": " . getline(1)
+		:silent argdo unsilent echo expand('%') .. ": " .. getline(1)
 <
 
 						*:verb* *:verbose*

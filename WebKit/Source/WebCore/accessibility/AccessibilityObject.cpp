@@ -2225,9 +2225,8 @@ bool AccessibilityObject::insertText(const String& text)
         return false;
 
     auto& element = downcast<Element>(*renderer()->node());
-
-    // Only try to insert text if the field is in editing mode.
-    if (!element.shouldUseInputMethod())
+    // Only try to insert text if the field is in editing mode (excluding password fields, which we do still want to try to insert into).
+    if (!isPasswordField() && !element.shouldUseInputMethod())
         return false;
 
     // Use Editor::insertText to mimic typing into the field.
@@ -2638,7 +2637,14 @@ Element* AccessibilityObject::element() const
         return downcast<Element>(node);
     return nullptr;
 }
-    
+
+const RenderStyle* AccessibilityObject::style() const
+{
+    if (auto* element = this->element())
+        return element->computedStyle();
+    return nullptr;
+}
+
 bool AccessibilityObject::isValueAutofillAvailable() const
 {
     if (!isNativeTextControl())
@@ -3542,16 +3548,21 @@ String AccessibilityObject::validationMessage() const
 AccessibilityObjectInclusion AccessibilityObject::defaultObjectInclusion() const
 {
     bool useParentData = !m_isIgnoredFromParentData.isNull();
-    
+
     if (useParentData ? m_isIgnoredFromParentData.isAXHidden : isAXHidden())
         return AccessibilityObjectInclusion::IgnoreObject;
 
-    if ((renderer() && renderer()->style().effectiveInert()) || ignoredFromModalPresence())
+    auto* style = this->style();
+    if (style && style->effectiveInert())
         return AccessibilityObjectInclusion::IgnoreObject;
-    
+
     if (useParentData ? m_isIgnoredFromParentData.isPresentationalChildOfAriaRole : isPresentationalChildOfAriaRole())
         return AccessibilityObjectInclusion::IgnoreObject;
-    
+
+    // Include <dialog> elements and elements with role="dialog".
+    if (roleValue() == AccessibilityRole::ApplicationDialog)
+        return AccessibilityObjectInclusion::IncludeObject;
+
     return accessibilityPlatformIncludesObject();
 }
     
@@ -3574,13 +3585,18 @@ bool AccessibilityObject::accessibilityIsIgnored() const
         }
     }
 
-    bool result = computeAccessibilityIsIgnored();
+    // If we are in the midst of retrieving the current modal node, we only need to consider whether the object
+    // is inherently ignored via computeAccessibilityIsIgnored. Also, calling ignoredFromModalPresence
+    // in this state would cause infinite recursion.
+    bool ignored = cache && cache->isRetrievingCurrentModalNode() ? false : ignoredFromModalPresence();
+    if (!ignored)
+        ignored = computeAccessibilityIsIgnored();
 
     // In case computing axIsIgnored disables attribute caching, we should refetch the object to see if it exists.
     if (cache && (attributeCache = cache->computedObjectAttributeCache()))
-        attributeCache->setIgnored(objectID(), result ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject);
+        attributeCache->setIgnored(objectID(), ignored ? AccessibilityObjectInclusion::IgnoreObject : AccessibilityObjectInclusion::IncludeObject);
 
-    return result;
+    return ignored;
 }
 
 void AccessibilityObject::elementsFromAttribute(Vector<Element*>& elements, const QualifiedName& attribute) const

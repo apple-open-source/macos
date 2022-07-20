@@ -154,7 +154,7 @@ mch_inchar(
     char_u  *buf,
     int	    maxlen,
     long    time,		// milliseconds
-    int	    tb_change_cnt)
+    int	    tb_change_cnt UNUSED)
 {
     int	    len;
     long    utime;
@@ -571,7 +571,7 @@ mch_input_isatty(void)
     void
 fname_case(
     char_u	*name,
-    int		len)		// buffer size, ignored here
+    int		len UNUSED)		// buffer size, ignored here
 {
     struct FileInfoBlock    *fib;
     size_t		    flen;
@@ -677,8 +677,8 @@ mch_get_user_name(char_u *s, int len)
 
     if (pwd != NULL && pwd->pw_name && len > 0)
     {
-        vim_strncpy(s, (char_u *)pwd->pw_name, len - 1);
-        return OK;
+	vim_strncpy(s, (char_u *)pwd->pw_name, len - 1);
+	return OK;
     }
 #endif
     *s = NUL;
@@ -837,7 +837,7 @@ mch_setperm(char_u *name, long perm)
  * Set hidden flag for "name".
  */
     void
-mch_hide(char_u *name)
+mch_hide(char_u *name UNUSED)
 {
     // can't hide a file
 }
@@ -889,10 +889,50 @@ mch_mkdir(char_u *name)
  * Return -1 if unknown.
  */
     int
-mch_can_exe(char_u *name, char_u **path, int use_path)
+mch_can_exe(char_u *name, char_u **path UNUSED, int use_path)
 {
-    // TODO
-    return -1;
+    int exe = -1;
+#ifdef __amigaos4__
+    // Load file sections using elf.library or hunk.library.
+    BPTR seg = LoadSeg(name);
+
+    if (seg && GetSegListInfoTags(seg, GSLI_Native, NULL, TAG_DONE) !=
+	    GetSegListInfoTags(seg, GSLI_68KHUNK, NULL, TAG_DONE))
+    {
+	// Test if file permissions allow execution.
+	struct ExamineData *exd = ExamineObjectTags(EX_StringNameInput, name);
+
+	exe = (exd && !(exd->Protection & EXDF_NO_EXECUTE)) ? 1 : 0;
+	FreeDosObject(DOS_EXAMINEDATA, exd);
+    }
+    else
+    {
+	exe = 0;
+    }
+
+    UnLoadSeg(seg);
+
+    // Search for executable in path if applicable.
+    if (!exe && use_path)
+    {
+	// Save current working dir.
+	BPTR cwd = GetCurrentDir();
+	struct PathNode *head = DupCmdPathList(NULL);
+
+	// For each entry, recur to check for executable.
+	for(struct PathNode *tail = head; !exe && tail;
+		tail = (struct PathNode *) BADDR(tail->pn_Next))
+	{
+	    SetCurrentDir(tail->pn_Lock);
+	    exe = mch_can_exe(name, path, 0);
+	}
+
+	// Go back to where we were.
+	FreeCmdPathList(head);
+	SetCurrentDir(cwd);
+    }
+#endif
+    return exe;
 }
 
 /*
@@ -902,7 +942,7 @@ mch_can_exe(char_u *name, char_u **path, int use_path)
  * NODE_OTHER: non-writable things
  */
     int
-mch_nodetype(char_u *name)
+mch_nodetype(char_u *name UNUSED)
 {
     // TODO
     return NODE_NORMAL;
@@ -1012,38 +1052,38 @@ mch_settmode(tmode_T tmode)
 mch_get_shellsize(void)
 {
     if (!term_console)
-        return FAIL;
+	return FAIL;
 
     if (raw_in && raw_out)
     {
-        // Save current console mode.
-        int old_tmode = cur_tmode;
-        char ctrl[] = "\x9b""0 q";
+	// Save current console mode.
+	int old_tmode = cur_tmode;
+	char ctrl[] = "\x9b""0 q";
 
-        // Set RAW mode.
-        mch_settmode(TMODE_RAW);
+	// Set RAW mode.
+	mch_settmode(TMODE_RAW);
 
-        // Write control sequence to console.
-        if (Write(raw_out, ctrl, sizeof(ctrl)) == sizeof(ctrl))
-        {
-            char scan[] = "\x9b""1;1;%d;%d r",
-                 answ[sizeof(scan) + 8] = { '\0' };
+	// Write control sequence to console.
+	if (Write(raw_out, ctrl, sizeof(ctrl)) == sizeof(ctrl))
+	{
+	    char scan[] = "\x9b""1;1;%d;%d r",
+		 answ[sizeof(scan) + 8] = { '\0' };
 
-            // Read return sequence from input.
-            if (Read(raw_in, answ, sizeof(answ) - 1) > 0)
-            {
-                // Parse result and set Vim globals.
-                if (sscanf(answ, scan, &Rows, &Columns) == 2)
-                {
-                    // Restore console mode.
-                    mch_settmode(old_tmode);
-                    return OK;
-                }
-            }
-        }
+	    // Read return sequence from input.
+	    if (Read(raw_in, answ, sizeof(answ) - 1) > 0)
+	    {
+		// Parse result and set Vim globals.
+		if (sscanf(answ, scan, &Rows, &Columns) == 2)
+		{
+		    // Restore console mode.
+		    mch_settmode(old_tmode);
+		    return OK;
+		}
+	    }
+	}
 
-        // Restore console mode.
-        mch_settmode(old_tmode);
+	// Restore console mode.
+	mch_settmode(old_tmode);
     }
 
     // I/O error. Default size fallback.
@@ -1450,7 +1490,7 @@ mch_call_shell(
  * trouble with lattice-c programs.
  */
     void
-mch_breakcheck(int force)
+mch_breakcheck(int force UNUSED)
 {
    if (SetSignal(0L, (long)(SIGBREAKF_CTRL_C|SIGBREAKF_CTRL_D|SIGBREAKF_CTRL_E|SIGBREAKF_CTRL_F)) & SIGBREAKF_CTRL_C)
 	got_int = TRUE;
@@ -1715,7 +1755,7 @@ mch_getenv(char_u *var)
  */
 // ARGSUSED
     int
-mch_setenv(char *var, char *value, int x)
+mch_setenv(char *var, char *value, int x UNUSED)
 {
 #ifdef FEAT_ARP
     if (!dos2)

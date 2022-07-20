@@ -3835,6 +3835,30 @@ void IOPCI2PCIBridge::handleInterrupt(IOInterruptEventSource * source __unused, 
 
             present = (0 != ((1 << 6) & slotStatus));
 
+            // PCIe Base spec v5, sec 6.7.3.3:
+			// "The Data Link Layer State Changed event must occur within 1
+			// second of the event that initiates the hot-insertion. If a power
+			// controller is supported, the time out interval is measured from
+			// when software initiated a write to the Slot Control register to
+			// turn on the power. If a power controller is not supported, the
+			// time out interval is measured from presence detect slot event.
+			// Software is allowed to time out on a hot add operation if the
+			// Data Link Layer State Changed event does not occur within 1
+			// second. The action taken by software after such a timeout is
+			// implementation specific."
+
+            // DLLSC is 1
+            if (slotStatus & (1 << 8))
+            {
+				DLOG("%s: Cancelling the DLLSC timeout\n", fLogName);
+                fDLLSCEventTimer->cancelTimeout();
+            }
+            // DLLSC is 0, presence-detect state changed from 0->1, power-controller unsupported
+            else if (slotStatus & ((1 << 3) | (1 << 6)) && (fAdapterState == kIOPCIAdapterUnused))
+            {
+                fDLLSCEventTimer->setTimeoutMS(1000);
+            }
+
             if (fLinkControlWithPM)
             {
                 uint16_t pmBits = fBridgeDevice->configRead16(fBridgeDevice->reserved->powerCapability + 4);
@@ -4090,10 +4114,12 @@ void IOPCI2PCIBridge::attnButtonTimer(IOTimerEventSource * es)
 	if (fAdapterState == kIOPCIAdapterHotAddPending)
 	{
 		// Clear Slot Control bit 10 to enable power and trigger a
-		// data-link-layer-state-changed event, and turn on the power
-		// indicator.
+		// data-link-layer-state-changed event, turn on the power
+		// indicator, and start a 1s timer for the DLLSC event (PCIe
+		// Base spec v5, sec 6.7.3.3)
 		slotControlWrite(fBridgeDevice, 0, 1 << 10);
 		slotControlWrite(fBridgeDevice, 1 << 8, 3 << 8);
+		fDLLSCEventTimer->setTimeoutMS(1000);
 	}
 	else if (fAdapterState == kIOPCIAdapterHotRemovePending)
 	{
@@ -4144,6 +4170,12 @@ void IOPCI2PCIBridge::attnButtonTimer(IOTimerEventSource * es)
 		// Turn off the power indicator.
 		slotControlWrite(fBridgeDevice, 3 << 8, 3 << 8);
 	}
+}
+
+void IOPCI2PCIBridge::dllscEventTimer(IOTimerEventSource * es)
+{
+	DLOG("%s: DLLSC timer fired\n", fLogName);
+	handleInterrupt(NULL, 0);
 }
 
 IOReturn IOPCI2PCIBridge::attnButtonHandlerFinish(thread_call_t threadCall)
@@ -4363,6 +4395,12 @@ void IOPCI2PCIBridge::startBridgeInterrupts(IOService * provider)
 															this, &IOPCI2PCIBridge::attnButtonTimer));
         if (!fAttnButtonTimer) break;
         ret = fWorkLoop->addEventSource(fAttnButtonTimer);
+		fDLLSCEventTimer = IOTimerEventSource::timerEventSource(this,
+										OSMemberFunctionCast(IOTimerEventSource::Action,
+															this, &IOPCI2PCIBridge::dllscEventTimer));
+        if (!fDLLSCEventTimer) break;
+        ret = fWorkLoop->addEventSource(fDLLSCEventTimer);
+
 		if (kIOReturnSuccess != ret) break;
         ret = fWorkLoop->addEventSource(fBridgeInterruptSource);
 		if (kIOReturnSuccess != ret) break;
@@ -4581,6 +4619,22 @@ void IOPCI2PCIBridge::stop( IOService * provider )
 			tempWL->removeEventSource(fTimerProbeES);
 		fTimerProbeES->release();
 		fTimerProbeES = 0;
+	}
+	if (fAttnButtonTimer)
+	{
+		fAttnButtonTimer->cancelTimeout();
+		if ((tempWL = fAttnButtonTimer->getWorkLoop()))
+			tempWL->removeEventSource(fAttnButtonTimer);
+		fAttnButtonTimer->release();
+		fAttnButtonTimer = 0;
+	}
+	if (fDLLSCEventTimer)
+	{
+		fDLLSCEventTimer->cancelTimeout();
+		if ((tempWL = fDLLSCEventTimer->getWorkLoop()))
+			tempWL->removeEventSource(fDLLSCEventTimer);
+		fDLLSCEventTimer->release();
+		fDLLSCEventTimer = 0;
 	}
 	if (kIOPMUndefinedDriverAssertionID != fPMAssertion)
 	{
